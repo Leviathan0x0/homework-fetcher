@@ -1,0 +1,12 @@
+node_modules/
+dist/
+uploads/
+sqlite.db
+*.db
+.env
+.env.local
+.env.production
+.vercel
+.DS_Store
+*.log
+scratch/

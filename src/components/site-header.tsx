@@ -1,0 +1,109 @@
+import { Separator } from "@/components/ui/separator"
+import { SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { ViewType, ThemeMode } from "../types/homework"
+import { Sun, Moon, Settings } from "lucide-react"
+import { NotificationPopover } from "./NotificationPopover"
+
+interface SiteHeaderProps {
+  activeView: ViewType;
+  theme: ThemeMode;
+  onToggleTheme: () => void;
+  onRefresh: () => void;
+  onOpenSettings: () => void;
+  isLoading: boolean;
+  unreadCount: number;
+  onNavigate: (view: string) => void;
+  onUnreadCountChange: (count: number) => void;
+}
+
+export function SiteHeader({
+  activeView,
+  theme,
+  onToggleTheme,
+  onOpenSettings,
+  unreadCount,
+  onNavigate,
+  onUnreadCountChange,
+}: SiteHeaderProps) {
+  const getBreadcrumbTitle = (view: ViewType) => {
+    switch (view) {
+      case "today":
+        return "Today's homework";
+      case "classwork":
+        return "Classwork Uploads";
+      case "requests":
+        return "Requests";
+      case "messages":
+        return "Messages";
+      case "calendar":
+        return "Calendar view";
+      case "exams":
+        return "Exam Mode";
+      case "recent":
+        return "Recent homework";
+      case "all":
+        return "All homework";
+      case "attachments":
+        return "Attachments";
+      case "completed":
+        return "Completed homework";
+      case "settings":
+        return "Settings";
+      default:
+        return "Dashboard";
+    }
+  };
+
+  return (
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800 bg-background/95 backdrop-blur-md px-4 lg:px-6 sticky top-0 z-20">
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="-ml-1 cursor-pointer" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem className="hidden sm:inline-flex">
+              <span className="text-xs font-medium text-muted-foreground">Dashboard</span>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator className="hidden sm:inline-flex" />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="font-semibold text-xs">
+                {getBreadcrumbTitle(activeView)}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        <NotificationPopover
+          unreadCount={unreadCount}
+          onNavigate={onNavigate}
+          onCountChange={onUnreadCountChange}
+        />
+
+        <button
+          onClick={onToggleTheme}
+          className="p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          title="Toggle theme"
+        >
+          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </button>
+
+        <button
+          onClick={onOpenSettings}
+          className="p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          title="Settings"
+        >
+          <Settings className="size-4" />
+        </button>
+      </div>
+    </header>
+  );
+}

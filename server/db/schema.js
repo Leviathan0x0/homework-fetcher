@@ -1,0 +1,211 @@
+const { sqliteTable, text, integer, index, uniqueIndex } = require("drizzle-orm/sqlite-core");
+
+const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    studentId: text("student_id").notNull().unique(),
+    section: text("section"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_users_student_id").on(table.studentId),
+  ]
+);
+
+const edusecureSessions = sqliteTable(
+  "edusecure_sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    encryptedSessionData: text("encrypted_session_data").notNull(),
+    expiresAt: text("expires_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_edusecure_user_id").on(table.userId),
+  ]
+);
+
+const appSessions = sqliteTable(
+  "app_sessions",
+  {
+    token: text("token").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    index("idx_app_sessions_user_id").on(table.userId),
+  ]
+);
+
+const homework = sqliteTable(
+  "homework",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceIdentifier: text("source_identifier").notNull().default("edusecure"),
+    date: text("date").notNull(),
+    subject: text("subject").notNull(),
+    content: text("content").notNull(),
+    attachmentUrl: text("attachment_url"),
+    type: text("type").notNull().default("Homework"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_homework_user_id").on(table.userId),
+    index("idx_homework_user_date").on(table.userId, table.date),
+  ]
+);
+
+const homeworkUserState = sqliteTable(
+  "homework_user_state",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    homeworkId: text("homework_id")
+      .notNull()
+      .references(() => homework.id, { onDelete: "cascade" }),
+    completed: integer("completed").notNull().default(0),
+    note: text("note"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("unique_user_homework_state").on(table.userId, table.homeworkId),
+    index("idx_user_state_user_id").on(table.userId),
+  ]
+);
+
+const classworkUploads = sqliteTable(
+  "classwork_uploads",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    studentId: text("student_id").notNull(),
+    section: text("section").notNull(),
+    subject: text("subject").notNull(),
+    title: text("title"),
+    date: text("date").notNull(),
+    fileUrl: text("file_url").notNull(),
+    filePath: text("file_path").notNull(),
+    originalFilename: text("original_filename").notNull(),
+    fileSize: integer("file_size").notNull(),
+    mimeType: text("mime_type").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_classwork_section").on(table.section),
+    index("idx_classwork_section_date").on(table.section, table.date),
+    index("idx_classwork_user_id").on(table.userId),
+  ]
+);
+
+const sectionRequests = sqliteTable(
+  "section_requests",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    studentId: text("student_id").notNull(),
+    section: text("section").notNull(),
+    category: text("category"),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    status: text("status").notNull().default("open"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_requests_section_created").on(t.section, t.createdAt),
+    index("idx_requests_user_id").on(t.userId),
+  ]
+);
+
+const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"),
+    referenceId: text("reference_id"),
+    isRead: integer("is_read").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_notifications_user_unread").on(t.userId, t.isRead),
+    index("idx_notifications_created").on(t.createdAt),
+  ]
+);
+
+const conversations = sqliteTable(
+  "conversations",
+  {
+    id: text("id").primaryKey(),
+    lastMessagePreview: text("last_message_preview"),
+    lastMessageAt: text("last_message_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
+
+const conversationParticipants = sqliteTable(
+  "conversation_participants",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    lastReadAt: text("last_read_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("idx_cp_conv_user").on(t.conversationId, t.userId),
+    index("idx_cp_user_id").on(t.userId),
+  ]
+);
+
+const messages = sqliteTable(
+  "messages",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
+    senderId: text("sender_id").notNull().references(() => users.id),
+    content: text("content").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_messages_conversation_created").on(t.conversationId, t.createdAt),
+  ]
+);
+
+module.exports = {
+  users,
+  edusecureSessions,
+  appSessions,
+  homework,
+  homeworkUserState,
+  classworkUploads,
+  sectionRequests,
+  notifications,
+  conversations,
+  conversationParticipants,
+  messages,
+};

@@ -56,6 +56,7 @@ router.get("/requests", requireAuth, (req, res) => {
       content: item.content,
       status: item.status,
       createdAt: item.createdAt,
+      creatorUserId: item.userId,
       isOwner: item.userId === req.user.id,
     }));
 

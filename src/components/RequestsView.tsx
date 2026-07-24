@@ -31,9 +31,10 @@ function getCategoryIcon(cat: string | null | undefined) {
 
 interface RequestsViewProps {
   userSection?: string;
+  onNavigate?: (view: string) => void;
 }
 
-export const RequestsView: React.FC<RequestsViewProps> = ({ userSection }) => {
+export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavigate }) => {
   const [requests, setRequests] = useState<SectionRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -114,6 +115,18 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection }) => {
       setRequests((prev) => prev.filter((r) => r.id !== id));
     } catch { alert('Failed to delete request.'); }
     finally { setDeletingId(null); }
+  };
+
+  const handleHelp = async (creatorUserId: string) => {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ participantId: creatorUserId }),
+      });
+      if (!res.ok) throw new Error();
+      onNavigate?.('messages');
+    } catch { alert('Could not start conversation with requester.'); }
   };
 
   const availableCategories = ['All', ...new Set(requests.map((r) => r.category).filter((c): c is string => !!c))];
@@ -247,6 +260,14 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection }) => {
                       className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
                       title="Mark as fulfilled">
                       <CheckCircle2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  {!item.isOwner && item.status === 'open' && item.creatorUserId && (
+                    <button onClick={() => handleHelp(item.creatorUserId!)}
+                      className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1"
+                      title="Message the requester">
+                      <MessageSquare className="w-3 h-3" />
+                      <span>Help</span>
                     </button>
                   )}
                   {item.isOwner && (

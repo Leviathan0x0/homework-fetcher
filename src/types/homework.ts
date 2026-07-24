@@ -56,6 +56,7 @@ export interface SectionRequest {
   content: string;
   status: 'open' | 'completed';
   createdAt: string;
+  creatorUserId?: string;
   isOwner?: boolean;
 }
 

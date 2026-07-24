@@ -57,34 +57,26 @@ export const authService = {
 export const homeworkService = {
   async getHomework(userId: string) {
     try {
-      const res = await databases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK,
-        [Query.equal("userId", userId), Query.limit(100)]
-      );
-      
-      const states = await databases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK_USER_STATE,
-        [Query.equal("userId", userId), Query.limit(100)]
-      );
-      const stateMap: Record<string, { completed: boolean; note?: string }> = {};
-      states.documents.forEach((d: any) => {
-        stateMap[d.homeworkId] = { completed: d.completed, note: d.note };
+      const res = await fetch("/api/homework", {
+        headers: { "Accept": "application/json" }
       });
-
-      return res.documents.map((doc: any) => ({
-        id: doc.$id,
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || "Failed to fetch homework.");
+      }
+      const data = await res.json();
+      return (data.homework || []).map((doc: any) => ({
+        id: doc.id,
         sourceIdentifier: doc.sourceIdentifier || "edusecure",
         date: doc.date,
         subject: doc.subject,
         content: doc.content,
         attachmentUrl: doc.attachmentUrl,
         type: doc.type || "Homework",
-        completed: stateMap[doc.$id]?.completed || false,
-        note: stateMap[doc.$id]?.note || "",
+        completed: doc.completed || false,
+        note: doc.note || "",
       }));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error loading homework:", err);
       return [];
     }

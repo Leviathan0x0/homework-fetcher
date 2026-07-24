@@ -67,14 +67,14 @@ export const homeworkService = {
       const data = await res.json();
       return (data.homework || []).map((doc: any) => ({
         id: doc.id,
-        sourceIdentifier: doc.sourceIdentifier || "edusecure",
-        date: doc.date,
-        subject: doc.subject,
-        content: doc.content,
-        attachmentUrl: doc.attachmentUrl,
-        type: doc.type || "Homework",
-        completed: doc.completed || false,
-        note: doc.note || "",
+        type: doc.type || "School Diary",
+        date: doc.date || "",
+        subject: doc.subject || "School Diary",
+        homework: doc.homework || doc.content || "",
+        attachment: doc.attachment || doc.attachmentUrl || null,
+        completed: !!doc.completed,
+        note: doc.note || null,
+        updatedAt: doc.updatedAt,
       }));
     } catch (err: any) {
       console.error("Error loading homework:", err);
@@ -83,48 +83,24 @@ export const homeworkService = {
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {
-    const existing = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.HOMEWORK_USER_STATE,
-      [Query.equal("userId", userId), Query.equal("homeworkId", homeworkId)]
-    );
-    if (existing.documents.length > 0) {
-      await databases.updateDocument(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK_USER_STATE,
-        existing.documents[0].$id,
-        { completed }
-      );
-    } else {
-      await databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK_USER_STATE,
-        ID.unique(),
-        { userId, homeworkId, completed, note: "" }
-      );
+    const res = await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ completed })
+    });
+    if (!res.ok) {
+      throw new Error("Failed to update completion status.");
     }
   },
 
   async updateNote(userId: string, homeworkId: string, note: string | null) {
-    const existing = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.HOMEWORK_USER_STATE,
-      [Query.equal("userId", userId), Query.equal("homeworkId", homeworkId)]
-    );
-    if (existing.documents.length > 0) {
-      await databases.updateDocument(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK_USER_STATE,
-        existing.documents[0].$id,
-        { note: note || "" }
-      );
-    } else {
-      await databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.HOMEWORK_USER_STATE,
-        ID.unique(),
-        { userId, homeworkId, completed: false, note: note || "" }
-      );
+    const res = await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/note`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify({ note })
+    });
+    if (!res.ok) {
+      throw new Error("Failed to update note.");
     }
   }
 };

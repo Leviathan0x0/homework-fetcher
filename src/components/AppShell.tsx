@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
@@ -113,7 +114,7 @@ export const AppShell: React.FC = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    const interval = setInterval(fetchUnreadCount, 3000);
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchUnreadCount]);
 
@@ -157,7 +158,7 @@ export const AppShell: React.FC = () => {
         isLoading={isLoading || isRefreshing}
       />
 
-      <SidebarInset className="bg-neutral-50/50 dark:bg-[#09090b]">
+      <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-screen max-h-screen overflow-hidden flex flex-col")}>
         <SiteHeader
           activeView={activeView}
           theme={theme}
@@ -170,16 +171,12 @@ export const AppShell: React.FC = () => {
           onUnreadCountChange={setUnreadCount}
         />
 
-        <div className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10 space-y-6">
-          {isRefreshing && (
-            <div className="flex items-center justify-between gap-2 px-4 py-2 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 text-xs font-medium border border-indigo-200/60 dark:border-indigo-800/40 animate-pulse">
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Refreshing homework from school server...</span>
-              </div>
-            </div>
-          )}
-
+        <div className={cn(
+          "flex-1 w-full mx-auto min-h-0",
+          activeView === 'messages'
+            ? "h-[calc(100vh-7rem)] md:h-[calc(100vh-3.5rem)] p-0 max-w-none flex flex-col overflow-hidden"
+            : "max-w-4xl px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10 space-y-6"
+        )}>
           {errorMessage && (
             <ErrorBanner
               message={errorMessage}
@@ -192,6 +189,7 @@ export const AppShell: React.FC = () => {
             <TodayView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               lastUpdated={lastUpdated}
               completedMap={completedMap}
@@ -209,7 +207,20 @@ export const AppShell: React.FC = () => {
           )}
 
           {activeView === 'requests' && (
-            <RequestsView userSection={user?.section} />
+            <RequestsView
+              userSection={user?.section}
+              onNavigate={(v) => {
+                if (v.startsWith('messages:')) {
+                  const targetConvId = v.split(':')[1];
+                  setActiveView('messages');
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
+                  }, 50);
+                } else {
+                  setActiveView(v as any);
+                }
+              }}
+            />
           )}
 
           {activeView === 'messages' && (

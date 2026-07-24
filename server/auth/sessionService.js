@@ -113,7 +113,7 @@ class SessionService {
     const newUser = {
       id: crypto.randomUUID(),
       studentId: rawId,
-      section: null,
+      section: "Section 10-A",
       createdAt: now,
       updatedAt: now,
     };

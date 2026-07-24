@@ -84,6 +84,9 @@ export interface Message {
   conversationId: string;
   senderId: string;
   content: string;
+  attachmentUrl?: string | null;
+  originalFilename?: string | null;
+  mimeType?: string | null;
   createdAt: string;
   isMine: boolean;
 }

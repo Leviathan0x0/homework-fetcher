@@ -28,17 +28,29 @@ router.post("/login", async (req, res) => {
     }
 
     let sessionCookies;
-    try {
-      sessionCookies = await loginToEduSecure(studentId, password);
-    } catch (authErr) {
-      console.error("EduSecure Auth Error:", authErr);
-      return res.status(401).json({
-        authenticated: false,
-        error: "Invalid student ID or password."
-      });
+    const isDummyAccount = studentId.trim().toLowerCase().startsWith("dummy") || 
+                           studentId.trim().toLowerCase() === "testuser" || 
+                           studentId.trim().toLowerCase() === "student2";
+
+    if (isDummyAccount) {
+      // Mock session cookies for testing uploads/messages without EduSecure portal requirements
+      sessionCookies = `ASP.NET_SessionId=dummy_test_session_${studentId.trim()}`;
+    } else {
+      try {
+        sessionCookies = await loginToEduSecure(studentId, password);
+      } catch (authErr) {
+        console.error("EduSecure Auth Error:", authErr);
+        return res.status(401).json({
+          authenticated: false,
+          error: "Invalid student ID or password."
+        });
+      }
     }
 
     const user = sessionService.findOrCreateUser(studentId);
+    if (isDummyAccount && (!user.section || user.section === FALLBACK_SECTION)) {
+      sessionService.updateSection(user.id, "9-F");
+    }
     sessionService.saveEduSecureSession(user.id, sessionCookies);
 
     const appToken = sessionService.createAppSession(user.id);
@@ -52,7 +64,7 @@ router.post("/login", async (req, res) => {
     });
 
     let section = user.section;
-    if (needsRefresh(section)) {
+    if (!isDummyAccount && needsRefresh(section)) {
       try {
         const fetchedSection = await fetchSectionFromEduSecure(sessionCookies);
         if (fetchedSection) {

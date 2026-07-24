@@ -188,7 +188,11 @@ const messages = sqliteTable(
     id: text("id").primaryKey(),
     conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
     senderId: text("sender_id").notNull().references(() => users.id),
-    content: text("content").notNull(),
+    content: text("content"),
+    attachmentUrl: text("attachment_url"),
+    originalFilename: text("original_filename"),
+    mimeType: text("mime_type"),
+    filePath: text("file_path"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [

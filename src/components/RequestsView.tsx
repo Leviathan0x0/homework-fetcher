@@ -117,16 +117,24 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     finally { setDeletingId(null); }
   };
 
-  const handleHelp = async (creatorUserId: string) => {
+  const [helpingId, setHelpingId] = useState<string | null>(null);
+
+  const handleHelp = async (creatorUserId: string, requestId: string) => {
+    setHelpingId(requestId);
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ participantId: creatorUserId }),
       });
-      if (!res.ok) throw new Error();
-      onNavigate?.('messages');
-    } catch { alert('Could not start conversation with requester.'); }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not start conversation');
+      onNavigate?.(`messages:${data.conversationId}`);
+    } catch (err: any) {
+      alert(err.message || 'Could not start conversation with requester.');
+    } finally {
+      setHelpingId(null);
+    }
   };
 
   const availableCategories = ['All', ...new Set(requests.map((r) => r.category).filter((c): c is string => !!c))];
@@ -263,10 +271,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                     </button>
                   )}
                   {!item.isOwner && item.status === 'open' && item.creatorUserId && (
-                    <button onClick={() => handleHelp(item.creatorUserId!)}
-                      className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1"
+                    <button onClick={() => handleHelp(item.creatorUserId!, item.id)} disabled={helpingId === item.id}
+                      className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1 disabled:opacity-50"
                       title="Message the requester">
-                      <MessageSquare className="w-3 h-3" />
+                      {helpingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
                       <span>Help</span>
                     </button>
                   )}

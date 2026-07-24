@@ -20,6 +20,34 @@ function createNotifications(userIds, type, title, body, link, referenceId) {
   if (!userIds || userIds.length === 0) return;
   const now = new Date().toISOString();
   for (const uid of userIds) {
+    if (type === "new_message") {
+      // Consolidate message notifications from the same sender/conversation into 1 notification
+      const existing = db
+        .select()
+        .from(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.userId, uid),
+            eq(schema.notifications.type, "new_message"),
+            eq(schema.notifications.referenceId, referenceId),
+            eq(schema.notifications.isRead, 0)
+          )
+        )
+        .get();
+
+      if (existing) {
+        db.update(schema.notifications)
+          .set({
+            title,
+            body: body || null,
+            createdAt: now,
+          })
+          .where(eq(schema.notifications.id, existing.id))
+          .run();
+        continue;
+      }
+    }
+
     db.insert(schema.notifications)
       .values({
         id: crypto.randomUUID(),
@@ -53,13 +81,11 @@ function isParticipant(conversationId, userId) {
 router.get("/users/search", requireAuth, (req, res) => {
   try {
     const q = (req.query.q || "").trim();
-    const section = req.user.section;
     if (!q || q.length < 1) return res.json({ users: [] });
 
     const allUsers = db
       .select()
       .from(schema.users)
-      .where(eq(schema.users.section, section))
       .all();
 
     const lower = q.toLowerCase();
@@ -181,9 +207,6 @@ router.post("/conversations", requireAuth, (req, res) => {
       .where(eq(schema.users.id, participantId))
       .get();
     if (!otherUser) return res.status(404).json({ error: "User not found." });
-    if (otherUser.section !== req.user.section) {
-      return res.status(403).json({ error: "Can only message users in your section." });
-    }
 
     const existing = db
       .select()
@@ -239,6 +262,30 @@ router.post("/conversations", requireAuth, (req, res) => {
   }
 });
 
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
+
+const MSG_UPLOADS_DIR = path.join(__dirname, "../../uploads/messages");
+if (!fs.existsSync(MSG_UPLOADS_DIR)) {
+  fs.mkdirSync(MSG_UPLOADS_DIR, { recursive: true });
+}
+
+const msgStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, MSG_UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const id = crypto.randomUUID();
+    req.messageId = id;
+    const ext = path.extname(file.originalname).toLowerCase();
+    cb(null, `${id}${ext}`);
+  },
+});
+
+const msgUpload = multer({
+  storage: msgStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 router.get("/conversations/:id/messages", requireAuth, (req, res) => {
   try {
     const convId = req.params.id;
@@ -258,6 +305,9 @@ router.get("/conversations/:id/messages", requireAuth, (req, res) => {
       conversationId: m.conversationId,
       senderId: m.senderId,
       content: m.content,
+      attachmentUrl: m.attachmentUrl,
+      originalFilename: m.originalFilename,
+      mimeType: m.mimeType,
       createdAt: m.createdAt,
       isMine: m.senderId === req.user.id,
     }));
@@ -270,75 +320,143 @@ router.get("/conversations/:id/messages", requireAuth, (req, res) => {
 });
 
 router.post("/conversations/:id/messages", requireAuth, (req, res) => {
+  msgUpload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || "File upload error" });
+
+    try {
+      const convId = req.params.id;
+      if (!isParticipant(convId, req.user.id)) {
+        if (req.file) fs.unlink(req.file.path, () => {});
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const { content } = req.body || {};
+      if ((!content || !content.trim()) && !req.file) {
+        return res.status(400).json({ error: "Message content or file attachment is required." });
+      }
+
+      const id = req.messageId || crypto.randomUUID();
+      const now = new Date().toISOString();
+      const trimmed = content && typeof content === "string" ? content.trim() : "";
+
+      let attachmentUrl = null;
+      let originalFilename = null;
+      let mimeType = null;
+      let filePath = null;
+
+      if (req.file) {
+        attachmentUrl = `/api/messages/files/${id}`;
+        originalFilename = req.file.originalname;
+        mimeType = req.file.mimetype || "application/octet-stream";
+        filePath = req.file.path;
+      }
+
+      db.insert(schema.messages)
+        .values({
+          id,
+          conversationId: convId,
+          senderId: req.user.id,
+          content: trimmed,
+          attachmentUrl,
+          originalFilename,
+          mimeType,
+          filePath,
+          createdAt: now,
+        })
+        .run();
+
+      const previewText = req.file ? `[Attachment] ${originalFilename}` : trimmed.substring(0, 80);
+
+      db.update(schema.conversations)
+        .set({
+          lastMessagePreview: previewText,
+          lastMessageAt: now,
+          updatedAt: now,
+        })
+        .where(eq(schema.conversations.id, convId))
+        .run();
+
+      const participants = db
+        .select()
+        .from(schema.conversationParticipants)
+        .where(eq(schema.conversationParticipants.conversationId, convId))
+        .all();
+
+      const otherUserIds = participants
+        .map((p) => p.userId)
+        .filter((uid) => uid !== req.user.id);
+
+      if (otherUserIds.length > 0) {
+        createNotifications(
+          otherUserIds,
+          "new_message",
+          `Message from ${req.user.studentId}`,
+          previewText,
+          "messages",
+          convId
+        );
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: {
+          id,
+          conversationId: convId,
+          senderId: req.user.id,
+          content: trimmed,
+          attachmentUrl,
+          originalFilename,
+          mimeType,
+          createdAt: now,
+          isMine: true,
+        },
+      });
+    } catch (err) {
+      if (req.file) fs.unlink(req.file.path, () => {});
+      console.error("Send Message Error:", err);
+      return res.status(500).json({ error: "Failed to send message." });
+    }
+  });
+});
+
+router.get("/messages/files/:messageId", requireAuth, (req, res) => {
   try {
-    const convId = req.params.id;
-    if (!isParticipant(convId, req.user.id)) {
+    const { messageId } = req.params;
+    const msg = db
+      .select()
+      .from(schema.messages)
+      .where(eq(schema.messages.id, messageId))
+      .get();
+
+    if (!msg || !msg.attachmentUrl) return res.status(404).json({ error: "File not found." });
+    if (!isParticipant(msg.conversationId, req.user.id)) {
       return res.status(403).json({ error: "Access denied." });
     }
 
-    const { content } = req.body || {};
-    if (!content || typeof content !== "string" || !content.trim()) {
-      return res.status(400).json({ error: "Message content is required." });
+    // 1. Check exact saved filePath
+    if (msg.filePath && fs.existsSync(msg.filePath)) {
+      res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+      return res.sendFile(msg.filePath);
     }
 
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const trimmed = content.trim();
+    // 2. Check filename by message ID prefix
+    const files = fs.readdirSync(MSG_UPLOADS_DIR);
+    let matched = files.find((f) => f.startsWith(messageId));
 
-    db.insert(schema.messages)
-      .values({
-        id,
-        conversationId: convId,
-        senderId: req.user.id,
-        content: trimmed,
-        createdAt: now,
-      })
-      .run();
-
-    db.update(schema.conversations)
-      .set({
-        lastMessagePreview: trimmed.substring(0, 80),
-        lastMessageAt: now,
-        updatedAt: now,
-      })
-      .where(eq(schema.conversations.id, convId))
-      .run();
-
-    const participants = db
-      .select()
-      .from(schema.conversationParticipants)
-      .where(eq(schema.conversationParticipants.conversationId, convId))
-      .all();
-
-    const otherUserIds = participants
-      .map((p) => p.userId)
-      .filter((uid) => uid !== req.user.id);
-
-    if (otherUserIds.length > 0) {
-      createNotifications(
-        otherUserIds,
-        "new_message",
-        `Message from ${req.user.studentId}`,
-        trimmed.substring(0, 100),
-        "messages",
-        convId
-      );
+    // 3. Fallback for legacy test files: match by file extension
+    if (!matched && msg.originalFilename) {
+      const ext = path.extname(msg.originalFilename).toLowerCase();
+      matched = files.find((f) => path.extname(f).toLowerCase() === ext);
     }
 
-    return res.status(201).json({
-      success: true,
-      message: {
-        id,
-        conversationId: convId,
-        senderId: req.user.id,
-        content: trimmed,
-        createdAt: now,
-        isMine: true,
-      },
-    });
+    if (!matched) return res.status(404).json({ error: "File on disk not found." });
+
+    const fullPath = path.join(MSG_UPLOADS_DIR, matched);
+    res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+    return res.sendFile(fullPath);
   } catch (err) {
-    console.error("Send Message Error:", err);
-    return res.status(500).json({ error: "Failed to send message." });
+    console.error("Serve Message File Error:", err);
+    return res.status(500).json({ error: "Failed to serve file." });
   }
 });
 
@@ -347,13 +465,23 @@ router.patch("/conversations/:id/read", requireAuth, (req, res) => {
     const convId = req.params.id;
     const now = new Date().toISOString();
 
-    const result = db
-      .update(schema.conversationParticipants)
+    db.update(schema.conversationParticipants)
       .set({ lastReadAt: now })
       .where(
         and(
           eq(schema.conversationParticipants.conversationId, convId),
           eq(schema.conversationParticipants.userId, req.user.id)
+        )
+      )
+      .run();
+
+    db.update(schema.notifications)
+      .set({ isRead: 1 })
+      .where(
+        and(
+          eq(schema.notifications.userId, req.user.id),
+          eq(schema.notifications.type, "new_message"),
+          eq(schema.notifications.referenceId, convId)
         )
       )
       .run();

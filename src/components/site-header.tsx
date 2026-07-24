@@ -62,7 +62,7 @@ export function SiteHeader({
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200/80 dark:border-neutral-800 bg-background/95 backdrop-blur-md px-4 lg:px-6 sticky top-0 z-20">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-white/40 dark:border-white/10 bg-white/75 dark:bg-[#09090b]/75 backdrop-blur-2xl px-4 lg:px-6 sticky top-0 z-20 shadow-2xs">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1 cursor-pointer" />
         <Separator orientation="vertical" className="mr-2 h-4" />

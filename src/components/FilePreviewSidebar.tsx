@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { X, ExternalLink, Download, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
-import { cn } from '../utils/cn';
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -36,6 +35,16 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  useEffect(() => {
+    if (fileUrl) {
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = originalOverflow;
+      };
+    }
+  }, [fileUrl]);
+
   if (!fileUrl || !isValidUrl(fileUrl)) return null;
 
   const getFileName = (url: string, fallback?: string | null) => {
@@ -58,22 +67,22 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
   const isPdf = fileExt === 'pdf';
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
       {/* Backdrop Click */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Slide-over Sidebar */}
-      <aside className="relative z-10 w-full max-w-2xl lg:max-w-3xl h-full bg-white dark:bg-[#141417] border-l border-neutral-200 dark:border-neutral-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+      {/* Slide-over Sidebar with Liquid Glass */}
+      <aside className="relative z-10 w-full max-w-2xl lg:max-w-3xl h-full liquid-glass rounded-l-3xl flex flex-col animate-in slide-in-from-right duration-300">
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 gap-3">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200/60 dark:border-neutral-800/60 shrink-0 gap-3 bg-white/40 dark:bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0 transition-transform duration-300 hover:rotate-6 shadow-2xs">
+            <div className="w-9 h-9 rounded-2xl bg-white/80 dark:bg-neutral-800/80 border border-white/50 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0 shadow-2xs">
               {isImage ? (
-                <ImageIcon className="w-4.5 h-4.5 text-indigo-500" />
+                <ImageIcon className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
               ) : isPdf ? (
-                <FileText className="w-4.5 h-4.5 text-rose-500" />
+                <FileText className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
               ) : (
-                <File className="w-4.5 h-4.5 text-amber-500" />
+                <File className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
               )}
             </div>
 
@@ -83,7 +92,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   {fileName}
                 </h3>
                 {fileExt && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-neutral-900/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/10 shrink-0">
                     {fileExt}
                   </span>
                 )}
@@ -95,18 +104,30 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {isPdf && (
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-medium shadow-xs"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Full Reader</span>
+              </a>
+            )}
+
             {isImage && (
               <>
                 <button
                   onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                  className="group/zout p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer active:scale-90"
+                  className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                   title="Zoom Out"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setZoom((z) => Math.min(2.5, z + 0.25))}
-                  className="group/zin p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer active:scale-90"
+                  className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                   title="Zoom In"
                 >
                   <ZoomIn className="w-4 h-4" />
@@ -118,33 +139,33 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group/ext p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer active:scale-90"
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               title="Open in new tab"
             >
-              <ExternalLink className="w-4 h-4 transition-transform duration-200 group-hover/ext:-translate-y-0.5 group-hover/ext:translate-x-0.5" />
+              <ExternalLink className="w-4 h-4" />
             </a>
 
             <a
               href={fileUrl}
               download={fileName}
-              className="group/dl p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer active:scale-90"
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               title="Download file"
             >
-              <Download className="w-4 h-4 transition-transform duration-200 group-hover/dl:translate-y-0.5" />
+              <Download className="w-4 h-4" />
             </a>
 
             <button
               onClick={onClose}
-              className="group/close p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer ml-1 active:scale-90"
+              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer ml-1"
               title="Close preview"
             >
-              <X className="w-5 h-5 transition-transform duration-200 group-hover/close:rotate-90" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
         {/* Content Viewer Area */}
-        <div className="flex-1 overflow-auto p-4 sm:p-6 bg-neutral-50/50 dark:bg-neutral-950/40 relative flex items-center justify-center">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50/40 dark:bg-neutral-950/40 relative flex flex-col items-center justify-center min-h-0">
           {loading && (isImage || isPdf) && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-[#141417]/60 backdrop-blur-xs">
               <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
@@ -163,15 +184,33 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               />
             </div>
           ) : isPdf ? (
-            <iframe
-              src={fileUrl}
-              title={fileName}
-              onLoad={() => setLoading(false)}
-              className="w-full h-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white shadow-2xs"
-            />
+            <div className="w-full h-full flex flex-col gap-3 min-h-0">
+              {/* Mobile Quick Action Pill for Liquid Glass PDF Viewer */}
+              <div className="sm:hidden flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/80 border border-white/60 dark:border-white/10 backdrop-blur-md shadow-xs shrink-0">
+                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Mobile PDF Reader</span>
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold shadow-2xs flex items-center gap-1.5"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Full PDF</span>
+                </a>
+              </div>
+
+              <div className="flex-1 w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white overflow-y-scroll -webkit-overflow-scrolling-touch touch-pan-y shadow-2xs min-h-[65vh]">
+                <iframe
+                  src={fileUrl}
+                  title={fileName}
+                  onLoad={() => setLoading(false)}
+                  className="w-full h-full min-h-[65vh] border-0"
+                />
+              </div>
+            </div>
           ) : (
-            <div className="w-full max-w-md p-8 rounded-3xl bg-white dark:bg-[#18181c] border border-neutral-200/80 dark:border-neutral-800 text-center space-y-4 shadow-sm my-auto">
-              <div className="w-14 h-14 rounded-3xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 mx-auto transition-transform duration-300 hover:rotate-6">
+            <div className="w-full max-w-md p-8 rounded-3xl bg-white/80 dark:bg-[#18181c]/80 border border-white/60 dark:border-white/10 backdrop-blur-xl text-center space-y-4 shadow-lg my-auto">
+              <div className="w-14 h-14 rounded-3xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 mx-auto">
                 <FileText className="w-7 h-7 text-amber-500" />
               </div>
               <div className="space-y-1">
@@ -185,17 +224,17 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group/oopen inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors duration-200 shadow-2xs active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold shadow-2xs"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 transition-transform duration-200 group-hover/oopen:-translate-y-0.5 group-hover/oopen:translate-x-0.5" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   <span>Open file</span>
                 </a>
                 <a
                   href={fileUrl}
                   download={fileName}
-                  className="group/ddl inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent text-neutral-700 dark:text-neutral-300 text-xs font-semibold hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-200 active:scale-95"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent text-neutral-700 dark:text-neutral-300 text-xs font-semibold"
                 >
-                  <Download className="w-3.5 h-3.5 transition-transform duration-200 group-hover/ddl:translate-y-0.5" />
+                  <Download className="w-3.5 h-3.5" />
                   <span>Download</span>
                 </a>
               </div>

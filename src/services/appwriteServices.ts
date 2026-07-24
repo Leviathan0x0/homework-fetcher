@@ -5,47 +5,48 @@ import { ID, Query } from "appwrite";
 export const authService = {
   async getCurrentUser() {
     try {
-      const user = await account.get();
-      const userDocs = await databases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.USERS,
-        [Query.equal("studentId", user.email.split("@")[0] || user.name)]
-      );
-      const section = userDocs.documents[0]?.section || "Section 10-A";
+      const res = await fetch("/api/auth/me", {
+        headers: { "Accept": "application/json" }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (!data.authenticated || !data.user) return null;
       return {
-        id: user.$id,
-        studentId: user.email.split("@")[0] || user.name || user.$id,
-        section,
+        id: data.user.id,
+        studentId: data.user.studentId,
+        section: data.user.section || "Section 10-A",
       };
     } catch (err) {
+      console.error("getCurrentUser error:", err);
       return null;
     }
   },
 
   async login(studentId: string, pass: string) {
-    const email = `${studentId.trim().toLowerCase()}@edusecure.appwrite.local`;
-    try {
-      await account.createEmailPasswordSession(email, pass);
-    } catch (err: any) {
-      if (err.code === 404 || err.type === "user_not_found") {
-        await account.create(ID.unique(), email, pass, studentId);
-        await account.createEmailPasswordSession(email, pass);
-        await databases.createDocument(
-          APPWRITE_DATABASE_ID,
-          COLLECTIONS.USERS,
-          ID.unique(),
-          { studentId: studentId.trim(), section: "Section 10-A" }
-        );
-      } else {
-        throw new Error(err.message || "Authentication failed");
-      }
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId: studentId.trim(), password: pass })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.authenticated) {
+      throw new Error(data.error || "Invalid student ID or password.");
     }
-    return await this.getCurrentUser();
+
+    return {
+      id: data.user.id,
+      studentId: data.user.studentId,
+      section: data.user.section || "Section 10-A",
+    };
   },
 
   async logout() {
     try {
-      await account.deleteSession("current");
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
     } catch (err) {
       console.error("Logout error:", err);
     }

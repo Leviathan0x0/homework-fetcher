@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Calendar as CalendarIcon, X } from 'lucide-react';
 
 interface DateFilterProps {
@@ -7,11 +7,25 @@ interface DateFilterProps {
 }
 
 export const DateFilter: React.FC<DateFilterProps> = ({ value, onChange }) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenPicker = () => {
+    try {
+      inputRef.current?.showPicker?.();
+    } catch {
+      inputRef.current?.focus();
+    }
+  };
+
   return (
     <div className="relative flex items-center w-full sm:w-auto group/datefilter">
-      <div className="relative flex items-center bg-white dark:bg-[#18181b] border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 sm:px-2.5 h-10 sm:h-9 w-full sm:w-auto transition-all duration-200 focus-within:border-neutral-400 dark:focus-within:border-neutral-600 focus-within:ring-2 focus-within:ring-neutral-400/20">
+      <div
+        onClick={handleOpenPicker}
+        className="relative flex items-center bg-white dark:bg-[#18181b] border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 sm:px-2.5 h-10 sm:h-9 w-full sm:w-auto transition-all duration-200 focus-within:border-neutral-400 dark:focus-within:border-neutral-600 focus-within:ring-2 focus-within:ring-neutral-400/20 cursor-pointer"
+      >
         <CalendarIcon className="w-4 h-4 text-neutral-400 mr-2 shrink-0 pointer-events-none transition-transform duration-200 group-focus-within/datefilter:rotate-6" />
         <input
+          ref={inputRef}
           type="date"
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -20,7 +34,10 @@ export const DateFilter: React.FC<DateFilterProps> = ({ value, onChange }) => {
         />
         {value && (
           <button
-            onClick={() => onChange('')}
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange('');
+            }}
             className="group/clear ml-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 p-1 rounded-full touch-manipulation cursor-pointer active:scale-90 transition-transform duration-150"
             title="Clear date filter"
           >

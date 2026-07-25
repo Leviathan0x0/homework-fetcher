@@ -103,18 +103,6 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {isPdf && (
-              <a
-                href={fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-medium shadow-xs"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Full Reader</span>
-              </a>
-            )}
-
             {isImage && (
               <>
                 <button
@@ -133,16 +121,6 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 </button>
               </>
             )}
-
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-              title="Open in new tab"
-            >
-              <ExternalLink className="w-4 h-4" />
-            </a>
 
             <a
               href={fileUrl}
@@ -184,14 +162,14 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             </div>
           ) : isPdf ? (
             <div className="w-full h-full flex flex-col gap-3 min-h-0">
-              {/* Mobile Quick Action Pill for Liquid Glass PDF Viewer */}
-              <div className="sm:hidden flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/80 border border-white/60 dark:border-white/10 backdrop-blur-md shadow-xs shrink-0">
-                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">Mobile PDF Reader</span>
+              {/* Quick Action Pill for Liquid Glass PDF Viewer */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/80 border border-white/60 dark:border-white/10 backdrop-blur-md shadow-xs shrink-0">
+                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">PDF Reader View</span>
                 <a
                   href={fileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold shadow-2xs flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-bold shadow-2xs flex items-center gap-1.5"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Open Full PDF</span>

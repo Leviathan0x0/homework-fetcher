@@ -5,6 +5,7 @@ const users = sqliteTable(
   {
     id: text("id").primaryKey(),
     studentId: text("student_id").notNull().unique(),
+    displayName: text("display_name"),
     section: text("section"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -188,7 +189,7 @@ const messages = sqliteTable(
     id: text("id").primaryKey(),
     conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
     senderId: text("sender_id").notNull().references(() => users.id),
-    content: text("content"),
+    content: text("content").notNull().default(""),
     attachmentUrl: text("attachment_url"),
     originalFilename: text("original_filename"),
     mimeType: text("mime_type"),

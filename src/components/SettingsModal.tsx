@@ -1,6 +1,7 @@
 import React from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
+import { authService } from '../services/appwriteServices';
 import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -70,27 +71,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between transition-colors duration-150 hover:border-neutral-300 dark:hover:border-neutral-700">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
-                  <User className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono">
-                    {user?.studentId || 'Authenticated'}
+            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono">
+                      {user?.studentId || 'Authenticated'}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
-              >
-                <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
-                <span>Sign out</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
+                  <span>Sign out</span>
+                </button>
+              </div>
             </div>
           </div>
 

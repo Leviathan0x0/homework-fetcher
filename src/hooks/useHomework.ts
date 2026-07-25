@@ -96,7 +96,7 @@ export function useHomework() {
       localStorage.setItem("lastUpdated", timeNow);
     } catch (err: any) {
       console.error("Fetch Homework Error:", err);
-      setErrorMessage(err.message || "Failed to fetch homework from Appwrite.");
+      setErrorMessage(err.message || "Failed to fetch homework.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -138,12 +138,12 @@ export function useHomework() {
     }
   }, [user]);
 
-  const login = useCallback(async (studentId: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (studentId: string, pass: string, chosenSection?: string): Promise<boolean> => {
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      const loggedUser = await authService.login(studentId, pass);
+      const loggedUser = await authService.login(studentId, pass, chosenSection);
       if (!loggedUser) throw new Error("Authentication failed");
       setUser(loggedUser);
       setIsAuthenticated(true);

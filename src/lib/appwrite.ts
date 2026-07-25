@@ -1,9 +1,10 @@
 import { Client, Account, Databases, Storage, Functions, Realtime } from "appwrite";
 
-export const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT || "https://sgp.cloud.appwrite.io/v1";
-export const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID || "6a637cb9000e2ff291cf";
-export const APPWRITE_DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || "6a637d61002bd18d3cd5";
-export const APPWRITE_BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID || "classwork-files";
+const metaEnv = (import.meta as any).env || {};
+export const APPWRITE_ENDPOINT = metaEnv.VITE_APPWRITE_ENDPOINT || "https://sgp.cloud.appwrite.io/v1";
+export const APPWRITE_PROJECT_ID = metaEnv.VITE_APPWRITE_PROJECT_ID || "6a637cb9000e2ff291cf";
+export const APPWRITE_DATABASE_ID = metaEnv.VITE_APPWRITE_DATABASE_ID || "6a637d61002bd18d3cd5";
+export const APPWRITE_BUCKET_ID = metaEnv.VITE_APPWRITE_BUCKET_ID || "classwork-files";
 
 export const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

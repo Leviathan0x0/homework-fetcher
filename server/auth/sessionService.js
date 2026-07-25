@@ -3,10 +3,6 @@ const { eq, and, gt } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 
-/**
- * SQLite-backed SessionService using Drizzle ORM.
- * Replaces in-memory storage with persistent local SQLite data.
- */
 const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
 
 /**
@@ -15,7 +11,6 @@ const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX
 function normalizeClassSection(raw) {
   if (!raw) return null;
   const cleaned = raw.trim();
-  // Match patterns like "IX - F", "X-A", "10 - B", "XII-C"
   const match = cleaned.match(/^([IVXivx]+|\d{1,2})\s*[-–]\s*([A-Za-z])$/);
   if (!match) return null;
   const classPart = match[1].toUpperCase();
@@ -26,11 +21,13 @@ function normalizeClassSection(raw) {
 }
 
 /**
- * Fetches the student's class/section from EduSecure StudentProfile page.
+ * Fetches the student's profile (display name and class/section) from the
+ * EduSecure StudentProfile page.
  * @param {string} sessionCookies - EduSecure session cookies
- * @returns {Promise<string|null>} Normalized section string like "9-F" or null
+ * @returns {Promise<{section: string|null, displayName: string|null}>}
  */
-async function fetchSectionFromEduSecure(sessionCookies) {
+async function fetchProfileFromEduSecure(sessionCookies) {
+  const empty = { section: null, displayName: null };
   try {
     const cheerio = require("cheerio");
     const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
@@ -43,272 +40,358 @@ async function fetchSectionFromEduSecure(sessionCookies) {
       redirect: "manual",
     });
     if (res.status === 302) {
-      console.error("Section fetch redirected (session likely expired)");
-      return null;
+      console.error("Profile fetch redirected (session likely expired)");
+      return empty;
     }
     const html = await res.text();
     if (html.includes("txtusername") || html.includes("Login.aspx")) {
-      console.error("Section page returned login form (session expired)");
-      return null;
+      console.error("Profile page returned login form (session expired)");
+      return empty;
     }
     const $ = cheerio.load(html);
+
     const rawSection = $("#ctl00_ContentPlaceHolder1_sClassSection").first().text().trim();
-    if (!rawSection) {
+    let section = null;
+    if (rawSection) {
+      section = normalizeClassSection(rawSection);
+      if (!section) {
+        console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
+      }
+    } else {
       const bodyText = $("body").text().trim().substring(0, 200);
       console.error("Section selector returned empty. Body preview:", bodyText);
-      return null;
     }
-    const normalized = normalizeClassSection(rawSection);
-    if (!normalized) {
-      console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
-      return null;
+
+    const nameSelectors = [
+      "#ctl00_ContentPlaceHolder1_sStudentName",
+      "#ctl00_ContentPlaceHolder1_sName",
+      "#ctl00_ContentPlaceHolder1_lblStudentName",
+      "#ctl00_ContentPlaceHolder1_lblName",
+    ];
+    let displayName = null;
+    for (const selector of nameSelectors) {
+      const value = $(selector).first().text().trim();
+      if (value) {
+        displayName = value.replace(/\s+/g, " ");
+        break;
+      }
     }
-    return normalized;
+
+    return { section, displayName };
   } catch (err) {
-    console.error("Failed to fetch section from EduSecure:", err.message);
-    return null;
+    console.error("Failed to fetch profile from EduSecure:", err.message);
+    return empty;
   }
 }
 
+// In-memory fail-safe stores when disk database is non-writable or unavailable
+const memUsers = new Map();
+const memEduSessions = new Map();
+const memAppSessions = new Map();
+
+/**
+ * Fetches only the normalized section string from EduSecure.
+ * @param {string} sessionCookies - EduSecure session cookies
+ * @returns {Promise<string|null>} Normalized section string like "9-F" or null
+ */
+async function fetchSectionFromEduSecure(sessionCookies) {
+  const profile = await fetchProfileFromEduSecure(sessionCookies);
+  return profile.section;
+}
 
 class SessionService {
-  /**
-   * Finds existing user by Student ID or creates a new User entity.
-   * @param {string} studentId 
-   * @returns {{id: string, studentId: string, section: string, createdAt: string}}
-   */
   findOrCreateUser(studentId) {
     const rawId = studentId.trim();
     const normalizedId = rawId.toLowerCase();
 
-    const existing = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.studentId, rawId))
-      .get();
+    try {
+      const existing = db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.studentId, rawId))
+        .get();
 
-    if (existing) {
-      return {
-        id: existing.id,
-        studentId: existing.studentId,
-        section: existing.section,
-        createdAt: existing.createdAt,
+      if (existing) {
+        const u = {
+          id: existing.id,
+          studentId: existing.studentId,
+          displayName: existing.displayName || null,
+          section: existing.section,
+          createdAt: existing.createdAt,
+        };
+        memUsers.set(u.id, u);
+        return u;
+      }
+
+      const allUsers = db.select().from(schema.users).all();
+      const caseMatch = allUsers.find(
+        (u) => u.studentId.trim().toLowerCase() === normalizedId
+      );
+      if (caseMatch) {
+        const u = {
+          id: caseMatch.id,
+          studentId: caseMatch.studentId,
+          displayName: caseMatch.displayName || null,
+          section: caseMatch.section,
+          createdAt: caseMatch.createdAt,
+        };
+        memUsers.set(u.id, u);
+        return u;
+      }
+
+      const now = new Date().toISOString();
+      const newUser = {
+        id: crypto.randomUUID(),
+        studentId: rawId,
+        displayName: null,
+        section: "Section 10-A",
+        createdAt: now,
+        updatedAt: now,
       };
-    }
 
-    const allUsers = db.select().from(schema.users).all();
-    const caseMatch = allUsers.find(
-      (u) => u.studentId.trim().toLowerCase() === normalizedId
-    );
-    if (caseMatch) {
+      db.insert(schema.users).values(newUser).run();
+      memUsers.set(newUser.id, newUser);
+
       return {
-        id: caseMatch.id,
-        studentId: caseMatch.studentId,
-        section: caseMatch.section,
-        createdAt: caseMatch.createdAt,
+        id: newUser.id,
+        studentId: newUser.studentId,
+        displayName: newUser.displayName,
+        section: newUser.section,
+        createdAt: newUser.createdAt,
       };
+    } catch (err) {
+      console.error("SQLite user query/insert failed, using memory store:", err.message);
+      for (const u of memUsers.values()) {
+        if (u.studentId.trim().toLowerCase() === normalizedId) return u;
+      }
+      const now = new Date().toISOString();
+      const newUser = {
+        id: crypto.randomUUID(),
+        studentId: rawId,
+        displayName: null,
+        section: "Section 10-A",
+        createdAt: now,
+      };
+      memUsers.set(newUser.id, newUser);
+      return newUser;
     }
-
-    const now = new Date().toISOString();
-    const newUser = {
-      id: crypto.randomUUID(),
-      studentId: rawId,
-      section: "Section 10-A",
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    db.insert(schema.users).values(newUser).run();
-
-    return {
-      id: newUser.id,
-      studentId: newUser.studentId,
-      section: newUser.section,
-      createdAt: newUser.createdAt,
-    };
   }
 
-  /**
-   * Gets user by ID.
-   * @param {string} userId 
-   * @returns {{id: string, studentId: string, section: string, createdAt: string} | null}
-   */
   getUserById(userId) {
     if (!userId) return null;
-    const user = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, userId))
-      .get();
 
-    if (!user) return null;
+    try {
+      const user = db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .get();
 
-    return {
-      id: user.id,
-      studentId: user.studentId,
-      section: user.section,
-      createdAt: user.createdAt,
-    };
+      if (user) {
+        return {
+          id: user.id,
+          studentId: user.studentId,
+          displayName: user.displayName || null,
+          section: user.section,
+          createdAt: user.createdAt,
+        };
+      }
+    } catch (err) {
+      console.error("SQLite getUserById failed, checking memory store:", err.message);
+    }
+
+    const memUser = memUsers.get(userId);
+    if (memUser) {
+      return {
+        id: memUser.id,
+        studentId: memUser.studentId,
+        displayName: memUser.displayName || null,
+        section: memUser.section,
+        createdAt: memUser.createdAt,
+      };
+    }
+
+    return null;
   }
 
-  /**
-   * Saves or updates the EduSecure session cookies for a given user.
-   * SECURITY: Session cookies are encrypted at rest using AES-256-GCM. Plaintext passwords are NEVER saved.
-   * @param {string} userId 
-   * @param {string} sessionCookies 
-   */
   saveEduSecureSession(userId, sessionCookies) {
     if (!userId || !sessionCookies) return;
 
     const encryptedData = encrypt(sessionCookies);
     const now = new Date().toISOString();
+    memEduSessions.set(userId, { userId, sessionCookies, updatedAt: now });
 
-    const existing = db
-      .select()
-      .from(schema.edusecureSessions)
-      .where(eq(schema.edusecureSessions.userId, userId))
-      .get();
-
-    if (existing) {
-      db.update(schema.edusecureSessions)
-        .set({
-          encryptedSessionData: encryptedData,
-          updatedAt: now,
-        })
+    try {
+      const existing = db
+        .select()
+        .from(schema.edusecureSessions)
         .where(eq(schema.edusecureSessions.userId, userId))
-        .run();
-    } else {
-      db.insert(schema.edusecureSessions)
-        .values({
-          id: crypto.randomUUID(),
-          userId,
-          encryptedSessionData: encryptedData,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
+        .get();
+
+      if (existing) {
+        db.update(schema.edusecureSessions)
+          .set({
+            encryptedSessionData: encryptedData,
+            updatedAt: now,
+          })
+          .where(eq(schema.edusecureSessions.userId, userId))
+          .run();
+      } else {
+        db.insert(schema.edusecureSessions)
+          .values({
+            id: crypto.randomUUID(),
+            userId,
+            encryptedSessionData: encryptedData,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .run();
+      }
+    } catch (err) {
+      console.error("SQLite saveEduSecureSession failed, saved to memory store:", err.message);
     }
   }
 
-  /**
-   * Gets EduSecure session for a user and decrypts cookies.
-   * @param {string} userId 
-   * @returns {{userId: string, sessionCookies: string, updatedAt: string} | null}
-   */
   getEduSecureSession(userId) {
     if (!userId) return null;
 
-    const record = db
-      .select()
-      .from(schema.edusecureSessions)
-      .where(eq(schema.edusecureSessions.userId, userId))
-      .get();
+    try {
+      const record = db
+        .select()
+        .from(schema.edusecureSessions)
+        .where(eq(schema.edusecureSessions.userId, userId))
+        .get();
 
-    if (!record || !record.encryptedSessionData) return null;
-
-    const decryptedCookies = decrypt(record.encryptedSessionData);
-    if (!decryptedCookies) {
-      return null;
+      if (record && record.encryptedSessionData) {
+        const decryptedCookies = decrypt(record.encryptedSessionData);
+        if (decryptedCookies) {
+          return {
+            userId: record.userId,
+            sessionCookies: decryptedCookies,
+            updatedAt: record.updatedAt,
+          };
+        }
+      }
+    } catch (err) {
+      console.error("SQLite getEduSecureSession failed, checking memory store:", err.message);
     }
 
-    return {
-      userId: record.userId,
-      sessionCookies: decryptedCookies,
-      updatedAt: record.updatedAt,
-    };
+    return memEduSessions.get(userId) || null;
   }
 
-  /**
-   * Removes EduSecure session for a user (e.g. on session expiration).
-   * @param {string} userId 
-   */
   removeEduSecureSession(userId) {
     if (!userId) return;
-    db.delete(schema.edusecureSessions)
-      .where(eq(schema.edusecureSessions.userId, userId))
-      .run();
+    memEduSessions.delete(userId);
+    try {
+      db.delete(schema.edusecureSessions)
+        .where(eq(schema.edusecureSessions.userId, userId))
+        .run();
+    } catch {}
   }
 
-  /**
-   * Creates a new authenticated app session token for the user (30 days validity).
-   * @param {string} userId 
-   * @returns {string} token
-   */
   createAppSession(userId) {
     const token = crypto.randomBytes(32).toString("hex");
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const expiresAt = Date.now() + THIRTY_DAYS_MS;
-    const now = new Date().toISOString();
+    const createdAt = new Date().toISOString();
 
-    db.insert(schema.appSessions)
-      .values({
-        token,
-        userId,
-        expiresAt,
-        createdAt: now,
-      })
-      .run();
+    memAppSessions.set(token, { token, userId, expiresAt });
+
+    try {
+      db.insert(schema.appSessions)
+        .values({
+          token,
+          userId,
+          expiresAt,
+          createdAt,
+        })
+        .run();
+    } catch (err) {
+      console.error("SQLite createAppSession failed, saved to memory store:", err.message);
+    }
 
     return token;
   }
 
-  /**
-   * Validates app session token and returns the user object if valid.
-   * @param {string} token 
-   * @returns {{token: string, user: {id: string, studentId: string}} | null}
-   */
   getAppSession(token) {
     if (!token) return null;
 
-    const session = db
-      .select()
-      .from(schema.appSessions)
-      .where(eq(schema.appSessions.token, token))
-      .get();
-
-    if (!session) return null;
-
-    if (Date.now() > session.expiresAt) {
-      db.delete(schema.appSessions)
+    try {
+      const session = db
+        .select()
+        .from(schema.appSessions)
         .where(eq(schema.appSessions.token, token))
-        .run();
+        .get();
+
+      if (session) {
+        if (Date.now() > session.expiresAt) {
+          try {
+            db.delete(schema.appSessions)
+              .where(eq(schema.appSessions.token, token))
+              .run();
+          } catch {}
+          return null;
+        }
+
+        const user = this.getUserById(session.userId);
+        if (user) {
+          return { token: session.token, user };
+        }
+      }
+    } catch (err) {
+      console.error("SQLite getAppSession failed, checking memory store:", err.message);
+    }
+
+    const memSession = memAppSessions.get(token);
+    if (!memSession) return null;
+    if (Date.now() > memSession.expiresAt) {
+      memAppSessions.delete(token);
       return null;
     }
 
-    const user = this.getUserById(session.userId);
-    if (!user) {
-      db.delete(schema.appSessions)
-        .where(eq(schema.appSessions.token, token))
-        .run();
-      return null;
-    }
+    const user = this.getUserById(memSession.userId);
+    if (!user) return null;
 
     return {
-      token: session.token,
+      token: memSession.token,
       user,
     };
   }
 
-  /**
-   * Destroys an app session by token.
-   * @param {string} token 
-   */
   destroyAppSession(token) {
     if (!token) return;
-    db.delete(schema.appSessions)
-      .where(eq(schema.appSessions.token, token))
-      .run();
+    memAppSessions.delete(token);
+    try {
+      db.delete(schema.appSessions)
+        .where(eq(schema.appSessions.token, token))
+        .run();
+    } catch {}
+  }
+
+  updateSection(userId, section) {
+    if (!userId) return;
+    const u = memUsers.get(userId);
+    if (u) u.section = section;
+
+    try {
+      db.update(schema.users)
+        .set({ section, updatedAt: new Date().toISOString() })
+        .where(eq(schema.users.id, userId))
+        .run();
+    } catch (err) {
+      console.error("SQLite updateSection failed, updated memory store:", err.message);
+    }
   }
 
   /**
-   * Updates the section for a user.
+   * Updates the display name (real student name) for a user.
    * @param {string} userId
-   * @param {string|null} section
+   * @param {string|null} displayName
    */
-  updateSection(userId, section) {
-    if (!userId) return;
+  updateDisplayName(userId, displayName) {
+    if (!userId || !displayName) return;
     db.update(schema.users)
-      .set({ section, updatedAt: new Date().toISOString() })
+      .set({ displayName, updatedAt: new Date().toISOString() })
       .where(eq(schema.users.id, userId))
       .run();
   }
@@ -318,3 +401,4 @@ const sessionService = new SessionService();
 
 module.exports = sessionService;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
+module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;

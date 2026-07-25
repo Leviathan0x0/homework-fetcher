@@ -90,8 +90,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   useEffect(() => {
     fetchConversations();
     const interval = setInterval(() => {
-      fetchConversations();
-    }, 2500);
+      if (document.visibilityState === 'visible') fetchConversations();
+    }, 6000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
@@ -139,31 +139,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
 
-    const unsubscribeWebSocket = messagingService.subscribeToMessages(activeConvId, (incomingMsg) => {
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === incomingMsg.id)) return prev;
-        return [...prev, incomingMsg as Message];
-      });
-      messagingService.markAsRead(activeConvId);
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeConvId
-            ? {
-                ...c,
-                lastMessagePreview: incomingMsg.attachmentUrl ? '[Attachment]' : incomingMsg.content.substring(0, 80),
-                lastMessageAt: incomingMsg.createdAt,
-              }
-            : c
-        )
-      );
-    });
-
     const messageInterval = setInterval(() => {
-      fetchMessages(activeConvId, true);
-    }, 2000);
+      if (document.visibilityState === 'visible') fetchMessages(activeConvId, true);
+    }, 3000);
 
     return () => {
-      unsubscribeWebSocket();
       clearInterval(messageInterval);
     };
   }, [activeConvId, fetchMessages, currentStudentId]);

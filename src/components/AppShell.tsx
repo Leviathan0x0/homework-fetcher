@@ -115,16 +115,16 @@ export const AppShell: React.FC = () => {
   const fetchUnreadCount = useCallback(async () => {
     try {
       if (!user) return;
-      const list = await notificationService.getNotifications(user.id);
-      const unread = list.filter((n: any) => !n.isRead).length;
-      setUnreadCount(unread);
+      setUnreadCount(await notificationService.getUnreadCount());
     } catch {}
   }, [user]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 3000);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchUnreadCount();
+    }, 20000);
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchUnreadCount]);
 

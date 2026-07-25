@@ -25,6 +25,7 @@
     "@radix-ui/react-slot": "^1.1.2",
     "@tanstack/react-table": "^8.21.3",
     "@types/cookie-parser": "^1.4.10",
+    "appwrite": "^26.2.0",
     "better-sqlite3": "^13.0.1",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",

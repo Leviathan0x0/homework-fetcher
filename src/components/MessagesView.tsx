@@ -136,11 +136,38 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
 
+    // Appwrite Realtime WebSocket Subscription
+    const unsubscribeWebSocket = messagingService.subscribeToMessages(activeConvId, (incomingMsg) => {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === incomingMsg.id)) return prev;
+        const formatted: Message = {
+          ...incomingMsg,
+          isMine: incomingMsg.senderStudentId === currentStudentId || incomingMsg.senderId === currentStudentId
+        };
+        return [...prev, formatted];
+      });
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConvId
+            ? {
+                ...c,
+                lastMessagePreview: incomingMsg.attachmentUrl ? '[Attachment]' : incomingMsg.content.substring(0, 80),
+                lastMessageAt: incomingMsg.createdAt,
+              }
+            : c
+        )
+      );
+    });
+
     const messageInterval = setInterval(() => {
       fetchMessages(activeConvId, true);
     }, 2000);
-    return () => clearInterval(messageInterval);
-  }, [activeConvId, fetchMessages]);
+
+    return () => {
+      unsubscribeWebSocket();
+      clearInterval(messageInterval);
+    };
+  }, [activeConvId, fetchMessages, currentStudentId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

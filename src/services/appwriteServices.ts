@@ -1,4 +1,4 @@
-import { account, databases, storage, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
+import { client, account, databases, storage, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
 import { ID, Query } from "appwrite";
 import { Message } from "../types/homework";
 
@@ -480,6 +480,40 @@ export function getOtherStudentId(convId: string, currentStudentId: string): str
 
 // --- MESSAGING SERVICE ---
 export const messagingService = {
+  subscribeToMessages(convId: string, onMessageReceived: (message: Message) => void) {
+    try {
+      const channel = `databases.${APPWRITE_DATABASE_ID}.collections.${COLLECTIONS.MESSAGES}.documents`;
+      const unsubscribe = client.subscribe(channel, (response: any) => {
+        if (
+          response &&
+          response.events &&
+          response.events.some((e: string) => e.includes(".create") || e.includes(".update")) &&
+          response.payload
+        ) {
+          const payload = response.payload;
+          const msgConvId = payload.conversation_id || payload.conversationId;
+          if (msgConvId === convId) {
+            const newMsg: Message = {
+              id: payload.$id || payload.id,
+              conversationId: msgConvId,
+              senderId: payload.sender_id || payload.senderId,
+              senderStudentId: payload.sender_student_id || payload.senderId || payload.sender_id,
+              content: payload.content || "",
+              attachmentUrl: payload.attachment_url || payload.attachmentUrl || null,
+              createdAt: payload.$createdAt || payload.createdAt || new Date().toISOString(),
+              isMine: false,
+            };
+            onMessageReceived(newMsg);
+          }
+        }
+      });
+      return unsubscribe;
+    } catch (err) {
+      console.warn("Appwrite Realtime subscription error:", err);
+      return () => {};
+    }
+  },
+
   async getConversations(currentStudentId: string) {
     let rawList: any[] = [];
 

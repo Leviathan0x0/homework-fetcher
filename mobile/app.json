@@ -7,7 +7,9 @@
     "scheme": "homework",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.homeworkfetcher.mobile",
@@ -23,7 +25,10 @@
       "adaptiveIcon": {
         "backgroundColor": "#0B0B0F"
       },
-      "permissions": ["android.permission.CAMERA", "android.permission.INTERNET"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET"
+      ]
     },
     "plugins": [
       [
@@ -49,7 +54,9 @@
           "cameraPermission": "Take a photo of your classwork to share with your section."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

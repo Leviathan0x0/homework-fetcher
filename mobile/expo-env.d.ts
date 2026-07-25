@@ -1,9 +1,3 @@
 /// <reference types="expo/types" />
 
-// Public (client-visible) environment variables. EXPO_PUBLIC_* values are
-// inlined at build time, so only non-secret configuration belongs here.
-declare namespace NodeJS {
-  interface ProcessEnv {
-    readonly EXPO_PUBLIC_API_BASE_URL?: string;
-  }
-}
+// NOTE: This file should not be edited and should be in your git ignore

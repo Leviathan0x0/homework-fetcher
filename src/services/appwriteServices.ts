@@ -98,10 +98,26 @@ export const authService = {
     }
 
     const updatedUser = await account.get();
+    const finalSection = (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "Section 9-F");
+
+    // Upsert real student user document in Appwrite USERS collection
+    try {
+      await databases.createDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.USERS,
+        updatedUser.$id,
+        {
+          student_id: cleanId,
+          user_id: updatedUser.$id,
+          section: finalSection,
+        }
+      );
+    } catch {}
+
     return {
       id: updatedUser.$id,
       studentId: updatedUser.name || cleanId,
-      section: (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "Section 9-F"),
+      section: finalSection,
     };
   },
 
@@ -419,24 +435,43 @@ export const messagingService = {
     const q = query.trim().toLowerCase();
     if (!q) return [];
 
-    const defaultStudents = [
-      { id: "student1", studentId: "student1", section: "Section 9-F" },
-      { id: "student2", studentId: "student2", section: "Section 9-F" },
-      { id: "student3", studentId: "student3", section: "Section 9-F" },
-      { id: "student4", studentId: "student4", section: "Section 9-F" },
-      { id: "student5", studentId: "student5", section: "Section 9-F" },
-      { id: "student6", studentId: "student6", section: "Section 9-F" },
-      { id: "student7", studentId: "student7", section: "Section 9-F" },
-      { id: "student8", studentId: "student8", section: "Section 9-F" },
-      { id: "student9", studentId: "student9", section: "Section 9-F" },
-      { id: "student10", studentId: "student10", section: "Section 9-F" },
-    ];
+    let usersList: any[] = [];
 
-    if (!q.startsWith("student")) {
-      defaultStudents.push({ id: q, studentId: q, section: "Section 9-F" });
+    // Query Appwrite USERS collection for registered accounts
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.USERS,
+        [Query.limit(100)]
+      );
+      if (response && response.documents && response.documents.length > 0) {
+        usersList = response.documents.map((doc: any) => ({
+          id: doc.user_id || doc.$id,
+          studentId: doc.student_id || doc.studentId,
+          section: doc.section || "Section 9-F",
+        }));
+      }
+    } catch (err) {
+      console.warn("Appwrite USERS query fallback:", err);
     }
 
-    return defaultStudents.filter((s) => s.studentId.toLowerCase().includes(q));
+    const seedAccounts = [
+      { id: "student1", studentId: "student1", section: "Section 9-F" },
+      { id: "student2", studentId: "student2", section: "Section 9-F" },
+      { id: "kiaan", studentId: "kiaan", section: "Section 9-F" },
+      ...usersList
+    ];
+
+    const uniqueMap = new Map<string, any>();
+    seedAccounts.forEach((u) => {
+      if (u.studentId) {
+        uniqueMap.set(u.studentId.toLowerCase(), u);
+      }
+    });
+
+    const allRealUsers = Array.from(uniqueMap.values());
+
+    return allRealUsers.filter((s) => s.studentId.toLowerCase().includes(q));
   },
 
   async startConversation(participantId: string) {

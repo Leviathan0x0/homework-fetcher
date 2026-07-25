@@ -125,11 +125,11 @@ async function loginToEduSecure(studentId, password) {
     if (val && !sessionOptions.includes(val)) sessionOptions.push(val);
   });
 
-  // Prioritize active academic session "2025-2026" first, then remaining options
-  if (sessionOptions.includes("2025-2026")) {
-    sessionOptions.sort((a, b) => (a === "2025-2026" ? -1 : b === "2025-2026" ? 1 : 0));
+  // Prioritize session "2026-2027" first, then fallback to "2025-2026" and remaining options
+  if (sessionOptions.includes("2026-2027")) {
+    sessionOptions.sort((a, b) => (a === "2026-2027" ? -1 : b === "2026-2027" ? 1 : 0));
   }
-  if (sessionOptions.length === 0) sessionOptions.push("2025-2026");
+  if (sessionOptions.length === 0) sessionOptions.push("2026-2027", "2025-2026");
 
   let portalUnreachableError = null;
 

@@ -21,10 +21,16 @@ function stripTrailingSlash(value: string): string {
 function deriveFromMetroHost(): string | null {
   // e.g. "192.168.1.42:8081" while running `expo start`.
   const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost;
-  if (!hostUri) return null;
-  const host = hostUri.split(":")[0];
-  if (!host) return null;
-  return `http://${host}:${DEFAULT_LOCAL_API_PORT}`;
+  if (hostUri) {
+    const host = hostUri.split(":")[0];
+    if (host) return `http://${host}:${DEFAULT_LOCAL_API_PORT}`;
+  }
+  // In web environment, derive host from window.location.hostname
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const host = window.location.hostname || "localhost";
+    return `http://${host}:${DEFAULT_LOCAL_API_PORT}`;
+  }
+  return null;
 }
 
 function resolveBaseUrl(): string | null {

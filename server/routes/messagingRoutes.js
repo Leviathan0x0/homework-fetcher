@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema, isRemote } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
 const { createNotifications } = require("../notifications/notificationService");
@@ -15,15 +16,6 @@ const {
 
 const router = express.Router();
 
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-  if (!activeSession) {
-    return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
-  }
-  req.user = activeSession.user;
-  next();
-}
 
 async function isParticipant(conversationId, userId) {
   const row = await db

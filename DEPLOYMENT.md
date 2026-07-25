@@ -73,6 +73,25 @@ a missing build or a misconfigured database; a misconfigured database now answer
 `503` and the exact reason in the JSON body. Check the function logs in Vercel → Deployments →
 Functions for the logged message.
 
+## Authenticating a native mobile client
+
+The web app authenticates with the httpOnly `app_session` cookie. Native clients cannot rely on
+cookie storage, so `POST /api/auth/login` also returns the same signed token in the response body:
+
+```json
+{ "authenticated": true, "token": "<session token>", "user": { "id": "…", "studentId": "…" } }
+```
+
+Store it securely on the device and send it on every request:
+
+```
+Authorization: Bearer <token>
+```
+
+Both transports resolve to the same session, so the web app is unaffected. The token expires after
+30 days; treat any `401` as "signed out" and return to the login screen. When the API and the client
+are on different origins, add the client origin to `ALLOWED_ORIGINS`.
+
 ## Limits and safeguards
 
 | Safeguard | Value |

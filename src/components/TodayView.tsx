@@ -6,7 +6,8 @@ import { HomeworkCard } from './HomeworkCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
-import { RefreshCw } from 'lucide-react';
+import { PageHeader } from './PageHeader';
+import { RefreshButton } from './RefreshButton';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -52,29 +53,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-neutral-200/60 dark:border-neutral-800/60 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-50 tracking-tight">
-            Today's homework
-          </h1>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-medium">
-            {dateStr}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onRefresh(true)}
-            disabled={isLoading || isRefreshing}
-            className="group/ref inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] text-xs font-semibold text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors duration-150 shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
-            title="Refresh homework from school server"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 transition-transform duration-300 ${(isLoading || isRefreshing) ? 'animate-spin' : 'group-hover/ref:rotate-180'}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Today's homework"
+        description={dateStr}
+        actions={
+          <RefreshButton
+            onRefresh={() => onRefresh(true)}
+            isRefreshing={isLoading || isRefreshing}
+          />
+        }
+      />
 
       {/* Subject Filter Pills */}
       <SubjectFilterPills

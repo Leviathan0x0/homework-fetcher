@@ -15,6 +15,7 @@ import {
   Eye,
   FileText,
   Download,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MessagesViewProps {

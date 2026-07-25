@@ -54,16 +54,11 @@ export const authService = {
       const section = (user.prefs && user.prefs.section) ? user.prefs.section : "Section 9-F";
 
       try {
-        await databases.createDocument(
-          APPWRITE_DATABASE_ID,
-          COLLECTIONS.USERS,
-          user.$id,
-          {
-            student_id: studentId,
-            user_id: user.$id,
-            section: section,
-          }
-        );
+        fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId, id: user.$id, section })
+        }).catch(() => {});
       } catch {}
 
       return {
@@ -114,18 +109,12 @@ export const authService = {
     const updatedUser = await account.get();
     const finalSection = (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "Section 9-F");
 
-    // Upsert real student user document in Appwrite USERS collection
     try {
-      await databases.createDocument(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.USERS,
-        updatedUser.$id,
-        {
-          student_id: cleanId,
-          user_id: updatedUser.$id,
-          section: finalSection,
-        }
-      );
+      fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId: cleanId, id: updatedUser.$id, section: finalSection })
+      }).catch(() => {});
     } catch {}
 
     return {
@@ -451,7 +440,20 @@ export const messagingService = {
 
     let usersList: any[] = [];
 
-    // Query Appwrite USERS collection for registered accounts
+    // 1. Query serverless user registry
+    try {
+      const res = await fetch(`/api/users?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.users)) {
+          usersList = data.users;
+        }
+      }
+    } catch (err) {
+      console.warn("User directory search error:", err);
+    }
+
+    // 2. Query Appwrite USERS collection if available
     try {
       const response = await databases.listDocuments(
         APPWRITE_DATABASE_ID,
@@ -459,15 +461,15 @@ export const messagingService = {
         [Query.limit(100)]
       );
       if (response && response.documents && response.documents.length > 0) {
-        usersList = response.documents.map((doc: any) => ({
-          id: doc.user_id || doc.$id,
-          studentId: doc.student_id || doc.studentId,
-          section: doc.section || "Section 9-F",
-        }));
+        response.documents.forEach((doc: any) => {
+          usersList.push({
+            id: doc.user_id || doc.$id,
+            studentId: doc.student_id || doc.studentId,
+            section: doc.section || "Section 9-F",
+          });
+        });
       }
-    } catch (err) {
-      console.warn("Appwrite USERS query fallback:", err);
-    }
+    } catch {}
 
     const uniqueMap = new Map<string, any>();
     usersList.forEach((u) => {

@@ -1,12 +1,6 @@
 // Serverless user directory handler for Vercel
 const registeredUsersMap = new Map();
 
-// Initial known users
-const initialUsers = [
-  { id: "student2", studentId: "student2", section: "Section 9-F" }
-];
-initialUsers.forEach(u => registeredUsersMap.set(u.studentId.toLowerCase(), u));
-
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -21,7 +15,7 @@ module.exports = async (req, res) => {
       const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
       const studentId = (body.studentId || "").trim();
       const id = body.id || studentId;
-      const section = body.section || "Section 9-F";
+      const section = body.section || "";
 
       if (studentId) {
         registeredUsersMap.set(studentId.toLowerCase(), {

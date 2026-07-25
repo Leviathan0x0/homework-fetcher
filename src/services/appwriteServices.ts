@@ -51,7 +51,7 @@ export const authService = {
       const user = await account.get();
       if (!user) return null;
       const studentId = user.name || user.email.split("@")[0];
-      const section = (user.prefs && user.prefs.section) ? user.prefs.section : "Section 9-F";
+      const section = (user.prefs && user.prefs.section) ? user.prefs.section : "";
 
       try {
         fetch("/api/users", {
@@ -107,7 +107,7 @@ export const authService = {
     }
 
     const updatedUser = await account.get();
-    const finalSection = (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "Section 9-F");
+    const finalSection = (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "");
 
     try {
       fetch("/api/users", {
@@ -465,7 +465,7 @@ export const messagingService = {
           usersList.push({
             id: doc.user_id || doc.$id,
             studentId: doc.student_id || doc.studentId,
-            section: doc.section || "Section 9-F",
+            section: doc.section || "",
           });
         });
       }
@@ -488,7 +488,7 @@ export const messagingService = {
       otherUser: {
         id: participantId,
         studentId: participantId,
-        section: "Section 9-F",
+        section: "",
       }
     };
   }

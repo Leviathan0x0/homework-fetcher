@@ -1,4 +1,4 @@
-import { account, databases, APPWRITE_DATABASE_ID, COLLECTIONS } from "../lib/appwrite";
+import { account, databases, storage, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
 import { ID, Query } from "appwrite";
 
 // Helper to convert Student ID into standard email format for Appwrite Auth
@@ -71,16 +71,14 @@ export const authService = {
     const email = studentIdToEmail(cleanId);
 
     try {
-      // Attempt login with existing Appwrite credentials
       await account.createEmailPasswordSession(email, pass);
     } catch (authErr: any) {
-      // If user account doesn't exist yet, auto-provision and create user account on the fly!
       if (authErr && (authErr.code === 401 || authErr.code === 404 || authErr.type === "user_not_found" || authErr.type === "user_invalid_credentials")) {
         try {
           await account.create(ID.unique(), email, pass, cleanId);
           await account.createEmailPasswordSession(email, pass);
         } catch (createErr: any) {
-          throw new Error("Invalid student ID or password.");
+          throw new Error(createErr.message || "Invalid student ID or password.");
         }
       } else {
         throw new Error(authErr.message || "Authentication failed.");
@@ -152,5 +150,206 @@ export const homeworkService = {
         { note }
       );
     } catch {}
+  }
+};
+
+// --- CLASSWORK SERVICE ---
+export const classworkService = {
+  async getClasswork(section: string = "Section 10-A") {
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.CLASSWORK_UPLOADS,
+        [Query.orderDesc("$createdAt"), Query.limit(100)]
+      );
+
+      if (response && response.documents) {
+        return response.documents.map((doc: any) => ({
+          id: doc.$id || doc.id,
+          title: doc.title || doc.filename || "Classwork Attachment",
+          filename: doc.filename || "attachment",
+          originalName: doc.originalName || doc.filename || "attachment",
+          mimeType: doc.mimeType || "application/octet-stream",
+          fileSize: doc.fileSize || 1024,
+          fileUrl: doc.fileUrl || (doc.fileId ? storage.getFileView(APPWRITE_BUCKET_ID, doc.fileId).toString() : "#"),
+          fileId: doc.fileId || null,
+          subject: doc.subject || "General",
+          uploadedBy: doc.uploadedBy || "Student",
+          uploaderId: doc.uploaderId || "",
+          section: doc.section || section,
+          createdAt: doc.$createdAt || doc.createdAt || new Date().toISOString(),
+        }));
+      }
+    } catch (err) {
+      console.warn("Appwrite Classwork query fallback:", err);
+    }
+    return [];
+  },
+
+  async uploadClasswork(file: File, subject: string, title?: string, section?: string, user?: any) {
+    try {
+      const uploadedFile = await storage.createFile(
+        APPWRITE_BUCKET_ID,
+        ID.unique(),
+        file
+      );
+
+      const fileUrl = storage.getFileView(APPWRITE_BUCKET_ID, uploadedFile.$id).toString();
+
+      const newDoc = await databases.createDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.CLASSWORK_UPLOADS,
+        ID.unique(),
+        {
+          title: title || file.name,
+          filename: file.name,
+          originalName: file.name,
+          mimeType: file.type || "application/octet-stream",
+          fileSize: file.size,
+          fileUrl: fileUrl,
+          fileId: uploadedFile.$id,
+          subject: subject,
+          uploadedBy: user?.studentId || "Student",
+          uploaderId: user?.id || "",
+          section: section || user?.section || "Section 10-A",
+          createdAt: new Date().toISOString(),
+        }
+      );
+
+      return {
+        id: newDoc.$id,
+        title: newDoc.title,
+        filename: newDoc.filename,
+        originalName: newDoc.originalName,
+        mimeType: newDoc.mimeType,
+        fileSize: newDoc.fileSize,
+        fileUrl: newDoc.fileUrl,
+        fileId: newDoc.fileId,
+        subject: newDoc.subject,
+        uploadedBy: newDoc.uploadedBy,
+        uploaderId: newDoc.uploaderId,
+        section: newDoc.section,
+        createdAt: newDoc.createdAt,
+      };
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to upload file to Appwrite Storage.");
+    }
+  },
+
+  async deleteClasswork(id: string, fileId?: string) {
+    try {
+      if (fileId) {
+        try {
+          await storage.deleteFile(APPWRITE_BUCKET_ID, fileId);
+        } catch {}
+      }
+      await databases.deleteDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.CLASSWORK_UPLOADS,
+        id
+      );
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to delete file.");
+    }
+  }
+};
+
+// --- NOTIFICATION SERVICE ---
+export const notificationService = {
+  async getNotifications(userId: string) {
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.NOTIFICATIONS,
+        [Query.equal("user_id", userId), Query.orderDesc("$createdAt"), Query.limit(50)]
+      );
+      if (res && res.documents) {
+        return res.documents.map((doc: any) => ({
+          id: doc.$id,
+          userId: doc.user_id,
+          type: doc.type,
+          title: doc.title,
+          body: doc.body,
+          link: doc.link,
+          referenceId: doc.reference_id,
+          isRead: doc.is_read ? 1 : 0,
+          createdAt: doc.$createdAt,
+        }));
+      }
+    } catch {}
+    return [];
+  },
+
+  async markAsRead(id: string) {
+    try {
+      await databases.updateDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.NOTIFICATIONS,
+        id,
+        { is_read: 1 }
+      );
+    } catch {}
+  },
+
+  async markAllAsRead(userId: string) {
+    try {
+      const list = await this.getNotifications(userId);
+      for (const n of list) {
+        if (!n.isRead) {
+          await this.markAsRead(n.id);
+        }
+      }
+    } catch {}
+  }
+};
+
+// --- REQUESTS SERVICE ---
+export const requestService = {
+  async getRequests(section?: string) {
+    try {
+      const res = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.SECTION_REQUESTS,
+        [Query.orderDesc("$createdAt"), Query.limit(50)]
+      );
+      if (res && res.documents) {
+        return res.documents.map((doc: any) => ({
+          id: doc.$id,
+          userId: doc.user_id,
+          studentId: doc.student_id,
+          section: doc.section,
+          status: doc.status || "pending",
+          createdAt: doc.$createdAt,
+        }));
+      }
+    } catch {}
+    return [];
+  },
+
+  async createRequest(userId: string, studentId: string, section: string) {
+    try {
+      const doc = await databases.createDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.SECTION_REQUESTS,
+        ID.unique(),
+        {
+          user_id: userId,
+          student_id: studentId,
+          section,
+          status: "pending",
+          createdAt: new Date().toISOString(),
+        }
+      );
+      return {
+        id: doc.$id,
+        userId: doc.user_id,
+        studentId: doc.student_id,
+        section: doc.section,
+        status: doc.status,
+        createdAt: doc.createdAt,
+      };
+    } catch (err: any) {
+      throw new Error(err.message || "Failed to create section request.");
+    }
   }
 };

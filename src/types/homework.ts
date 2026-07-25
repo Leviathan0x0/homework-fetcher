@@ -23,16 +23,20 @@ export interface FetchHomeworkResponse {
 
 export interface ClassworkEntry {
   id: string;
-  studentId: string;
-  section: string;
+  studentId?: string;
+  section?: string;
   subject: string;
   title?: string | null;
-  date: string;
+  date?: string;
   fileUrl: string;
-  originalFilename: string;
+  filename?: string;
+  originalFilename?: string;
   fileSize: number;
   mimeType: string;
   createdAt: string;
+  fileId?: string | null;
+  uploadedBy?: string;
+  uploaderId?: string;
   isOwner?: boolean;
 }
 

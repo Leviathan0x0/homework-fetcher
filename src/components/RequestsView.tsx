@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../lib/api';
+import { requestService, authService } from '../services/appwriteServices';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
@@ -55,16 +55,14 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await apiFetch('/api/requests', { headers: { Accept: 'application/json' } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch requests.');
-      setRequests(data.requests || []);
+      const list = await requestService.getRequests(userSection);
+      setRequests(list as any);
     } catch (err: any) {
-      setErrorMessage(err.message || 'Unable to load requests.');
+      setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load requests.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userSection]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
@@ -76,20 +74,19 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
     setIsSubmitting(true);
     try {
-      const res = await apiFetch('/api/requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), category: formCategory === 'Other' ? null : formCategory }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create request.');
-      setRequests((prev) => [data.request, ...prev]);
+      const user = await authService.getCurrentUser();
+      const newReq = await requestService.createRequest(
+        user?.id || 'anon',
+        user?.studentId || 'Student',
+        userSection || 'Section 10-A'
+      );
+      setRequests((prev) => [newReq as any, ...prev]);
       setIsFormOpen(false);
       setFormTitle('');
       setFormContent('');
       setFormCategory('Help');
     } catch (err: any) {
-      setFormError(err.message || 'Failed to create request.');
+      setFormError(typeof err?.message === 'string' ? err.message : 'Failed to create request.');
     } finally {
       setIsSubmitting(false);
     }
@@ -98,12 +95,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'open' ? 'completed' : 'open';
     try {
-      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ status: next }),
-      });
-      if (!res.ok) throw new Error();
       setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: next as 'open' | 'completed' } : r)));
     } catch { alert('Failed to update request.'); }
   };
@@ -112,8 +103,6 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     if (!confirm('Delete this request?')) return;
     setDeletingId(id);
     try {
-      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
       setRequests((prev) => prev.filter((r) => r.id !== id));
     } catch { alert('Failed to delete request.'); }
     finally { setDeletingId(null); }
@@ -124,14 +113,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleHelp = async (creatorUserId: string, requestId: string) => {
     setHelpingId(requestId);
     try {
-      const res = await apiFetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ participantId: creatorUserId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Could not start conversation');
-      onNavigate?.(`messages:${data.conversationId}`);
+      onNavigate?.(`messages:${creatorUserId}`);
     } catch (err: any) {
       alert(err.message || 'Could not start conversation with requester.');
     } finally {

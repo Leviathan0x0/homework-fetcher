@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../lib/api';
+import { notificationService } from '../services/appwriteServices';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -103,14 +103,12 @@ export const AppShell: React.FC = () => {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/notifications/unread-count', {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setUnreadCount(data.count || 0);
+      if (!user) return;
+      const list = await notificationService.getNotifications(user.id);
+      const unread = list.filter((n: any) => !n.isRead).length;
+      setUnreadCount(unread);
     } catch {}
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

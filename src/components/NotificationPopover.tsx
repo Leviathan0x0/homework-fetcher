@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { apiFetch } from '../lib/api';
+import { notificationService, authService } from '../services/appwriteServices';
 import { AppNotification } from '../types/homework';
 import { Bell, X, CheckCheck, Loader2, UploadCloud, Handshake, MessageCircle, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -28,11 +28,17 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ unread
   useEffect(() => {
     if (!isOpen) return;
     setIsLoading(true);
-    apiFetch('/api/notifications', { headers: { Accept: 'application/json' } })
-      .then((r) => r.json())
-      .then((data) => setNotifications(data.notifications || []))
-      .catch(() => {})
-      .finally(() => setIsLoading(false));
+    authService.getCurrentUser().then((user) => {
+      if (!user) {
+        setNotifications([]);
+        setIsLoading(false);
+        return;
+      }
+      notificationService.getNotifications(user.id)
+        .then((list) => setNotifications(list))
+        .catch(() => setNotifications([]))
+        .finally(() => setIsLoading(false));
+    });
   }, [isOpen]);
 
   useEffect(() => {
@@ -47,7 +53,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ unread
 
   const handleMarkRead = async (id: string) => {
     try {
-      await apiFetch(`/api/notifications/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+      await notificationService.markAsRead(id);
       setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: 1 } : n)));
       onCountChange(Math.max(0, unreadCount - 1));
     } catch {}
@@ -55,7 +61,10 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ unread
 
   const handleMarkAllRead = async () => {
     try {
-      await apiFetch('/api/notifications/read-all', { method: 'POST' });
+      const user = await authService.getCurrentUser();
+      if (user) {
+        await notificationService.markAllAsRead(user.id);
+      }
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: 1 })));
       onCountChange(0);
     } catch {}

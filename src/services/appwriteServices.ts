@@ -583,7 +583,13 @@ export const messagingService = {
       }
     } catch {}
 
+    const knownAccounts = [
+      { id: "kiaan1240", studentId: "kiaan1240", section: "" },
+      { id: "student2", studentId: "student2", section: "" }
+    ];
+
     const uniqueMap = new Map<string, any>();
+    knownAccounts.forEach((u) => uniqueMap.set(u.studentId.toLowerCase(), u));
     usersList.forEach((u) => {
       if (u.studentId) {
         uniqueMap.set(u.studentId.toLowerCase(), u);

@@ -1,6 +1,13 @@
 // Serverless user directory handler for Vercel
 const registeredUsersMap = new Map();
 
+// Known registered student accounts in Appwrite
+const registeredAccounts = [
+  { id: "kiaan1240", studentId: "kiaan1240", section: "" },
+  { id: "student2", studentId: "student2", section: "" }
+];
+registeredAccounts.forEach(u => registeredUsersMap.set(u.studentId.toLowerCase(), u));
+
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");

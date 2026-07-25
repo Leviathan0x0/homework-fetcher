@@ -99,13 +99,12 @@ router.get("/classwork", requireAuth, async (req, res) => {
       return res.json({ section: null, count: 0, classwork: [] });
     }
 
-    let query = await db
+    const records = await db
       .select()
       .from(schema.classworkUploads)
       .where(eq(schema.classworkUploads.section, section))
-      .orderBy(desc(schema.classworkUploads.createdAt));
-
-    const records = query.all();
+      .orderBy(desc(schema.classworkUploads.createdAt))
+      .all();
 
     // Filter in-memory if optional query params are passed
     const filtered = records.filter((item) => {

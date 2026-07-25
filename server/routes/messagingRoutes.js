@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const { eq, desc, asc, and, or, sql, lt, gt } = require("drizzle-orm");
+const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { db, schema, isRemote } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
@@ -139,63 +139,61 @@ router.get("/conversations", requireAuth, async (req, res) => {
     if (participations.length === 0) return res.json({ conversations: [] });
 
     const convIds = participations.map((p) => p.conversationId);
-    const readMap = {};
-    for (const p of participations) {
-      readMap[p.conversationId] = p.lastReadAt;
-    }
+
+    // The other participant of each conversation, joined with their account, so
+    // the whole user table never has to be transferred.
+    const others = await db
+      .select({
+        conversationId: schema.conversationParticipants.conversationId,
+        id: schema.users.id,
+        studentId: schema.users.studentId,
+        displayName: schema.users.displayName,
+        section: schema.users.section,
+      })
+      .from(schema.conversationParticipants)
+      .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
+      .where(
+        and(
+          inArray(schema.conversationParticipants.conversationId, convIds),
+          ne(schema.conversationParticipants.userId, userId)
+        )
+      )
+      .all();
+
+    const otherByConv = {};
+    for (const row of others) otherByConv[row.conversationId] = row;
 
     const convs = await db
       .select()
       .from(schema.conversations)
+      .where(inArray(schema.conversations.id, convIds))
       .all();
-    const myConvs = convs.filter((c) => convIds.includes(c.id));
 
-    const otherParts = await db
-      .select()
-      .from(schema.conversationParticipants)
-      .all();
-    const userIds = new Set();
-    const otherMap = {};
-    for (const p of otherParts) {
-      if (convIds.includes(p.conversationId) && p.userId !== userId) {
-        otherMap[p.conversationId] = p.userId;
-        userIds.add(p.userId);
-      }
+    // Unread counts for every conversation in a single aggregate query.
+    const unreadRows = await db.all(sql`
+      SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
+      FROM messages m
+      JOIN conversation_participants p
+        ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
+      WHERE m.sender_id <> ${userId}
+        AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+      GROUP BY m.conversation_id
+    `);
+
+    const unreadByConv = {};
+    for (const row of unreadRows || []) {
+      const conversationId = row.conversation_id ?? row[0];
+      const unread = row.unread ?? row[1];
+      unreadByConv[conversationId] = Number(unread) || 0;
     }
 
-    const users = await db.select().from(schema.users).all();
-    const userMap = {};
-    for (const u of users) userMap[u.id] = u;
-
-    const allMessages = await db.select().from(schema.messages).all();
-    const msgByConv = {};
-    for (const m of allMessages) {
-      if (convIds.includes(m.conversationId)) {
-        if (!msgByConv[m.conversationId]) msgByConv[m.conversationId] = [];
-        msgByConv[m.conversationId].push(m);
-      }
-    }
-
-    const result = myConvs.map((c) => {
-      const msgs = msgByConv[c.id] || [];
-      msgs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const lastMsg = msgs[0];
-      const lastRead = readMap[c.id];
-      const unreadCount = lastRead
-        ? msgs.filter((m) => m.senderId !== userId && m.createdAt > lastRead).length
-        : msgs.filter((m) => m.senderId !== userId).length;
-
-      const otherUserId = otherMap[c.id];
-      const otherUser = otherUserId ? userMap[otherUserId] : null;
-
-      return {
-        id: c.id,
-        otherUser: toPublicUser(otherUser),
-        lastMessagePreview: c.lastMessagePreview || (lastMsg ? lastMsg.content.substring(0, 80) : null),
-        lastMessageAt: c.lastMessageAt || (lastMsg ? lastMsg.createdAt : c.createdAt),
-        unreadCount,
-      };
-    });
+    const result = convs.map((c) => ({
+      id: c.id,
+      otherUser: toPublicUser(otherByConv[c.id]),
+      lastMessagePreview: c.lastMessagePreview || null,
+      lastMessageAt: c.lastMessageAt || c.createdAt,
+      unreadCount: unreadByConv[c.id] || 0,
+    }));
 
     result.sort((a, b) => {
       if (!a.lastMessageAt) return 1;
@@ -334,7 +332,10 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       .orderBy(asc(schema.messages.createdAt))
       .all();
 
-    const senders = await db.select().from(schema.users).all();
+    const senderIds = [...new Set(msgs.map((m) => m.senderId))];
+    const senders = senderIds.length
+      ? await db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
+      : [];
     const senderMap = {};
     for (const sender of senders) senderMap[sender.id] = sender;
 

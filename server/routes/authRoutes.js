@@ -119,7 +119,9 @@ router.get("/me", async (req, res) => {
 
   let section = activeSession.user.section;
   let displayName = activeSession.user.displayName;
-  if (needsRefresh(section) || !displayName) {
+  // Only the section is worth re-fetching here; the display name is set by the
+  // student, so scraping the portal on every /me call would only add latency.
+  if (needsRefresh(section)) {
     try {
       const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {

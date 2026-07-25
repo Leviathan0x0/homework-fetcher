@@ -296,7 +296,7 @@ export const AppShell: React.FC = () => {
             <CompletedView
               homework={homework}
               isLoading={isLoading}
-              onRefresh={(force) => fetchHomework(force)}
+              onRefresh={(force?: boolean) => { fetchHomework(force); }}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}

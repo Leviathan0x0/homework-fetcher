@@ -6,7 +6,8 @@
  * (static hosting such as Appwrite Sites, Vercel, Netlify), the Express API lives
  * on a different origin and must be configured through VITE_API_BASE_URL.
  */
-const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").trim();
+const metaEnv = (import.meta as any).env || {};
+const RAW_API_BASE_URL = (metaEnv.VITE_API_BASE_URL || "").trim();
 
 export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
 

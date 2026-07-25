@@ -127,13 +127,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, [messages]);
 
   useEffect(() => {
-    if (previewMedia) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
+    if (!previewMedia) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
   }, [previewMedia]);
 
   const handleSend = async () => {

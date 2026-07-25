@@ -1,0 +1,59 @@
+{
+  "expo": {
+    "name": "Homework",
+    "slug": "homework-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "homework",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.homeworkfetcher.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Take a photo of your classwork to share with your section.",
+        "NSPhotoLibraryUsageDescription": "Attach photos of classwork or send them in a chat.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.homeworkfetcher.mobile",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0B0F"
+      },
+      "permissions": ["android.permission.CAMERA", "android.permission.INTERNET"]
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./app"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "backgroundColor": "#0B0B0F"
+          },
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach photos of classwork or send them in a chat.",
+          "cameraPermission": "Take a photo of your classwork to share with your section."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": false
+    }
+  }
+}

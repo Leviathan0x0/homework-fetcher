@@ -7,28 +7,22 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const BANNER_DISMISS_KEY = 'pwa_prompt_banner_dismissed_v4';
-const INSTALLED_KEY = 'pwa_app_installed_v4';
+const DISMISS_KEY = 'pwa_prompt_dismissed_v5';
+const INSTALLED_KEY = 'pwa_installed_v5';
 
 export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ variant = 'banner' }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
-  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
-    // Check if installed from localStorage
-    if (localStorage.getItem(INSTALLED_KEY) === 'true') {
-      setIsInstalled(true);
-      return;
+    // Check if user previously installed or dismissed
+    if (localStorage.getItem(INSTALLED_KEY) === 'true' || localStorage.getItem(DISMISS_KEY) === 'true') {
+      setIsDismissed(true);
     }
 
-    // Check if banner dismissed
-    if (localStorage.getItem(BANNER_DISMISS_KEY) === 'true') {
-      setBannerDismissed(true);
-    }
-
-    // Check if running in standalone PWA window
+    // Detect if running in standalone PWA window
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -36,8 +30,8 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
     if (isStandalone) {
       setIsInstalled(true);
+      setIsDismissed(true);
       localStorage.setItem(INSTALLED_KEY, 'true');
-      return;
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -47,7 +41,9 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
+      setIsDismissed(true);
       localStorage.setItem(INSTALLED_KEY, 'true');
+      localStorage.setItem(DISMISS_KEY, 'true');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -59,10 +55,17 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     };
   }, []);
 
-  const handleDismissBanner = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setBannerDismissed(true);
-    localStorage.setItem(BANNER_DISMISS_KEY, 'true');
+  const handleDismiss = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsDismissed(true);
+    localStorage.setItem(DISMISS_KEY, 'true');
+  };
+
+  const handleCloseModal = () => {
+    setShowHelpModal(false);
+    // Dismiss promotion permanently when user closes or completes modal instructions
+    setIsDismissed(true);
+    localStorage.setItem(DISMISS_KEY, 'true');
   };
 
   const handleInstallClick = async () => {
@@ -72,7 +75,9 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           setIsInstalled(true);
+          setIsDismissed(true);
           localStorage.setItem(INSTALLED_KEY, 'true');
+          localStorage.setItem(DISMISS_KEY, 'true');
         }
         setDeferredPrompt(null);
       } catch {
@@ -83,9 +88,8 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     }
   };
 
-  // If app is installed, don't show prompt promotion anywhere
-  if (isInstalled) return null;
-  if (variant === 'banner' && bannerDismissed) return null;
+  // Completely disappear when installed or dismissed
+  if (isInstalled || isDismissed) return null;
 
   const ModalContent = showHelpModal
     ? createPortal(
@@ -102,7 +106,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                 </p>
               </div>
               <button
-                onClick={() => setShowHelpModal(false)}
+                onClick={handleCloseModal}
                 className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
@@ -110,7 +114,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
               </button>
             </div>
 
-            {/* Content Body: All 3 Options Bright and Clear */}
+            {/* Content Body */}
             <div className="space-y-4 text-xs text-neutral-700 dark:text-neutral-300">
               {/* Option 1 */}
               <div className="space-y-1">
@@ -130,7 +134,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                 </ol>
               </div>
 
-              {/* Option 3: Mobile (Android & iOS) */}
+              {/* Option 3: Mobile */}
               <div className="space-y-1.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
                 <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 3: Mobile (Android & iOS)</div>
                 <ul className="space-y-1.5 text-neutral-600 dark:text-neutral-400">
@@ -138,7 +142,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                     <strong>Android:</strong> Tap <strong>3-dots menu (⋮)</strong> → select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
                   </li>
                   <li>
-                    <strong>iOS (iPhone/iPad):</strong> Tap the <strong>Share</strong> button in Safari → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
+                    <strong>iOS (iPhone/iPad):</strong> Tap <strong>Share</strong> icon in Safari → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
                   </li>
                 </ul>
               </div>
@@ -146,7 +150,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
             {/* Action Button */}
             <button
-              onClick={() => setShowHelpModal(false)}
+              onClick={handleCloseModal}
               className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-medium text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors cursor-pointer"
             >
               Got it
@@ -160,14 +164,24 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   if (variant === 'button') {
     return (
       <>
-        <button
-          onClick={handleInstallClick}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-xs font-medium shadow-2xs transition-colors cursor-pointer"
-          title="Install app"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Install App</span>
-        </button>
+        <div className="inline-flex items-center rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs border border-neutral-800 dark:border-neutral-200 overflow-hidden text-xs font-medium">
+          <button
+            onClick={handleInstallClick}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors cursor-pointer"
+            title="Install app"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install App</span>
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-2 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-neutral-400 hover:text-white dark:hover:text-neutral-900 border-l border-neutral-800 dark:border-neutral-200 transition-colors cursor-pointer"
+            title="Dismiss install button"
+            aria-label="Dismiss install button"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
         {ModalContent}
       </>
     );
@@ -191,7 +205,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             Install
           </button>
           <button
-            onClick={handleDismissBanner}
+            onClick={handleDismiss}
             className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
             aria-label="Dismiss banner"
           >

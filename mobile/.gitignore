@@ -1,0 +1,21 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# Local secrets / machine-specific config
+.env
+.env.local
+.env.*.local
+
+# Native build output (managed workflow regenerates these)
+/ios
+/android
+
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.DS_Store

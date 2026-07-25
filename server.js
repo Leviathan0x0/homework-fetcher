@@ -11,6 +11,7 @@ const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { ready, isRemote, db, schema } = require("./server/db/client");
+const { rateLimit } = require("./server/limits");
 
 const app = express();
 
@@ -35,9 +36,13 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "256kb" }));
+app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
+
+// Guard against runaway clients and accidental polling loops. Counters are
+// per-instance, so this is a safety net rather than a hard quota.
+app.use("/api", rateLimit({ name: "api", windowMs: 60 * 1000, max: 600 }));
 
 // The schema is created/migrated once per process; API requests wait for it so
 // the first query never races the migrations.

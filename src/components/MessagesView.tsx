@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
 import { messagingService, authService } from '../services/api';
+import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
+import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -32,6 +34,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
 
   useEffect(() => {
@@ -170,6 +173,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     setInputText('');
     setSelectedFile(null);
+    setFileError(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -193,10 +197,26 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             : c
         )
       );
-    } catch {
+    } catch (err: any) {
+      // Put the draft back so nothing is silently lost, and say why it failed.
       setInputText(textCopy);
       setSelectedFile(fileCopy);
+      setFileError(typeof err?.message === 'string' ? err.message : 'Message could not be sent. Try again.');
     } finally { setSending(false); }
+  };
+
+  // Photos are downscaled in the browser: full-size camera images exceed the
+  // upload limit and waste everyone's mobile data.
+  const handlePickFile = async (file: File) => {
+    setFileError(null);
+    const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      setFileError(
+        `That file is ${formatBytes(prepared.size)}. Maximum upload size is ${formatBytes(MAX_UPLOAD_BYTES)}.`
+      );
+      return;
+    }
+    setSelectedFile(prepared);
   };
 
   const handleSearch = async (q: string) => {
@@ -478,6 +498,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
       <div className="p-3 pb-20 md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
+        {fileError && (
+          <div className="mb-2 px-2 text-[11px] text-rose-600 dark:text-rose-400">{fileError}</div>
+        )}
+
         {selectedFile && (
           <div className="mb-2 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 min-w-0">
@@ -494,7 +518,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <input
             type="file"
             ref={fileInputRef}
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              const picked = e.target.files?.[0];
+              if (picked) handlePickFile(picked);
+              e.target.value = '';
+            }}
             className="hidden"
           />
           <button

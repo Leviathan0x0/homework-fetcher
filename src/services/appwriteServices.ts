@@ -14,6 +14,7 @@ export const authService = {
       return {
         id: data.user.id,
         studentId: data.user.studentId,
+        displayName: data.user.displayName || null,
         section: data.user.section || "Section 10-A",
       };
     } catch (err) {
@@ -37,6 +38,7 @@ export const authService = {
     return {
       id: data.user.id,
       studentId: data.user.studentId,
+      displayName: data.user.displayName || null,
       section: data.user.section || "Section 10-A",
     };
   },

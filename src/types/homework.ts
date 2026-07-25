@@ -73,7 +73,7 @@ export interface AppNotification {
 
 export interface Conversation {
   id: string;
-  otherUser: { id: string; studentId: string; section: string } | null;
+  otherUser: { id: string; studentId: string; displayName?: string | null; section: string } | null;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   unreadCount: number;

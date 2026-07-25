@@ -10,7 +10,7 @@ const { db, schema } = require("../db/client");
 const router = express.Router();
 
 // Ensure safe uploads directory exists
-const UPLOADS_DIR = path.join(__dirname, "../../uploads/classwork");
+const UPLOADS_DIR = path.join(process.env.UPLOADS_DIR || path.join(__dirname, "../../uploads"), "classwork");
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }

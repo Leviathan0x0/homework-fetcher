@@ -26,11 +26,13 @@ function normalizeClassSection(raw) {
 }
 
 /**
- * Fetches the student's class/section from EduSecure StudentProfile page.
+ * Fetches the student's profile (display name and class/section) from the
+ * EduSecure StudentProfile page.
  * @param {string} sessionCookies - EduSecure session cookies
- * @returns {Promise<string|null>} Normalized section string like "9-F" or null
+ * @returns {Promise<{section: string|null, displayName: string|null}>}
  */
-async function fetchSectionFromEduSecure(sessionCookies) {
+async function fetchProfileFromEduSecure(sessionCookies) {
+  const empty = { section: null, displayName: null };
   try {
     const cheerio = require("cheerio");
     const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
@@ -43,31 +45,58 @@ async function fetchSectionFromEduSecure(sessionCookies) {
       redirect: "manual",
     });
     if (res.status === 302) {
-      console.error("Section fetch redirected (session likely expired)");
-      return null;
+      console.error("Profile fetch redirected (session likely expired)");
+      return empty;
     }
     const html = await res.text();
     if (html.includes("txtusername") || html.includes("Login.aspx")) {
-      console.error("Section page returned login form (session expired)");
-      return null;
+      console.error("Profile page returned login form (session expired)");
+      return empty;
     }
     const $ = cheerio.load(html);
+
     const rawSection = $("#ctl00_ContentPlaceHolder1_sClassSection").first().text().trim();
-    if (!rawSection) {
+    let section = null;
+    if (rawSection) {
+      section = normalizeClassSection(rawSection);
+      if (!section) {
+        console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
+      }
+    } else {
       const bodyText = $("body").text().trim().substring(0, 200);
       console.error("Section selector returned empty. Body preview:", bodyText);
-      return null;
     }
-    const normalized = normalizeClassSection(rawSection);
-    if (!normalized) {
-      console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
-      return null;
+
+    const nameSelectors = [
+      "#ctl00_ContentPlaceHolder1_sStudentName",
+      "#ctl00_ContentPlaceHolder1_sName",
+      "#ctl00_ContentPlaceHolder1_lblStudentName",
+      "#ctl00_ContentPlaceHolder1_lblName",
+    ];
+    let displayName = null;
+    for (const selector of nameSelectors) {
+      const value = $(selector).first().text().trim();
+      if (value) {
+        displayName = value.replace(/\s+/g, " ");
+        break;
+      }
     }
-    return normalized;
+
+    return { section, displayName };
   } catch (err) {
-    console.error("Failed to fetch section from EduSecure:", err.message);
-    return null;
+    console.error("Failed to fetch profile from EduSecure:", err.message);
+    return empty;
   }
+}
+
+/**
+ * Fetches only the normalized section string from EduSecure.
+ * @param {string} sessionCookies - EduSecure session cookies
+ * @returns {Promise<string|null>} Normalized section string like "9-F" or null
+ */
+async function fetchSectionFromEduSecure(sessionCookies) {
+  const profile = await fetchProfileFromEduSecure(sessionCookies);
+  return profile.section;
 }
 
 
@@ -91,6 +120,7 @@ class SessionService {
       return {
         id: existing.id,
         studentId: existing.studentId,
+        displayName: existing.displayName || null,
         section: existing.section,
         createdAt: existing.createdAt,
       };
@@ -104,6 +134,7 @@ class SessionService {
       return {
         id: caseMatch.id,
         studentId: caseMatch.studentId,
+        displayName: caseMatch.displayName || null,
         section: caseMatch.section,
         createdAt: caseMatch.createdAt,
       };
@@ -113,6 +144,7 @@ class SessionService {
     const newUser = {
       id: crypto.randomUUID(),
       studentId: rawId,
+      displayName: null,
       section: "Section 10-A",
       createdAt: now,
       updatedAt: now,
@@ -123,6 +155,7 @@ class SessionService {
     return {
       id: newUser.id,
       studentId: newUser.studentId,
+      displayName: newUser.displayName,
       section: newUser.section,
       createdAt: newUser.createdAt,
     };
@@ -146,6 +179,7 @@ class SessionService {
     return {
       id: user.id,
       studentId: user.studentId,
+      displayName: user.displayName || null,
       section: user.section,
       createdAt: user.createdAt,
     };
@@ -312,9 +346,23 @@ class SessionService {
       .where(eq(schema.users.id, userId))
       .run();
   }
+
+  /**
+   * Updates the display name (real student name) for a user.
+   * @param {string} userId
+   * @param {string|null} displayName
+   */
+  updateDisplayName(userId, displayName) {
+    if (!userId || !displayName) return;
+    db.update(schema.users)
+      .set({ displayName, updatedAt: new Date().toISOString() })
+      .where(eq(schema.users.id, userId))
+      .run();
+  }
 }
 
 const sessionService = new SessionService();
 
 module.exports = sessionService;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
+module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;

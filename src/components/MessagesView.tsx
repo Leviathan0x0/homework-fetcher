@@ -14,6 +14,7 @@ import {
   Eye,
   FileText,
   Download,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -34,12 +35,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const [showNewModal, setShowNewModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{ id: string; studentId: string; section?: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<
+    { id: string; studentId: string; displayName?: string | null; section?: string }[]
+  >([]);
   const [searching, setSearching] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
+    u?.displayName || u?.studentId || 'Unknown';
 
   const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
@@ -202,6 +208,26 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       });
       if (!res.ok) return;
       const data = await res.json();
+      const picked = searchResults.find((u) => u.id === participantId);
+      if (picked) {
+        setConversations((prev) =>
+          prev.some((c) => c.id === data.conversationId)
+            ? prev
+            : [
+                {
+                  id: data.conversationId,
+                  otherUser: {
+                    id: picked.id,
+                    studentId: picked.studentId,
+                    displayName: picked.displayName ?? null,
+                    section: picked.section || '',
+                  },
+                  unreadCount: 0,
+                },
+                ...prev,
+              ]
+        );
+      }
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);
@@ -212,7 +238,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   };
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
-  const otherName = activeConv?.otherUser?.studentId || 'Conversation';
+  const otherName = activeConv ? userLabel(activeConv.otherUser) : 'Conversation';
   const otherSection = activeConv?.otherUser?.section;
 
   const inboxContent = (
@@ -247,13 +273,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 activeConvId === conv.id && 'bg-neutral-200/80 dark:bg-neutral-800/80 font-medium'
               )}>
               <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
-                {conv.otherUser?.studentId?.charAt(0).toUpperCase() || '?'}
+                {userLabel(conv.otherUser).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {conv.otherUser?.studentId || 'Unknown'}
+                      {userLabel(conv.otherUser)}
                     </span>
                     {conv.otherUser?.section && (
                       <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
@@ -491,7 +517,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
               <input type="text" value={searchQuery} onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search student ID across any section..."
+                placeholder="Search by name or student ID across any section..."
                 className="w-full text-xs h-9 pl-8 pr-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400" />
             </div>
             <div className="space-y-1 max-h-56 overflow-y-auto">
@@ -503,9 +529,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
-                        {u.studentId.charAt(0).toUpperCase()}
+                        {userLabel(u).charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">{u.studentId}</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{userLabel(u)}</span>
+                        {u.displayName && (
+                          <span className="text-[10px] text-neutral-400 truncate">{u.studentId}</span>
+                        )}
+                      </div>
                     </div>
                     {u.section && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60">

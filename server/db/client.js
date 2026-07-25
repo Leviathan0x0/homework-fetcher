@@ -1,12 +1,47 @@
 const path = require("path");
+const fs = require("fs");
 const Database = require("better-sqlite3");
 const { drizzle } = require("drizzle-orm/better-sqlite3");
 const schema = require("./schema");
 
 const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || path.join(__dirname, "../../sqlite.db");
 
+// Make sure the directory of the database file exists (e.g. when a mounted
+// volume path such as /data/sqlite.db is configured through SQLITE_DB_PATH).
+const dbDir = path.dirname(dbPath);
+if (dbDir && !fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+if (process.env.VERCEL && !process.env.SQLITE_DB_PATH) {
+  console.warn(
+    "[db] Running on Vercel with a bundled SQLite file. The filesystem is ephemeral there, " +
+      "so users, conversations and messages are wiped on every redeploy. " +
+      "Deploy the Express server on a host with a persistent volume and point SQLITE_DB_PATH at it. " +
+      "See DEPLOYMENT.md."
+  );
+}
+
+/**
+ * Opens the SQLite database, falling back to a temporary directory when the
+ * configured location is read-only (some hosts ship a read-only bundle).
+ * @returns {import("better-sqlite3").Database}
+ */
+function openDatabase() {
+  try {
+    return new Database(dbPath);
+  } catch (err) {
+    const fallbackPath = path.join(require("os").tmpdir(), "homework-fetcher.db");
+    console.error(
+      `[db] Could not open database at ${dbPath} (${err.message}). ` +
+        `Falling back to ${fallbackPath}. Data stored there is NOT persistent.`
+    );
+    return new Database(fallbackPath);
+  }
+}
+
 // Initialize native SQLite database
-const sqlite = new Database(dbPath);
+const sqlite = openDatabase();
 
 // Enable foreign key constraints in SQLite
 sqlite.pragma("foreign_keys = ON");
@@ -23,6 +58,7 @@ function initDb() {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL UNIQUE,
+      display_name TEXT,
       section TEXT NOT NULL DEFAULT 'Section 10-A',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
@@ -154,22 +190,42 @@ function initDb() {
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id TEXT NOT NULL REFERENCES users(id),
-      content TEXT NOT NULL,
+      content TEXT,
+      attachment_url TEXT,
+      original_filename TEXT,
+      mime_type TEXT,
+      file_path TEXT,
       created_at TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);
   `);
 
-  // Migration helper: Ensure 'section' column exists if users table was created previously without it
+  // Lightweight migrations: add columns that were introduced after the initial release
+  // so that databases created by older versions keep working.
+  ensureColumn("users", "display_name", "TEXT");
+  ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
+  ensureColumn("messages", "content", "TEXT");
+  ensureColumn("messages", "attachment_url", "TEXT");
+  ensureColumn("messages", "original_filename", "TEXT");
+  ensureColumn("messages", "mime_type", "TEXT");
+  ensureColumn("messages", "file_path", "TEXT");
+}
+
+/**
+ * Adds a column to a table when it does not exist yet.
+ * @param {string} table
+ * @param {string} column
+ * @param {string} definition SQL type/constraints used by ALTER TABLE
+ */
+function ensureColumn(table, column, definition) {
   try {
-    const tableInfo = sqlite.pragma("table_info(users)");
-    const hasSection = tableInfo.some((col) => col.name === "section");
-    if (!hasSection) {
-      sqlite.exec("ALTER TABLE users ADD COLUMN section TEXT NOT NULL DEFAULT 'Section 10-A'");
-    }
+    const tableInfo = sqlite.pragma(`table_info(${table})`);
+    if (tableInfo.length === 0) return;
+    if (tableInfo.some((col) => col.name === column)) return;
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   } catch (err) {
-    console.error("Migration error (section column):", err);
+    console.error(`Migration error (${table}.${column}):`, err);
   }
 }
 

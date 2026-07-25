@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
-import { authService, homeworkService } from "../services/appwriteServices";
+import { authService, homeworkService } from "../services/api";
 
 export interface UserAccount {
   id: string;
@@ -96,7 +96,7 @@ export function useHomework() {
       localStorage.setItem("lastUpdated", timeNow);
     } catch (err: any) {
       console.error("Fetch Homework Error:", err);
-      setErrorMessage(err.message || "Failed to fetch homework from Appwrite.");
+      setErrorMessage(err.message || "Failed to fetch homework.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

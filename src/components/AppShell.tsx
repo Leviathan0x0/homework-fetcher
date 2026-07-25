@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../lib/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -102,7 +103,7 @@ export const AppShell: React.FC = () => {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications/unread-count', {
+      const res = await apiFetch('/api/notifications/unread-count', {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) return;

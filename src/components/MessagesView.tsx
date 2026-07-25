@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch, apiUrl } from '../lib/api';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -63,7 +64,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/conversations', { headers: { Accept: 'application/json' } });
+      const res = await apiFetch('/api/conversations', { headers: { Accept: 'application/json' } });
       if (!res.ok) return;
       const data = await res.json();
       setConversations(data.conversations || []);
@@ -92,13 +93,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);
     try {
-      const res = await fetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
+      const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) return;
       const data = await res.json();
-      setMessages(data.messages || []);
-      fetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: 'PATCH' }).catch(() => {});
+      setMessages((data.messages || []).map((m: Message) => (
+        m.attachmentUrl ? { ...m, attachmentUrl: apiUrl(m.attachmentUrl) } : m
+      )));
+      apiFetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: 'PATCH' }).catch(() => {});
     } catch {} finally {
       if (!silent) setMessagesLoading(false);
     }
@@ -150,7 +153,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     }
 
     try {
-      const res = await fetch(`/api/conversations/${encodeURIComponent(activeConvId)}/messages`, {
+      const res = await apiFetch(`/api/conversations/${encodeURIComponent(activeConvId)}/messages`, {
         method: 'POST',
         headers: { Accept: 'application/json' },
         body: formData,
@@ -161,7 +164,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         return;
       }
       const data = await res.json();
-      setMessages((prev) => [...prev, data.message]);
+      const sentMessage: Message = data.message.attachmentUrl
+        ? { ...data.message, attachmentUrl: apiUrl(data.message.attachmentUrl) }
+        : data.message;
+      setMessages((prev) => [...prev, sentMessage]);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConvId
@@ -184,7 +190,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
+      const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) return;
@@ -195,7 +201,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const handleStartConversation = async (participantId: string) => {
     try {
-      const res = await fetch('/api/conversations', {
+      const res = await apiFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ participantId }),

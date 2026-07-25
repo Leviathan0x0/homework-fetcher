@@ -1,15 +1,16 @@
 import { account, databases, storage, realtime, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
+import { apiFetch, apiJson } from "../lib/api";
 import { ID, Query } from "appwrite";
 
 // --- AUTH SERVICE ---
 export const authService = {
   async getCurrentUser() {
     try {
-      const res = await fetch("/api/auth/me", {
+      const res = await apiFetch("/api/auth/me", {
         headers: { "Accept": "application/json" }
       });
       if (!res.ok) return null;
-      const data = await res.json();
+      const data = await apiJson<any>(res);
       if (!data.authenticated || !data.user) return null;
       return {
         id: data.user.id,
@@ -23,13 +24,13 @@ export const authService = {
   },
 
   async login(studentId: string, pass: string) {
-    const res = await fetch("/api/auth/login", {
+    const res = await apiFetch("/api/auth/login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({ studentId: studentId.trim(), password: pass })
     });
 
-    const data = await res.json();
+    const data = await apiJson<any>(res);
     if (!res.ok || !data.authenticated) {
       throw new Error(data.error || "Invalid student ID or password.");
     }
@@ -43,7 +44,7 @@ export const authService = {
 
   async logout() {
     try {
-      await fetch("/api/auth/logout", {
+      await apiFetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" }
       });
@@ -57,14 +58,14 @@ export const authService = {
 export const homeworkService = {
   async getHomework(userId: string) {
     try {
-      const res = await fetch("/api/homework", {
+      const res = await apiFetch("/api/homework", {
         headers: { "Accept": "application/json" }
       });
       if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
+        const errData = await apiJson<any>(res).catch(() => ({} as any));
         throw new Error(errData.message || "Failed to fetch homework.");
       }
-      const data = await res.json();
+      const data = await apiJson<any>(res);
       return (data.homework || []).map((doc: any) => ({
         id: doc.id,
         type: doc.type || "School Diary",
@@ -83,7 +84,7 @@ export const homeworkService = {
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {
-    const res = await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/status`, {
+    const res = await apiFetch(`/api/homework/${encodeURIComponent(homeworkId)}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({ completed })
@@ -94,7 +95,7 @@ export const homeworkService = {
   },
 
   async updateNote(userId: string, homeworkId: string, note: string | null) {
-    const res = await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/note`, {
+    const res = await apiFetch(`/api/homework/${encodeURIComponent(homeworkId)}/note`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({ note })

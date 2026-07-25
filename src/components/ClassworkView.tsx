@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch, apiUrl } from '../lib/api';
 import {
   UploadCloud,
   FileText,
@@ -83,14 +84,17 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch('/api/classwork', {
+      const res = await apiFetch('/api/classwork', {
         headers: { Accept: 'application/json' }
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch classwork uploads.');
       }
-      setClasswork(data.classwork || []);
+      setClasswork((data.classwork || []).map((item: any) => ({
+        ...item,
+        fileUrl: apiUrl(item.fileUrl),
+      })));
       if (data.section) setSectionName(data.section);
     } catch (err: any) {
       console.error('Fetch Classwork Error:', err);
@@ -156,7 +160,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       }
       formData.append('date', new Date().toISOString().split('T')[0]);
 
-      const res = await fetch('/api/classwork', {
+      const res = await apiFetch('/api/classwork', {
         method: 'POST',
         body: formData
       });
@@ -167,7 +171,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       }
 
       // Add to list and close modal
-      setClasswork((prev) => [data.classwork, ...prev]);
+      setClasswork((prev) => [{ ...data.classwork, fileUrl: apiUrl(data.classwork.fileUrl) }, ...prev]);
       setIsUploadOpen(false);
       setSelectedFile(null);
       setUploadTitle('');
@@ -185,7 +189,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
     if (!confirm('Are you sure you want to delete this classwork upload?')) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/classwork/${encodeURIComponent(id)}`, {
+      const res = await apiFetch(`/api/classwork/${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
       const data = await res.json();

@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { eq, desc, asc, and, or, sql, lt, gt } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { db, schema, isRemote } = require("../db/client");
+const { resolveUploadDir, isServerless } = require("../uploads");
 
 const router = express.Router();
 
@@ -292,18 +293,15 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
-const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(__dirname, "../../uploads");
-const MSG_UPLOADS_DIR = path.join(UPLOADS_ROOT, "messages");
-
-// With a hosted database and no persistent upload volume (the usual serverless
-// setup) the local disk is wiped between deployments and is not shared between
-// instances, so attachments are stored in the database instead of on disk.
-const STORE_ATTACHMENTS_IN_DB = isRemote && !process.env.UPLOADS_DIR;
+// Without a persistent upload volume (the usual serverless setup) the local
+// disk is wiped between deployments and is not shared between instances, so
+// attachments are stored in the database instead of on disk.
+const STORE_ATTACHMENTS_IN_DB = !process.env.UPLOADS_DIR && (isRemote || isServerless);
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-if (!STORE_ATTACHMENTS_IN_DB && !fs.existsSync(MSG_UPLOADS_DIR)) {
-  fs.mkdirSync(MSG_UPLOADS_DIR, { recursive: true });
-}
+const MSG_UPLOADS_DIR = STORE_ATTACHMENTS_IN_DB
+  ? path.join(require("os").tmpdir(), "homework-fetcher-uploads", "messages")
+  : resolveUploadDir("messages").dir;
 
 const msgStorage = STORE_ATTACHMENTS_IN_DB
   ? multer.memoryStorage()
@@ -501,7 +499,7 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
       return res.send(buffer);
     }
 
-    if (STORE_ATTACHMENTS_IN_DB && !fs.existsSync(MSG_UPLOADS_DIR)) {
+    if (!fs.existsSync(MSG_UPLOADS_DIR)) {
       return res.status(404).json({ error: "File not found." });
     }
 

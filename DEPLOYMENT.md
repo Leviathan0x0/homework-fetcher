@@ -32,7 +32,7 @@ permanent. No extra npm package is needed — the app talks to libSQL over HTTPS
    ```bash
    TURSO_DATABASE_URL=libsql://<your-db>.turso.io
    TURSO_AUTH_TOKEN=<token>
-   SESSION_ENCRYPTION_KEY=<32-byte hex key>
+   ENCRYPTION_KEY=<32-byte hex key>
    NODE_ENV=production
    ```
 
@@ -56,6 +56,14 @@ UPLOADS_DIR=/data/uploads
 No configuration needed: the database is `sqlite.db` and uploads go to `uploads/` in the project
 root. `npm run dev` serves the frontend, `npm start` serves both API and built frontend.
 
+## Troubleshooting
+
+`500 A server error has occurred` from `/api/...` means the function crashed while loading.
+The API no longer creates directories or opens a database at import time, so the usual causes are
+a missing build or a misconfigured database; a misconfigured database now answers with
+`503` and the exact reason in the JSON body. Check the function logs in Vercel → Deployments →
+Functions for the logged message.
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -63,6 +71,6 @@ root. `npm run dev` serves the frontend, `npm start` serves both API and built f
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted libSQL database (required on serverless hosts) |
 | `SQLITE_DB_PATH` | Local SQLite file location when not using a hosted database |
 | `UPLOADS_DIR` | Directory for uploaded files (persistent volume) |
-| `SESSION_ENCRYPTION_KEY` | AES key used to encrypt stored EduSecure session cookies |
+| `ENCRYPTION_KEY` | AES key used to encrypt stored EduSecure session cookies |
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |

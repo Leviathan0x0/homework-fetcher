@@ -30,6 +30,7 @@ const dbPath = process.env.SQLITE_DB_PATH || (isRemoteUrl(rawDatabaseUrl) ? "" :
 let db;
 let sqlite = null;
 let remoteClient = null;
+let startupError = null;
 
 if (isRemote) {
   const { drizzle } = require("drizzle-orm/sqlite-proxy");
@@ -56,12 +57,28 @@ if (isRemote) {
     { schema }
   );
 } else {
-  const Database = require("better-sqlite3");
-  const { drizzle } = require("drizzle-orm/better-sqlite3");
+  let Database;
+  let drizzle;
+  try {
+    Database = require("better-sqlite3");
+    ({ drizzle } = require("drizzle-orm/better-sqlite3"));
+  } catch (err) {
+    // The native SQLite binding is unavailable (common on serverless runtimes).
+    // Failing here would take down every endpoint, so record the problem and
+    // let requests answer with an actionable message instead.
+    startupError = new Error(
+      "No database available: the local SQLite driver could not be loaded " +
+        `(${err.message}). Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN to use a hosted database.`
+    );
+  }
 
   const dbDir = path.dirname(dbPath);
-  if (dbDir && !fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+  try {
+    if (dbDir && !fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true });
+    }
+  } catch (err) {
+    console.error(`Could not create database directory ${dbDir}: ${err.message}`);
   }
 
   if (isServerless) {
@@ -72,8 +89,14 @@ if (isRemote) {
     );
   }
 
-  sqlite = openLocalDatabase(dbPath, Database);
-  db = drizzle(sqlite, { schema });
+  if (Database) {
+    try {
+      sqlite = openLocalDatabase(dbPath, Database);
+      db = drizzle(sqlite, { schema });
+    } catch (err) {
+      startupError = new Error(`No database available: ${err.message}`);
+    }
+  }
 }
 
 /**
@@ -263,6 +286,8 @@ function schemaStatements() {
  * Safe to call on startup: it never drops or overwrites existing data.
  */
 async function initDb() {
+  if (startupError) throw startupError;
+
   if (isRemote) {
     for (const statement of schemaStatements()) {
       await remoteClient.execute(statement);
@@ -318,9 +343,13 @@ async function exec(sql) {
 // Schema initialization runs once per process; every request awaits it through
 // `ready` so the first query never races the migrations.
 const ready = initDb().catch((err) => {
-  console.error("Database initialization failed:", err);
+  console.error("Database initialization failed:", err.message);
   throw err;
 });
+
+// Requests report the failure themselves; without this the rejection would be
+// unhandled and take the whole process (and every endpoint) down.
+ready.catch(() => {});
 
 module.exports = {
   db,

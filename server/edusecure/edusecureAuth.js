@@ -52,9 +52,7 @@ function extractCookies(setCookieHeaders, existingCookieMap = new Map()) {
       if (val) {
         existingCookieMap.set(key, val);
       } else {
-        // If empty value / expired cookie, remove if needed
         if (existingCookieMap.has(key) && val === "") {
-          // Keep key if part of session, or let overwrite handle it
           existingCookieMap.set(key, val);
         }
       }
@@ -90,7 +88,7 @@ function mapToCookieString(cookieMap) {
  */
 async function loginToEduSecure(studentId, password) {
   if (!studentId || !password) {
-    throw new EduSecureAuthError("Student ID and password are required", "invalid_credentials");
+    throw invalidCredentialsError();
   }
 
   const cookieMap = new Map();
@@ -112,7 +110,6 @@ async function loginToEduSecure(studentId, password) {
   const viewState = $("#__VIEWSTATE").val() || "";
   const viewStateGen = $("#__VIEWSTATEGENERATOR").val() || "";
   const eventVal = $("#__EVENTVALIDATION").val() || "";
-  const defaultSession = $("#drpSession option").first().val() || "2026-2027";
 
   if (!viewState) {
     throw new EduSecureAuthError(
@@ -121,73 +118,100 @@ async function loginToEduSecure(studentId, password) {
     );
   }
 
-  // Step 2: Construct form POST body
-  const params = new URLSearchParams();
-  params.append("__VIEWSTATE", viewState);
-  if (viewStateGen) params.append("__VIEWSTATEGENERATOR", viewStateGen);
-  if (eventVal) params.append("__EVENTVALIDATION", eventVal);
-  params.append("drpSession", defaultSession);
-  params.append("txtusername", studentId.trim());
-  params.append("txtpassword", password);
-  params.append("btnLogin", "Login");
+  // Extract all session options (e.g. ['2025-2026', '2026-2027'])
+  const sessionOptions = [];
+  $("#drpSession option").each((_, el) => {
+    const val = $(el).val();
+    if (val && !sessionOptions.includes(val)) sessionOptions.push(val);
+  });
 
-  // Step 3: POST credentials to Login.aspx
-  const postCookieHeader = mapToCookieString(cookieMap);
+  // Prioritize active academic session "2025-2026" first, then remaining options
+  if (sessionOptions.includes("2025-2026")) {
+    sessionOptions.sort((a, b) => (a === "2025-2026" ? -1 : b === "2025-2026" ? 1 : 0));
+  }
+  if (sessionOptions.length === 0) sessionOptions.push("2025-2026");
 
-  const postRes = await portalFetch(LOGIN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Cookie": postCookieHeader,
-      "User-Agent": USER_AGENT,
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Referer": LOGIN_URL
-    },
-    body: params.toString(),
-    redirect: "manual"
-  }, "submitting your credentials");
+  let portalUnreachableError = null;
 
-  const postSetCookies = postRes.headers.getSetCookie ? postRes.headers.getSetCookie() : [];
-  extractCookies(postSetCookies, cookieMap);
+  for (const sessionYear of sessionOptions) {
+    try {
+      const trialCookieMap = new Map(cookieMap);
 
-  const postHtml = await postRes.text();
+      const params = new URLSearchParams();
+      params.append("__EVENTTARGET", "");
+      params.append("__EVENTARGUMENT", "");
+      params.append("__VIEWSTATE", viewState);
+      if (viewStateGen) params.append("__VIEWSTATEGENERATOR", viewStateGen);
+      if (eventVal) params.append("__EVENTVALIDATION", eventVal);
+      params.append("drpSession", sessionYear);
+      params.append("txtusername", studentId.trim());
+      params.append("txtpassword", password);
+      params.append("btnLogin", "Login");
 
-  // Step 4: Check authentication failure
-  const isInvalid = postHtml.includes("Invalid username and password") || 
-                    postHtml.includes("Invalid username") || 
-                    postHtml.includes("Invalid password");
+      const postCookieHeader = mapToCookieString(trialCookieMap);
 
-  if (isInvalid) {
-    throw invalidCredentialsError();
+      const postRes = await portalFetch(LOGIN_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Cookie": postCookieHeader,
+          "User-Agent": USER_AGENT,
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Referer": LOGIN_URL
+        },
+        body: params.toString(),
+        redirect: "manual"
+      }, "submitting your credentials");
+
+      const postSetCookies = postRes.headers.getSetCookie ? postRes.headers.getSetCookie() : [];
+      extractCookies(postSetCookies, trialCookieMap);
+
+      const postHtml = await postRes.text();
+
+      const isInvalid = postHtml.includes("Invalid username and password") || 
+                        postHtml.includes("Invalid username") || 
+                        postHtml.includes("Invalid password");
+
+      if (isInvalid) {
+        continue;
+      }
+
+      const finalCookieString = mapToCookieString(trialCookieMap);
+
+      // Verify authentication by fetching Announcement.aspx
+      const verifyRes = await portalFetch("https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework", {
+        headers: {
+          "Cookie": finalCookieString,
+          "User-Agent": USER_AGENT
+        },
+        redirect: "manual"
+      }, "verifying the school session");
+
+      const verifySetCookies = verifyRes.headers.getSetCookie ? verifyRes.headers.getSetCookie() : [];
+      extractCookies(verifySetCookies, trialCookieMap);
+
+      const verifyHtml = await verifyRes.text();
+
+      if (verifyRes.status === 302 || verifyHtml.includes("Login.aspx") || verifyHtml.includes("txtusername")) {
+        continue;
+      }
+
+      const sessionCookies = mapToCookieString(trialCookieMap);
+      if (sessionCookies) {
+        return sessionCookies;
+      }
+    } catch (err) {
+      if (err instanceof EduSecureAuthError && err.code === "portal_unreachable") {
+        portalUnreachableError = err;
+      }
+    }
   }
 
-  const finalCookieString = mapToCookieString(cookieMap);
-
-  // Additional verification step: Test fetching the Announcement homework page with these cookies
-  const verifyRes = await portalFetch("https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework", {
-    headers: {
-      "Cookie": finalCookieString,
-      "User-Agent": USER_AGENT
-    },
-    redirect: "manual"
-  }, "verifying the school session");
-
-  const verifySetCookies = verifyRes.headers.getSetCookie ? verifyRes.headers.getSetCookie() : [];
-  extractCookies(verifySetCookies, cookieMap);
-
-  const verifyHtml = await verifyRes.text();
-
-  // If redirected to login or page does not contain homework elements/structure and contains login form
-  if (verifyRes.status === 302 || verifyHtml.includes("Login.aspx") || verifyHtml.includes("txtusername")) {
-    throw invalidCredentialsError();
+  if (portalUnreachableError) {
+    throw portalUnreachableError;
   }
 
-  const sessionCookies = mapToCookieString(cookieMap);
-  if (!sessionCookies) {
-    throw new EduSecureAuthError("Failed to obtain secure school session", "portal_unreachable");
-  }
-
-  return sessionCookies;
+  throw invalidCredentialsError();
 }
 
 module.exports = {

@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch, apiUrl } from '../lib/api';
+import { messagingService, authService } from '../services/api';
+import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
+import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -14,6 +18,7 @@ import {
   Eye,
   FileText,
   Download,
+  ExternalLink,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -29,17 +34,32 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
+
+  useEffect(() => {
+    authService.getCurrentUser().then(u => {
+      if (u && u.studentId) {
+        setCurrentStudentId(u.studentId);
+      }
+    });
+  }, []);
 
   const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
 
   const [showNewModal, setShowNewModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{ id: string; studentId: string; section?: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<
+    { id: string; studentId: string; displayName?: string | null; name?: string; section?: string }[]
+  >([]);
   const [searching, setSearching] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
+    u?.displayName || u?.studentId || 'Unknown';
 
   const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
@@ -63,18 +83,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/conversations', { headers: { Accept: 'application/json' } });
-      if (!res.ok) return;
-      const data = await res.json();
-      setConversations(data.conversations || []);
+      const convs = await messagingService.getConversations(currentStudentId);
+      if (convs && convs.length > 0) {
+        setConversations(convs);
+      }
     } catch {} finally { setIsLoading(false); }
-  }, []);
+  }, [currentStudentId]);
 
   useEffect(() => {
     fetchConversations();
     const interval = setInterval(() => {
-      fetchConversations();
-    }, 2500);
+      if (document.visibilityState === 'visible') fetchConversations();
+    }, 6000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
@@ -92,91 +112,111 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);
     try {
-      const res = await fetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
-        headers: { Accept: 'application/json' },
+      const msgs = await messagingService.getMessages(convId);
+      setMessages((prev) => {
+        const map = new Map<string, Message>();
+        prev.forEach((m) => {
+          if (m.conversationId === convId) {
+            map.set(m.id, m);
+          }
+        });
+        msgs.forEach((m: Message) => {
+          map.set(m.id, m);
+        });
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      setMessages(data.messages || []);
-      fetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: 'PATCH' }).catch(() => {});
     } catch {} finally {
       if (!silent) setMessagesLoading(false);
     }
-  }, []);
+  }, [currentStudentId]);
 
   useEffect(() => {
     if (!activeConvId) return;
 
+    setMessages([]);
     fetchMessages(activeConvId);
+    messagingService.markAsRead(activeConvId);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
 
     const messageInterval = setInterval(() => {
-      fetchMessages(activeConvId, true);
-    }, 2000);
-    return () => clearInterval(messageInterval);
-  }, [activeConvId, fetchMessages]);
+      if (document.visibilityState === 'visible') fetchMessages(activeConvId, true);
+    }, 3000);
+
+    return () => {
+      clearInterval(messageInterval);
+    };
+  }, [activeConvId, fetchMessages, currentStudentId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   useEffect(() => {
-    if (previewMedia) {
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = originalOverflow;
-      };
-    }
+    if (!previewMedia) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
   }, [previewMedia]);
 
   const handleSend = async () => {
     if ((!inputText.trim() && !selectedFile) || !activeConvId || sending) return;
     setSending(true);
 
-    const formData = new FormData();
-    if (inputText.trim()) formData.append('content', inputText.trim());
-    if (selectedFile) formData.append('file', selectedFile);
-
     const textCopy = inputText;
     const fileCopy = selectedFile;
 
     setInputText('');
     setSelectedFile(null);
+    setFileError(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
 
     try {
-      const res = await fetch(`/api/conversations/${encodeURIComponent(activeConvId)}/messages`, {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        body: formData,
-      });
-      if (!res.ok) {
-        setInputText(textCopy);
-        setSelectedFile(fileCopy);
-        return;
-      }
-      const data = await res.json();
-      setMessages((prev) => [...prev, data.message]);
+      const sentMessage = await messagingService.sendMessage(
+        activeConvId,
+        currentStudentId,
+        textCopy.trim(),
+        fileCopy
+      );
+      setMessages((prev) => [...prev, sentMessage]);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConvId
             ? {
                 ...c,
                 lastMessagePreview: fileCopy ? `[Attachment] ${fileCopy.name}` : textCopy.substring(0, 80),
-                lastMessageAt: data.message.createdAt,
+                lastMessageAt: sentMessage.createdAt,
               }
             : c
         )
       );
-    } catch {
+    } catch (err: any) {
+      // Put the draft back so nothing is silently lost, and say why it failed.
       setInputText(textCopy);
       setSelectedFile(fileCopy);
+      setFileError(typeof err?.message === 'string' ? err.message : 'Message could not be sent. Try again.');
     } finally { setSending(false); }
+  };
+
+  // Photos are downscaled in the browser: full-size camera images exceed the
+  // upload limit and waste everyone's mobile data.
+  const handlePickFile = async (file: File) => {
+    setFileError(null);
+    const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      setFileError(
+        `That file is ${formatBytes(prepared.size)}. Maximum upload size is ${formatBytes(MAX_UPLOAD_BYTES)}.`
+      );
+      return;
+    }
+    setSelectedFile(prepared);
   };
 
   const handleSearch = async (q: string) => {
@@ -184,76 +224,126 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSearchResults(data.users || []);
+      const results = await messagingService.searchUsers(q, currentStudentId);
+      setSearchResults(results);
     } catch {} finally { setSearching(false); }
   };
 
   const handleStartConversation = async (participantId: string) => {
     try {
-      const res = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ participantId }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await messagingService.startConversation(currentStudentId, participantId);
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);
       setActiveConvId(data.conversationId);
-      fetchConversations();
-      setTimeout(() => fetchMessages(data.conversationId), 100);
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === data.conversationId)) return prev;
+        return [
+          {
+            id: data.conversationId,
+            otherUser: data.otherUser,
+            unreadCount: 0,
+            lastMessagePreview: 'Started a new conversation',
+            lastMessageAt: new Date().toISOString(),
+          },
+          ...prev,
+        ];
+      });
     } catch {}
   };
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
-  const otherName = activeConv?.otherUser?.studentId || 'Conversation';
+  const otherName = activeConv ? userLabel(activeConv.otherUser) : 'Conversation';
   const otherSection = activeConv?.otherUser?.section;
 
   const inboxContent = (
     <div className="h-full flex flex-col bg-neutral-50/80 dark:bg-[#121215]">
-      {/* Header bar without WHATSAPP CHATS text - clean & subtle */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0">
-        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
-        <button onClick={() => setShowNewModal(true)}
-          className="p-1.5 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/70 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-          title="New Chat">
-          <Plus className="w-4 h-4" />
-        </button>
+      {/* Header bar with inline search */}
+      <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search student ID..."
+            className="w-full text-xs h-8.5 pl-8 pr-7 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {conversations.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
-            <MessageCircle className="w-5 h-5" />
+      {/* Main List: Search Results or Active Conversations */}
+      <div className="flex-1 overflow-y-auto divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
+        {searching ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
           </div>
-          <p className="text-xs text-neutral-500">No active conversations</p>
-          <button onClick={() => setShowNewModal(true)}
-            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-medium cursor-pointer shadow-2xs">
-            <Plus className="w-3.5 h-3.5" /><span>New Chat</span>
-          </button>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
-          {conversations.map((conv) => (
-            <button key={conv.id} onClick={() => setActiveConvId(conv.id)}
+        ) : searchQuery.trim() ? (
+          searchResults.length > 0 ? (
+            searchResults.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => handleStartConversation(u.id)}
+                className="w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+              >
+                <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
+                  {u.studentId.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                      {u.studentId}
+                    </span>
+                    {u.section && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
+                        {u.section}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">Click to start conversation</p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="p-6 text-center text-xs text-neutral-400">No users found</div>
+          )
+        ) : conversations.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
+            <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
+              <MessageCircle className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-neutral-500 font-medium">No active conversations</p>
+            <p className="text-[11px] text-neutral-400 mt-1">Search for a student ID above to start chatting</p>
+          </div>
+        ) : (
+          conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => setActiveConvId(conv.id)}
               className={cn(
                 'w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40',
                 activeConvId === conv.id && 'bg-neutral-200/80 dark:bg-neutral-800/80 font-medium'
-              )}>
+              )}
+            >
               <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
-                {conv.otherUser?.studentId?.charAt(0).toUpperCase() || '?'}
+                {userLabel(conv.otherUser).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {conv.otherUser?.studentId || 'Unknown'}
+                      {userLabel(conv.otherUser)}
                     </span>
                     {conv.otherUser?.section && (
                       <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
@@ -277,9 +367,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 </span>
               )}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 
@@ -408,6 +498,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
       <div className="p-3 pb-20 md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
+        {fileError && (
+          <div className="mb-2 px-2 text-[11px] text-rose-600 dark:text-rose-400">{fileError}</div>
+        )}
+
         {selectedFile && (
           <div className="mb-2 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 min-w-0">
@@ -424,7 +518,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <input
             type="file"
             ref={fileInputRef}
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              const picked = e.target.files?.[0];
+              if (picked) handlePickFile(picked);
+              e.target.value = '';
+            }}
             className="hidden"
           />
           <button
@@ -491,7 +589,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
               <input type="text" value={searchQuery} onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search student ID across any section..."
+                placeholder="Search by name or student ID across any section..."
                 className="w-full text-xs h-9 pl-8 pr-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400" />
             </div>
             <div className="space-y-1 max-h-56 overflow-y-auto">
@@ -503,9 +601,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
-                        {u.studentId.charAt(0).toUpperCase()}
+                        {userLabel(u).charAt(0).toUpperCase()}
                       </div>
-                      <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">{u.studentId}</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{userLabel(u)}</span>
+                        {u.displayName && (
+                          <span className="text-[10px] text-neutral-400 truncate">{u.studentId}</span>
+                        )}
+                      </div>
                     </div>
                     {u.section && (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60">

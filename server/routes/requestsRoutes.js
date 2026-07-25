@@ -3,12 +3,19 @@ const crypto = require("crypto");
 const { eq, desc, and } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { db, schema } = require("../db/client");
+const { createNotifications } = require("../notifications/notificationService");
+const {
+  MAX_REQUEST_TITLE_CHARS,
+  MAX_REQUEST_BODY_CHARS,
+  rateLimit,
+  limitText,
+} = require("../limits");
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
   if (!activeSession) {
     return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
   }
@@ -16,31 +23,12 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function createNotifications(userIds, type, title, body, link, referenceId) {
-  if (!userIds || userIds.length === 0) return;
-  const now = new Date().toISOString();
-  const values = userIds.map((uid) => ({
-    id: crypto.randomUUID(),
-    userId: uid,
-    type,
-    title,
-    body: body || null,
-    link: link || null,
-    referenceId: referenceId || null,
-    isRead: 0,
-    createdAt: now,
-  }));
-  for (const v of values) {
-    db.insert(schema.notifications).values(v).run();
-  }
-}
-
-router.get("/requests", requireAuth, (req, res) => {
+router.get("/requests", requireAuth, async (req, res) => {
   try {
     const section = req.user.section;
     if (!section) return res.json({ count: 0, requests: [] });
 
-    const records = db
+    const records = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.section, section))
@@ -67,15 +55,28 @@ router.get("/requests", requireAuth, (req, res) => {
   }
 });
 
-router.post("/requests", requireAuth, (req, res) => {
+router.post(
+  "/requests",
+  requireAuth,
+  rateLimit({ name: "create-request", windowMs: 60 * 1000, max: 10 }),
+  async (req, res) => {
   try {
-    const { title, content, category } = req.body || {};
-    if (!title || typeof title !== "string" || !title.trim()) {
+    const { category } = req.body || {};
+    const titleField = limitText((req.body || {}).title, MAX_REQUEST_TITLE_CHARS);
+    const contentField = limitText((req.body || {}).content, MAX_REQUEST_BODY_CHARS);
+    if (!titleField.value) {
       return res.status(400).json({ error: "Title is required." });
     }
-    if (!content || typeof content !== "string" || !content.trim()) {
+    if (!contentField.value) {
       return res.status(400).json({ error: "Content is required." });
     }
+    if (titleField.tooLong || contentField.tooLong) {
+      return res.status(413).json({
+        error: `Titles are limited to ${MAX_REQUEST_TITLE_CHARS} characters and details to ${MAX_REQUEST_BODY_CHARS}.`,
+      });
+    }
+    const title = titleField.value;
+    const content = contentField.value;
     const section = req.user.section;
     if (!section) return res.status(400).json({ error: "Section not set." });
 
@@ -88,16 +89,16 @@ router.post("/requests", requireAuth, (req, res) => {
       studentId: req.user.studentId,
       section,
       category: category && typeof category === "string" ? category.trim() : null,
-      title: title.trim(),
-      content: content.trim(),
+      title,
+      content,
       status: "open",
       createdAt: now,
       updatedAt: now,
     };
 
-    db.insert(schema.sectionRequests).values(newRequest).run();
+    await db.insert(schema.sectionRequests).values(newRequest).run();
 
-    const sectionUsers = db
+    const sectionUsers = await db
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(eq(schema.users.section, section))
@@ -107,10 +108,10 @@ router.post("/requests", requireAuth, (req, res) => {
       .filter((uid) => uid !== req.user.id);
 
     if (otherUserIds.length > 0) {
-      createNotifications(
+      await createNotifications(
         otherUserIds,
         "new_request",
-        `New request: ${title.trim().substring(0, 60)}`,
+        `New request: ${title.substring(0, 60)}`,
         `${req.user.studentId} posted a request in ${section}`,
         "requests",
         id
@@ -125,9 +126,10 @@ router.post("/requests", requireAuth, (req, res) => {
     console.error("Create Request Error:", err);
     return res.status(500).json({ error: "Failed to create request." });
   }
-});
+  }
+);
 
-router.patch("/requests/:id/status", requireAuth, (req, res) => {
+router.patch("/requests/:id/status", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
@@ -135,7 +137,7 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
       return res.status(400).json({ error: "Status must be 'open' or 'completed'." });
     }
 
-    const item = db
+    const item = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
@@ -146,7 +148,7 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
       return res.status(403).json({ error: "You can only update your own requests." });
     }
 
-    db.update(schema.sectionRequests)
+    await db.update(schema.sectionRequests)
       .set({ status, updatedAt: new Date().toISOString() })
       .where(eq(schema.sectionRequests.id, id))
       .run();
@@ -158,10 +160,10 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
   }
 });
 
-router.delete("/requests/:id", requireAuth, (req, res) => {
+router.delete("/requests/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const item = db
+    const item = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
@@ -172,7 +174,7 @@ router.delete("/requests/:id", requireAuth, (req, res) => {
       return res.status(403).json({ error: "You can only delete your own requests." });
     }
 
-    db.delete(schema.sectionRequests)
+    await db.delete(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
       .run();
 

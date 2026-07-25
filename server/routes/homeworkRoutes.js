@@ -9,9 +9,9 @@ const router = express.Router();
  * Middleware to authenticate requests via HTTP-only app_session cookie.
  * SECURITY: Never trusts userId from query or body.
  */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
 
   if (!activeSession) {
     return res.status(401).json({
@@ -30,8 +30,8 @@ router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
   // 1. Retrieve cached homework from SQLite
-  let cachedHomework = homeworkCacheService.getCachedHomework(userId);
-  const isStale = homeworkCacheService.isCacheStale(userId);
+  let cachedHomework = await homeworkCacheService.getCachedHomework(userId);
+  const isStale = await homeworkCacheService.isCacheStale(userId);
 
   // 2. If cached data exists and is fresh, return immediately
   if (cachedHomework.length > 0 && !isStale) {
@@ -44,7 +44,7 @@ router.get("/homework", requireAuth, async (req, res) => {
   }
 
   // 3. Cache is empty or stale -> Attempt EduSecure background / inline refresh
-  const eduSession = sessionService.getEduSecureSession(userId);
+  const eduSession = await sessionService.getEduSecureSession(userId);
   if (!eduSession || !eduSession.sessionCookies) {
     // If EduSecure session expired, but we have cached homework, return cached homework with sessionExpired flag
     if (cachedHomework.length > 0) {
@@ -65,7 +65,7 @@ router.get("/homework", requireAuth, async (req, res) => {
 
   try {
     const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = homeworkCacheService.upsertHomework(userId, data.homework);
+    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
 
     return res.json({
       count: updatedHomework.length,
@@ -75,7 +75,7 @@ router.get("/homework", requireAuth, async (req, res) => {
     });
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err.code === "SCHOOL_SESSION_EXPIRED") {
-      sessionService.removeEduSecureSession(userId);
+      await sessionService.removeEduSecureSession(userId);
 
       // Return cached homework if available even if EduSecure session expired
       if (cachedHomework.length > 0) {
@@ -116,7 +116,7 @@ router.get("/homework", requireAuth, async (req, res) => {
 // Explicitly forces a fresh fetch from EduSecure, upserts to SQLite, and returns updated list.
 router.post("/homework/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
-  const eduSession = sessionService.getEduSecureSession(userId);
+  const eduSession = await sessionService.getEduSecureSession(userId);
 
   if (!eduSession || !eduSession.sessionCookies) {
     return res.status(401).json({
@@ -127,7 +127,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
 
   try {
     const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = homeworkCacheService.upsertHomework(userId, data.homework);
+    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
 
     return res.json({
       count: updatedHomework.length,
@@ -136,7 +136,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
     });
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err.code === "SCHOOL_SESSION_EXPIRED") {
-      sessionService.removeEduSecureSession(userId);
+      await sessionService.removeEduSecureSession(userId);
       return res.status(401).json({
         code: "SCHOOL_SESSION_EXPIRED",
         message: "Your school session has expired. Please sign in again."
@@ -152,7 +152,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
 
 // PATCH /api/homework/:id/status
 // Updates completion status for a specific homework entry owned by the authenticated user.
-router.patch("/homework/:id/status", requireAuth, (req, res) => {
+router.patch("/homework/:id/status", requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const homeworkId = req.params.id;
@@ -164,7 +164,7 @@ router.patch("/homework/:id/status", requireAuth, (req, res) => {
       });
     }
 
-    const result = homeworkCacheService.updateHomeworkStatus(userId, homeworkId, completed);
+    const result = await homeworkCacheService.updateHomeworkStatus(userId, homeworkId, completed);
     return res.json(result);
   } catch (err) {
     if (err.statusCode === 404) {
@@ -177,7 +177,7 @@ router.patch("/homework/:id/status", requireAuth, (req, res) => {
 
 // PATCH /api/homework/:id/note
 // Updates personal note for a specific homework entry owned by the authenticated user.
-router.patch("/homework/:id/note", requireAuth, (req, res) => {
+router.patch("/homework/:id/note", requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
     const homeworkId = req.params.id;
@@ -189,7 +189,7 @@ router.patch("/homework/:id/note", requireAuth, (req, res) => {
       });
     }
 
-    const result = homeworkCacheService.updateHomeworkNote(userId, homeworkId, note);
+    const result = await homeworkCacheService.updateHomeworkNote(userId, homeworkId, note);
     return res.json(result);
   } catch (err) {
     if (err.statusCode === 404) {

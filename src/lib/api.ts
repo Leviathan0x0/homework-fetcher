@@ -11,6 +11,12 @@ const RAW_API_BASE_URL = (metaEnv.VITE_API_BASE_URL || "").trim();
 
 export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
 
+/**
+ * Largest upload the API accepts. Serverless hosts reject bodies above ~4.5 MB
+ * before the request reaches the server, so the browser must enforce it too.
+ */
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
 /** Resolves an API/served-file path against the configured API origin. */
 export function apiUrl(path: string): string {
   if (!path) return path;

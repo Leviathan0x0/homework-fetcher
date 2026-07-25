@@ -73,6 +73,47 @@ a missing build or a misconfigured database; a misconfigured database now answer
 `503` and the exact reason in the JSON body. Check the function logs in Vercel → Deployments →
 Functions for the logged message.
 
+## Limits and safeguards
+
+| Safeguard | Value |
+| --- | --- |
+| Upload size | 4 MB on serverless hosts (the platform rejects larger bodies), 10 MB elsewhere |
+| Photo uploads | Downscaled in the browser to 1600px/JPEG before sending |
+| Message length | 4000 characters |
+| Request title / details | 120 / 2000 characters |
+| JSON request body | 256 KB |
+| Rate limits | 600 API requests, 40 messages, 20 uploads, 10 requests, 120 searches per minute per user |
+| Notification retention | Read notifications older than `NOTIFICATION_RETENTION_DAYS` (default 30) are pruned |
+
+Rate-limit counters live in the process, so on serverless hosts each instance counts separately;
+they are a guard against runaway clients, not a hard quota. A shared store would be needed for
+strict enforcement.
+
+## Backups
+
+With a hosted libSQL database, backups are the provider's responsibility — Turso keeps
+point-in-time recovery for its databases. To take your own copy:
+
+```bash
+turso db shell <database> ".dump" > backup.sql
+```
+
+On a Node host with a local database, copy the file with SQLite's own backup command (a plain `cp`
+of a live database can be inconsistent):
+
+```bash
+sqlite3 /data/sqlite.db ".backup '/data/backup-$(date +%F).db'"
+tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
+```
+
+## Not implemented yet
+
+- **Realtime messaging.** The client polls (messages every 3s, inbox every 6s, both paused when the
+  tab is hidden). WebSockets need a long-lived process, so they only make sense on a Node host, not
+  on serverless functions.
+- **Scheduled backups.** These need a cron host; run the commands above from a machine you control,
+  or add a systemd timer when the API moves to a VPS.
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -83,3 +124,4 @@ Functions for the logged message.
 | `ENCRYPTION_KEY` | AES key used to encrypt stored EduSecure session cookies |
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
+| `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |

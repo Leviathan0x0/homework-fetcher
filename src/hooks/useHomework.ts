@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
-import { authService, homeworkService } from "../services/api";
+import { authService, homeworkService } from "../services/appwriteServices";
 
 export interface UserAccount {
   id: string;

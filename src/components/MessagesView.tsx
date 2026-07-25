@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
+import { messagingService } from '../services/appwriteServices';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -190,30 +191,31 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const res = await apiFetch(`/api/users/search?q=${encodeURIComponent(q)}`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setSearchResults(data.users || []);
+      const results = await messagingService.searchUsers(q);
+      setSearchResults(results);
     } catch {} finally { setSearching(false); }
   };
 
   const handleStartConversation = async (participantId: string) => {
     try {
-      const res = await apiFetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ participantId }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await messagingService.startConversation(participantId);
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);
       setActiveConvId(data.conversationId);
-      fetchConversations();
-      setTimeout(() => fetchMessages(data.conversationId), 100);
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === data.conversationId)) return prev;
+        return [
+          {
+            id: data.conversationId,
+            otherUser: data.otherUser,
+            unreadCount: 0,
+            lastMessagePreview: 'Started a new conversation',
+            lastMessageAt: new Date().toISOString(),
+          },
+          ...prev,
+        ];
+      });
     } catch {}
   };
 

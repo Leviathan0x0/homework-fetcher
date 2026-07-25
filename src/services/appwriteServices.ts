@@ -412,3 +412,41 @@ export const requestService = {
     }
   }
 };
+
+// --- MESSAGING SERVICE ---
+export const messagingService = {
+  async searchUsers(query: string) {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+
+    const defaultStudents = [
+      { id: "student1", studentId: "student1", section: "Section 9-F" },
+      { id: "student2", studentId: "student2", section: "Section 9-F" },
+      { id: "student3", studentId: "student3", section: "Section 9-F" },
+      { id: "student4", studentId: "student4", section: "Section 9-F" },
+      { id: "student5", studentId: "student5", section: "Section 9-F" },
+      { id: "student6", studentId: "student6", section: "Section 9-F" },
+      { id: "student7", studentId: "student7", section: "Section 9-F" },
+      { id: "student8", studentId: "student8", section: "Section 9-F" },
+      { id: "student9", studentId: "student9", section: "Section 9-F" },
+      { id: "student10", studentId: "student10", section: "Section 9-F" },
+    ];
+
+    if (!q.startsWith("student")) {
+      defaultStudents.push({ id: q, studentId: q, section: "Section 9-F" });
+    }
+
+    return defaultStudents.filter((s) => s.studentId.toLowerCase().includes(q));
+  },
+
+  async startConversation(participantId: string) {
+    return {
+      conversationId: `conv-${participantId}`,
+      otherUser: {
+        id: participantId,
+        studentId: participantId,
+        section: "Section 9-F",
+      }
+    };
+  }
+};

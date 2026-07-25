@@ -1,6 +1,6 @@
 const express = require("express");
 const sessionService = require("../auth/sessionService");
-const { fetchSectionFromEduSecure } = require("../auth/sessionService");
+const { fetchProfileFromEduSecure } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
 
@@ -69,15 +69,20 @@ router.post("/login", async (req, res) => {
     }));
 
     let section = user.section;
-    if (!isDummyAccount && needsRefresh(section)) {
+    let displayName = user.displayName;
+    if (!isDummyAccount && (needsRefresh(section) || !displayName)) {
       try {
-        const fetchedSection = await fetchSectionFromEduSecure(sessionCookies);
-        if (fetchedSection) {
-          sessionService.updateSection(user.id, fetchedSection);
-          section = fetchedSection;
+        const profile = await fetchProfileFromEduSecure(sessionCookies);
+        if (profile.section && needsRefresh(section)) {
+          sessionService.updateSection(user.id, profile.section);
+          section = profile.section;
+        }
+        if (profile.displayName && !displayName) {
+          sessionService.updateDisplayName(user.id, profile.displayName);
+          displayName = profile.displayName;
         }
       } catch (err) {
-        console.error("Section fetch failed:", err.message);
+        console.error("Profile fetch failed:", err.message);
       }
     }
 
@@ -86,6 +91,7 @@ router.post("/login", async (req, res) => {
       user: {
         id: user.id,
         studentId: user.studentId,
+        displayName: displayName || null,
         section,
       }
     });
@@ -112,18 +118,23 @@ router.get("/me", async (req, res) => {
   }
 
   let section = activeSession.user.section;
-  if (needsRefresh(section)) {
+  let displayName = activeSession.user.displayName;
+  if (needsRefresh(section) || !displayName) {
     try {
       const eduSession = sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
-        const fetchedSection = await fetchSectionFromEduSecure(eduSession.sessionCookies);
-        if (fetchedSection) {
-          sessionService.updateSection(activeSession.user.id, fetchedSection);
-          section = fetchedSection;
+        const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
+        if (profile.section && needsRefresh(section)) {
+          sessionService.updateSection(activeSession.user.id, profile.section);
+          section = profile.section;
+        }
+        if (profile.displayName && !displayName) {
+          sessionService.updateDisplayName(activeSession.user.id, profile.displayName);
+          displayName = profile.displayName;
         }
       }
     } catch (err) {
-      console.error("Section refresh failed:", err.message);
+      console.error("Profile refresh failed:", err.message);
     }
   }
 
@@ -132,6 +143,7 @@ router.get("/me", async (req, res) => {
     user: {
       id: activeSession.user.id,
       studentId: activeSession.user.studentId,
+      displayName: displayName || null,
       section,
     }
   });

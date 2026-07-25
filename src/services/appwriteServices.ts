@@ -65,6 +65,7 @@ export const authService = {
       return {
         id: user.$id,
         studentId,
+        displayName: user.prefs?.displayName || null,
         section,
       };
     } catch (err) {
@@ -121,6 +122,7 @@ export const authService = {
     return {
       id: updatedUser.$id,
       studentId: cleanId,
+      displayName: updatedUser.prefs?.displayName || null,
       section: finalSection,
     };
   },

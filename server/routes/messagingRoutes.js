@@ -78,25 +78,45 @@ function isParticipant(conversationId, userId) {
   return !!row;
 }
 
+function normalizeSearchValue(value) {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function toPublicUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    studentId: user.studentId,
+    displayName: user.displayName || null,
+    name: user.displayName || user.studentId,
+    section: user.section,
+  };
+}
+
 router.get("/users/search", requireAuth, (req, res) => {
   try {
     const q = (req.query.q || "").trim();
-    if (!q || q.length < 1) return res.json({ users: [] });
+    if (!q) return res.json({ users: [] });
+
+    const needle = normalizeSearchValue(q);
+    if (!needle) return res.json({ users: [] });
 
     const allUsers = db
       .select()
       .from(schema.users)
       .all();
 
-    const lower = q.toLowerCase();
     const matched = allUsers
-      .filter((u) => u.id !== req.user.id && u.studentId.toLowerCase().includes(lower))
-      .slice(0, 10)
-      .map((u) => ({
-        id: u.id,
-        studentId: u.studentId,
-        section: u.section,
-      }));
+      .filter((u) => {
+        if (u.id === req.user.id) return false;
+        return (
+          normalizeSearchValue(u.studentId).includes(needle) ||
+          normalizeSearchValue(u.displayName).includes(needle)
+        );
+      })
+      .sort((a, b) => (a.displayName || a.studentId).localeCompare(b.displayName || b.studentId))
+      .slice(0, 20)
+      .map(toPublicUser);
 
     return res.json({ users: matched });
   } catch (err) {
@@ -169,9 +189,7 @@ router.get("/conversations", requireAuth, (req, res) => {
 
       return {
         id: c.id,
-        otherUser: otherUser
-          ? { id: otherUser.id, studentId: otherUser.studentId, section: otherUser.section }
-          : null,
+        otherUser: toPublicUser(otherUser),
         lastMessagePreview: c.lastMessagePreview || (lastMsg ? lastMsg.content.substring(0, 80) : null),
         lastMessageAt: c.lastMessageAt || (lastMsg ? lastMsg.createdAt : c.createdAt),
         unreadCount,
@@ -266,7 +284,8 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
-const MSG_UPLOADS_DIR = path.join(__dirname, "../../uploads/messages");
+const UPLOADS_ROOT = process.env.UPLOADS_DIR || path.join(__dirname, "../../uploads");
+const MSG_UPLOADS_DIR = path.join(UPLOADS_ROOT, "messages");
 if (!fs.existsSync(MSG_UPLOADS_DIR)) {
   fs.mkdirSync(MSG_UPLOADS_DIR, { recursive: true });
 }
@@ -390,9 +409,9 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
         createNotifications(
           otherUserIds,
           "new_message",
-          `Message from ${req.user.studentId}`,
+          `Message from ${req.user.displayName || req.user.studentId}`,
           previewText,
-          "messages",
+          `messages:${convId}`,
           convId
         );
       }
@@ -441,13 +460,7 @@ router.get("/messages/files/:messageId", requireAuth, (req, res) => {
 
     // 2. Check filename by message ID prefix
     const files = fs.readdirSync(MSG_UPLOADS_DIR);
-    let matched = files.find((f) => f.startsWith(messageId));
-
-    // 3. Fallback for legacy test files: match by file extension
-    if (!matched && msg.originalFilename) {
-      const ext = path.extname(msg.originalFilename).toLowerCase();
-      matched = files.find((f) => path.extname(f).toLowerCase() === ext);
-    }
+    const matched = files.find((f) => f.startsWith(messageId));
 
     if (!matched) return res.status(404).json({ error: "File on disk not found." });
 

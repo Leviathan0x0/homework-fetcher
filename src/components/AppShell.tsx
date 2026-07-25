@@ -98,6 +98,16 @@ export const AppShell: React.FC = () => {
   };
 
   const handleNavigate = useCallback((view: string) => {
+    if (view.startsWith('messages:')) {
+      const targetConvId = view.slice('messages:'.length);
+      setActiveView('messages');
+      if (targetConvId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
+        }, 50);
+      }
+      return;
+    }
     setActiveView(view as any);
   }, [setActiveView]);
 
@@ -210,7 +220,7 @@ export const AppShell: React.FC = () => {
               userSection={user?.section}
               onNavigate={(v) => {
                 if (v.startsWith('messages:')) {
-                  const targetConvId = v.split(':')[1];
+                  const targetConvId = v.slice('messages:'.length);
                   setActiveView('messages');
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));

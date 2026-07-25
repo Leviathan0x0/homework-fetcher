@@ -434,27 +434,50 @@ export const requestService = {
 // --- MESSAGING SERVICE ---
 export const messagingService = {
   async getConversations() {
+    let list: any[] = [];
+
+    // 1. Load from localStorage cache first
     try {
-      const response = await databases.listDocuments(
-        APPWRITE_DATABASE_ID,
-        COLLECTIONS.CONVERSATIONS,
-        [Query.limit(50)]
-      );
-      if (response && response.documents && response.documents.length > 0) {
-        return response.documents.map((doc: any) => ({
-          id: doc.$id,
-          otherUser: {
-            id: doc.participant_id || doc.other_user_id || "Student",
-            studentId: doc.other_student_id || doc.participant_id || "Student",
-            section: doc.section || "",
-          },
-          lastMessagePreview: doc.last_message || "No messages yet",
-          lastMessageAt: doc.$createdAt || doc.createdAt,
-          unreadCount: 0,
-        }));
+      const cached = localStorage.getItem("app_conversations_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) list = parsed;
       }
     } catch {}
-    return [];
+
+    // 2. Fetch from serverless endpoints
+    try {
+      const res = await fetch("/api/conversations");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.conversations)) {
+          data.conversations.forEach((c: any) => list.push(c));
+        }
+      }
+    } catch {}
+
+    try {
+      const res = await fetch("/api/messages?action=conversations");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.conversations)) {
+          data.conversations.forEach((c: any) => list.push(c));
+        }
+      }
+    } catch {}
+
+    // 3. Deduplicate conversations by ID
+    const map = new Map<string, any>();
+    list.forEach((c) => {
+      if (c && c.id) map.set(c.id, c);
+    });
+
+    const result = Array.from(map.values());
+    try {
+      localStorage.setItem("app_conversations_cache", JSON.stringify(result));
+    } catch {}
+
+    return result;
   },
 
   async getMessages(convId: string) {
@@ -601,13 +624,45 @@ export const messagingService = {
   },
 
   async startConversation(participantId: string) {
-    return {
-      conversationId: `conv-${participantId}`,
+    const convId = `conv-${participantId}`;
+    const newConv = {
+      id: convId,
       otherUser: {
         id: participantId,
         studentId: participantId,
         section: "",
+      },
+      lastMessagePreview: "Started a new conversation",
+      lastMessageAt: new Date().toISOString(),
+      unreadCount: 0,
+    };
+
+    try {
+      fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: convId,
+          participantId,
+          lastMessagePreview: "Started a new conversation",
+          lastMessageAt: newConv.lastMessageAt,
+        })
+      }).catch(() => {});
+    } catch {}
+
+    try {
+      const cached = localStorage.getItem("app_conversations_cache");
+      let list = cached ? JSON.parse(cached) : [];
+      if (!Array.isArray(list)) list = [];
+      if (!list.some((c: any) => c && c.id === convId)) {
+        list.unshift(newConv);
+        localStorage.setItem("app_conversations_cache", JSON.stringify(list));
       }
+    } catch {}
+
+    return {
+      conversationId: convId,
+      otherUser: newConv.otherUser,
     };
   }
 };

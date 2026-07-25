@@ -1,5 +1,6 @@
 // Serverless real-time messaging handler for Vercel
 const messagesStore = new Map(); // conversationId -> Array of message objects
+const conversationsStore = new Map(); // conversationId -> conversation object
 
 module.exports = async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -8,6 +9,11 @@ module.exports = async (req, res) => {
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
+  }
+
+  // GET conversations list if requested
+  if (req.method === "GET" && req.query?.action === "conversations") {
+    return res.status(200).json({ conversations: Array.from(conversationsStore.values()) });
   }
 
   if (req.method === "POST") {
@@ -40,6 +46,20 @@ module.exports = async (req, res) => {
       const list = messagesStore.get(conversationId);
       list.push(newMsg);
 
+      // Record/Update conversation entry
+      const participantId = conversationId.replace(/^conv-/, "");
+      conversationsStore.set(conversationId, {
+        id: conversationId,
+        otherUser: {
+          id: participantId,
+          studentId: participantId,
+          section: ""
+        },
+        lastMessagePreview: attachmentUrl ? `[Attachment]` : content.substring(0, 80),
+        lastMessageAt: newMsg.createdAt,
+        unreadCount: 0
+      });
+
       return res.status(200).json({ success: true, message: newMsg });
     } catch (err) {
       return res.status(400).json({ success: false, error: err.message });
@@ -49,7 +69,7 @@ module.exports = async (req, res) => {
   // GET request - fetch messages for conversationId
   const conversationId = req.query?.conversationId;
   if (!conversationId) {
-    return res.status(200).json({ messages: [] });
+    return res.status(200).json({ messages: [], conversations: Array.from(conversationsStore.values()) });
   }
 
   const list = messagesStore.get(conversationId) || [];

@@ -483,16 +483,27 @@ export const messagingService = {
   async getMessages(convId: string) {
     let list: Message[] = [];
 
+    // 1. Read persistent localStorage cache for this conversation
+    try {
+      const cached = localStorage.getItem(`app_messages_cache_${convId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) list = parsed;
+      }
+    } catch {}
+
+    // 2. Fetch from serverless messaging endpoint
     try {
       const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(convId)}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.messages)) {
-          list = data.messages;
+          data.messages.forEach((m: Message) => list.push(m));
         }
       }
     } catch {}
 
+    // 3. Query Appwrite Database COLLECTIONS.MESSAGES if configured
     try {
       const response = await databases.listDocuments(
         APPWRITE_DATABASE_ID,
@@ -517,7 +528,16 @@ export const messagingService = {
 
     const map = new Map<string, Message>();
     list.forEach((m) => map.set(m.id, m));
-    return Array.from(map.values()).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const sorted = Array.from(map.values()).sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    // Save merged list back to persistent localStorage
+    try {
+      localStorage.setItem(`app_messages_cache_${convId}`, JSON.stringify(sorted));
+    } catch {}
+
+    return sorted;
   },
 
   async sendMessage(convId: string, senderStudentId: string, content: string, file?: File | null) {
@@ -533,31 +553,8 @@ export const messagingService = {
       } catch {}
     }
 
-    try {
-      const res = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversationId: convId,
-          senderId: senderStudentId,
-          senderStudentId: senderStudentId,
-          content: content || "",
-          attachmentUrl
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.message) {
-          return {
-            ...data.message,
-            isMine: true,
-          };
-        }
-      }
-    } catch {}
-
-    return {
-      id: `msg-${Date.now()}`,
+    let newMsg: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       conversationId: convId,
       senderId: senderStudentId,
       senderStudentId: senderStudentId,
@@ -566,6 +563,72 @@ export const messagingService = {
       createdAt: new Date().toISOString(),
       isMine: true,
     };
+
+    // Save to Appwrite Cloud Database
+    try {
+      await databases.createDocument(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.MESSAGES,
+        ID.unique(),
+        {
+          conversation_id: convId,
+          sender_id: senderStudentId,
+          sender_student_id: senderStudentId,
+          content: content || "",
+          attachment_url: attachmentUrl,
+        }
+      );
+    } catch {}
+
+    // Send to serverless messaging endpoint
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMsg)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          newMsg = { ...data.message, isMine: true };
+        }
+      }
+    } catch {}
+
+    // Persist immediately into localStorage cache for convId
+    try {
+      const cached = localStorage.getItem(`app_messages_cache_${convId}`);
+      let list: Message[] = cached ? JSON.parse(cached) : [];
+      if (!Array.isArray(list)) list = [];
+      if (!list.some((m) => m.id === newMsg.id)) {
+        list.push(newMsg);
+        localStorage.setItem(`app_messages_cache_${convId}`, JSON.stringify(list));
+      }
+    } catch {}
+
+    // Also update conversation preview in persistent cache
+    try {
+      const cachedConvs = localStorage.getItem("app_conversations_cache");
+      let convsList: any[] = cachedConvs ? JSON.parse(cachedConvs) : [];
+      if (!Array.isArray(convsList)) convsList = [];
+      const participantId = convId.replace(/^conv-/, "");
+      const existingIdx = convsList.findIndex((c) => c.id === convId);
+      const updatedConv = {
+        id: convId,
+        otherUser: { id: participantId, studentId: participantId, section: "" },
+        lastMessagePreview: attachmentUrl ? "[Attachment]" : content.substring(0, 80),
+        lastMessageAt: newMsg.createdAt,
+        unreadCount: 0
+      };
+      if (existingIdx !== -1) {
+        convsList[existingIdx] = updatedConv;
+      } else {
+        convsList.unshift(updatedConv);
+      }
+      localStorage.setItem("app_conversations_cache", JSON.stringify(convsList));
+    } catch {}
+
+    return newMsg;
   },
 
   async searchUsers(query: string) {

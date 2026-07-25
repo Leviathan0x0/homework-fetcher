@@ -9,7 +9,12 @@
  */
 const isProduction = process.env.NODE_ENV === "production";
 
-const stripTrailingSlash = (value) => value.trim().replace(/\/+$/, "");
+const stripTrailingSlash = (value) => {
+  const trimmed = value.trim();
+  let end = trimmed.length;
+  while (end > 0 && trimmed[end - 1] === "/") end -= 1;
+  return trimmed.slice(0, end);
+};
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.APP_ORIGIN || "")
   .split(",")

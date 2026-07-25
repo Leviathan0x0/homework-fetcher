@@ -1,7 +1,4 @@
-import { account, databases, storage, realtime, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
 import { apiFetch, apiJson } from "../lib/api";
-import { ID, Query } from "appwrite";
-
 // --- AUTH SERVICE ---
 export const authService = {
   async getCurrentUser() {
@@ -103,70 +100,5 @@ export const homeworkService = {
     if (!res.ok) {
       throw new Error("Failed to update note.");
     }
-  }
-};
-
-// --- CLASSWORK SERVICE ---
-export const classworkService = {
-  async getUploads(section: string) {
-    const res = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.CLASSWORK_UPLOADS,
-      [Query.equal("section", section), Query.limit(100)]
-    );
-    return res.documents;
-  },
-
-  async uploadFile(file: File, userId: string, studentId: string, section: string, subject: string, title?: string, date?: string) {
-    const createdFile = await storage.createFile(APPWRITE_BUCKET_ID, ID.unique(), file);
-    const fileUrl = storage.getFileView(APPWRITE_BUCKET_ID, createdFile.$id).href;
-
-    const doc = await databases.createDocument(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.CLASSWORK_UPLOADS,
-      ID.unique(),
-      {
-        userId,
-        studentId,
-        section,
-        subject,
-        title: title || file.name,
-        date: date || new Date().toISOString().split("T")[0],
-        fileId: createdFile.$id,
-        fileUrl,
-        originalFilename: file.name,
-        fileSize: file.size,
-        mimeType: file.type,
-      }
-    );
-    return doc;
-  },
-
-  async deleteUpload(docId: string, fileId: string) {
-    await databases.deleteDocument(APPWRITE_DATABASE_ID, COLLECTIONS.CLASSWORK_UPLOADS, docId);
-    try {
-      await storage.deleteFile(APPWRITE_BUCKET_ID, fileId);
-    } catch (e) {}
-  }
-};
-
-// --- REQUESTS SERVICE ---
-export const requestsService = {
-  async getRequests(section: string) {
-    const res = await databases.listDocuments(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.SECTION_REQUESTS,
-      [Query.equal("section", section), Query.limit(100)]
-    );
-    return res.documents;
-  },
-
-  async createRequest(userId: string, studentId: string, section: string, title: string, content: string, category?: string) {
-    return await databases.createDocument(
-      APPWRITE_DATABASE_ID,
-      COLLECTIONS.SECTION_REQUESTS,
-      ID.unique(),
-      { userId, studentId, section, title, content, category, status: "open" }
-    );
   }
 };

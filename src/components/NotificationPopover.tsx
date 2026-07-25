@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { notificationService, authService } from '../services/appwriteServices';
+import { notificationService, authService } from '../services/api';
 import { AppNotification } from '../types/homework';
 import { Bell, X, CheckCheck, Loader2, UploadCloud, Handshake, MessageCircle, RefreshCw } from 'lucide-react';
 import { cn } from '../utils/cn';

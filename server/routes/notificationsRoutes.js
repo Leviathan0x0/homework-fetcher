@@ -5,9 +5,9 @@ const { db, schema } = require("../db/client");
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
   if (!activeSession) {
     return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
   }
@@ -15,9 +15,9 @@ function requireAuth(req, res, next) {
   next();
 }
 
-router.get("/notifications", requireAuth, (req, res) => {
+router.get("/notifications", requireAuth, async (req, res) => {
   try {
-    const records = db
+    const records = await db
       .select()
       .from(schema.notifications)
       .where(eq(schema.notifications.userId, req.user.id))
@@ -43,9 +43,9 @@ router.get("/notifications", requireAuth, (req, res) => {
   }
 });
 
-router.get("/notifications/unread-count", requireAuth, (req, res) => {
+router.get("/notifications/unread-count", requireAuth, async (req, res) => {
   try {
-    const records = db
+    const records = await db
       .select()
       .from(schema.notifications)
       .where(
@@ -63,11 +63,11 @@ router.get("/notifications/unread-count", requireAuth, (req, res) => {
   }
 });
 
-router.patch("/notifications/:id/read", requireAuth, (req, res) => {
+router.patch("/notifications/:id/read", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const item = db
+    const item = await db
       .select()
       .from(schema.notifications)
       .where(eq(schema.notifications.id, id))
@@ -78,7 +78,7 @@ router.patch("/notifications/:id/read", requireAuth, (req, res) => {
       return res.status(403).json({ error: "Access denied." });
     }
 
-    db.update(schema.notifications)
+    await db.update(schema.notifications)
       .set({ isRead: 1 })
       .where(eq(schema.notifications.id, id))
       .run();
@@ -90,9 +90,9 @@ router.patch("/notifications/:id/read", requireAuth, (req, res) => {
   }
 });
 
-router.post("/notifications/read-all", requireAuth, (req, res) => {
+router.post("/notifications/read-all", requireAuth, async (req, res) => {
   try {
-    db.update(schema.notifications)
+    await db.update(schema.notifications)
       .set({ isRead: 1 })
       .where(eq(schema.notifications.userId, req.user.id))
       .run();

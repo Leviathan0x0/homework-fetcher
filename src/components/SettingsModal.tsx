@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
-import { authService } from '../services/appwriteServices';
+import { authService } from '../services/api';
 import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onClose: () => void;
   user: UserAccount | null;
   onLogout: () => void;
+  onUserChange?: (user: UserAccount) => void;
   sessionStatus: SessionStatus;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
@@ -20,11 +21,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   user,
   onLogout,
+  onUserChange,
   sessionStatus,
   theme,
   onThemeChange,
 }) => {
+  const [nameDraft, setNameDraft] = useState(user?.displayName || '');
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+
+  useEffect(() => {
+    setNameDraft(user?.displayName || '');
+    setNameError(null);
+    setNameSaved(false);
+  }, [user?.displayName, isOpen]);
+
   if (!isOpen) return null;
+
+  const handleSaveName = async () => {
+    setSavingName(true);
+    setNameError(null);
+    setNameSaved(false);
+    try {
+      const updated = await authService.updateDisplayName(nameDraft);
+      onUserChange?.(updated);
+      setNameSaved(true);
+    } catch (err: any) {
+      setNameError(typeof err?.message === 'string' ? err.message : 'Could not save your name.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleSignOut = () => {
     onLogout();
@@ -97,7 +125,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Section 2: Appearance Theme */}
+          {/* Section 2: Display name shown to other students */}
+          <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+            <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+              Your name in messages
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Classmates see this name instead of your student ID when they search for you or chat with you.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={nameDraft}
+                onChange={(e) => setNameDraft(e.target.value)}
+                placeholder="e.g. Aarav Sharma"
+                maxLength={40}
+                className="flex-1 text-sm h-9 px-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+              />
+              <button
+                type="button"
+                onClick={handleSaveName}
+                disabled={savingName || !nameDraft.trim() || nameDraft.trim() === (user?.displayName || '')}
+                className="px-3 h-9 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold disabled:opacity-40 cursor-pointer active:scale-95 transition-transform"
+              >
+                {savingName ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            {nameError && <p className="text-xs text-rose-600 dark:text-rose-400">{nameError}</p>}
+            {nameSaved && !nameError && (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">Saved. Classmates now see this name.</p>
+            )}
+          </div>
+
+          {/* Section 3: Appearance Theme */}
           <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
             <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
               Appearance

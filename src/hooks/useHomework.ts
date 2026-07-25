@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
-import { authService, homeworkService } from "../services/appwriteServices";
+import { authService, homeworkService } from "../services/api";
 
 export interface UserAccount {
   id: string;
   studentId: string;
+  displayName?: string | null;
   section?: string;
 }
 
@@ -186,6 +187,7 @@ export function useHomework() {
 
   return {
     user,
+    setUser,
     isAuthenticated,
     isAuthChecking,
     homework,

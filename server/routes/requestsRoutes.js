@@ -6,9 +6,9 @@ const { db, schema } = require("../db/client");
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
   if (!activeSession) {
     return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
   }
@@ -16,7 +16,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function createNotifications(userIds, type, title, body, link, referenceId) {
+async function createNotifications(userIds, type, title, body, link, referenceId) {
   if (!userIds || userIds.length === 0) return;
   const now = new Date().toISOString();
   const values = userIds.map((uid) => ({
@@ -31,16 +31,16 @@ function createNotifications(userIds, type, title, body, link, referenceId) {
     createdAt: now,
   }));
   for (const v of values) {
-    db.insert(schema.notifications).values(v).run();
+    await db.insert(schema.notifications).values(v).run();
   }
 }
 
-router.get("/requests", requireAuth, (req, res) => {
+router.get("/requests", requireAuth, async (req, res) => {
   try {
     const section = req.user.section;
     if (!section) return res.json({ count: 0, requests: [] });
 
-    const records = db
+    const records = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.section, section))
@@ -67,7 +67,7 @@ router.get("/requests", requireAuth, (req, res) => {
   }
 });
 
-router.post("/requests", requireAuth, (req, res) => {
+router.post("/requests", requireAuth, async (req, res) => {
   try {
     const { title, content, category } = req.body || {};
     if (!title || typeof title !== "string" || !title.trim()) {
@@ -95,9 +95,9 @@ router.post("/requests", requireAuth, (req, res) => {
       updatedAt: now,
     };
 
-    db.insert(schema.sectionRequests).values(newRequest).run();
+    await db.insert(schema.sectionRequests).values(newRequest).run();
 
-    const sectionUsers = db
+    const sectionUsers = await db
       .select({ id: schema.users.id })
       .from(schema.users)
       .where(eq(schema.users.section, section))
@@ -107,7 +107,7 @@ router.post("/requests", requireAuth, (req, res) => {
       .filter((uid) => uid !== req.user.id);
 
     if (otherUserIds.length > 0) {
-      createNotifications(
+      await createNotifications(
         otherUserIds,
         "new_request",
         `New request: ${title.trim().substring(0, 60)}`,
@@ -127,7 +127,7 @@ router.post("/requests", requireAuth, (req, res) => {
   }
 });
 
-router.patch("/requests/:id/status", requireAuth, (req, res) => {
+router.patch("/requests/:id/status", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { status } = req.body || {};
@@ -135,7 +135,7 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
       return res.status(400).json({ error: "Status must be 'open' or 'completed'." });
     }
 
-    const item = db
+    const item = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
@@ -146,7 +146,7 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
       return res.status(403).json({ error: "You can only update your own requests." });
     }
 
-    db.update(schema.sectionRequests)
+    await db.update(schema.sectionRequests)
       .set({ status, updatedAt: new Date().toISOString() })
       .where(eq(schema.sectionRequests.id, id))
       .run();
@@ -158,10 +158,10 @@ router.patch("/requests/:id/status", requireAuth, (req, res) => {
   }
 });
 
-router.delete("/requests/:id", requireAuth, (req, res) => {
+router.delete("/requests/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const item = db
+    const item = await db
       .select()
       .from(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
@@ -172,7 +172,7 @@ router.delete("/requests/:id", requireAuth, (req, res) => {
       return res.status(403).json({ error: "You can only delete your own requests." });
     }
 
-    db.delete(schema.sectionRequests)
+    await db.delete(schema.sectionRequests)
       .where(eq(schema.sectionRequests.id, id))
       .run();
 

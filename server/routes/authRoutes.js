@@ -56,13 +56,13 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    const user = sessionService.findOrCreateUser(studentId);
+    const user = await sessionService.findOrCreateUser(studentId);
     if (isDummyAccount && (!user.section || user.section === FALLBACK_SECTION)) {
-      sessionService.updateSection(user.id, "9-F");
+      await sessionService.updateSection(user.id, "9-F");
     }
-    sessionService.saveEduSecureSession(user.id, sessionCookies);
+    await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
-    const appToken = sessionService.createAppSession(user.id);
+    const appToken = await sessionService.createAppSession(user.id);
 
     res.cookie("app_session", appToken, sessionCookieOptions({
       maxAge: 30 * 24 * 60 * 60 * 1000
@@ -74,11 +74,11 @@ router.post("/login", async (req, res) => {
       try {
         const profile = await fetchProfileFromEduSecure(sessionCookies);
         if (profile.section && needsRefresh(section)) {
-          sessionService.updateSection(user.id, profile.section);
+          await sessionService.updateSection(user.id, profile.section);
           section = profile.section;
         }
         if (profile.displayName && !displayName) {
-          sessionService.updateDisplayName(user.id, profile.displayName);
+          await sessionService.updateDisplayName(user.id, profile.displayName);
           displayName = profile.displayName;
         }
       } catch (err) {
@@ -109,7 +109,7 @@ router.post("/login", async (req, res) => {
 // GET /api/auth/me
 router.get("/me", async (req, res) => {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
 
   if (!activeSession) {
     return res.json({
@@ -121,15 +121,15 @@ router.get("/me", async (req, res) => {
   let displayName = activeSession.user.displayName;
   if (needsRefresh(section) || !displayName) {
     try {
-      const eduSession = sessionService.getEduSecureSession(activeSession.user.id);
+      const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
         const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
         if (profile.section && needsRefresh(section)) {
-          sessionService.updateSection(activeSession.user.id, profile.section);
+          await sessionService.updateSection(activeSession.user.id, profile.section);
           section = profile.section;
         }
         if (profile.displayName && !displayName) {
-          sessionService.updateDisplayName(activeSession.user.id, profile.displayName);
+          await sessionService.updateDisplayName(activeSession.user.id, profile.displayName);
           displayName = profile.displayName;
         }
       }
@@ -149,12 +149,45 @@ router.get("/me", async (req, res) => {
   });
 });
 
+// PATCH /api/auth/profile
+// Lets a student choose the name other students see instead of their student ID.
+router.patch("/profile", async (req, res) => {
+  const token = req.cookies?.app_session;
+  const activeSession = await sessionService.getAppSession(token);
+
+  if (!activeSession) {
+    return res.status(401).json({ error: "Not authenticated." });
+  }
+
+  const { displayName } = req.body || {};
+  if (typeof displayName !== "string") {
+    return res.status(400).json({ error: "A display name is required." });
+  }
+
+  const cleaned = displayName.trim().replace(/\s+/g, " ");
+  if (cleaned.length < 2 || cleaned.length > 40) {
+    return res.status(400).json({ error: "Your name must be between 2 and 40 characters." });
+  }
+
+  await sessionService.updateDisplayName(activeSession.user.id, cleaned);
+
+  return res.json({
+    success: true,
+    user: {
+      id: activeSession.user.id,
+      studentId: activeSession.user.studentId,
+      displayName: cleaned,
+      section: activeSession.user.section,
+    },
+  });
+});
+
 // POST /api/auth/logout
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
   const token = req.cookies?.app_session;
 
   if (token) {
-    sessionService.destroyAppSession(token);
+    await sessionService.destroyAppSession(token);
   }
 
   res.clearCookie("app_session", sessionCookieOptions());

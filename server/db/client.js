@@ -1,98 +1,105 @@
 const path = require("path");
 const os = require("os");
 const fs = require("fs");
-const Database = require("better-sqlite3");
-const { drizzle } = require("drizzle-orm/better-sqlite3");
 const schema = require("./schema");
+const { createLibsqlClient } = require("./libsqlHttp");
 
-const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT || !!process.env.NOW_BUILDER;
-const defaultDbPath = isServerless 
+const isServerless =
+  !!process.env.VERCEL ||
+  !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  !!process.env.LAMBDA_TASK_ROOT ||
+  !!process.env.NOW_BUILDER;
+
+const rawDatabaseUrl = (process.env.DATABASE_URL || "").trim();
+const isRemoteUrl = (value) => /^(libsql|wss?|https?):\/\//i.test(value);
+
+// A hosted libSQL/Turso database is the only way to keep data when the API runs
+// on a serverless platform: every instance talks to the same database, so
+// accounts, conversations and messages survive redeploys and are visible to
+// every participant.
+const remoteUrl = (process.env.TURSO_DATABASE_URL || process.env.LIBSQL_URL || (isRemoteUrl(rawDatabaseUrl) ? rawDatabaseUrl : "")).trim();
+const remoteAuthToken = (process.env.TURSO_AUTH_TOKEN || process.env.LIBSQL_AUTH_TOKEN || "").trim();
+
+const isRemote = !!remoteUrl;
+
+const defaultDbPath = isServerless
   ? path.join(os.tmpdir(), "homework-fetcher.db")
   : path.join(__dirname, "../../sqlite.db");
+const dbPath = process.env.SQLITE_DB_PATH || (isRemoteUrl(rawDatabaseUrl) ? "" : rawDatabaseUrl) || defaultDbPath;
 
-const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || defaultDbPath;
+let db;
+let sqlite = null;
+let remoteClient = null;
+
+if (isRemote) {
+  const { drizzle } = require("drizzle-orm/sqlite-proxy");
+  remoteClient = createLibsqlClient(remoteUrl, remoteAuthToken);
+
+  db = drizzle(
+    async (sql, params, method) => {
+      const result = await remoteClient.execute(sql, params);
+      if (method === "get") return { rows: result.rows[0] };
+      if (method === "run") return { rows: [] };
+      return { rows: result.rows };
+    },
+    async (queries) => {
+      const results = await remoteClient.executeBatch(
+        queries.map((q) => ({ sql: q.sql, args: q.params }))
+      );
+      return results.map((result, index) => {
+        const method = queries[index].method;
+        if (method === "get") return { rows: result.rows[0] };
+        if (method === "run") return { rows: [] };
+        return { rows: result.rows };
+      });
+    },
+    { schema }
+  );
+} else {
+  const Database = require("better-sqlite3");
+  const { drizzle } = require("drizzle-orm/better-sqlite3");
+
+  const dbDir = path.dirname(dbPath);
+  if (dbDir && !fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+  }
+
+  if (isServerless) {
+    console.warn(
+      "[db] No hosted database configured (TURSO_DATABASE_URL). On serverless hosts such as " +
+        "Vercel the SQLite file lives in a temporary directory, so accounts, conversations and " +
+        "messages are lost on every redeploy and are not shared between instances. See DEPLOYMENT.md."
+    );
+  }
+
+  sqlite = openLocalDatabase(dbPath, Database);
+  db = drizzle(sqlite, { schema });
+}
 
 /**
- * Opens the SQLite database, falling back to the OS temp directory when the
- * preferred location is not writable (read-only container filesystems on
- * managed hosts). The fallback is ephemeral, so sessions are lost on restart —
- * set SQLITE_DB_PATH to a persistent writable volume in production.
+ * Opens a local SQLite file, falling back to the OS temp directory and finally
+ * to an in-memory database when the location is not writable.
  */
-function openDatabase(preferredPath) {
-  const fallbackPath = path.join(os.tmpdir(), "homework-fetcher.db");
+function openLocalDatabase(preferredPath, Database) {
+  const candidates = [preferredPath, path.join(os.tmpdir(), "homework-fetcher.db"), ":memory:"];
+  let lastError = null;
 
-  try {
-    const dbInstance = new Database(preferredPath);
-    dbInstance.pragma("foreign_keys = ON");
-    dbInstance.exec("CREATE TABLE IF NOT EXISTS _test_write (id INT)");
-    return dbInstance;
-  } catch (err) {
-    console.error(
-      `Unable to open SQLite database at ${preferredPath} (${err.message}). ` +
-      `Falling back to ephemeral path ${fallbackPath}.`
-    );
+  for (const candidate of candidates) {
     try {
-      const fallbackDb = new Database(fallbackPath);
-      fallbackDb.pragma("foreign_keys = ON");
-      fallbackDb.exec("CREATE TABLE IF NOT EXISTS _test_write (id INT)");
-      return fallbackDb;
-    } catch (fallbackErr) {
-      console.error(`Fallback SQLite open failed: ${fallbackErr.message}. Using in-memory database.`);
-      const memDb = new Database(":memory:");
-      memDb.pragma("foreign_keys = ON");
-      return memDb;
+      const instance = new Database(candidate);
+      instance.pragma("foreign_keys = ON");
+      return instance;
+    } catch (err) {
+      lastError = err;
+      console.error(`Unable to open SQLite database at ${candidate}: ${err.message}`);
     }
   }
+
+  throw lastError;
 }
 
-// Make sure the directory of the database file exists (e.g. when a mounted
-// volume path such as /data/sqlite.db is configured through SQLITE_DB_PATH).
-const dbDir = path.dirname(dbPath);
-if (dbDir && !fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-
-if (process.env.VERCEL && !process.env.SQLITE_DB_PATH) {
-  console.warn(
-    "[db] Running on Vercel with a bundled SQLite file. The filesystem is ephemeral there, " +
-      "so users, conversations and messages are wiped on every redeploy. " +
-      "Deploy the Express server on a host with a persistent volume and point SQLITE_DB_PATH at it. " +
-      "See DEPLOYMENT.md."
-  );
-}
-
-/**
- * Opens the SQLite database, falling back to a temporary directory when the
- * configured location is read-only (some hosts ship a read-only bundle).
- * @returns {import("better-sqlite3").Database}
- */
-function openDatabase() {
-  try {
-    return new Database(dbPath);
-  } catch (err) {
-    const fallbackPath = path.join(require("os").tmpdir(), "homework-fetcher.db");
-    console.error(
-      `[db] Could not open database at ${dbPath} (${err.message}). ` +
-        `Falling back to ${fallbackPath}. Data stored there is NOT persistent.`
-    );
-    return new Database(fallbackPath);
-  }
-}
-
-// Initialize native SQLite database
-const sqlite = openDatabase(dbPath);
-sqlite.pragma("foreign_keys = ON");
-
-// Initialize Drizzle ORM client
-const db = drizzle(sqlite, { schema });
-
-/**
- * Ensures all required database tables and indices exist in SQLite.
- * Safe to call on application startup (does not overwrite or destroy existing data).
- */
-function initDb() {
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS users (
+const SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       student_id TEXT NOT NULL UNIQUE,
       display_name TEXT,
@@ -236,17 +243,41 @@ function initDb() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);
-  `);
 
-  // Lightweight migrations: add columns that were introduced after the initial release
-  // so that databases created by older versions keep working.
-  ensureColumn("users", "display_name", "TEXT");
-  ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
-  ensureColumn("messages", "content", "TEXT");
-  ensureColumn("messages", "attachment_url", "TEXT");
-  ensureColumn("messages", "original_filename", "TEXT");
-  ensureColumn("messages", "mime_type", "TEXT");
-  ensureColumn("messages", "file_path", "TEXT");
+    CREATE TABLE IF NOT EXISTS message_attachments (
+      message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+`;
+
+/** Splits the schema script into individual statements. */
+function schemaStatements() {
+  return SCHEMA_SQL.split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Ensures all required tables, indices and columns exist.
+ * Safe to call on startup: it never drops or overwrites existing data.
+ */
+async function initDb() {
+  if (isRemote) {
+    for (const statement of schemaStatements()) {
+      await remoteClient.execute(statement);
+    }
+  } else {
+    sqlite.exec(SCHEMA_SQL);
+  }
+
+  // Lightweight migrations so databases created by older versions keep working.
+  await ensureColumn("users", "display_name", "TEXT");
+  await ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
+  await ensureColumn("messages", "attachment_url", "TEXT");
+  await ensureColumn("messages", "original_filename", "TEXT");
+  await ensureColumn("messages", "mime_type", "TEXT");
+  await ensureColumn("messages", "file_path", "TEXT");
 }
 
 /**
@@ -255,23 +286,47 @@ function initDb() {
  * @param {string} column
  * @param {string} definition SQL type/constraints used by ALTER TABLE
  */
-function ensureColumn(table, column, definition) {
+async function ensureColumn(table, column, definition) {
   try {
-    const tableInfo = sqlite.pragma(`table_info(${table})`);
-    if (tableInfo.length === 0) return;
-    if (tableInfo.some((col) => col.name === column)) return;
-    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    const existingColumns = await tableColumns(table);
+    if (existingColumns.length === 0) return;
+    if (existingColumns.includes(column)) return;
+    await exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   } catch (err) {
-    console.error(`Migration error (${table}.${column}):`, err);
+    console.error(`Migration error (${table}.${column}):`, err.message);
   }
 }
 
-// Automatically initialize schema on start
-initDb();
+/** Returns the column names of a table (empty when the table is missing). */
+async function tableColumns(table) {
+  if (isRemote) {
+    const result = await remoteClient.execute(`SELECT name FROM pragma_table_info('${table}')`);
+    return result.rows.map((row) => row[0]);
+  }
+  return sqlite.pragma(`table_info(${table})`).map((column) => column.name);
+}
+
+/** Runs a raw statement against the configured database. */
+async function exec(sql) {
+  if (isRemote) {
+    await remoteClient.execute(sql);
+    return;
+  }
+  sqlite.exec(sql);
+}
+
+// Schema initialization runs once per process; every request awaits it through
+// `ready` so the first query never races the migrations.
+const ready = initDb().catch((err) => {
+  console.error("Database initialization failed:", err);
+  throw err;
+});
 
 module.exports = {
   db,
   sqlite,
+  isRemote,
   initDb,
-  schema
+  ready,
+  schema,
 };

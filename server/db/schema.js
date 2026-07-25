@@ -201,6 +201,15 @@ const messages = sqliteTable(
   ]
 );
 
+const messageAttachments = sqliteTable(
+  "message_attachments",
+  {
+    messageId: text("message_id").primaryKey().references(() => messages.id, { onDelete: "cascade" }),
+    data: text("data").notNull(),
+    createdAt: text("created_at").notNull(),
+  }
+);
+
 module.exports = {
   users,
   edusecureSessions,
@@ -213,4 +222,5 @@ module.exports = {
   conversations,
   conversationParticipants,
   messages,
+  messageAttachments,
 };

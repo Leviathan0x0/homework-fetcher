@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { classworkService } from '../services/appwriteServices';
+import { classworkService } from '../services/api';
 import {
   UploadCloud,
   FileText,

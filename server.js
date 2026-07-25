@@ -10,6 +10,7 @@ const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
+const { ready } = require("./server/db/client");
 
 const app = express();
 
@@ -37,6 +38,15 @@ app.use((req, res, next) => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// The schema is created/migrated once per process; API requests wait for it so
+// the first query never races the migrations.
+app.use("/api", (req, res, next) => {
+  ready.then(() => next()).catch((err) => {
+    console.error("Database unavailable:", err);
+    res.status(503).json({ error: "Database unavailable. Check the database configuration." });
+  });
+});
 
 // Mount API routes
 app.use("/api/auth", authRoutes);

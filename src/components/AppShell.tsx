@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { notificationService } from '../services/appwriteServices';
+import { notificationService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -28,6 +28,7 @@ import { Loader2 } from 'lucide-react';
 export const AppShell: React.FC = () => {
   const {
     user,
+    setUser,
     isAuthenticated,
     isAuthChecking,
     homework,
@@ -323,6 +324,7 @@ export const AppShell: React.FC = () => {
           onClose={handleCloseSettings}
           user={user}
           onLogout={logout}
+          onUserChange={setUser}
           sessionStatus={sessionStatus}
           theme={theme}
           onThemeChange={setTheme}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
-import { messagingService, authService } from '../services/appwriteServices';
+import { messagingService, authService } from '../services/api';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -47,7 +47,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<
-    { id: string; studentId: string; displayName?: string | null; section?: string }[]
+    { id: string; studentId: string; displayName?: string | null; name?: string; section?: string }[]
   >([]);
   const [searching, setSearching] = useState(false);
 
@@ -117,11 +117,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             map.set(m.id, m);
           }
         });
-        msgs.forEach((m) => {
-          map.set(m.id, {
-            ...m,
-            isMine: m.senderStudentId === currentStudentId || m.senderId === currentStudentId
-          });
+        msgs.forEach((m: Message) => {
+          map.set(m.id, m);
         });
         return Array.from(map.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -137,20 +134,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     setMessages([]);
     fetchMessages(activeConvId);
+    messagingService.markAsRead(activeConvId);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
 
-    // Appwrite Realtime WebSocket Subscription
     const unsubscribeWebSocket = messagingService.subscribeToMessages(activeConvId, (incomingMsg) => {
       setMessages((prev) => {
         if (prev.some((m) => m.id === incomingMsg.id)) return prev;
-        const formatted: Message = {
-          ...incomingMsg,
-          isMine: incomingMsg.senderStudentId === currentStudentId || incomingMsg.senderId === currentStudentId
-        };
-        return [...prev, formatted];
+        return [...prev, incomingMsg as Message];
       });
+      messagingService.markAsRead(activeConvId);
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConvId

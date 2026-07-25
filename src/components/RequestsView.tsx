@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { requestService, authService } from '../services/appwriteServices';
+import { requestService, authService } from '../services/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
@@ -78,7 +78,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
       const newReq = await requestService.createRequest(
         user?.id || 'anon',
         user?.studentId || 'Student',
-        userSection || 'Section 10-A'
+        userSection || 'Section 10-A',
+        formTitle.trim(),
+        formContent.trim(),
+        formCategory
       );
       setRequests((prev) => [newReq as any, ...prev]);
       setIsFormOpen(false);

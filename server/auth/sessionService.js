@@ -100,12 +100,12 @@ async function fetchSectionFromEduSecure(sessionCookies) {
 }
 
 class SessionService {
-  findOrCreateUser(studentId) {
+  async findOrCreateUser(studentId) {
     const rawId = studentId.trim();
     const normalizedId = rawId.toLowerCase();
 
     try {
-      const existing = db
+      const existing = await db
         .select()
         .from(schema.users)
         .where(eq(schema.users.studentId, rawId))
@@ -123,7 +123,7 @@ class SessionService {
         return u;
       }
 
-      const allUsers = db.select().from(schema.users).all();
+      const allUsers = await db.select().from(schema.users).all();
       const caseMatch = allUsers.find(
         (u) => u.studentId.trim().toLowerCase() === normalizedId
       );
@@ -149,7 +149,7 @@ class SessionService {
         updatedAt: now,
       };
 
-      db.insert(schema.users).values(newUser).run();
+      await db.insert(schema.users).values(newUser).run();
       memUsers.set(newUser.id, newUser);
 
       return {
@@ -177,11 +177,11 @@ class SessionService {
     }
   }
 
-  getUserById(userId) {
+  async getUserById(userId) {
     if (!userId) return null;
 
     try {
-      const user = db
+      const user = await db
         .select()
         .from(schema.users)
         .where(eq(schema.users.id, userId))
@@ -214,7 +214,7 @@ class SessionService {
     return null;
   }
 
-  saveEduSecureSession(userId, sessionCookies) {
+  async saveEduSecureSession(userId, sessionCookies) {
     if (!userId || !sessionCookies) return;
 
     const encryptedData = encrypt(sessionCookies);
@@ -222,14 +222,14 @@ class SessionService {
     memEduSessions.set(userId, { userId, sessionCookies, updatedAt: now });
 
     try {
-      const existing = db
+      const existing = await db
         .select()
         .from(schema.edusecureSessions)
         .where(eq(schema.edusecureSessions.userId, userId))
         .get();
 
       if (existing) {
-        db.update(schema.edusecureSessions)
+        await db.update(schema.edusecureSessions)
           .set({
             encryptedSessionData: encryptedData,
             updatedAt: now,
@@ -237,7 +237,7 @@ class SessionService {
           .where(eq(schema.edusecureSessions.userId, userId))
           .run();
       } else {
-        db.insert(schema.edusecureSessions)
+        await db.insert(schema.edusecureSessions)
           .values({
             id: crypto.randomUUID(),
             userId,
@@ -252,11 +252,11 @@ class SessionService {
     }
   }
 
-  getEduSecureSession(userId) {
+  async getEduSecureSession(userId) {
     if (!userId) return null;
 
     try {
-      const record = db
+      const record = await db
         .select()
         .from(schema.edusecureSessions)
         .where(eq(schema.edusecureSessions.userId, userId))
@@ -279,17 +279,17 @@ class SessionService {
     return memEduSessions.get(userId) || null;
   }
 
-  removeEduSecureSession(userId) {
+  async removeEduSecureSession(userId) {
     if (!userId) return;
     memEduSessions.delete(userId);
     try {
-      db.delete(schema.edusecureSessions)
+      await db.delete(schema.edusecureSessions)
         .where(eq(schema.edusecureSessions.userId, userId))
         .run();
     } catch {}
   }
 
-  createAppSession(userId) {
+  async createAppSession(userId) {
     const token = crypto.randomBytes(32).toString("hex");
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
     const expiresAt = Date.now() + THIRTY_DAYS_MS;
@@ -298,7 +298,7 @@ class SessionService {
     memAppSessions.set(token, { token, userId, expiresAt });
 
     try {
-      db.insert(schema.appSessions)
+      await db.insert(schema.appSessions)
         .values({
           token,
           userId,
@@ -313,11 +313,11 @@ class SessionService {
     return token;
   }
 
-  getAppSession(token) {
+  async getAppSession(token) {
     if (!token) return null;
 
     try {
-      const session = db
+      const session = await db
         .select()
         .from(schema.appSessions)
         .where(eq(schema.appSessions.token, token))
@@ -326,14 +326,14 @@ class SessionService {
       if (session) {
         if (Date.now() > session.expiresAt) {
           try {
-            db.delete(schema.appSessions)
+            await db.delete(schema.appSessions)
               .where(eq(schema.appSessions.token, token))
               .run();
           } catch {}
           return null;
         }
 
-        const user = this.getUserById(session.userId);
+        const user = await this.getUserById(session.userId);
         if (user) {
           return { token: session.token, user };
         }
@@ -349,7 +349,7 @@ class SessionService {
       return null;
     }
 
-    const user = this.getUserById(memSession.userId);
+    const user = await this.getUserById(memSession.userId);
     if (!user) return null;
 
     return {
@@ -358,23 +358,23 @@ class SessionService {
     };
   }
 
-  destroyAppSession(token) {
+  async destroyAppSession(token) {
     if (!token) return;
     memAppSessions.delete(token);
     try {
-      db.delete(schema.appSessions)
+      await db.delete(schema.appSessions)
         .where(eq(schema.appSessions.token, token))
         .run();
     } catch {}
   }
 
-  updateSection(userId, section) {
+  async updateSection(userId, section) {
     if (!userId) return;
     const u = memUsers.get(userId);
     if (u) u.section = section;
 
     try {
-      db.update(schema.users)
+      await db.update(schema.users)
         .set({ section, updatedAt: new Date().toISOString() })
         .where(eq(schema.users.id, userId))
         .run();
@@ -388,9 +388,9 @@ class SessionService {
    * @param {string} userId
    * @param {string|null} displayName
    */
-  updateDisplayName(userId, displayName) {
+  async updateDisplayName(userId, displayName) {
     if (!userId || !displayName) return;
-    db.update(schema.users)
+    await db.update(schema.users)
       .set({ displayName, updatedAt: new Date().toISOString() })
       .where(eq(schema.users.id, userId))
       .run();

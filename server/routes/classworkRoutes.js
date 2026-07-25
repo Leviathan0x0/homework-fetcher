@@ -73,9 +73,9 @@ const upload = multer({
 /**
  * Middleware: Require valid session authentication.
  */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
 
   if (!activeSession) {
     return res.status(401).json({
@@ -92,7 +92,7 @@ function requireAuth(req, res, next) {
  * GET /api/classwork
  * Returns classwork uploads for the authenticated student's section only.
  */
-router.get("/classwork", requireAuth, (req, res) => {
+router.get("/classwork", requireAuth, async (req, res) => {
   try {
     const section = req.user.section;
     const { date, subject } = req.query;
@@ -101,7 +101,7 @@ router.get("/classwork", requireAuth, (req, res) => {
       return res.json({ section: null, count: 0, classwork: [] });
     }
 
-    let query = db
+    let query = await db
       .select()
       .from(schema.classworkUploads)
       .where(eq(schema.classworkUploads.section, section))
@@ -146,8 +146,8 @@ router.get("/classwork", requireAuth, (req, res) => {
  * POST /api/classwork
  * Uploads today's classwork file for a subject.
  */
-router.post("/classwork", requireAuth, (req, res) => {
-  upload.single("file")(req, res, (err) => {
+router.post("/classwork", requireAuth, async (req, res) => {
+  upload.single("file")(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === "LIMIT_FILE_SIZE") {
         return res.status(400).json({ error: "File size exceeds limit of 10 MB." });
@@ -191,10 +191,10 @@ router.post("/classwork", requireAuth, (req, res) => {
         updatedAt: now,
       };
 
-      db.insert(schema.classworkUploads).values(newUpload).run();
+      await db.insert(schema.classworkUploads).values(newUpload).run();
 
       try {
-        const sectionUsers = db
+        const sectionUsers = await db
           .select({ id: schema.users.id })
           .from(schema.users)
           .where(eq(schema.users.section, newUpload.section))
@@ -205,7 +205,7 @@ router.post("/classwork", requireAuth, (req, res) => {
         if (otherUserIds.length > 0) {
           const notifNow = new Date().toISOString();
           for (const uid of otherUserIds) {
-            db.insert(schema.notifications)
+            await db.insert(schema.notifications)
               .values({
                 id: crypto.randomUUID(),
                 userId: uid,
@@ -254,11 +254,11 @@ router.post("/classwork", requireAuth, (req, res) => {
  * Streams or downloads uploaded classwork file.
  * STRICT SECTION AUTHORIZATION: Only students in the same section can download/view.
  */
-router.get("/classwork/files/:id", requireAuth, (req, res) => {
+router.get("/classwork/files/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const item = db
+    const item = await db
       .select()
       .from(schema.classworkUploads)
       .where(eq(schema.classworkUploads.id, id))
@@ -299,11 +299,11 @@ router.get("/classwork/files/:id", requireAuth, (req, res) => {
  * Deletes an uploaded classwork entry.
  * STRICT OWNERSHIP ENFORCEMENT: Only the user who uploaded the file can delete it.
  */
-router.delete("/classwork/:id", requireAuth, (req, res) => {
+router.delete("/classwork/:id", requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const item = db
+    const item = await db
       .select()
       .from(schema.classworkUploads)
       .where(eq(schema.classworkUploads.id, id))
@@ -326,7 +326,7 @@ router.delete("/classwork/:id", requireAuth, (req, res) => {
     }
 
     // Delete record from DB
-    db.delete(schema.classworkUploads)
+    await db.delete(schema.classworkUploads)
       .where(eq(schema.classworkUploads.id, id))
       .run();
 

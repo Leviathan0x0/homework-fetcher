@@ -4,6 +4,12 @@ const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-or
 const sessionService = require("../auth/sessionService");
 const { db, schema, isRemote } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
+const {
+  applyDownloadHeaders,
+  readFileHead,
+  resolveUploadType,
+  uploadFileFilter,
+} = require("../files/fileTypes");
 
 const router = express.Router();
 
@@ -316,6 +322,10 @@ const msgStorage = STORE_ATTACHMENTS_IN_DB
 const msgUpload = multer({
   storage: msgStorage,
   limits: { fileSize: MAX_ATTACHMENT_BYTES },
+  // Attachments are served back from this origin, so an unrestricted uploader
+  // would let one student turn a "document" into a page running in another
+  // student's session.
+  fileFilter: uploadFileFilter,
 });
 
 router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
@@ -370,7 +380,7 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
     try {
       const convId = req.params.id;
       if (!await isParticipant(convId, req.user.id)) {
-        if (req.file) fs.unlink(req.file.path, () => {});
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
         return res.status(403).json({ error: "Access denied." });
       }
 
@@ -391,7 +401,9 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
       if (req.file) {
         attachmentUrl = `/api/messages/files/${id}`;
         originalFilename = req.file.originalname;
-        mimeType = req.file.mimetype || "application/octet-stream";
+        // Derived from the extension allowlist, never from the value the
+        // browser declared, because this is what gets served back.
+        mimeType = resolveUploadType(req.file.originalname).contentType;
         filePath = req.file.path || null;
       }
 
@@ -465,7 +477,7 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
         },
       });
     } catch (err) {
-      if (req.file) fs.unlink(req.file.path, () => {});
+      if (req.file?.path) fs.unlink(req.file.path, () => {});
       console.error("Send Message Error:", err);
       return res.status(500).json({ error: "Failed to send message." });
     }
@@ -495,7 +507,11 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
 
     if (stored) {
       const buffer = Buffer.from(stored.data, "base64");
-      res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+      applyDownloadHeaders(res, {
+        contentType: msg.mimeType,
+        filename: msg.originalFilename,
+        head: buffer.subarray(0, 16),
+      });
       res.setHeader("Content-Length", String(buffer.length));
       return res.send(buffer);
     }
@@ -506,7 +522,11 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
 
     // 2. Check exact saved filePath
     if (msg.filePath && fs.existsSync(msg.filePath)) {
-      res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+      applyDownloadHeaders(res, {
+        contentType: msg.mimeType,
+        filename: msg.originalFilename,
+        head: readFileHead(msg.filePath),
+      });
       return res.sendFile(msg.filePath);
     }
 
@@ -517,7 +537,11 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
     if (!matched) return res.status(404).json({ error: "File on disk not found." });
 
     const fullPath = path.join(MSG_UPLOADS_DIR, matched);
-    res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+    applyDownloadHeaders(res, {
+      contentType: msg.mimeType,
+      filename: msg.originalFilename,
+      head: readFileHead(fullPath),
+    });
     return res.sendFile(fullPath);
   } catch (err) {
     console.error("Serve Message File Error:", err);

@@ -10,6 +10,7 @@ const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
+const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { ready, isRemote, db, schema } = require("./server/db/client");
 
 const app = express();
@@ -39,6 +40,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Without a real signing/encryption key, session cookies could be forged by
+// anyone, so the API refuses to answer instead of running insecurely.
+app.use("/api", (req, res, next) => {
+  if (isConfigured() || req.path === "/health") return next();
+  console.error(`[auth] ${MISSING_KEY_MESSAGE}`);
+  res.status(503).json({ error: "Server is not configured correctly. Please try again later." });
+});
+
 // The schema is created/migrated once per process; API requests wait for it so
 // the first query never races the migrations.
 app.use("/api", (req, res, next) => {
@@ -56,9 +65,14 @@ app.get("/api/health", async (req, res) => {
     ok: true,
     database: isRemote ? "hosted (libSQL)" : "local SQLite file",
     persistent: isRemote || !process.env.VERCEL,
-    encryptionKeyConfigured: !!process.env.ENCRYPTION_KEY,
+    encryptionKeyConfigured: isConfigured(),
     uploadsDirConfigured: !!process.env.UPLOADS_DIR,
   };
+
+  if (!status.encryptionKeyConfigured) {
+    status.ok = false;
+    status.error = MISSING_KEY_MESSAGE;
+  }
 
   try {
     await ready;
@@ -123,6 +137,10 @@ app.use((err, req, res, next) => {
 });
 
 if (require.main === module) {
+  if (!isConfigured()) {
+    console.error(`[auth] ${MISSING_KEY_MESSAGE}`);
+    process.exit(1);
+  }
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`Homework Server running at http://localhost:${PORT}`);

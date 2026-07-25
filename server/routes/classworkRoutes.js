@@ -7,36 +7,17 @@ const { eq, and, desc } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { db, schema } = require("../db/client");
 const { resolveUploadDir } = require("../uploads");
+const {
+  applyDownloadHeaders,
+  readFileHead,
+  resolveUploadType,
+  uploadFileFilter,
+} = require("../files/fileTypes");
 
 const router = express.Router();
 
 // Resolved lazily-safe: never throws on read-only serverless filesystems
 const UPLOADS_DIR = resolveUploadDir("classwork").dir;
-
-// File extension & MIME type validation
-const ALLOWED_MIME_TYPES = new Set([
-  // Images
-  "image/png",
-  "image/jpeg",
-  "image/pjpeg",
-  "image/webp",
-  "image/gif",
-  "image/svg+xml",
-  // Documents
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "text/plain",
-]);
-
-const ALLOWED_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg",
-  ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt"
-]);
 
 // Configure Multer safe storage
 const storage = multer.diskStorage({
@@ -56,16 +37,10 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10 MB limit
   },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const mime = file.mimetype.toLowerCase();
-
-    if (ALLOWED_EXTENSIONS.has(ext) || ALLOWED_MIME_TYPES.has(mime)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Unsupported file format. Please upload an image, PDF, or common document file."));
-    }
-  },
+  // The extension allowlist is authoritative. The browser-declared MIME type
+  // is attacker controlled, so accepting a file because that value looks
+  // reasonable would let any extension through.
+  fileFilter: uploadFileFilter,
 });
 
 /**
@@ -183,7 +158,9 @@ router.post("/classwork", requireAuth, async (req, res) => {
         filePath: req.file.path,
         originalFilename: req.file.originalname,
         fileSize: req.file.size,
-        mimeType: req.file.mimetype || "application/octet-stream",
+        // Derived from the extension allowlist, never from the value the
+        // browser declared, because this is what gets served back.
+        mimeType: resolveUploadType(req.file.originalname).contentType,
         createdAt: now,
         updatedAt: now,
       };
@@ -275,14 +252,11 @@ router.get("/classwork/files/:id", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "File content unavailable on server." });
     }
 
-    const safeFilename = encodeURIComponent(item.originalFilename);
-
-    res.setHeader("Content-Type", item.mimeType);
-
-    // Determine disposition (inline for images/PDFs, attachment for docs)
-    const isInline = item.mimeType.startsWith("image/") || item.mimeType === "application/pdf" || item.mimeType === "text/plain";
-    const dispositionType = isInline ? "inline" : "attachment";
-    res.setHeader("Content-Disposition", `${dispositionType}; filename="${safeFilename}"`);
+    applyDownloadHeaders(res, {
+      contentType: item.mimeType,
+      filename: item.originalFilename,
+      head: readFileHead(absolutePath),
+    });
 
     return res.sendFile(absolutePath);
   } catch (err) {

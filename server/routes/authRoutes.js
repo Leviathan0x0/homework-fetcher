@@ -29,48 +29,36 @@ router.post("/login", async (req, res) => {
     }
 
     let sessionCookies;
-    const isDummyAccount = studentId.trim().toLowerCase().startsWith("dummy") || 
-                           studentId.trim().toLowerCase() === "testuser" || 
-                           studentId.trim().toLowerCase() === "student2";
-
-    if (isDummyAccount) {
-      // Mock session cookies for testing uploads/messages without EduSecure portal requirements
-      sessionCookies = `ASP.NET_SessionId=dummy_test_session_${studentId.trim()}`;
-    } else {
-      try {
-        sessionCookies = await loginToEduSecure(studentId, password);
-      } catch (authErr) {
-        console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
-        // Only report bad credentials when the portal actually rejected them;
-        // outages or blocked egress would otherwise look like a wrong password.
-        if (!authErr || authErr.code === "invalid_credentials") {
-          return res.status(401).json({
-            authenticated: false,
-            error: "Invalid student ID or password."
-          });
-        }
-        return res.status(502).json({
+    try {
+      sessionCookies = await loginToEduSecure(studentId, password);
+    } catch (authErr) {
+      console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
+      // Only report bad credentials when the portal actually rejected them;
+      // outages or blocked egress would otherwise look like a wrong password.
+      if (!authErr || authErr.code === "invalid_credentials") {
+        return res.status(401).json({
           authenticated: false,
-          error: authErr.message || "The school portal is currently unreachable. Please try again later."
+          error: "Invalid student ID or password."
         });
       }
+      return res.status(502).json({
+        authenticated: false,
+        error: authErr.message || "The school portal is currently unreachable. Please try again later."
+      });
     }
 
     const user = await sessionService.findOrCreateUser(studentId);
-    if (isDummyAccount && (!user.section || user.section === FALLBACK_SECTION)) {
-      await sessionService.updateSection(user.id, "9-F");
-    }
     await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
     const appToken = await sessionService.createAppSession(user.id);
 
     res.cookie("app_session", appToken, sessionCookieOptions({
-      maxAge: 30 * 24 * 60 * 60 * 1000
+      maxAge: sessionService.SESSION_TTL_MS
     }));
 
     let section = user.section;
     let displayName = user.displayName;
-    if (!isDummyAccount && (needsRefresh(section) || !displayName)) {
+    if (needsRefresh(section) || !displayName) {
       try {
         const profile = await fetchProfileFromEduSecure(sessionCookies);
         if (profile.section && needsRefresh(section)) {

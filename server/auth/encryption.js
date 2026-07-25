@@ -1,12 +1,11 @@
 const crypto = require("crypto");
+const { deriveKey } = require("./secrets");
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96-bit IV recommended for GCM
 
 function getEncryptionKey() {
-  const secret = process.env.ENCRYPTION_KEY || "default-homework-app-development-secret-key-32-bytes";
-  // Derive a fixed 32-byte key via scrypt
-  return crypto.scryptSync(secret, "homework-fetcher-salt", 32);
+  return deriveKey("edusecure-session-encryption");
 }
 
 /**

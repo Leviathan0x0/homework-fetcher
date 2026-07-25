@@ -232,35 +232,84 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const inboxContent = (
     <div className="h-full flex flex-col bg-neutral-50/80 dark:bg-[#121215]">
-      {/* Header bar without WHATSAPP CHATS text - clean & subtle */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0">
-        <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
-        <button onClick={() => setShowNewModal(true)}
-          className="p-1.5 rounded-xl text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/70 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-          title="New Chat">
-          <Plus className="w-4 h-4" />
-        </button>
+      {/* Header bar with inline search */}
+      <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search student ID..."
+            className="w-full text-xs h-8.5 pl-8 pr-7 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
-      {conversations.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
-            <MessageCircle className="w-5 h-5" />
+      {/* Main List: Search Results or Active Conversations */}
+      <div className="flex-1 overflow-y-auto divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
+        {searching ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
           </div>
-          <p className="text-xs text-neutral-500">No active conversations</p>
-          <button onClick={() => setShowNewModal(true)}
-            className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-medium cursor-pointer shadow-2xs">
-            <Plus className="w-3.5 h-3.5" /><span>New Chat</span>
-          </button>
-        </div>
-      ) : (
-        <div className="flex-1 overflow-y-auto divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
-          {conversations.map((conv) => (
-            <button key={conv.id} onClick={() => setActiveConvId(conv.id)}
+        ) : searchQuery.trim() ? (
+          searchResults.length > 0 ? (
+            searchResults.map((u) => (
+              <button
+                key={u.id}
+                onClick={() => handleStartConversation(u.id)}
+                className="w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+              >
+                <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
+                  {u.studentId.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                      {u.studentId}
+                    </span>
+                    {u.section && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
+                        {u.section}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">Click to start conversation</p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <div className="p-6 text-center text-xs text-neutral-400">No users found</div>
+          )
+        ) : conversations.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
+            <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
+              <MessageCircle className="w-5 h-5" />
+            </div>
+            <p className="text-xs text-neutral-500 font-medium">No active conversations</p>
+            <p className="text-[11px] text-neutral-400 mt-1">Search for a student ID above to start chatting</p>
+          </div>
+        ) : (
+          conversations.map((conv) => (
+            <button
+              key={conv.id}
+              onClick={() => setActiveConvId(conv.id)}
               className={cn(
                 'w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40',
                 activeConvId === conv.id && 'bg-neutral-200/80 dark:bg-neutral-800/80 font-medium'
-              )}>
+              )}
+            >
               <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
                 {conv.otherUser?.studentId?.charAt(0).toUpperCase() || '?'}
               </div>
@@ -292,9 +341,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 </span>
               )}
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 

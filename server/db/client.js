@@ -1,12 +1,32 @@
 const path = require("path");
+const os = require("os");
 const Database = require("better-sqlite3");
 const { drizzle } = require("drizzle-orm/better-sqlite3");
 const schema = require("./schema");
 
 const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || path.join(__dirname, "../../sqlite.db");
 
+/**
+ * Opens the SQLite database, falling back to the OS temp directory when the
+ * preferred location is not writable (read-only container filesystems on
+ * managed hosts). The fallback is ephemeral, so sessions are lost on restart —
+ * set SQLITE_DB_PATH to a persistent writable volume in production.
+ */
+function openDatabase(preferredPath) {
+  try {
+    return new Database(preferredPath);
+  } catch (err) {
+    const fallbackPath = path.join(os.tmpdir(), "homework-fetcher.db");
+    console.error(
+      `Unable to open SQLite database at ${preferredPath} (${err.message}). ` +
+      `Falling back to the ephemeral path ${fallbackPath}. Set SQLITE_DB_PATH to a writable, persistent location.`
+    );
+    return new Database(fallbackPath);
+  }
+}
+
 // Initialize native SQLite database
-const sqlite = new Database(dbPath);
+const sqlite = openDatabase(dbPath);
 
 // Enable foreign key constraints in SQLite
 sqlite.pragma("foreign_keys = ON");

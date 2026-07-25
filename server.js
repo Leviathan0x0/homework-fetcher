@@ -9,10 +9,31 @@ const classworkRoutes = require("./server/routes/classworkRoutes");
 const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
+const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 
 const app = express();
 
-app.use(helmet());
+// Required so Secure cookies are honoured behind hosting platform TLS proxies
+app.set("trust proxy", 1);
+
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+
+// Allow a separately hosted frontend (e.g. Appwrite Sites) to call this API with cookies
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (isAllowedOrigin(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept");
+    res.setHeader("Vary", "Origin");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+  } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
+    console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);
+  }
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -28,6 +49,11 @@ app.use("/api", notificationsRoutes);
 // Serve built Vite assets from dist/ if present, fallback to public/
 app.use(express.static(path.join(__dirname, "dist")));
 app.use(express.static(path.join(__dirname, "public")));
+
+// Unknown API routes must not fall through to the SPA HTML response
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: `Unknown API endpoint: ${req.method} /api${req.path}` });
+});
 
 // Fallback SPA routing to index.html (Express 5 compatible catch-all)
 app.use((req, res) => {

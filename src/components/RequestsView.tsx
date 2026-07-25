@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../lib/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
+import { PageHeader } from './PageHeader';
 import {
   Handshake,
   Plus,
@@ -53,7 +55,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch('/api/requests', { headers: { Accept: 'application/json' } });
+      const res = await apiFetch('/api/requests', { headers: { Accept: 'application/json' } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch requests.');
       setRequests(data.requests || []);
@@ -74,7 +76,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/requests', {
+      const res = await apiFetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), category: formCategory === 'Other' ? null : formCategory }),
@@ -96,7 +98,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'open' ? 'completed' : 'open';
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/status`, {
+      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ status: next }),
@@ -110,7 +112,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     if (!confirm('Delete this request?')) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setRequests((prev) => prev.filter((r) => r.id !== id));
     } catch { alert('Failed to delete request.'); }
@@ -122,7 +124,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleHelp = async (creatorUserId: string, requestId: string) => {
     setHelpingId(requestId);
     try {
-      const res = await fetch('/api/conversations', {
+      const res = await apiFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ participantId: creatorUserId }),
@@ -147,24 +149,28 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200/80 dark:border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">Requests</h1>
-            {userSection && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 text-xs font-semibold">
-                <Handshake className="w-3 h-3" />
-                {userSection}
-              </span>
-            )}
-          </div>
-          <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-1">Ask for help, share resources, or request items from your section.</p>
-        </div>
-        <button onClick={() => setIsFormOpen(true)} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs shrink-0 cursor-pointer">
-          <Plus className="w-4 h-4" />
-          <span>New Request</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Requests"
+        description="Ask for help, share resources, or request items from your section."
+        badge={
+          userSection ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 text-xs font-medium">
+              <Handshake className="w-3 h-3" />
+              {userSection}
+            </span>
+          ) : undefined
+        }
+        actions={
+          <button
+            type="button"
+            onClick={() => setIsFormOpen(true)}
+            className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors duration-150 active:scale-[0.98] shadow-2xs shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Request</span>
+          </button>
+        }
+      />
 
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">

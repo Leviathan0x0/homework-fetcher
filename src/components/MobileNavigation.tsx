@@ -22,7 +22,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-3 left-3 right-3 max-w-md mx-auto h-16 rounded-3xl liquid-glass-nav text-neutral-900 dark:text-white z-40 px-2 flex items-center justify-around select-none">
+    <nav className="md:hidden fixed left-3 right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-w-md mx-auto h-16 rounded-3xl liquid-glass-nav text-neutral-900 dark:text-white z-40 px-2 flex items-center justify-around select-none">
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = activeView === item.id;
@@ -30,7 +30,8 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           <button
             key={item.id}
             onClick={() => onViewChange(item.id)}
-            className="flex flex-col items-center justify-center flex-1 h-full py-1 cursor-pointer touch-manipulation group"
+            aria-current={isActive ? 'page' : undefined}
+            className="flex flex-col items-center justify-center flex-1 h-full py-1 rounded-2xl cursor-pointer touch-manipulation group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-500/50"
           >
             <div className={cn(
               'w-8 h-8 rounded-2xl flex items-center justify-center transition-all duration-200',

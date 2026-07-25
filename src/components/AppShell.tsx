@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../lib/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -102,7 +103,7 @@ export const AppShell: React.FC = () => {
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications/unread-count', {
+      const res = await apiFetch('/api/notifications/unread-count', {
         headers: { Accept: 'application/json' },
       });
       if (!res.ok) return;
@@ -122,12 +123,12 @@ export const AppShell: React.FC = () => {
     return (
       <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-bold text-base shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-semibold text-base shadow-xs">
             H
           </div>
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
-            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
-            <span>checking authentication...</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+            <span>Checking your session</span>
           </div>
         </div>
       </div>

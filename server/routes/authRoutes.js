@@ -2,6 +2,7 @@ const express = require("express");
 const sessionService = require("../auth/sessionService");
 const { fetchSectionFromEduSecure } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
+const { sessionCookieOptions } = require("../config");
 
 const FALLBACK_SECTION = "Section 10-A";
 const needsRefresh = (s) => !s || s === FALLBACK_SECTION;
@@ -39,10 +40,18 @@ router.post("/login", async (req, res) => {
       try {
         sessionCookies = await loginToEduSecure(studentId, password);
       } catch (authErr) {
-        console.error("EduSecure Auth Error:", authErr);
-        return res.status(401).json({
+        console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
+        // Only report bad credentials when the portal actually rejected them;
+        // outages or blocked egress would otherwise look like a wrong password.
+        if (!authErr || authErr.code === "invalid_credentials") {
+          return res.status(401).json({
+            authenticated: false,
+            error: "Invalid student ID or password."
+          });
+        }
+        return res.status(502).json({
           authenticated: false,
-          error: "Invalid student ID or password."
+          error: authErr.message || "The school portal is currently unreachable. Please try again later."
         });
       }
     }
@@ -55,13 +64,9 @@ router.post("/login", async (req, res) => {
 
     const appToken = sessionService.createAppSession(user.id);
 
-    res.cookie("app_session", appToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
+    res.cookie("app_session", appToken, sessionCookieOptions({
       maxAge: 30 * 24 * 60 * 60 * 1000
-    });
+    }));
 
     let section = user.section;
     if (!isDummyAccount && needsRefresh(section)) {
@@ -87,6 +92,12 @@ router.post("/login", async (req, res) => {
 
   } catch (err) {
     console.error("Auth Login Error:", err);
+    if (typeof err?.code === "string" && err.code.startsWith("SQLITE_")) {
+      return res.status(500).json({
+        authenticated: false,
+        error: "The server could not store your session because its database is not writable. Point SQLITE_DB_PATH at a writable location and try again."
+      });
+    }
     return res.status(500).json({
       authenticated: false,
       error: "An unexpected error occurred during login. Please try again."
@@ -139,11 +150,7 @@ router.post("/logout", (req, res) => {
     sessionService.destroyAppSession(token);
   }
 
-  res.clearCookie("app_session", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/"
-  });
+  res.clearCookie("app_session", sessionCookieOptions());
 
   return res.json({
     success: true,

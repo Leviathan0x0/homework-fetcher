@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     }
   }
 
-  // GET request - search registered users
+  // GET request - search registered users ONLY
   const rawQ = (req.query?.q || "").trim();
   const q = rawQ.toLowerCase();
   const allUsers = Array.from(registeredUsersMap.values());
@@ -39,14 +39,7 @@ module.exports = async (req, res) => {
     return res.status(200).json({ users: allUsers });
   }
 
-  let matches = allUsers.filter(u => u.studentId.toLowerCase().includes(q));
-
-  // If exact or typed query isn't in memory yet, dynamically include it as a valid student user match
-  if (matches.length === 0 && rawQ.length >= 2) {
-    const newUser = { id: rawQ, studentId: rawQ, section: "" };
-    registeredUsersMap.set(q, newUser);
-    matches = [newUser];
-  }
-
+  // ONLY return registered accounts matching q
+  const matches = allUsers.filter(u => u.studentId.toLowerCase().includes(q));
   return res.status(200).json({ users: matches });
 };

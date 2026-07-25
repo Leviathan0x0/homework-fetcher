@@ -590,10 +590,6 @@ export const messagingService = {
       }
     });
 
-    if (!uniqueMap.has(q) && rawQ.length >= 2) {
-      uniqueMap.set(q, { id: rawQ, studentId: rawQ, section: "" });
-    }
-
     const allRealUsers = Array.from(uniqueMap.values());
     return allRealUsers.filter((s) => s.studentId.toLowerCase().includes(q));
   },

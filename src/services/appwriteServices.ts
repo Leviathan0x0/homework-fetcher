@@ -52,6 +52,20 @@ export const authService = {
       if (!user) return null;
       const studentId = user.name || user.email.split("@")[0];
       const section = (user.prefs && user.prefs.section) ? user.prefs.section : "Section 9-F";
+
+      try {
+        await databases.createDocument(
+          APPWRITE_DATABASE_ID,
+          COLLECTIONS.USERS,
+          user.$id,
+          {
+            student_id: studentId,
+            user_id: user.$id,
+            section: section,
+          }
+        );
+      } catch {}
+
       return {
         id: user.$id,
         studentId,
@@ -455,22 +469,14 @@ export const messagingService = {
       console.warn("Appwrite USERS query fallback:", err);
     }
 
-    const seedAccounts = [
-      { id: "student1", studentId: "student1", section: "Section 9-F" },
-      { id: "student2", studentId: "student2", section: "Section 9-F" },
-      { id: "kiaan", studentId: "kiaan", section: "Section 9-F" },
-      ...usersList
-    ];
-
     const uniqueMap = new Map<string, any>();
-    seedAccounts.forEach((u) => {
+    usersList.forEach((u) => {
       if (u.studentId) {
         uniqueMap.set(u.studentId.toLowerCase(), u);
       }
     });
 
     const allRealUsers = Array.from(uniqueMap.values());
-
     return allRealUsers.filter((s) => s.studentId.toLowerCase().includes(q));
   },
 

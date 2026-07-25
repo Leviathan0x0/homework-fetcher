@@ -5,7 +5,9 @@ import { detectSubject } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
-import { GraduationCap, RotateCw, CheckCircle2, Clock, BookOpen, Layers } from 'lucide-react';
+import { PageHeader } from './PageHeader';
+import { RefreshButton } from './RefreshButton';
+import { GraduationCap, BookOpen } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface ExamsViewProps {
@@ -71,41 +73,20 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-200/80 dark:border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-neutral-800 dark:text-neutral-200" />
-              <span>Exam Mode</span>
-            </h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">
-              Deterministic Keyword Engine
-            </span>
-          </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Automatically grouped revision, syllabus, and exam-related assignments.
-          </p>
-        </div>
-
-        <button
-          onClick={() => onRefresh(true)}
-          disabled={isLoading}
-          className="self-start sm:self-auto p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
-          title="Refresh homework"
-        >
-          <RotateCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-        </button>
-      </div>
+      <PageHeader
+        title="Exam Mode"
+        description="Automatically grouped revision, syllabus, and exam-related assignments."
+        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} compact />}
+      />
 
       {/* Subtle Exam Summary Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xs">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-900 dark:text-white shrink-0">
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
               {totalExamsCount} exam-related {totalExamsCount === 1 ? 'assignment' : 'assignments'}
             </h2>
             <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
@@ -125,9 +106,9 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           <button
             onClick={() => setSelectedFilter('all')}
             className={cn(
-              'px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer select-none',
+              'px-3 py-1.5 text-xs font-medium rounded-xl transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50',
               selectedFilter === 'all'
-                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 font-semibold shadow-2xs'
                 : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
             )}
           >
@@ -136,9 +117,9 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           <button
             onClick={() => setSelectedFilter('high')}
             className={cn(
-              'px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer select-none',
+              'px-3 py-1.5 text-xs font-medium rounded-xl transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50',
               selectedFilter === 'high'
-                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 font-semibold shadow-2xs'
                 : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
             )}
           >
@@ -147,9 +128,9 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           <button
             onClick={() => setSelectedFilter('medium')}
             className={cn(
-              'px-3 py-1 text-xs font-semibold rounded-xl transition-all cursor-pointer select-none',
+              'px-3 py-1.5 text-xs font-medium rounded-xl transition-colors duration-150 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50',
               selectedFilter === 'medium'
-                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 shadow-2xs'
+                ? 'bg-white dark:bg-[#18181b] text-neutral-900 dark:text-neutral-100 font-semibold shadow-2xs'
                 : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
             )}
           >
@@ -166,7 +147,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           {Object.entries(groupedBySubject).map(([subjectName, items]) => (
             <section key={subjectName} className="space-y-3">
               <div className="flex items-center justify-between pb-1 border-b border-neutral-200/60 dark:border-neutral-800/60">
-                <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-neutral-900 dark:bg-neutral-100" />
                   <span>{subjectName}</span>
                 </h3>

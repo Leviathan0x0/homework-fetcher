@@ -1,0 +1,124 @@
+/**
+ * Minimal libSQL (Turso) HTTP client built on fetch.
+ *
+ * Serverless platforms such as Vercel give every deployment (and every
+ * instance) a fresh, read-only filesystem, so a local SQLite file cannot be
+ * used as the shared source of truth: data disappears on redeploy and two
+ * users can end up talking to two different copies of the database.
+ * Pointing TURSO_DATABASE_URL at a hosted libSQL database makes every instance
+ * read and write the same data.
+ *
+ * The libSQL "pipeline" endpoint is plain HTTPS + JSON, so no extra dependency
+ * is required.
+ */
+
+/** Converts a libSQL "libsql://" URL into its HTTPS endpoint. */
+function toHttpUrl(rawUrl) {
+  const trimmed = rawUrl.trim().replace(/\/+$/, "");
+  if (trimmed.startsWith("libsql://")) return `https://${trimmed.slice("libsql://".length)}`;
+  if (trimmed.startsWith("wss://")) return `https://${trimmed.slice("wss://".length)}`;
+  if (trimmed.startsWith("ws://")) return `http://${trimmed.slice("ws://".length)}`;
+  return trimmed;
+}
+
+/** Encodes a JavaScript value as a libSQL protocol value. */
+function encodeValue(value) {
+  if (value === null || value === undefined) return { type: "null" };
+  if (typeof value === "boolean") return { type: "integer", value: value ? "1" : "0" };
+  if (typeof value === "bigint") return { type: "integer", value: value.toString() };
+  if (typeof value === "number") {
+    return Number.isInteger(value)
+      ? { type: "integer", value: String(value) }
+      : { type: "float", value };
+  }
+  if (Buffer.isBuffer(value)) return { type: "blob", base64: value.toString("base64") };
+  if (value instanceof Uint8Array) return { type: "blob", base64: Buffer.from(value).toString("base64") };
+  if (typeof value === "object") return { type: "text", value: JSON.stringify(value) };
+  return { type: "text", value: String(value) };
+}
+
+/** Decodes a libSQL protocol value into a JavaScript value. */
+function decodeValue(cell) {
+  if (!cell || cell.type === "null") return null;
+  switch (cell.type) {
+    case "integer": {
+      const asNumber = Number(cell.value);
+      return Number.isSafeInteger(asNumber) ? asNumber : cell.value;
+    }
+    case "float":
+      return Number(cell.value);
+    case "blob":
+      return Buffer.from(cell.base64 || "", "base64");
+    default:
+      return cell.value === undefined ? null : String(cell.value);
+  }
+}
+
+/**
+ * Creates a libSQL HTTP client.
+ * @param {string} url libsql:// or https:// database URL
+ * @param {string} [authToken]
+ */
+function createLibsqlClient(url, authToken) {
+  const endpoint = `${toHttpUrl(url)}/v2/pipeline`;
+
+  /**
+   * Executes one or more statements in a single round trip.
+   * @param {{sql: string, args?: any[]}[]} statements
+   * @returns {Promise<{columns: string[], rows: any[][], rowsAffected: number}[]>}
+   */
+  async function executeBatch(statements) {
+    const requests = statements.map((statement) => ({
+      type: "execute",
+      stmt: {
+        sql: statement.sql,
+        args: (statement.args || []).map(encodeValue),
+      },
+    }));
+    requests.push({ type: "close" });
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
+    }
+
+    const payload = await res.json();
+    const results = [];
+    for (const entry of payload.results || []) {
+      if (entry.type === "error") {
+        throw new Error(`libSQL error: ${entry.error?.message || "unknown error"}`);
+      }
+      if (entry.response?.type !== "execute") continue;
+      const result = entry.response.result || {};
+      results.push({
+        columns: (result.cols || []).map((col) => col.name),
+        rows: (result.rows || []).map((row) => row.map(decodeValue)),
+        rowsAffected: result.affected_row_count || 0,
+      });
+    }
+    return results;
+  }
+
+  /**
+   * Executes a single statement.
+   * @param {string} sql
+   * @param {any[]} [args]
+   */
+  async function execute(sql, args) {
+    const [result] = await executeBatch([{ sql, args }]);
+    return result || { columns: [], rows: [], rowsAffected: 0 };
+  }
+
+  return { execute, executeBatch, endpoint };
+}
+
+module.exports = { createLibsqlClient, toHttpUrl };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { notificationService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -27,6 +28,7 @@ import { Loader2 } from 'lucide-react';
 export const AppShell: React.FC = () => {
   const {
     user,
+    setUser,
     isAuthenticated,
     isAuthChecking,
     homework,
@@ -97,19 +99,27 @@ export const AppShell: React.FC = () => {
   };
 
   const handleNavigate = useCallback((view: string) => {
+    if (view.startsWith('messages:')) {
+      const targetConvId = view.slice('messages:'.length);
+      setActiveView('messages');
+      if (targetConvId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
+        }, 50);
+      }
+      return;
+    }
     setActiveView(view as any);
   }, [setActiveView]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/notifications/unread-count', {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setUnreadCount(data.count || 0);
+      if (!user) return;
+      const list = await notificationService.getNotifications(user.id);
+      const unread = list.filter((n: any) => !n.isRead).length;
+      setUnreadCount(unread);
     } catch {}
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -122,12 +132,12 @@ export const AppShell: React.FC = () => {
     return (
       <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-bold text-base shadow-xs">
+          <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-semibold text-base shadow-xs">
             H
           </div>
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
-            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
-            <span>checking authentication...</span>
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+            <span>Checking your session</span>
           </div>
         </div>
       </div>
@@ -211,7 +221,7 @@ export const AppShell: React.FC = () => {
               userSection={user?.section}
               onNavigate={(v) => {
                 if (v.startsWith('messages:')) {
-                  const targetConvId = v.split(':')[1];
+                  const targetConvId = v.slice('messages:'.length);
                   setActiveView('messages');
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
@@ -295,7 +305,7 @@ export const AppShell: React.FC = () => {
             <CompletedView
               homework={homework}
               isLoading={isLoading}
-              onRefresh={(force) => fetchHomework(force)}
+              onRefresh={(force?: boolean) => { fetchHomework(force); }}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}
@@ -314,6 +324,7 @@ export const AppShell: React.FC = () => {
           onClose={handleCloseSettings}
           user={user}
           onLogout={logout}
+          onUserChange={setUser}
           sessionStatus={sessionStatus}
           theme={theme}
           onThemeChange={setTheme}

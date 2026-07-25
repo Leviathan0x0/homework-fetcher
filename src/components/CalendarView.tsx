@@ -3,6 +3,8 @@ import { HomeworkEntry } from '../types/homework';
 import { HomeworkCard } from './HomeworkCard';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
+import { PageHeader } from './PageHeader';
+import { RefreshButton } from './RefreshButton';
 import {
   getHomeworkDateYmd,
   getCalendarDaysForMonth,
@@ -13,9 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
-  RotateCw,
-  CheckCircle2,
-  ListTodo,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -104,40 +103,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in-50 duration-200">
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-neutral-200/80 dark:border-neutral-800">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-              Calendar
-            </h1>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-              {monthTitle}
-            </span>
-          </div>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-            Click any date to view and manage assignments.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleJumpToToday}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer active:scale-95"
-          >
-            Today
-          </button>
-
-          <button
-            onClick={() => onRefresh(true)}
-            disabled={isLoading}
-            className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer active:scale-95 disabled:opacity-50"
-            title="Refresh homework"
-          >
-            <RotateCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Calendar"
+        description="Click any date to view and manage assignments."
+        badge={
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
+            {monthTitle}
+          </span>
+        }
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={handleJumpToToday}
+              className="h-9 px-3.5 text-xs font-medium rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors duration-150 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
+            >
+              Today
+            </button>
+            <RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} compact />
+          </>
+        }
+      />
 
       {/* Main Grid & Detail Panel Container */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

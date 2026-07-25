@@ -49,7 +49,7 @@ class HomeworkCacheService {
    * @param {Array<{type: string, date: string, homework: string, attachment: string|null}>} parsedHomework 
    * @returns {Array} List of saved homework items with user state
    */
-  upsertHomework(userId, parsedHomework) {
+  async upsertHomework(userId, parsedHomework) {
     if (!userId || !Array.isArray(parsedHomework)) return [];
 
     const now = new Date().toISOString();
@@ -63,14 +63,14 @@ class HomeworkCacheService {
 
       const homeworkId = generateHomeworkId(userId, date, subject, content, attachmentUrl);
 
-      const existing = db
+      const existing = await db
         .select()
         .from(schema.homework)
         .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
         .get();
 
       if (existing) {
-        db.update(schema.homework)
+        await db.update(schema.homework)
           .set({
             date,
             subject,
@@ -82,7 +82,7 @@ class HomeworkCacheService {
           .where(eq(schema.homework.id, homeworkId))
           .run();
       } else {
-        db.insert(schema.homework)
+        await db.insert(schema.homework)
           .values({
             id: homeworkId,
             userId,
@@ -99,7 +99,7 @@ class HomeworkCacheService {
       }
     }
 
-    return this.getCachedHomework(userId);
+    return await this.getCachedHomework(userId);
   }
 
   /**
@@ -108,11 +108,11 @@ class HomeworkCacheService {
    * @param {string} userId 
    * @returns {Array} List of homework entries
    */
-  getCachedHomework(userId) {
+  async getCachedHomework(userId) {
     if (!userId) return [];
 
     // Query homework left joining homework_user_state for completion status & personal notes
-    const rows = db
+    const rows = await db
       .select({
         id: schema.homework.id,
         userId: schema.homework.userId,
@@ -156,10 +156,10 @@ class HomeworkCacheService {
    * @param {number} maxAgeMinutes 
    * @returns {boolean}
    */
-  isCacheStale(userId, maxAgeMinutes = DEFAULT_CACHE_MAX_AGE_MINUTES) {
+  async isCacheStale(userId, maxAgeMinutes = DEFAULT_CACHE_MAX_AGE_MINUTES) {
     if (!userId) return true;
 
-    const items = this.getCachedHomework(userId);
+    const items = await this.getCachedHomework(userId);
     if (!items || items.length === 0) return true;
 
     // Find the latest updatedAt timestamp among cached homework items
@@ -185,11 +185,11 @@ class HomeworkCacheService {
    * @param {boolean} completed 
    * @returns {{success: boolean, completed: boolean}}
    */
-  updateHomeworkStatus(userId, homeworkId, completed) {
+  async updateHomeworkStatus(userId, homeworkId, completed) {
     if (!userId || !homeworkId) throw new Error("Invalid parameters.");
 
     // Verify homework ownership
-    const hw = db
+    const hw = await db
       .select()
       .from(schema.homework)
       .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
@@ -204,7 +204,7 @@ class HomeworkCacheService {
     const now = new Date().toISOString();
     const isCompleted = completed ? 1 : 0;
 
-    const existingState = db
+    const existingState = await db
       .select()
       .from(schema.homeworkUserState)
       .where(
@@ -216,7 +216,7 @@ class HomeworkCacheService {
       .get();
 
     if (existingState) {
-      db.update(schema.homeworkUserState)
+      await db.update(schema.homeworkUserState)
         .set({
           completed: isCompleted,
           updatedAt: now,
@@ -224,7 +224,7 @@ class HomeworkCacheService {
         .where(eq(schema.homeworkUserState.id, existingState.id))
         .run();
     } else {
-      db.insert(schema.homeworkUserState)
+      await db.insert(schema.homeworkUserState)
         .values({
           id: crypto.randomUUID(),
           userId,
@@ -251,11 +251,11 @@ class HomeworkCacheService {
    * @param {string} note 
    * @returns {{success: boolean, note: string|null}}
    */
-  updateHomeworkNote(userId, homeworkId, note) {
+  async updateHomeworkNote(userId, homeworkId, note) {
     if (!userId || !homeworkId) throw new Error("Invalid parameters.");
 
     // Verify homework ownership
-    const hw = db
+    const hw = await db
       .select()
       .from(schema.homework)
       .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
@@ -270,7 +270,7 @@ class HomeworkCacheService {
     const now = new Date().toISOString();
     const cleanNote = typeof note === "string" ? note.trim() : null;
 
-    const existingState = db
+    const existingState = await db
       .select()
       .from(schema.homeworkUserState)
       .where(
@@ -282,7 +282,7 @@ class HomeworkCacheService {
       .get();
 
     if (existingState) {
-      db.update(schema.homeworkUserState)
+      await db.update(schema.homeworkUserState)
         .set({
           note: cleanNote,
           updatedAt: now,
@@ -290,7 +290,7 @@ class HomeworkCacheService {
         .where(eq(schema.homeworkUserState.id, existingState.id))
         .run();
     } else {
-      db.insert(schema.homeworkUserState)
+      await db.insert(schema.homeworkUserState)
         .values({
           id: crypto.randomUUID(),
           userId,

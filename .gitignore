@@ -1,8 +1,8 @@
 node_modules/
 dist/
 uploads/
-sqlite.db
-*.db
+sqlite.db*
+*.db*
 .env
 .env.local
 .env.production

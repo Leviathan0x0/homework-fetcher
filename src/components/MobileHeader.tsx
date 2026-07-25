@@ -1,6 +1,7 @@
 import React from 'react';
 import { ThemeMode } from '../types/homework';
 import { Sun, Moon, Settings } from 'lucide-react';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface MobileHeaderProps {
   theme: ThemeMode;
@@ -26,10 +27,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         </span>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
+        <PWAInstallPrompt variant="button" />
+
         <button
           onClick={onToggleTheme}
-          className="group/theme p-2.5 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
+          className="group/theme p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Toggle Theme"
         >
           {theme === 'dark' ? (
@@ -41,7 +44,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         <button
           onClick={onOpenSettings}
-          className="group/set p-2.5 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
+          className="group/set p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Settings"
         >
           <Settings className="w-4 h-4 transition-transform duration-300 group-hover/set:rotate-90" />

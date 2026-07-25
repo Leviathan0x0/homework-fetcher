@@ -10,6 +10,7 @@ import {
 import { ViewType, ThemeMode } from "../types/homework"
 import { Sun, Moon, Settings } from "lucide-react"
 import { NotificationPopover } from "./NotificationPopover"
+import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
 interface SiteHeaderProps {
   activeView: ViewType;
@@ -81,7 +82,9 @@ export function SiteHeader({
         </Breadcrumb>
       </div>
 
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
+        <PWAInstallPrompt variant="button" />
+
         <NotificationPopover
           unreadCount={unreadCount}
           onNavigate={onNavigate}

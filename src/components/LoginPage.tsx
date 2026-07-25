@@ -33,8 +33,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     setLocalError(null);
     onDismissError();
 
-    const trimmedId = studentId.trim();
-    if (!trimmedId) {
+    const rawId = studentId.trim();
+    if (!rawId) {
       setLocalError('Please enter your student ID.');
       return;
     }
@@ -46,7 +46,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     const currentPass = password;
     setPassword('');
 
-    await onLogin(trimmedId, currentPass);
+    // Pass the raw typed studentId to onLogin; server will strip @manavmangalschool.com safely
+    await onLogin(rawId, currentPass);
   };
 
   const activeError = localError || errorMessage;
@@ -89,7 +90,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="Enter your student ID (e.g. student2)"
+                    placeholder="For e.g. guranshbir126"
                     disabled={isLoading}
                     autoComplete="username"
                     className="w-full bg-transparent text-sm h-12 pl-11 pr-4 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 font-normal"
@@ -133,7 +134,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </InputWrapper>
             </div>
 
-            {/* Primary Submit Button matching Dashboard Buttons */}
+            {/* Primary Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
@@ -163,7 +164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         </div>
       </section>
 
-      {/* Right Column: Rounded 3XL Hero Container matching Dashboard Cards */}
+      {/* Right Column: Hero Image */}
       <section className="hidden md:block flex-1 relative p-4">
         <div className="w-full h-full rounded-3xl overflow-hidden relative border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xs bg-neutral-950">
           <img
@@ -171,7 +172,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             alt="Fluid Artwork Hero"
             className="w-full h-full object-cover rounded-3xl"
           />
-          {/* Subtle overlay sheen */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10 pointer-events-none rounded-3xl" />
         </div>
       </section>

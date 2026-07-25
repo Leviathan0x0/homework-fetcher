@@ -1,0 +1,53 @@
+{
+  "short_name": "Homework",
+  "name": "Homework Fetcher",
+  "description": "Access your school diary, homework, classwork notes, section requests & classmate messages.",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Today's Homework",
+      "short_name": "Today",
+      "description": "View school diary & homework tasks for today",
+      "url": "/?tab=today"
+    },
+    {
+      "name": "Classwork Notes",
+      "short_name": "Classwork",
+      "description": "View shared section notes and files",
+      "url": "/?tab=classwork"
+    },
+    {
+      "name": "Section Requests",
+      "short_name": "Requests",
+      "description": "View and post section help requests",
+      "url": "/?tab=requests"
+    },
+    {
+      "name": "Classmate Messages",
+      "short_name": "Messages",
+      "description": "Chat directly with your classmates",
+      "url": "/?tab=messages"
+    }
+  ]
+}

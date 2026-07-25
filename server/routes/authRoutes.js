@@ -15,7 +15,9 @@ router.post("/login", async (req, res) => {
   try {
     const { studentId, password } = req.body || {};
 
-    if (!studentId || typeof studentId !== "string" || !studentId.trim()) {
+    const cleanStudentId = (studentId || "").trim().replace(/@manavmangalschool\.com/gi, "");
+
+    if (!cleanStudentId) {
       return res.status(400).json({
         authenticated: false,
         error: "Student ID is required."
@@ -30,16 +32,16 @@ router.post("/login", async (req, res) => {
     }
 
     let sessionCookies;
-    const isDummyAccount = studentId.trim().toLowerCase().startsWith("dummy") || 
-                           studentId.trim().toLowerCase() === "testuser" || 
-                           studentId.trim().toLowerCase() === "student2";
+    const isDummyAccount = cleanStudentId.toLowerCase().startsWith("dummy") || 
+                           cleanStudentId.toLowerCase() === "testuser" || 
+                           cleanStudentId.toLowerCase() === "student2";
 
     if (isDummyAccount) {
       // Mock session cookies for testing uploads/messages without EduSecure portal requirements
-      sessionCookies = `ASP.NET_SessionId=dummy_test_session_${studentId.trim()}`;
+      sessionCookies = `ASP.NET_SessionId=dummy_test_session_${cleanStudentId}`;
     } else {
       try {
-        sessionCookies = await loginToEduSecure(studentId, password);
+        sessionCookies = await loginToEduSecure(cleanStudentId, password);
       } catch (authErr) {
         console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
         // Only report bad credentials when the portal actually rejected them;
@@ -57,7 +59,7 @@ router.post("/login", async (req, res) => {
       }
     }
 
-    const user = await sessionService.findOrCreateUser(studentId);
+    const user = await sessionService.findOrCreateUser(cleanStudentId);
     if (isDummyAccount && (!user.section || user.section === FALLBACK_SECTION)) {
       await sessionService.updateSection(user.id, "9-F");
     }

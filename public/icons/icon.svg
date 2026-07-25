@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#bg)" />
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4" />
+  <g transform="translate(128, 128)">
+    <rect width="256" height="256" rx="56" fill="url(#accent)" filter="url(#glow)" />
+    <path d="M76 64h104c8.8 0 16 7.2 16 16v96c0 8.8-7.2 16-16 16H76c-8.8 0-16-7.2-16-16V80c0-8.8 7.2-16 16-16z" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M128 64v128M60 112h136" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

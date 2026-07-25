@@ -23,16 +23,20 @@ export interface FetchHomeworkResponse {
 
 export interface ClassworkEntry {
   id: string;
-  studentId: string;
-  section: string;
+  studentId?: string;
+  section?: string;
   subject: string;
   title?: string | null;
-  date: string;
+  date?: string;
   fileUrl: string;
-  originalFilename: string;
+  filename?: string;
+  originalFilename?: string;
   fileSize: number;
   mimeType: string;
   createdAt: string;
+  fileId?: string | null;
+  uploadedBy?: string;
+  uploaderId?: string;
   isOwner?: boolean;
 }
 
@@ -73,7 +77,7 @@ export interface AppNotification {
 
 export interface Conversation {
   id: string;
-  otherUser: { id: string; studentId: string; section: string } | null;
+  otherUser: { id: string; studentId: string; displayName?: string | null; section: string } | null;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   unreadCount: number;
@@ -83,6 +87,7 @@ export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
+  senderStudentId?: string;
   content: string;
   attachmentUrl?: string | null;
   originalFilename?: string | null;

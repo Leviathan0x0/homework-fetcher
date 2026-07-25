@@ -1,14 +1,15 @@
 const express = require("express");
 const crypto = require("crypto");
-const { eq, desc, asc, and, or, sql, lt, gt } = require("drizzle-orm");
+const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
-const { db, schema } = require("../db/client");
+const { db, schema, isRemote } = require("../db/client");
+const { resolveUploadDir, isServerless } = require("../uploads");
 
 const router = express.Router();
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = req.cookies?.app_session;
-  const activeSession = sessionService.getAppSession(token);
+  const activeSession = await sessionService.getAppSession(token);
   if (!activeSession) {
     return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
   }
@@ -16,13 +17,13 @@ function requireAuth(req, res, next) {
   next();
 }
 
-function createNotifications(userIds, type, title, body, link, referenceId) {
+async function createNotifications(userIds, type, title, body, link, referenceId) {
   if (!userIds || userIds.length === 0) return;
   const now = new Date().toISOString();
   for (const uid of userIds) {
     if (type === "new_message") {
       // Consolidate message notifications from the same sender/conversation into 1 notification
-      const existing = db
+      const existing = await db
         .select()
         .from(schema.notifications)
         .where(
@@ -36,7 +37,7 @@ function createNotifications(userIds, type, title, body, link, referenceId) {
         .get();
 
       if (existing) {
-        db.update(schema.notifications)
+        await db.update(schema.notifications)
           .set({
             title,
             body: body || null,
@@ -48,7 +49,7 @@ function createNotifications(userIds, type, title, body, link, referenceId) {
       }
     }
 
-    db.insert(schema.notifications)
+    await db.insert(schema.notifications)
       .values({
         id: crypto.randomUUID(),
         userId: uid,
@@ -64,8 +65,8 @@ function createNotifications(userIds, type, title, body, link, referenceId) {
   }
 }
 
-function isParticipant(conversationId, userId) {
-  const row = db
+async function isParticipant(conversationId, userId) {
+  const row = await db
     .select()
     .from(schema.conversationParticipants)
     .where(
@@ -78,25 +79,45 @@ function isParticipant(conversationId, userId) {
   return !!row;
 }
 
-router.get("/users/search", requireAuth, (req, res) => {
+function normalizeSearchValue(value) {
+  return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function toPublicUser(user) {
+  if (!user) return null;
+  return {
+    id: user.id,
+    studentId: user.studentId,
+    displayName: user.displayName || null,
+    name: user.displayName || user.studentId,
+    section: user.section,
+  };
+}
+
+router.get("/users/search", requireAuth, async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
-    if (!q || q.length < 1) return res.json({ users: [] });
+    if (!q) return res.json({ users: [] });
 
-    const allUsers = db
+    const needle = normalizeSearchValue(q);
+    if (!needle) return res.json({ users: [] });
+
+    const allUsers = await db
       .select()
       .from(schema.users)
       .all();
 
-    const lower = q.toLowerCase();
     const matched = allUsers
-      .filter((u) => u.id !== req.user.id && u.studentId.toLowerCase().includes(lower))
-      .slice(0, 10)
-      .map((u) => ({
-        id: u.id,
-        studentId: u.studentId,
-        section: u.section,
-      }));
+      .filter((u) => {
+        if (u.id === req.user.id) return false;
+        return (
+          normalizeSearchValue(u.studentId).includes(needle) ||
+          normalizeSearchValue(u.displayName).includes(needle)
+        );
+      })
+      .sort((a, b) => (a.displayName || a.studentId).localeCompare(b.displayName || b.studentId))
+      .slice(0, 20)
+      .map(toPublicUser);
 
     return res.json({ users: matched });
   } catch (err) {
@@ -105,11 +126,11 @@ router.get("/users/search", requireAuth, (req, res) => {
   }
 });
 
-router.get("/conversations", requireAuth, (req, res) => {
+router.get("/conversations", requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const participations = db
+    const participations = await db
       .select()
       .from(schema.conversationParticipants)
       .where(eq(schema.conversationParticipants.userId, userId))
@@ -118,65 +139,61 @@ router.get("/conversations", requireAuth, (req, res) => {
     if (participations.length === 0) return res.json({ conversations: [] });
 
     const convIds = participations.map((p) => p.conversationId);
-    const readMap = {};
-    for (const p of participations) {
-      readMap[p.conversationId] = p.lastReadAt;
-    }
 
-    const convs = db
+    // The other participant of each conversation, joined with their account, so
+    // the whole user table never has to be transferred.
+    const others = await db
+      .select({
+        conversationId: schema.conversationParticipants.conversationId,
+        id: schema.users.id,
+        studentId: schema.users.studentId,
+        displayName: schema.users.displayName,
+        section: schema.users.section,
+      })
+      .from(schema.conversationParticipants)
+      .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
+      .where(
+        and(
+          inArray(schema.conversationParticipants.conversationId, convIds),
+          ne(schema.conversationParticipants.userId, userId)
+        )
+      )
+      .all();
+
+    const otherByConv = {};
+    for (const row of others) otherByConv[row.conversationId] = row;
+
+    const convs = await db
       .select()
       .from(schema.conversations)
+      .where(inArray(schema.conversations.id, convIds))
       .all();
-    const myConvs = convs.filter((c) => convIds.includes(c.id));
 
-    const otherParts = db
-      .select()
-      .from(schema.conversationParticipants)
-      .all();
-    const userIds = new Set();
-    const otherMap = {};
-    for (const p of otherParts) {
-      if (convIds.includes(p.conversationId) && p.userId !== userId) {
-        otherMap[p.conversationId] = p.userId;
-        userIds.add(p.userId);
-      }
+    // Unread counts for every conversation in a single aggregate query.
+    const unreadRows = await db.all(sql`
+      SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
+      FROM messages m
+      JOIN conversation_participants p
+        ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
+      WHERE m.sender_id <> ${userId}
+        AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+      GROUP BY m.conversation_id
+    `);
+
+    const unreadByConv = {};
+    for (const row of unreadRows || []) {
+      const conversationId = row.conversation_id ?? row[0];
+      const unread = row.unread ?? row[1];
+      unreadByConv[conversationId] = Number(unread) || 0;
     }
 
-    const users = db.select().from(schema.users).all();
-    const userMap = {};
-    for (const u of users) userMap[u.id] = u;
-
-    const allMessages = db.select().from(schema.messages).all();
-    const msgByConv = {};
-    for (const m of allMessages) {
-      if (convIds.includes(m.conversationId)) {
-        if (!msgByConv[m.conversationId]) msgByConv[m.conversationId] = [];
-        msgByConv[m.conversationId].push(m);
-      }
-    }
-
-    const result = myConvs.map((c) => {
-      const msgs = msgByConv[c.id] || [];
-      msgs.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-      const lastMsg = msgs[0];
-      const lastRead = readMap[c.id];
-      const unreadCount = lastRead
-        ? msgs.filter((m) => m.senderId !== userId && m.createdAt > lastRead).length
-        : msgs.filter((m) => m.senderId !== userId).length;
-
-      const otherUserId = otherMap[c.id];
-      const otherUser = otherUserId ? userMap[otherUserId] : null;
-
-      return {
-        id: c.id,
-        otherUser: otherUser
-          ? { id: otherUser.id, studentId: otherUser.studentId, section: otherUser.section }
-          : null,
-        lastMessagePreview: c.lastMessagePreview || (lastMsg ? lastMsg.content.substring(0, 80) : null),
-        lastMessageAt: c.lastMessageAt || (lastMsg ? lastMsg.createdAt : c.createdAt),
-        unreadCount,
-      };
-    });
+    const result = convs.map((c) => ({
+      id: c.id,
+      otherUser: toPublicUser(otherByConv[c.id]),
+      lastMessagePreview: c.lastMessagePreview || null,
+      lastMessageAt: c.lastMessageAt || c.createdAt,
+      unreadCount: unreadByConv[c.id] || 0,
+    }));
 
     result.sort((a, b) => {
       if (!a.lastMessageAt) return 1;
@@ -191,7 +208,7 @@ router.get("/conversations", requireAuth, (req, res) => {
   }
 });
 
-router.post("/conversations", requireAuth, (req, res) => {
+router.post("/conversations", requireAuth, async (req, res) => {
   try {
     const { participantId } = req.body || {};
     if (!participantId || typeof participantId !== "string") {
@@ -201,14 +218,14 @@ router.post("/conversations", requireAuth, (req, res) => {
       return res.status(400).json({ error: "Cannot start a conversation with yourself." });
     }
 
-    const otherUser = db
+    const otherUser = await db
       .select()
       .from(schema.users)
       .where(eq(schema.users.id, participantId))
       .get();
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
-    const existing = db
+    const existing = await db
       .select()
       .from(schema.conversationParticipants)
       .where(eq(schema.conversationParticipants.userId, req.user.id))
@@ -216,7 +233,7 @@ router.post("/conversations", requireAuth, (req, res) => {
     const existingConvIds = existing.map((p) => p.conversationId);
 
     if (existingConvIds.length > 0) {
-      const others = db
+      const others = await db
         .select()
         .from(schema.conversationParticipants)
         .all();
@@ -225,7 +242,11 @@ router.post("/conversations", requireAuth, (req, res) => {
           existingConvIds.includes(p.conversationId) &&
           p.userId === participantId
         ) {
-          return res.json({ conversationId: p.conversationId, existing: true });
+          return res.json({
+            conversationId: p.conversationId,
+            existing: true,
+            otherUser: toPublicUser(otherUser),
+          });
         }
       }
     }
@@ -233,11 +254,11 @@ router.post("/conversations", requireAuth, (req, res) => {
     const convId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    db.insert(schema.conversations)
+    await db.insert(schema.conversations)
       .values({ id: convId, createdAt: now, updatedAt: now })
       .run();
 
-    db.insert(schema.conversationParticipants)
+    await db.insert(schema.conversationParticipants)
       .values({
         id: crypto.randomUUID(),
         conversationId: convId,
@@ -246,7 +267,7 @@ router.post("/conversations", requireAuth, (req, res) => {
       })
       .run();
 
-    db.insert(schema.conversationParticipants)
+    await db.insert(schema.conversationParticipants)
       .values({
         id: crypto.randomUUID(),
         conversationId: convId,
@@ -255,7 +276,11 @@ router.post("/conversations", requireAuth, (req, res) => {
       })
       .run();
 
-    return res.status(201).json({ conversationId: convId, existing: false });
+    return res.status(201).json({
+      conversationId: convId,
+      existing: false,
+      otherUser: toPublicUser(otherUser),
+    });
   } catch (err) {
     console.error("Create Conversation Error:", err);
     return res.status(500).json({ error: "Failed to create conversation." });
@@ -266,51 +291,70 @@ const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
 
-const MSG_UPLOADS_DIR = path.join(__dirname, "../../uploads/messages");
-if (!fs.existsSync(MSG_UPLOADS_DIR)) {
-  fs.mkdirSync(MSG_UPLOADS_DIR, { recursive: true });
-}
+// Without a persistent upload volume (the usual serverless setup) the local
+// disk is wiped between deployments and is not shared between instances, so
+// attachments are stored in the database instead of on disk.
+const STORE_ATTACHMENTS_IN_DB = !process.env.UPLOADS_DIR && (isRemote || isServerless);
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
-const msgStorage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, MSG_UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const id = crypto.randomUUID();
-    req.messageId = id;
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `${id}${ext}`);
-  },
-});
+const MSG_UPLOADS_DIR = STORE_ATTACHMENTS_IN_DB
+  ? path.join(require("os").tmpdir(), "homework-fetcher-uploads", "messages")
+  : resolveUploadDir("messages").dir;
+
+const msgStorage = STORE_ATTACHMENTS_IN_DB
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => cb(null, MSG_UPLOADS_DIR),
+      filename: (req, file, cb) => {
+        const id = crypto.randomUUID();
+        req.messageId = id;
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `${id}${ext}`);
+      },
+    });
 
 const msgUpload = multer({
   storage: msgStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_ATTACHMENT_BYTES },
 });
 
-router.get("/conversations/:id/messages", requireAuth, (req, res) => {
+router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
-    if (!isParticipant(convId, req.user.id)) {
+    if (!await isParticipant(convId, req.user.id)) {
       return res.status(403).json({ error: "Access denied." });
     }
 
-    const msgs = db
+    const msgs = await db
       .select()
       .from(schema.messages)
       .where(eq(schema.messages.conversationId, convId))
       .orderBy(asc(schema.messages.createdAt))
       .all();
 
-    const result = msgs.map((m) => ({
-      id: m.id,
-      conversationId: m.conversationId,
-      senderId: m.senderId,
-      content: m.content,
-      attachmentUrl: m.attachmentUrl,
-      originalFilename: m.originalFilename,
-      mimeType: m.mimeType,
-      createdAt: m.createdAt,
-      isMine: m.senderId === req.user.id,
-    }));
+    const senderIds = [...new Set(msgs.map((m) => m.senderId))];
+    const senders = senderIds.length
+      ? await db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
+      : [];
+    const senderMap = {};
+    for (const sender of senders) senderMap[sender.id] = sender;
+
+    const result = msgs.map((m) => {
+      const sender = senderMap[m.senderId];
+      return {
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
+        senderStudentId: sender ? sender.studentId : m.senderId,
+        senderName: sender ? sender.displayName || sender.studentId : null,
+        content: m.content,
+        attachmentUrl: m.attachmentUrl,
+        originalFilename: m.originalFilename,
+        mimeType: m.mimeType,
+        createdAt: m.createdAt,
+        isMine: m.senderId === req.user.id,
+      };
+    });
 
     return res.json({ messages: result });
   } catch (err) {
@@ -319,13 +363,13 @@ router.get("/conversations/:id/messages", requireAuth, (req, res) => {
   }
 });
 
-router.post("/conversations/:id/messages", requireAuth, (req, res) => {
-  msgUpload.single("file")(req, res, (err) => {
+router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
+  msgUpload.single("file")(req, res, async (err) => {
     if (err) return res.status(400).json({ error: err.message || "File upload error" });
 
     try {
       const convId = req.params.id;
-      if (!isParticipant(convId, req.user.id)) {
+      if (!await isParticipant(convId, req.user.id)) {
         if (req.file) fs.unlink(req.file.path, () => {});
         return res.status(403).json({ error: "Access denied." });
       }
@@ -348,10 +392,10 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
         attachmentUrl = `/api/messages/files/${id}`;
         originalFilename = req.file.originalname;
         mimeType = req.file.mimetype || "application/octet-stream";
-        filePath = req.file.path;
+        filePath = req.file.path || null;
       }
 
-      db.insert(schema.messages)
+      await db.insert(schema.messages)
         .values({
           id,
           conversationId: convId,
@@ -365,9 +409,16 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
         })
         .run();
 
+      if (req.file && STORE_ATTACHMENTS_IN_DB) {
+        await db
+          .insert(schema.messageAttachments)
+          .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
+          .run();
+      }
+
       const previewText = req.file ? `[Attachment] ${originalFilename}` : trimmed.substring(0, 80);
 
-      db.update(schema.conversations)
+      await db.update(schema.conversations)
         .set({
           lastMessagePreview: previewText,
           lastMessageAt: now,
@@ -376,7 +427,7 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
         .where(eq(schema.conversations.id, convId))
         .run();
 
-      const participants = db
+      const participants = await db
         .select()
         .from(schema.conversationParticipants)
         .where(eq(schema.conversationParticipants.conversationId, convId))
@@ -387,12 +438,12 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
         .filter((uid) => uid !== req.user.id);
 
       if (otherUserIds.length > 0) {
-        createNotifications(
+        await createNotifications(
           otherUserIds,
           "new_message",
-          `Message from ${req.user.studentId}`,
+          `Message from ${req.user.displayName || req.user.studentId}`,
           previewText,
-          "messages",
+          `messages:${convId}`,
           convId
         );
       }
@@ -403,6 +454,8 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
           id,
           conversationId: convId,
           senderId: req.user.id,
+          senderStudentId: req.user.studentId,
+          senderName: req.user.displayName || req.user.studentId,
           content: trimmed,
           attachmentUrl,
           originalFilename,
@@ -419,35 +472,47 @@ router.post("/conversations/:id/messages", requireAuth, (req, res) => {
   });
 });
 
-router.get("/messages/files/:messageId", requireAuth, (req, res) => {
+router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
   try {
     const { messageId } = req.params;
-    const msg = db
+    const msg = await db
       .select()
       .from(schema.messages)
       .where(eq(schema.messages.id, messageId))
       .get();
 
     if (!msg || !msg.attachmentUrl) return res.status(404).json({ error: "File not found." });
-    if (!isParticipant(msg.conversationId, req.user.id)) {
+    if (!await isParticipant(msg.conversationId, req.user.id)) {
       return res.status(403).json({ error: "Access denied." });
     }
 
-    // 1. Check exact saved filePath
+    // 1. Attachments kept in the database (serverless deployments)
+    const stored = await db
+      .select()
+      .from(schema.messageAttachments)
+      .where(eq(schema.messageAttachments.messageId, messageId))
+      .get();
+
+    if (stored) {
+      const buffer = Buffer.from(stored.data, "base64");
+      res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
+      res.setHeader("Content-Length", String(buffer.length));
+      return res.send(buffer);
+    }
+
+    if (!fs.existsSync(MSG_UPLOADS_DIR)) {
+      return res.status(404).json({ error: "File not found." });
+    }
+
+    // 2. Check exact saved filePath
     if (msg.filePath && fs.existsSync(msg.filePath)) {
       res.setHeader("Content-Type", msg.mimeType || "application/octet-stream");
       return res.sendFile(msg.filePath);
     }
 
-    // 2. Check filename by message ID prefix
+    // 3. Check filename by message ID prefix
     const files = fs.readdirSync(MSG_UPLOADS_DIR);
-    let matched = files.find((f) => f.startsWith(messageId));
-
-    // 3. Fallback for legacy test files: match by file extension
-    if (!matched && msg.originalFilename) {
-      const ext = path.extname(msg.originalFilename).toLowerCase();
-      matched = files.find((f) => path.extname(f).toLowerCase() === ext);
-    }
+    const matched = files.find((f) => f.startsWith(messageId));
 
     if (!matched) return res.status(404).json({ error: "File on disk not found." });
 
@@ -460,12 +525,12 @@ router.get("/messages/files/:messageId", requireAuth, (req, res) => {
   }
 });
 
-router.patch("/conversations/:id/read", requireAuth, (req, res) => {
+router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
     const now = new Date().toISOString();
 
-    db.update(schema.conversationParticipants)
+    await db.update(schema.conversationParticipants)
       .set({ lastReadAt: now })
       .where(
         and(
@@ -475,7 +540,7 @@ router.patch("/conversations/:id/read", requireAuth, (req, res) => {
       )
       .run();
 
-    db.update(schema.notifications)
+    await db.update(schema.notifications)
       .set({ isRead: 1 })
       .where(
         and(

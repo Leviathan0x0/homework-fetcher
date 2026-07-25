@@ -105,10 +105,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!silent) setMessagesLoading(true);
     try {
       const msgs = await messagingService.getMessages(convId);
-      setMessages(msgs.map(m => ({
-        ...m,
-        isMine: m.senderStudentId === currentStudentId || m.senderId === currentStudentId
-      })));
+      setMessages((prev) => {
+        const map = new Map<string, Message>();
+        prev.forEach((m) => {
+          if (m.conversationId === convId) {
+            map.set(m.id, m);
+          }
+        });
+        msgs.forEach((m) => {
+          map.set(m.id, {
+            ...m,
+            isMine: m.senderStudentId === currentStudentId || m.senderId === currentStudentId
+          });
+        });
+        return Array.from(map.values()).sort(
+          (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        );
+      });
     } catch {} finally {
       if (!silent) setMessagesLoading(false);
     }
@@ -117,6 +130,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   useEffect(() => {
     if (!activeConvId) return;
 
+    setMessages([]);
     fetchMessages(activeConvId);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))

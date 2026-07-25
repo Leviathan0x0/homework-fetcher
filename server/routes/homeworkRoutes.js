@@ -1,5 +1,6 @@
 const express = require("express");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { fetchHomeworkForSession, SchoolSessionExpiredError } = require("../edusecure/homeworkService");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 
@@ -9,20 +10,6 @@ const router = express.Router();
  * Middleware to authenticate requests via HTTP-only app_session cookie.
  * SECURITY: Never trusts userId from query or body.
  */
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-
-  if (!activeSession) {
-    return res.status(401).json({
-      code: "UNAUTHENTICATED",
-      message: "Not authenticated. Please sign in."
-    });
-  }
-
-  req.user = activeSession.user;
-  next();
-}
 
 // GET /api/homework
 // Returns cached homework immediately from SQLite. If cache is stale or empty, triggers EduSecure refresh.

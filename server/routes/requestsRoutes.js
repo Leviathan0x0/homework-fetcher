@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { eq, desc, and } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { createNotifications } = require("../notifications/notificationService");
 const {
@@ -13,15 +14,6 @@ const {
 
 const router = express.Router();
 
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-  if (!activeSession) {
-    return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
-  }
-  req.user = activeSession.user;
-  next();
-}
 
 router.get("/requests", requireAuth, async (req, res) => {
   try {

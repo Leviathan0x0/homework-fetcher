@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const multer = require("multer");
 const { eq, and, desc } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { resolveUploadDir } = require("../uploads");
 const { MAX_UPLOAD_BYTES, rateLimit } = require("../limits");
@@ -72,20 +73,6 @@ const upload = multer({
 /**
  * Middleware: Require valid session authentication.
  */
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-
-  if (!activeSession) {
-    return res.status(401).json({
-      code: "UNAUTHENTICATED",
-      message: "Not authenticated. Please sign in."
-    });
-  }
-
-  req.user = activeSession.user;
-  next();
-}
 
 /**
  * GET /api/classwork

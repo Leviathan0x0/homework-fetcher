@@ -1,19 +1,11 @@
 const express = require("express");
 const { eq, desc, and } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 
 const router = express.Router();
 
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-  if (!activeSession) {
-    return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
-  }
-  req.user = activeSession.user;
-  next();
-}
 
 router.get("/notifications", requireAuth, async (req, res) => {
   try {

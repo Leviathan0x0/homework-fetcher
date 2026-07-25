@@ -75,12 +75,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const convs = await messagingService.getConversations();
+      const convs = await messagingService.getConversations(currentStudentId);
       if (convs && convs.length > 0) {
         setConversations(convs);
       }
     } catch {} finally { setIsLoading(false); }
-  }, []);
+  }, [currentStudentId]);
 
   useEffect(() => {
     fetchConversations();
@@ -198,14 +198,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!q.trim()) { setSearchResults([]); return; }
     setSearching(true);
     try {
-      const results = await messagingService.searchUsers(q);
+      const results = await messagingService.searchUsers(q, currentStudentId);
       setSearchResults(results);
     } catch {} finally { setSearching(false); }
   };
 
   const handleStartConversation = async (participantId: string) => {
     try {
-      const data = await messagingService.startConversation(participantId);
+      const data = await messagingService.startConversation(currentStudentId, participantId);
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);

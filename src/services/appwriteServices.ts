@@ -460,17 +460,35 @@ export const requestService = {
   }
 };
 
+export function getConversationId(userA: string, userB: string): string {
+  const cleanA = (userA || "").trim().toLowerCase();
+  const cleanB = (userB || "").trim().toLowerCase();
+  const sorted = [cleanA, cleanB].sort();
+  return `conv-${sorted[0]}-${sorted[1]}`;
+}
+
+export function getOtherStudentId(convId: string, currentStudentId: string): string {
+  if (!convId || !convId.startsWith("conv-")) return convId;
+  const parts = convId.replace("conv-", "").split("-");
+  if (parts.length === 2) {
+    const p1 = parts[0];
+    const p2 = parts[1];
+    return p1.toLowerCase() === (currentStudentId || "").toLowerCase() ? p2 : p1;
+  }
+  return convId.replace("conv-", "");
+}
+
 // --- MESSAGING SERVICE ---
 export const messagingService = {
-  async getConversations() {
-    let list: any[] = [];
+  async getConversations(currentStudentId: string) {
+    let rawList: any[] = [];
 
     // 1. Load from localStorage cache first
     try {
       const cached = localStorage.getItem("app_conversations_cache");
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) list = parsed;
+        if (Array.isArray(parsed)) rawList = parsed;
       }
     } catch {}
 
@@ -480,7 +498,7 @@ export const messagingService = {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.conversations)) {
-          data.conversations.forEach((c: any) => list.push(c));
+          data.conversations.forEach((c: any) => rawList.push(c));
         }
       }
     } catch {}
@@ -490,18 +508,39 @@ export const messagingService = {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.conversations)) {
-          data.conversations.forEach((c: any) => list.push(c));
+          data.conversations.forEach((c: any) => rawList.push(c));
         }
       }
     } catch {}
 
-    // 3. Deduplicate conversations by ID
+    // 3. Filter & compute correct otherUser name for currentStudentId
     const map = new Map<string, any>();
-    list.forEach((c) => {
-      if (c && c.id) map.set(c.id, c);
+    const myId = (currentStudentId || "").trim().toLowerCase();
+
+    rawList.forEach((c) => {
+      if (c && c.id) {
+        const otherId = getOtherStudentId(c.id, currentStudentId);
+        // Include conversation if user is a participant or if conversation has no prefix
+        if (!myId || c.id.toLowerCase().includes(myId) || !c.id.includes("-")) {
+          map.set(c.id, {
+            id: c.id,
+            otherUser: {
+              id: otherId,
+              studentId: otherId,
+              section: c.otherUser?.section || ""
+            },
+            lastMessagePreview: c.lastMessagePreview || "No messages yet",
+            lastMessageAt: c.lastMessageAt || new Date().toISOString(),
+            unreadCount: c.unreadCount || 0
+          });
+        }
+      }
     });
 
-    const result = Array.from(map.values());
+    const result = Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
+
     try {
       localStorage.setItem("app_conversations_cache", JSON.stringify(result));
     } catch {}
@@ -561,7 +600,6 @@ export const messagingService = {
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
 
-    // Save merged list back to persistent localStorage
     try {
       localStorage.setItem(`app_messages_cache_${convId}`, JSON.stringify(sorted));
     } catch {}
@@ -640,11 +678,11 @@ export const messagingService = {
       const cachedConvs = localStorage.getItem("app_conversations_cache");
       let convsList: any[] = cachedConvs ? JSON.parse(cachedConvs) : [];
       if (!Array.isArray(convsList)) convsList = [];
-      const participantId = convId.replace(/^conv-/, "");
+      const otherId = getOtherStudentId(convId, senderStudentId);
       const existingIdx = convsList.findIndex((c) => c.id === convId);
       const updatedConv = {
         id: convId,
-        otherUser: { id: participantId, studentId: participantId, section: "" },
+        otherUser: { id: otherId, studentId: otherId, section: "" },
         lastMessagePreview: attachmentUrl ? "[Attachment]" : content.substring(0, 80),
         lastMessageAt: newMsg.createdAt,
         unreadCount: 0
@@ -660,7 +698,7 @@ export const messagingService = {
     return newMsg;
   },
 
-  async searchUsers(query: string) {
+  async searchUsers(query: string, currentStudentId?: string) {
     const rawQ = query.trim();
     const q = rawQ.toLowerCase();
     if (!q) return [];
@@ -712,16 +750,22 @@ export const messagingService = {
     });
 
     const allRealUsers = Array.from(uniqueMap.values());
-    return allRealUsers.filter((s) => s.studentId.toLowerCase().includes(q));
+    const selfId = (currentStudentId || "").trim().toLowerCase();
+
+    return allRealUsers.filter((s) => {
+      const match = s.studentId.toLowerCase().includes(q);
+      const isSelf = selfId && s.studentId.toLowerCase() === selfId;
+      return match && !isSelf;
+    });
   },
 
-  async startConversation(participantId: string) {
-    const convId = `conv-${participantId}`;
+  async startConversation(currentStudentId: string, targetStudentId: string) {
+    const convId = getConversationId(currentStudentId, targetStudentId);
     const newConv = {
       id: convId,
       otherUser: {
-        id: participantId,
-        studentId: participantId,
+        id: targetStudentId,
+        studentId: targetStudentId,
         section: "",
       },
       lastMessagePreview: "Started a new conversation",
@@ -735,7 +779,6 @@ export const messagingService = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           conversationId: convId,
-          participantId,
           lastMessagePreview: "Started a new conversation",
           lastMessageAt: newConv.lastMessageAt,
         })

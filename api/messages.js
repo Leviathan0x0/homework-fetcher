@@ -47,14 +47,8 @@ module.exports = async (req, res) => {
       list.push(newMsg);
 
       // Record/Update conversation entry
-      const participantId = conversationId.replace(/^conv-/, "");
       conversationsStore.set(conversationId, {
         id: conversationId,
-        otherUser: {
-          id: participantId,
-          studentId: participantId,
-          section: ""
-        },
         lastMessagePreview: attachmentUrl ? `[Attachment]` : content.substring(0, 80),
         lastMessageAt: newMsg.createdAt,
         unreadCount: 0

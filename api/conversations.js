@@ -14,20 +14,12 @@ module.exports = async (req, res) => {
     try {
       const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
       const conversationId = body.conversationId;
-      const participantId = body.participantId || body.otherStudentId;
-      const userStudentId = body.userStudentId || body.studentId;
       const lastMessagePreview = body.lastMessagePreview || "Started a new conversation";
       const lastMessageAt = body.lastMessageAt || new Date().toISOString();
 
-      if (conversationId && participantId) {
+      if (conversationId) {
         conversationsMap.set(conversationId, {
           id: conversationId,
-          userStudentId,
-          otherUser: {
-            id: participantId,
-            studentId: participantId,
-            section: ""
-          },
           lastMessagePreview,
           lastMessageAt,
           unreadCount: 0

@@ -1,5 +1,6 @@
 import { account, databases, storage, APPWRITE_DATABASE_ID, APPWRITE_BUCKET_ID, COLLECTIONS } from "../lib/appwrite";
 import { ID, Query } from "appwrite";
+import { Message } from "../types/homework";
 
 // Helper to convert Student ID into standard email format for Appwrite Auth
 function studentIdToEmail(studentId: string): string {
@@ -50,7 +51,7 @@ export const authService = {
     try {
       const user = await account.get();
       if (!user) return null;
-      const studentId = user.name || user.email.split("@")[0];
+      const studentId = (user.prefs && user.prefs.studentId) || user.name || (user.email ? user.email.split("@")[0] : user.$id);
       const section = (user.prefs && user.prefs.section) ? user.prefs.section : "";
 
       try {
@@ -100,11 +101,9 @@ export const authService = {
     }
 
     const appwriteUser = await account.get();
-    if (chosenSection) {
-      try {
-        await account.updatePrefs({ ...appwriteUser.prefs, section: chosenSection });
-      } catch {}
-    }
+    try {
+      await account.updatePrefs({ ...appwriteUser.prefs, studentId: cleanId, section: chosenSection || "" });
+    } catch {}
 
     const updatedUser = await account.get();
     const finalSection = (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "");
@@ -119,7 +118,7 @@ export const authService = {
 
     return {
       id: updatedUser.$id,
-      studentId: updatedUser.name || cleanId,
+      studentId: cleanId,
       section: finalSection,
     };
   },
@@ -434,6 +433,118 @@ export const requestService = {
 
 // --- MESSAGING SERVICE ---
 export const messagingService = {
+  async getConversations() {
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.CONVERSATIONS,
+        [Query.limit(50)]
+      );
+      if (response && response.documents && response.documents.length > 0) {
+        return response.documents.map((doc: any) => ({
+          id: doc.$id,
+          otherUser: {
+            id: doc.participant_id || doc.other_user_id || "Student",
+            studentId: doc.other_student_id || doc.participant_id || "Student",
+            section: doc.section || "",
+          },
+          lastMessagePreview: doc.last_message || "No messages yet",
+          lastMessageAt: doc.$createdAt || doc.createdAt,
+          unreadCount: 0,
+        }));
+      }
+    } catch {}
+    return [];
+  },
+
+  async getMessages(convId: string) {
+    let list: Message[] = [];
+
+    try {
+      const res = await fetch(`/api/messages?conversationId=${encodeURIComponent(convId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.messages)) {
+          list = data.messages;
+        }
+      }
+    } catch {}
+
+    try {
+      const response = await databases.listDocuments(
+        APPWRITE_DATABASE_ID,
+        COLLECTIONS.MESSAGES,
+        [Query.equal("conversation_id", convId), Query.limit(100)]
+      );
+      if (response && response.documents) {
+        response.documents.forEach((doc: any) => {
+          list.push({
+            id: doc.$id,
+            conversationId: doc.conversation_id,
+            senderId: doc.sender_id,
+            senderStudentId: doc.sender_student_id || doc.sender_id,
+            content: doc.content || "",
+            attachmentUrl: doc.attachment_url || null,
+            createdAt: doc.$createdAt || doc.createdAt,
+            isMine: false,
+          });
+        });
+      }
+    } catch {}
+
+    const map = new Map<string, Message>();
+    list.forEach((m) => map.set(m.id, m));
+    return Array.from(map.values()).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  },
+
+  async sendMessage(convId: string, senderStudentId: string, content: string, file?: File | null) {
+    let attachmentUrl: string | null = null;
+    if (file) {
+      try {
+        const uploadedFile = await storage.createFile(
+          APPWRITE_BUCKET_ID,
+          ID.unique(),
+          file
+        );
+        attachmentUrl = storage.getFileView(APPWRITE_BUCKET_ID, uploadedFile.$id).toString();
+      } catch {}
+    }
+
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: convId,
+          senderId: senderStudentId,
+          senderStudentId: senderStudentId,
+          content: content || "",
+          attachmentUrl
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.message) {
+          return {
+            ...data.message,
+            isMine: true,
+          };
+        }
+      }
+    } catch {}
+
+    return {
+      id: `msg-${Date.now()}`,
+      conversationId: convId,
+      senderId: senderStudentId,
+      senderStudentId: senderStudentId,
+      content: content || "",
+      attachmentUrl,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+    };
+  },
+
   async searchUsers(query: string) {
     const q = query.trim().toLowerCase();
     if (!q) return [];

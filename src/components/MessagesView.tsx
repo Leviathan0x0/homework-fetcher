@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
-import { messagingService } from '../services/appwriteServices';
+import { messagingService, authService } from '../services/appwriteServices';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -32,6 +32,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
+
+  useEffect(() => {
+    authService.getCurrentUser().then(u => {
+      if (u && u.studentId) {
+        setCurrentStudentId(u.studentId);
+      }
+    });
+  }, []);
 
   const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
 
@@ -66,10 +75,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchConversations = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await apiFetch('/api/conversations', { headers: { Accept: 'application/json' } });
-      if (!res.ok) return;
-      const data = await res.json();
-      setConversations(data.conversations || []);
+      const convs = await messagingService.getConversations();
+      if (convs && convs.length > 0) {
+        setConversations(convs);
+      }
     } catch {} finally { setIsLoading(false); }
   }, []);
 
@@ -95,19 +104,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);
     try {
-      const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
-        headers: { Accept: 'application/json' },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setMessages((data.messages || []).map((m: Message) => (
-        m.attachmentUrl ? { ...m, attachmentUrl: apiUrl(m.attachmentUrl) } : m
-      )));
-      apiFetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: 'PATCH' }).catch(() => {});
+      const msgs = await messagingService.getMessages(convId);
+      setMessages(msgs.map(m => ({
+        ...m,
+        isMine: m.senderStudentId === currentStudentId || m.senderId === currentStudentId
+      })));
     } catch {} finally {
       if (!silent) setMessagesLoading(false);
     }
-  }, []);
+  }, [currentStudentId]);
 
   useEffect(() => {
     if (!activeConvId) return;
@@ -140,10 +145,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if ((!inputText.trim() && !selectedFile) || !activeConvId || sending) return;
     setSending(true);
 
-    const formData = new FormData();
-    if (inputText.trim()) formData.append('content', inputText.trim());
-    if (selectedFile) formData.append('file', selectedFile);
-
     const textCopy = inputText;
     const fileCopy = selectedFile;
 
@@ -154,20 +155,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     }
 
     try {
-      const res = await apiFetch(`/api/conversations/${encodeURIComponent(activeConvId)}/messages`, {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        body: formData,
-      });
-      if (!res.ok) {
-        setInputText(textCopy);
-        setSelectedFile(fileCopy);
-        return;
-      }
-      const data = await res.json();
-      const sentMessage: Message = data.message.attachmentUrl
-        ? { ...data.message, attachmentUrl: apiUrl(data.message.attachmentUrl) }
-        : data.message;
+      const sentMessage = await messagingService.sendMessage(
+        activeConvId,
+        currentStudentId,
+        textCopy.trim(),
+        fileCopy
+      );
       setMessages((prev) => [...prev, sentMessage]);
       setConversations((prev) =>
         prev.map((c) =>
@@ -175,7 +168,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             ? {
                 ...c,
                 lastMessagePreview: fileCopy ? `[Attachment] ${fileCopy.name}` : textCopy.substring(0, 80),
-                lastMessageAt: data.message.createdAt,
+                lastMessageAt: sentMessage.createdAt,
               }
             : c
         )

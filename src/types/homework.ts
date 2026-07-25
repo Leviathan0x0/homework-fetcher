@@ -87,6 +87,7 @@ export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
+  senderStudentId?: string;
   content: string;
   attachmentUrl?: string | null;
   originalFilename?: string | null;

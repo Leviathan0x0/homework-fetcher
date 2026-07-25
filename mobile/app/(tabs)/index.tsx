@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 
+import { SLOW_REFRESH_WARNING_MS } from "../../src/api/config";
 import { inlineErrorMessage } from "../../src/api/errors";
 import type { HomeworkItem } from "../../src/api/types";
 import { useCurrentUser } from "../../src/auth/AuthProvider";
@@ -28,6 +29,7 @@ import {
   useToggleHomeworkComplete,
 } from "../../src/features/homework/useHomework";
 import { useIsOnline } from "../../src/query/appStateSync";
+import { useSlowWarning } from "../../src/utils/useSlowWarning";
 
 /**
  * Today / Homework.
@@ -51,6 +53,10 @@ export default function HomeworkScreen() {
   const [subject, setSubject] = useState<string | null>(null);
   const [hideCompleted, setHideCompleted] = useState(false);
   const [noteErrors, setNoteErrors] = useState<Record<string, string>>({});
+
+  // Escalates the refresh copy once the portal has been slow for ~20s, so a long
+  // wait never reads as a frozen screen.
+  const refreshTakingLong = useSlowWarning(refresh.isPending, SLOW_REFRESH_WARNING_MS);
 
   const items = data?.items ?? [];
   const subjects = useMemo(() => collectSubjects(items), [items]);
@@ -114,7 +120,15 @@ export default function HomeworkScreen() {
     <View>
       {!online ? <Banner tone="neutral" icon="offline" message="You're offline. Showing your last saved homework." /> : null}
       {refresh.isPending ? (
-        <Banner tone="info" icon="clock" message="Checking the school portal. This can take up to 15 seconds." />
+        <Banner
+          tone={refreshTakingLong ? "warning" : "info"}
+          icon="clock"
+          message={
+            refreshTakingLong
+              ? "The school portal is still responding slowly. This can take a little longer — your saved homework is unchanged."
+              : "Checking the school portal. This can take up to 15 seconds."
+          }
+        />
       ) : null}
       {refresh.isError ? (
         <Banner

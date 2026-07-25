@@ -30,7 +30,7 @@ export function installAppStateSync(): () => void {
   });
   focusManager.setFocused(AppState.currentState === "active");
 
-  const unsubscribeNetwork = onlineManager.setEventListener((setOnline) =>
+  onlineManager.setEventListener((setOnline) =>
     NetInfo.addEventListener((state) => {
       // `isInternetReachable` is null while probing; treat unknown as online so a
       // slow probe does not lock the app into an offline state.
@@ -44,7 +44,7 @@ export function installAppStateSync(): () => void {
 
   return () => {
     appStateSubscription.remove();
-    unsubscribeNetwork();
+    onlineManager.setEventListener(() => undefined);
     setNetworkProbe(() => null);
     installed = false;
   };

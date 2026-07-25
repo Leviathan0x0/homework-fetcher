@@ -32,9 +32,8 @@ export interface PublicUser {
 export interface LoginResponse {
   authenticated: boolean;
   /**
-   * Present only if the API is upgraded to bearer tokens. The deployed server
-   * authenticates with the `app_session` cookie, which the client captures from
-   * `Set-Cookie` instead. See `extractSessionToken` in `client.ts`.
+   * Session token. Native clients store this and send it as
+   * `Authorization: Bearer <token>` on every request. Valid for 30 days.
    */
   token?: string;
   user: User;
@@ -134,16 +133,19 @@ export interface Message {
   id: string;
   conversationId: string;
   senderId: string;
-  /**
-   * Not sent by the current server. Resolved from the conversation's `otherUser`
-   * (or the signed-in user) in the chat screen.
-   */
-  senderName?: string;
+  /** The sender's student ID, resolved server-side. */
+  senderStudentId: string;
+  /** `displayName || studentId`, resolved server-side. Null if the account is gone. */
+  senderName: string | null;
   content: string;
   attachmentUrl: string | null;
   originalFilename: string | null;
   mimeType: string | null;
   createdAt: string;
+  /**
+   * Authoritative. Never re-derive this by comparing `senderId` to the signed-in
+   * user — the server owns the decision.
+   */
   isMine: boolean;
 }
 

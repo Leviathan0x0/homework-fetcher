@@ -14,27 +14,22 @@ import { getSessionToken } from "./session";
  * ---------------------------------------------------------------------------
  * Auth note
  * ---------------------------------------------------------------------------
- * The documented contract is `Authorization: Bearer <token>`. The deployed
- * Express server actually authenticates with an httpOnly `app_session` cookie
- * and does not return a token in the login body. The backend must not change, so
- * this client supports both:
+ * The API accepts the session token in either transport: browsers use the
+ * httpOnly `app_session` cookie, native clients send the same token as
+ * `Authorization: Bearer <token>` (see `server/auth/requireAuth.js`). Login
+ * returns the token in its body, so this client is bearer-only and never relies
+ * on a cookie jar — which matters because native image and file loaders do not
+ * share the RN cookie jar and could not authenticate a download otherwise.
  *
- *   1. `token` in the login response  -> stored and sent as a bearer token
- *      (and as a `Cookie` header, which is what the current server reads).
- *   2. no token, but a `Set-Cookie`   -> the cookie value is extracted and used
- *      exactly the same way.
- *   3. neither readable               -> fall back to the platform cookie jar.
- *
- * Cases 1 and 2 are indistinguishable to callers. Case 3 is a last resort and is
- * flagged, because native image/file loaders do not share the RN cookie jar.
+ * The `Set-Cookie` fallback below exists only so a client built against an older
+ * API build still finds a credential; the cookie value is the same token, so it
+ * works as a bearer token unchanged.
  */
 
 /** Cookie name the Express server reads in `requireAuth`. */
 const SESSION_COOKIE_NAME = "app_session";
 
 const BEARER_PREFIX = "bearer:";
-/** Stored instead of a value when only the platform cookie jar holds the session. */
-export const COOKIE_JAR_CREDENTIAL = "cookie-jar";
 
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -82,30 +77,20 @@ export function encodeBearerCredential(token: string): string {
   return `${BEARER_PREFIX}${token}`;
 }
 
-/** True when we hold a real value and can authenticate image/file loads. */
-export function credentialSupportsDirectFileAccess(raw: string | null = getSessionToken()): boolean {
-  return raw !== null && raw !== COOKIE_JAR_CREDENTIAL;
-}
-
 function decodeCredential(raw: string | null): string | null {
-  if (raw === null || raw === COOKIE_JAR_CREDENTIAL) return null;
+  if (raw === null) return null;
   return raw.startsWith(BEARER_PREFIX) ? raw.slice(BEARER_PREFIX.length) : raw;
 }
 
 /**
  * Auth headers for the current credential.
  *
- * Both headers are sent: `Authorization` satisfies the documented contract and
- * `Cookie` satisfies the server as deployed. Sending both means neither side has
- * to change.
+ * Every request carries this, including image and file loads.
  */
 export function authHeaders(raw: string | null = getSessionToken()): Record<string, string> {
   const token = decodeCredential(raw);
   if (!token) return {};
-  return {
-    Authorization: `Bearer ${token}`,
-    Cookie: `${SESSION_COOKIE_NAME}=${token}`,
-  };
+  return { Authorization: `Bearer ${token}` };
 }
 
 /**
@@ -155,8 +140,10 @@ function buildQuery(query: RequestOptions["query"]): string {
 /**
  * Extracts the session credential from a login response.
  *
- * Prefers an explicit `token`, then the `app_session` cookie. Returns the
- * cookie-jar sentinel when the value cannot be read but the login succeeded.
+ * `token` is the documented and current behaviour. The `Set-Cookie` path is a
+ * fallback for an older API build — the cookie value is the same session token,
+ * so it is used as a bearer token unchanged. If neither is present the session
+ * would be unusable, so this fails loudly rather than half-signing-in.
  */
 export function extractSessionCredential(response: Response, body: unknown): string {
   const explicit = stringField(body, "token");
@@ -169,13 +156,10 @@ export function extractSessionCredential(response: Response, body: unknown): str
     if (value) return encodeBearerCredential(decodeURIComponent(value));
   }
 
-  if (__DEV__) {
-    console.warn(
-      "[api] Login succeeded but no token or readable Set-Cookie was found. " +
-        "Falling back to the platform cookie jar; authenticated file downloads may not work.",
-    );
-  }
-  return COOKIE_JAR_CREDENTIAL;
+  throw new ApiError({
+    kind: "server",
+    message: "Sign in succeeded but the server did not return a session token.",
+  });
 }
 
 /* -------------------------------------------------------------------------- */

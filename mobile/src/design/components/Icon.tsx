@@ -47,6 +47,8 @@ const ICON_REGISTRY = {
   document: { sf: "doc", material: "insert-drive-file" },
   pdf: { sf: "doc.richtext", material: "picture-as-pdf" },
   image: { sf: "photo", material: "image" },
+  download: { sf: "arrow.down.circle", material: "file-download" },
+  newChat: { sf: "square.and.pencil", material: "add-comment" },
 
   // Status
   person: { sf: "person", material: "person" },

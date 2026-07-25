@@ -1,12 +1,20 @@
-export { API_BASE_URL, IMAGE_COMPRESSION, LIMITS, POLL_INTERVALS, TIMEOUTS, apiUrl, isApiConfigured } from "./config";
 export {
-  COOKIE_JAR_CREDENTIAL,
+  API_BASE_URL,
+  IMAGE_COMPRESSION,
+  LIMITS,
+  POLL_INTERVALS,
+  SEARCH_DEBOUNCE_MS,
+  SLOW_REFRESH_WARNING_MS,
+  TIMEOUTS,
+  apiUrl,
+  isApiConfigured,
+} from "./config";
+export {
   apiRequest,
   apiRequestRaw,
   appendFile,
   authHeaders,
   authorizedSource,
-  credentialSupportsDirectFileAccess,
   encodeBearerCredential,
   extractSessionCredential,
   setNetworkProbe,

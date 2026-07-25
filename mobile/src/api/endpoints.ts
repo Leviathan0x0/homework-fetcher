@@ -163,32 +163,35 @@ export async function fetchMe(): Promise<User> {
 }
 
 /**
- * Updates the display name.
+ * Updates the display name other students see instead of the raw student ID.
  *
- * `PATCH /api/auth/profile` is in the documented contract but is not implemented
- * by the deployed server, which 404s. That is surfaced as a clear, specific
- * message instead of a generic failure.
+ * The server enforces 2–40 characters after collapsing whitespace, so the same
+ * normalisation happens here — otherwise "  A  B  " passes locally and is
+ * rejected remotely for a reason the user cannot see.
  */
 export async function updateDisplayName(displayName: string): Promise<User> {
-  const trimmed = displayName.trim();
-  if (!trimmed) rejectLocally("validation", "Enter a display name.");
-  if (trimmed.length > 80) rejectLocally("validation", "Display names are limited to 80 characters.");
+  const cleaned = displayName.trim().replace(/\s+/g, " ");
+  if (cleaned.length < LIMITS.minDisplayNameChars || cleaned.length > LIMITS.maxDisplayNameChars) {
+    rejectLocally(
+      "validation",
+      `Your name must be between ${LIMITS.minDisplayNameChars} and ${LIMITS.maxDisplayNameChars} characters.`,
+    );
+  }
 
+  const data = await apiRequest<{ success: boolean; user: User }>("/api/auth/profile", {
+    method: "PATCH",
+    body: { displayName: cleaned },
+  });
+  return data.user;
+}
+
+/** Configuration diagnostics. Used to tell "API down" from "wrong address". */
+export async function checkHealth(): Promise<boolean> {
   try {
-    const data = await apiRequest<{ user: User }>("/api/auth/profile", {
-      method: "PATCH",
-      body: { displayName: trimmed },
-    });
-    return data.user;
-  } catch (error) {
-    if (error instanceof ApiError && error.kind === "notFound") {
-      throw new ApiError({
-        kind: "notFound",
-        message: "This API build doesn't support editing your display name yet.",
-        status: 404,
-      });
-    }
-    throw error;
+    await apiRequest<unknown>("/api/health", { anonymous: true, ignoreUnauthorized: true, timeoutMs: 5_000 });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -338,7 +341,7 @@ export async function deleteRequest(id: string): Promise<void> {
 /* -------------------------------------------------------------------------- */
 
 export async function searchUsers(query: string, signal?: AbortSignal): Promise<PublicUser[]> {
-  const trimmed = query.trim();
+  const trimmed = query.trim().slice(0, LIMITS.maxSearchQueryChars);
   if (!trimmed) return [];
   const data = await apiRequest<UserSearchResponse>("/api/users/search", {
     query: { q: trimmed },

@@ -73,6 +73,8 @@ function AppShell() {
       >
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="new-chat" options={{ presentation: "modal", animation: "slide_from_bottom" }} />
       </Stack>
     </View>
   );

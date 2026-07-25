@@ -87,3 +87,18 @@ export function todayCalendarDate(): string {
   const day = `${now.getDate()}`.padStart(2, "0");
   return `${now.getFullYear()}-${month}-${day}`;
 }
+
+/**
+ * The local calendar day an ISO timestamp falls on, as `YYYY-MM-DD`.
+ *
+ * Used to group chat messages and notifications into days. Derived from local
+ * getters rather than `toISOString()`, which would bucket late-evening messages
+ * into the following day for anyone east of Greenwich.
+ */
+export function toCalendarDate(isoTimestamp: string): string {
+  const timestamp = Date.parse(isoTimestamp);
+  const date = Number.isNaN(timestamp) ? new Date() : new Date(timestamp);
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}

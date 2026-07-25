@@ -3,7 +3,7 @@ import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 
 import { updateDisplayName } from "../../src/api/endpoints";
 import { inlineErrorMessage } from "../../src/api/errors";
-import { API_BASE_URL } from "../../src/api/config";
+import { API_BASE_URL, LIMITS } from "../../src/api/config";
 import { useAuth, useCurrentUser } from "../../src/auth/AuthProvider";
 import {
   Avatar,
@@ -99,7 +99,8 @@ export default function SettingsScreen() {
                 setSaved(false);
               }}
               placeholder={user.studentId}
-              maxLength={80}
+              maxLength={LIMITS.maxDisplayNameChars}
+              showCounter
               autoCapitalize="words"
               editable={!saving}
               error={nameError}

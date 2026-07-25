@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../lib/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import {
@@ -53,7 +54,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await fetch('/api/requests', { headers: { Accept: 'application/json' } });
+      const res = await apiFetch('/api/requests', { headers: { Accept: 'application/json' } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to fetch requests.');
       setRequests(data.requests || []);
@@ -74,7 +75,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/requests', {
+      const res = await apiFetch('/api/requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ title: formTitle.trim(), content: formContent.trim(), category: formCategory === 'Other' ? null : formCategory }),
@@ -96,7 +97,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'open' ? 'completed' : 'open';
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}/status`, {
+      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ status: next }),
@@ -110,7 +111,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     if (!confirm('Delete this request?')) return;
     setDeletingId(id);
     try {
-      const res = await fetch(`/api/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/requests/${encodeURIComponent(id)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       setRequests((prev) => prev.filter((r) => r.id !== id));
     } catch { alert('Failed to delete request.'); }
@@ -122,7 +123,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const handleHelp = async (creatorUserId: string, requestId: string) => {
     setHelpingId(requestId);
     try {
-      const res = await fetch('/api/conversations', {
+      const res = await apiFetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ participantId: creatorUserId }),

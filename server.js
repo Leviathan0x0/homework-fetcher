@@ -20,7 +20,7 @@ app.set("trust proxy", 1);
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-// Allow a separately hosted frontend (e.g. Appwrite Sites) to call this API with cookies
+// Allow a separately hosted frontend (e.g. Appwrite Sites, Expo Web) to call this API with cookies
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (isAllowedOrigin(origin)) {
@@ -30,6 +30,11 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
+  } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+    return res.sendStatus(204);
   } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
     console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);
   }

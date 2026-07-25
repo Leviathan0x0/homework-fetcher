@@ -190,7 +190,7 @@ function initDb() {
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id TEXT NOT NULL REFERENCES users(id),
-      content TEXT,
+      content TEXT NOT NULL DEFAULT '',
       attachment_url TEXT,
       original_filename TEXT,
       mime_type TEXT,

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
-import { authService, homeworkService } from "../services/appwriteServices";
+import { authService, homeworkService } from "../services/api";
 
 export interface UserAccount {
   id: string;
   studentId: string;
+  displayName?: string | null;
   section?: string;
 }
 
@@ -96,7 +97,7 @@ export function useHomework() {
       localStorage.setItem("lastUpdated", timeNow);
     } catch (err: any) {
       console.error("Fetch Homework Error:", err);
-      setErrorMessage(err.message || "Failed to fetch homework from Appwrite.");
+      setErrorMessage(err.message || "Failed to fetch homework.");
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -138,12 +139,12 @@ export function useHomework() {
     }
   }, [user]);
 
-  const login = useCallback(async (studentId: string, pass: string): Promise<boolean> => {
+  const login = useCallback(async (studentId: string, pass: string, chosenSection?: string): Promise<boolean> => {
     setIsLoading(true);
     setErrorMessage(null);
 
     try {
-      const loggedUser = await authService.login(studentId, pass);
+      const loggedUser = await authService.login(studentId, pass, chosenSection);
       if (!loggedUser) throw new Error("Authentication failed");
       setUser(loggedUser);
       setIsAuthenticated(true);
@@ -186,6 +187,7 @@ export function useHomework() {
 
   return {
     user,
+    setUser,
     isAuthenticated,
     isAuthChecking,
     homework,

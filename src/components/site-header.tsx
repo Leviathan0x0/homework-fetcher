@@ -62,7 +62,7 @@ export function SiteHeader({
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-white/40 dark:border-white/10 bg-white/75 dark:bg-[#09090b]/75 backdrop-blur-2xl px-4 lg:px-6 sticky top-0 z-20 shadow-2xs">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-neutral-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl px-4 lg:px-6 sticky top-0 z-20">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1 cursor-pointer" />
         <Separator orientation="vertical" className="mr-2 h-4" />
@@ -90,16 +90,18 @@ export function SiteHeader({
 
         <button
           onClick={onToggleTheme}
-          className="p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
           title="Toggle theme"
+          aria-label="Toggle theme"
         >
           {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
 
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
           title="Settings"
+          aria-label="Settings"
         >
           <Settings className="size-4" />
         </button>

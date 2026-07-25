@@ -7,45 +7,62 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_STORAGE_KEY = 'pwa_prompt_banner_dismissed_v3';
+const BANNER_DISMISS_KEY = 'pwa_prompt_banner_dismissed_v4';
+const INSTALLED_KEY = 'pwa_app_installed_v4';
 
 export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ variant = 'banner' }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
-    if (localStorage.getItem(DISMISS_STORAGE_KEY) === 'true') {
-      setBannerDismissed(true);
-    }
-
-    const isStandalone =
-      window.matchMedia('(display-mode: standalone)').matches ||
-      (window.navigator as any).standalone === true;
-    if (isStandalone) {
+    // Check if installed from localStorage
+    if (localStorage.getItem(INSTALLED_KEY) === 'true') {
       setIsInstalled(true);
       return;
     }
 
-    const ua = window.navigator.userAgent;
-    const iosDevice = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    setIsIOS(iosDevice);
+    // Check if banner dismissed
+    if (localStorage.getItem(BANNER_DISMISS_KEY) === 'true') {
+      setBannerDismissed(true);
+    }
+
+    // Check if running in standalone PWA window
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://');
+
+    if (isStandalone) {
+      setIsInstalled(true);
+      localStorage.setItem(INSTALLED_KEY, 'true');
+      return;
+    }
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
+    const handleAppInstalled = () => {
+      setIsInstalled(true);
+      localStorage.setItem(INSTALLED_KEY, 'true');
+    };
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
   const handleDismissBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
     setBannerDismissed(true);
-    localStorage.setItem(DISMISS_STORAGE_KEY, 'true');
+    localStorage.setItem(BANNER_DISMISS_KEY, 'true');
   };
 
   const handleInstallClick = async () => {
@@ -55,6 +72,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           setIsInstalled(true);
+          localStorage.setItem(INSTALLED_KEY, 'true');
         }
         setDeferredPrompt(null);
       } catch {
@@ -65,6 +83,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     }
   };
 
+  // If app is installed, don't show prompt promotion anywhere
   if (isInstalled) return null;
   if (variant === 'banner' && bannerDismissed) return null;
 
@@ -79,7 +98,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                   Install Homework App
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  Follow the steps below for your browser
+                  Follow the instructions below for your device
                 </p>
               </div>
               <button
@@ -91,42 +110,39 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
               </button>
             </div>
 
-            {/* Content Body */}
-            {isIOS ? (
-              <div className="space-y-3 text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
-                <p className="font-medium text-neutral-900 dark:text-neutral-100">iPhone / iPad Safari:</p>
-                <ol className="list-decimal list-inside space-y-1.5 text-neutral-600 dark:text-neutral-400 pl-1">
-                  <li>Tap the <strong>Share</strong> icon in Safari.</li>
-                  <li>Scroll down and select <strong>Add to Home Screen</strong>.</li>
-                  <li>Tap <strong>Add</strong> in the top right.</li>
+            {/* Content Body: All 3 Options Bright and Clear */}
+            <div className="space-y-4 text-xs text-neutral-700 dark:text-neutral-300">
+              {/* Option 1 */}
+              <div className="space-y-1">
+                <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 1: Address Bar</div>
+                <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                  Click the <strong>Install</strong> icon in the right corner of your browser's address bar.
+                </p>
+              </div>
+
+              {/* Option 2 */}
+              <div className="space-y-1.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 2: Desktop Menu</div>
+                <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-400">
+                  <li>Click the <strong>3-dots menu (⋮)</strong> in the top right.</li>
+                  <li>Select <strong>Cast, Save, and Share</strong>.</li>
+                  <li>Click <strong>Install Homework Fetcher...</strong>.</li>
                 </ol>
               </div>
-            ) : (
-              <div className="space-y-4 text-xs text-neutral-700 dark:text-neutral-300">
-                {/* Option 1 */}
-                <div className="space-y-1">
-                  <div className="font-medium text-neutral-900 dark:text-neutral-100">Option 1: Address Bar</div>
-                  <p className="text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                    Click the <strong>Install</strong> icon in the right corner of your browser's address bar.
-                  </p>
-                </div>
 
-                {/* Option 2 */}
-                <div className="space-y-1.5 pt-2 border-t border-neutral-100 dark:border-neutral-800">
-                  <div className="font-medium text-neutral-900 dark:text-neutral-100">Option 2: Browser Menu</div>
-                  <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-400">
-                    <li>Click the <strong>3-dots menu (⋮)</strong> in the top right.</li>
-                    <li>Select <strong>Cast, Save, and Share</strong>.</li>
-                    <li>Click <strong>Install Homework Fetcher...</strong>.</li>
-                  </ol>
-                </div>
-
-                {/* Android Note */}
-                <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 text-neutral-500 dark:text-neutral-400">
-                  <span><strong>Android:</strong> Tap <strong>⋮</strong> menu → <strong>Add to Home screen</strong>.</span>
-                </div>
+              {/* Option 3: Mobile (Android & iOS) */}
+              <div className="space-y-1.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
+                <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 3: Mobile (Android & iOS)</div>
+                <ul className="space-y-1.5 text-neutral-600 dark:text-neutral-400">
+                  <li>
+                    <strong>Android:</strong> Tap <strong>3-dots menu (⋮)</strong> → select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
+                  </li>
+                  <li>
+                    <strong>iOS (iPhone/iPad):</strong> Tap the <strong>Share</strong> button in Safari → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
+                  </li>
+                </ul>
               </div>
-            )}
+            </div>
 
             {/* Action Button */}
             <button

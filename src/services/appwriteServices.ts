@@ -68,6 +68,11 @@ export const authService = {
       throw new Error("Student ID and password are required.");
     }
 
+    try {
+      sessionStorage.setItem("activeStudentId", cleanId);
+      sessionStorage.setItem("activeStudentPass", pass);
+    } catch {}
+
     const email = studentIdToEmail(cleanId);
 
     try {
@@ -112,6 +117,8 @@ export const authService = {
 
   async logout() {
     try {
+      sessionStorage.removeItem("activeStudentId");
+      sessionStorage.removeItem("activeStudentPass");
       await account.deleteSession("current");
     } catch {}
   }
@@ -120,6 +127,41 @@ export const authService = {
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
   async getHomework(userId: string) {
+    let studentId = "student2";
+    let password = "123456";
+    try {
+      studentId = sessionStorage.getItem("activeStudentId") || "student2";
+      password = sessionStorage.getItem("activeStudentPass") || "123456";
+    } catch {}
+
+    // Try fetching live homework directly from EduSecure scraper endpoint
+    try {
+      const res = await fetch("/api/homework", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentId, password })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.homework) && data.homework.length > 0) {
+          return data.homework.map((doc: any) => ({
+            id: doc.id,
+            type: doc.type || "School Diary",
+            date: doc.date || "",
+            subject: doc.subject || doc.type || "School Diary",
+            homework: doc.homework || doc.content || "",
+            attachment: doc.attachment || doc.attachmentUrl || null,
+            completed: !!doc.completed,
+            note: doc.note || null,
+            updatedAt: doc.updatedAt || new Date().toISOString(),
+          }));
+        }
+      }
+    } catch (err) {
+      console.warn("Live EduSecure scraper fallback:", err);
+    }
+
+    // Fallback to Appwrite Database collection if offline
     try {
       const response = await databases.listDocuments(
         APPWRITE_DATABASE_ID,

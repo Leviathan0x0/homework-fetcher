@@ -3,7 +3,7 @@ import { Eye, EyeOff, Loader2, AlertCircle, BookOpen, User, Lock, ArrowRight } f
 import { cn } from '../utils/cn';
 
 interface LoginPageProps {
-  onLogin: (studentId: string, pass: string) => Promise<boolean>;
+  onLogin: (studentId: string, pass: string, section?: string) => Promise<boolean>;
   isLoading: boolean;
   errorMessage: string | null;
   onDismissError: () => void;
@@ -25,6 +25,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 }) => {
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
+  const [section, setSection] = useState('Section 9-F');
   const [showPassword, setShowPassword] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -46,7 +47,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     const currentPass = password;
     setPassword('');
 
-    await onLogin(trimmedId, currentPass);
+    await onLogin(trimmedId, currentPass, section);
   };
 
   const activeError = localError || errorMessage;
@@ -89,11 +90,42 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="Enter your student ID"
+                    placeholder="Enter your student ID (e.g. student2)"
                     disabled={isLoading}
                     autoComplete="username"
                     className="w-full bg-transparent text-sm h-12 pl-11 pr-4 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 font-normal"
                   />
+                </div>
+              </InputWrapper>
+            </div>
+
+            {/* Section Field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block pl-0.5">
+                Section
+              </label>
+              <InputWrapper>
+                <div className="relative flex items-center">
+                  <BookOpen className="w-4 h-4 absolute left-4 text-neutral-400 pointer-events-none" />
+                  <select
+                    value={section}
+                    onChange={(e) => setSection(e.target.value)}
+                    disabled={isLoading}
+                    className="w-full bg-transparent text-sm h-12 pl-11 pr-4 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 font-medium cursor-pointer"
+                  >
+                    <option value="Section 9-F" className="dark:bg-neutral-900">Section 9-F</option>
+                    <option value="Section 9-A" className="dark:bg-neutral-900">Section 9-A</option>
+                    <option value="Section 9-B" className="dark:bg-neutral-900">Section 9-B</option>
+                    <option value="Section 9-C" className="dark:bg-neutral-900">Section 9-C</option>
+                    <option value="Section 9-D" className="dark:bg-neutral-900">Section 9-D</option>
+                    <option value="Section 9-E" className="dark:bg-neutral-900">Section 9-E</option>
+                    <option value="Section 10-A" className="dark:bg-neutral-900">Section 10-A</option>
+                    <option value="Section 10-B" className="dark:bg-neutral-900">Section 10-B</option>
+                    <option value="Section 10-C" className="dark:bg-neutral-900">Section 10-C</option>
+                    <option value="Section 10-D" className="dark:bg-neutral-900">Section 10-D</option>
+                    <option value="Section 10-E" className="dark:bg-neutral-900">Section 10-E</option>
+                    <option value="Section 10-F" className="dark:bg-neutral-900">Section 10-F</option>
+                  </select>
                 </div>
               </InputWrapper>
             </div>

@@ -51,7 +51,7 @@ export const authService = {
       const user = await account.get();
       if (!user) return null;
       const studentId = user.name || user.email.split("@")[0];
-      const section = (user.prefs && user.prefs.section) ? user.prefs.section : "Section 10-A";
+      const section = (user.prefs && user.prefs.section) ? user.prefs.section : "Section 9-F";
       return {
         id: user.$id,
         studentId,
@@ -62,7 +62,7 @@ export const authService = {
     }
   },
 
-  async login(studentId: string, pass: string) {
+  async login(studentId: string, pass: string, chosenSection?: string) {
     const cleanId = studentId.trim();
     if (!cleanId || !pass) {
       throw new Error("Student ID and password are required.");
@@ -86,11 +86,28 @@ export const authService = {
     }
 
     const appwriteUser = await account.get();
+    if (chosenSection) {
+      try {
+        await account.updatePrefs({ ...appwriteUser.prefs, section: chosenSection });
+      } catch {}
+    }
+
+    const updatedUser = await account.get();
     return {
-      id: appwriteUser.$id,
-      studentId: appwriteUser.name || cleanId,
-      section: (appwriteUser.prefs && appwriteUser.prefs.section) ? appwriteUser.prefs.section : "Section 10-A",
+      id: updatedUser.$id,
+      studentId: updatedUser.name || cleanId,
+      section: (updatedUser.prefs && updatedUser.prefs.section) ? updatedUser.prefs.section : (chosenSection || "Section 9-F"),
     };
+  },
+
+  async updateSection(section: string) {
+    try {
+      const current = await account.get();
+      await account.updatePrefs({ ...current.prefs, section });
+      return true;
+    } catch (err) {
+      return false;
+    }
   },
 
   async logout() {

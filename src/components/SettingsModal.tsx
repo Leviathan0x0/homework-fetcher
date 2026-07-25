@@ -1,6 +1,7 @@
 import React from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
+import { authService } from '../services/appwriteServices';
 import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -70,27 +71,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 flex items-center justify-between transition-colors duration-150 hover:border-neutral-300 dark:hover:border-neutral-700">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
-                  <User className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono">
-                    {user?.studentId || 'Authenticated'}
+            <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
+                    <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono">
+                      {user?.studentId || 'Authenticated'}
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
+                >
+                  <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
+                  <span>Sign out</span>
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
-              >
-                <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
-                <span>Sign out</span>
-              </button>
+              {/* Section selector */}
+              <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800/80 flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Class Section:</span>
+                <select
+                  value={user?.section || 'Section 9-F'}
+                  onChange={async (e) => {
+                    const newSec = e.target.value;
+                    await authService.updateSection(newSec);
+                    window.location.reload();
+                  }}
+                  className="h-8 rounded-lg px-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer"
+                >
+                  <option value="Section 9-F">Section 9-F</option>
+                  <option value="Section 9-A">Section 9-A</option>
+                  <option value="Section 9-B">Section 9-B</option>
+                  <option value="Section 9-C">Section 9-C</option>
+                  <option value="Section 9-D">Section 9-D</option>
+                  <option value="Section 9-E">Section 9-E</option>
+                  <option value="Section 10-A">Section 10-A</option>
+                  <option value="Section 10-B">Section 10-B</option>
+                  <option value="Section 10-C">Section 10-C</option>
+                  <option value="Section 10-D">Section 10-D</option>
+                  <option value="Section 10-E">Section 10-E</option>
+                  <option value="Section 10-F">Section 10-F</option>
+                </select>
+              </div>
             </div>
           </div>
 

@@ -99,6 +99,61 @@ async function fetchSectionFromEduSecure(sessionCookies) {
   return profile.section;
 }
 
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Key used to sign session cookies. Derived from ENCRYPTION_KEY so every
+ * instance of the API agrees on it; without that, a session created by one
+ * serverless instance could not be verified by the next one.
+ */
+function getSigningKey() {
+  const secret = process.env.ENCRYPTION_KEY || "default-homework-app-development-secret-key-32-bytes";
+  if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === "production") {
+    console.warn(
+      "[auth] ENCRYPTION_KEY is not set. Session cookies are signed with the public default key; " +
+        "set ENCRYPTION_KEY to a random 32-byte hex value in production."
+    );
+  }
+  return crypto.createHmac("sha256", secret).update("app-session-signing-key").digest();
+}
+
+const base64url = (buffer) => Buffer.from(buffer).toString("base64url");
+
+/**
+ * Builds a self-contained session token: payload.signature.
+ * Any instance can verify it without reading the database, so a refresh no
+ * longer depends on landing on the instance that handled the login.
+ */
+function signSessionToken(payload) {
+  const body = base64url(JSON.stringify(payload));
+  const signature = base64url(crypto.createHmac("sha256", getSigningKey()).update(body).digest());
+  return `${body}.${signature}`;
+}
+
+/**
+ * Verifies a session token and returns its payload, or null when the token is
+ * malformed, tampered with or expired.
+ */
+function verifySessionToken(token) {
+  if (!token || !token.includes(".")) return null;
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+
+  const expected = base64url(crypto.createHmac("sha256", getSigningKey()).update(body).digest());
+  const given = Buffer.from(signature);
+  const want = Buffer.from(expected);
+  if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) return null;
+
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    if (!payload || !payload.uid || !payload.sid) return null;
+    if (!payload.exp || Date.now() > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 class SessionService {
   async findOrCreateUser(studentId) {
     const rawId = studentId.trim();
@@ -290,13 +345,20 @@ class SessionService {
   }
 
   async createAppSession(userId) {
-    const token = crypto.randomBytes(32).toString("hex");
-    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-    const expiresAt = Date.now() + THIRTY_DAYS_MS;
+    const expiresAt = Date.now() + SESSION_TTL_MS;
     const createdAt = new Date().toISOString();
+
+    const user = await this.getUserById(userId);
+    const token = signSessionToken({
+      uid: userId,
+      sid: user ? user.studentId : userId,
+      exp: expiresAt,
+    });
 
     memAppSessions.set(token, { token, userId, expiresAt });
 
+    // Stored as well so sessions can be listed and revoked when a shared
+    // database is configured; the token stays valid without it.
     try {
       await db.insert(schema.appSessions)
         .values({
@@ -307,7 +369,7 @@ class SessionService {
         })
         .run();
     } catch (err) {
-      console.error("SQLite createAppSession failed, saved to memory store:", err.message);
+      console.error("createAppSession could not store the session:", err.message);
     }
 
     return token;
@@ -316,6 +378,26 @@ class SessionService {
   async getAppSession(token) {
     if (!token) return null;
 
+    const payload = verifySessionToken(token);
+    if (payload) {
+      let user = await this.getUserById(payload.uid);
+
+      // The signature proves the session is genuine, so recreate the account
+      // row if this instance has never seen it (fresh serverless filesystem).
+      if (!user) {
+        try {
+          user = await this.findOrCreateUser(payload.sid);
+        } catch (err) {
+          console.error("Could not restore user for a valid session:", err.message);
+          return null;
+        }
+      }
+
+      if (!user) return null;
+      return { token, user };
+    }
+
+    // Legacy opaque tokens issued before signed cookies existed.
     try {
       const session = await db
         .select()
@@ -339,7 +421,7 @@ class SessionService {
         }
       }
     } catch (err) {
-      console.error("SQLite getAppSession failed, checking memory store:", err.message);
+      console.error("getAppSession database lookup failed:", err.message);
     }
 
     const memSession = memAppSessions.get(token);
@@ -352,10 +434,7 @@ class SessionService {
     const user = await this.getUserById(memSession.userId);
     if (!user) return null;
 
-    return {
-      token: memSession.token,
-      user,
-    };
+    return { token: memSession.token, user };
   }
 
   async destroyAppSession(token) {

@@ -58,6 +58,15 @@ root. `npm run dev` serves the frontend, `npm start` serves both API and built f
 
 ## Troubleshooting
 
+`GET /api/health` reports what the deployment is actually using: which database, whether it is
+persistent, and whether `ENCRYPTION_KEY` is set. Start there — `"persistent": false` means data
+(including EduSecure sessions) is being written to a temporary filesystem and no hosted database
+is configured.
+
+Session cookies are signed with a key derived from `ENCRYPTION_KEY`, so **set `ENCRYPTION_KEY` in
+production**: without it the public default key is used and the warning is logged on startup.
+
+
 `500 A server error has occurred` from `/api/...` means the function crashed while loading.
 The API no longer creates directories or opens a database at import time, so the usual causes are
 a missing build or a misconfigured database; a misconfigured database now answers with

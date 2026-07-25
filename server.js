@@ -10,7 +10,7 @@ const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
-const { ready } = require("./server/db/client");
+const { ready, isRemote, db, schema } = require("./server/db/client");
 
 const app = express();
 
@@ -48,6 +48,33 @@ app.use("/api", (req, res, next) => {
       error: err?.message || "Database unavailable. Check the database configuration.",
     });
   });
+});
+
+// GET /api/health — configuration diagnostics (no secrets), useful to check a deployment
+app.get("/api/health", async (req, res) => {
+  const status = {
+    ok: true,
+    database: isRemote ? "hosted (libSQL)" : "local SQLite file",
+    persistent: isRemote || !process.env.VERCEL,
+    encryptionKeyConfigured: !!process.env.ENCRYPTION_KEY,
+    uploadsDirConfigured: !!process.env.UPLOADS_DIR,
+  };
+
+  try {
+    await ready;
+    await db.select().from(schema.users).limit(1).all();
+  } catch (err) {
+    status.ok = false;
+    status.error = err.message;
+  }
+
+  if (!status.persistent) {
+    status.warning =
+      "Data is stored on a temporary filesystem and is lost between requests and deploys. " +
+      "Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. See DEPLOYMENT.md.";
+  }
+
+  return res.status(status.ok ? 200 : 503).json(status);
 });
 
 // Mount API routes

@@ -58,20 +58,6 @@ export const authService = {
         section,
       };
     } catch (err) {
-      // Fallback: Check local Express API if running locally
-      try {
-        const res = await fetch("/api/auth/me", { headers: { Accept: "application/json" } });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.authenticated && data.user) {
-            return {
-              id: data.user.id,
-              studentId: data.user.studentId,
-              section: data.user.section || "Section 10-A",
-            };
-          }
-        }
-      } catch {}
       return null;
     }
   },
@@ -82,27 +68,8 @@ export const authService = {
       throw new Error("Student ID and password are required.");
     }
 
-    // First try standard Express API login if available
-    try {
-      const apiRes = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ studentId: cleanId, password: pass }),
-      });
-      if (apiRes.ok) {
-        const data = await apiRes.json();
-        if (data.authenticated && data.user) {
-          return {
-            id: data.user.id,
-            studentId: data.user.studentId,
-            section: data.user.section || "Section 10-A",
-          };
-        }
-      }
-    } catch {}
-
-    // 100% Appwrite Direct Fallback
     const email = studentIdToEmail(cleanId);
+
     try {
       // Attempt login with existing Appwrite credentials
       await account.createEmailPasswordSession(email, pass);
@@ -132,9 +99,6 @@ export const authService = {
     try {
       await account.deleteSession("current");
     } catch {}
-    try {
-      await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" } });
-    } catch {}
   }
 };
 
@@ -162,29 +126,8 @@ export const homeworkService = {
         }));
       }
     } catch (err) {
-      console.warn("Appwrite Database query fallback to Express/Local API:", err);
+      console.warn("Appwrite Database query fallback:", err);
     }
-
-    // Fallback: Fetch from Express backend or return initial defaults
-    try {
-      const res = await fetch("/api/homework", { headers: { Accept: "application/json" } });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.homework && Array.isArray(data.homework)) {
-          return data.homework.map((doc: any) => ({
-            id: doc.id,
-            type: doc.type || "School Diary",
-            date: doc.date || "",
-            subject: doc.subject || "School Diary",
-            homework: doc.homework || doc.content || "",
-            attachment: doc.attachment || doc.attachmentUrl || null,
-            completed: !!doc.completed,
-            note: doc.note || null,
-            updatedAt: doc.updatedAt,
-          }));
-        }
-      }
-    } catch {}
 
     return INITIAL_MOCK_HOMEWORK;
   },
@@ -197,15 +140,6 @@ export const homeworkService = {
         homeworkId,
         { completed }
       );
-      return;
-    } catch {}
-
-    try {
-      await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ completed }),
-      });
     } catch {}
   },
 
@@ -217,15 +151,6 @@ export const homeworkService = {
         homeworkId,
         { note }
       );
-      return;
-    } catch {}
-
-    try {
-      await fetch(`/api/homework/${encodeURIComponent(homeworkId)}/note`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ note }),
-      });
     } catch {}
   }
 };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Smartphone, X, Share } from 'lucide-react';
+import { Download, Smartphone, X, Share, Monitor, Globe } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -12,7 +12,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
@@ -55,16 +55,18 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setIsInstalled(true);
+      try {
+        await deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+        setDeferredPrompt(null);
+      } catch {
+        setShowHelpModal(true);
       }
-      setDeferredPrompt(null);
-    } else if (isIOS) {
-      setShowIOSInstructions(true);
     } else {
-      alert('To install, open Chrome menu (⋮ or ⋯) and select "Install Homework App" or "Add to Home Screen".');
+      setShowHelpModal(true);
     }
   };
 
@@ -73,24 +75,94 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   // Header Button Variant with Close (X) button
   if (variant === 'button') {
     return (
-      <div className="inline-flex items-center rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs border border-neutral-800 dark:border-neutral-200 overflow-hidden text-xs font-semibold">
-        <button
-          onClick={handleInstallClick}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors cursor-pointer"
-          title="Install app to your home screen or search bar"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Install App</span>
-        </button>
-        <button
-          onClick={handleDismiss}
-          className="px-1.5 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-neutral-300 dark:text-neutral-600 hover:text-white dark:hover:text-neutral-900 border-l border-neutral-800 dark:border-neutral-200 transition-colors cursor-pointer"
-          title="Dismiss install button"
-          aria-label="Close install prompt"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
-      </div>
+      <>
+        <div className="inline-flex items-center rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs border border-neutral-800 dark:border-neutral-200 overflow-hidden text-xs font-semibold">
+          <button
+            onClick={handleInstallClick}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors cursor-pointer"
+            title="Install app to your home screen or search bar"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install App</span>
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-1.5 py-1.5 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-neutral-300 dark:text-neutral-600 hover:text-white dark:hover:text-neutral-900 border-l border-neutral-800 dark:border-neutral-200 transition-colors cursor-pointer"
+            title="Dismiss install button"
+            aria-label="Close install prompt"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Multi-platform Installation Modal */}
+        {showHelpModal && (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#141417] text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install Homework App</h3>
+                </div>
+                <button onClick={() => setShowHelpModal(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {isIOS ? (
+                <div className="space-y-3 text-xs text-neutral-600 dark:text-neutral-300">
+                  <p className="font-semibold text-neutral-900 dark:text-neutral-100">To install on iPhone or iPad:</p>
+                  <ol className="space-y-2 list-decimal list-inside pl-1 text-neutral-600 dark:text-neutral-400">
+                    <li className="flex items-center gap-2">
+                      <span>Tap the</span>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium">
+                        <Share className="w-3.5 h-3.5" /> Share
+                      </span>
+                      <span>button in Safari</span>
+                    </li>
+                    <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+                    <li>Tap <strong>Add</strong> in the top right corner</li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="space-y-3.5 text-xs text-neutral-600 dark:text-neutral-300">
+                  <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-neutral-100">
+                      <Monitor className="w-4 h-4 text-indigo-500" />
+                      <span>Desktop Chrome / Edge Address Bar</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                      Look at the top right of your browser's address bar for the <strong>Install</strong> icon (a small screen with a down arrow 🌁 or ⊕ icon), or:
+                    </p>
+                    <p className="text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
+                      Chrome Menu (⋮) → <strong>Save and Share</strong> → <strong>Install Homework Fetcher</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-neutral-100">
+                      <Globe className="w-4 h-4 text-emerald-500" />
+                      <span>Android Phone</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                      Tap the Chrome menu (<strong>⋮</strong>) in the top right and select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={() => setShowHelpModal(false)}
+                className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 shadow-2xs"
+              >
+                Got it
+              </button>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -134,33 +206,67 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
         </div>
       </div>
 
-      {/* iOS Safari Installation Modal */}
-      {showIOSInstructions && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 text-neutral-900 dark:text-white shadow-2xl">
+      {/* Multi-platform Installation Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#141417] text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install on iPhone / iPad</h3>
-              <button onClick={() => setShowIOSInstructions(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
+                  <Download className="w-4 h-4" />
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install Homework App</h3>
+              </div>
+              <button onClick={() => setShowHelpModal(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300">
-              To install this app on your iOS home screen:
-            </p>
-            <ol className="text-xs text-neutral-600 dark:text-neutral-400 space-y-2.5 list-decimal list-inside pl-1">
-              <li className="flex items-center gap-2">
-                <span>Tap the</span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium">
-                  <Share className="w-3.5 h-3.5" /> Share
-                </span>
-                <span>button in Safari</span>
-              </li>
-              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
-              <li>Tap <strong>Add</strong> in the top right corner</li>
-            </ol>
+
+            {isIOS ? (
+              <div className="space-y-3 text-xs text-neutral-600 dark:text-neutral-300">
+                <p className="font-semibold text-neutral-900 dark:text-neutral-100">To install on iPhone or iPad:</p>
+                <ol className="space-y-2 list-decimal list-inside pl-1 text-neutral-600 dark:text-neutral-400">
+                  <li className="flex items-center gap-2">
+                    <span>Tap the</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 font-medium">
+                      <Share className="w-3.5 h-3.5" /> Share
+                    </span>
+                    <span>button in Safari</span>
+                  </li>
+                  <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+                  <li>Tap <strong>Add</strong> in the top right corner</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="space-y-3.5 text-xs text-neutral-600 dark:text-neutral-300">
+                <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-neutral-100">
+                    <Monitor className="w-4 h-4 text-indigo-500" />
+                    <span>Desktop Chrome / Edge Address Bar</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+                    Look at the top right of your browser's address bar for the <strong>Install</strong> icon (a small screen with a down arrow 🌁 or ⊕ icon), or:
+                  </p>
+                  <p className="text-[11px] font-medium text-neutral-800 dark:text-neutral-200">
+                    Chrome Menu (⋮) → <strong>Save and Share</strong> → <strong>Install Homework Fetcher</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-neutral-100">
+                    <Globe className="w-4 h-4 text-emerald-500" />
+                    <span>Android Phone</span>
+                  </div>
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400">
+                    Tap the Chrome menu (<strong>⋮</strong>) in the top right and select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <button
-              onClick={() => setShowIOSInstructions(false)}
-              className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200"
+              onClick={() => setShowHelpModal(false)}
+              className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200 shadow-2xs"
             >
               Got it
             </button>

@@ -92,15 +92,10 @@ router.post("/login", async (req, res) => {
 
   } catch (err) {
     console.error("Auth Login Error:", err);
-    if (typeof err?.code === "string" && err.code.startsWith("SQLITE_")) {
-      return res.status(500).json({
-        authenticated: false,
-        error: "The server could not store your session because its database is not writable. Point SQLITE_DB_PATH at a writable location and try again."
-      });
-    }
+    const errorMsg = err.message || "An unexpected error occurred during login.";
     return res.status(500).json({
       authenticated: false,
-      error: "An unexpected error occurred during login. Please try again."
+      error: errorMsg
     });
   }
 });

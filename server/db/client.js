@@ -23,6 +23,7 @@ function openDatabase(preferredPath) {
   try {
     const dbInstance = new Database(preferredPath);
     dbInstance.pragma("foreign_keys = ON");
+    dbInstance.exec("CREATE TABLE IF NOT EXISTS _test_write (id INT)");
     return dbInstance;
   } catch (err) {
     console.error(
@@ -32,9 +33,10 @@ function openDatabase(preferredPath) {
     try {
       const fallbackDb = new Database(fallbackPath);
       fallbackDb.pragma("foreign_keys = ON");
+      fallbackDb.exec("CREATE TABLE IF NOT EXISTS _test_write (id INT)");
       return fallbackDb;
     } catch (fallbackErr) {
-      console.error(`Fallback SQLite open failed: ${fallbackErr.message}`);
+      console.error(`Fallback SQLite open failed: ${fallbackErr.message}. Using in-memory database.`);
       const memDb = new Database(":memory:");
       memDb.pragma("foreign_keys = ON");
       return memDb;

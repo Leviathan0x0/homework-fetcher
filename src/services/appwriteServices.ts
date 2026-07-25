@@ -81,6 +81,8 @@ export const authService = {
     try {
       sessionStorage.setItem("activeStudentId", cleanId);
       sessionStorage.setItem("activeStudentPass", pass);
+      localStorage.setItem("activeStudentId", cleanId);
+      localStorage.setItem("activeStudentPass", pass);
     } catch {}
 
     const email = studentIdToEmail(cleanId);
@@ -137,6 +139,8 @@ export const authService = {
     try {
       sessionStorage.removeItem("activeStudentId");
       sessionStorage.removeItem("activeStudentPass");
+      localStorage.removeItem("activeStudentId");
+      localStorage.removeItem("activeStudentPass");
       await account.deleteSession("current");
     } catch {}
   }
@@ -145,38 +149,63 @@ export const authService = {
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
   async getHomework(userId: string) {
-    let studentId = "student2";
-    let password = "123456";
+    let studentId = "";
+    let password = "";
     try {
-      studentId = sessionStorage.getItem("activeStudentId") || "student2";
-      password = sessionStorage.getItem("activeStudentPass") || "123456";
+      studentId = sessionStorage.getItem("activeStudentId") || localStorage.getItem("activeStudentId") || "";
+      password = sessionStorage.getItem("activeStudentPass") || localStorage.getItem("activeStudentPass") || "";
     } catch {}
 
-    // Try fetching live homework directly from EduSecure scraper endpoint
-    try {
-      const res = await fetch("/api/homework", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, password })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.homework) && data.homework.length > 0) {
-          return data.homework.map((doc: any) => ({
-            id: doc.id,
-            type: doc.type || "School Diary",
-            date: doc.date || "",
-            subject: doc.subject || doc.type || "School Diary",
-            homework: doc.homework || doc.content || "",
-            attachment: doc.attachment || doc.attachmentUrl || null,
-            completed: !!doc.completed,
-            note: doc.note || null,
-            updatedAt: doc.updatedAt || new Date().toISOString(),
-          }));
+    // Check cached homework in localStorage first
+    let cachedHomework: any[] = [];
+    if (studentId) {
+      try {
+        const cached = localStorage.getItem(`app_homework_cache_${studentId}`);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cachedHomework = parsed;
+          }
         }
+      } catch {}
+    }
+
+    if (studentId && password) {
+      try {
+        const res = await fetch("/api/homework", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ studentId, password })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.homework) && data.homework.length > 0) {
+            const list = data.homework.map((doc: any) => ({
+              id: doc.id,
+              type: doc.type || "School Diary",
+              date: doc.date || "",
+              subject: doc.subject || doc.type || "School Diary",
+              homework: doc.homework || doc.content || "",
+              attachment: doc.attachment || doc.attachmentUrl || null,
+              completed: !!doc.completed,
+              note: doc.note || null,
+              updatedAt: doc.updatedAt || new Date().toISOString(),
+            }));
+
+            try {
+              localStorage.setItem(`app_homework_cache_${studentId}`, JSON.stringify(list));
+            } catch {}
+
+            return list;
+          }
+        }
+      } catch (err) {
+        console.warn("Live EduSecure scraper error:", err);
       }
-    } catch (err) {
-      console.warn("Live EduSecure scraper fallback:", err);
+    }
+
+    if (cachedHomework.length > 0) {
+      return cachedHomework;
     }
 
     // Fallback to Appwrite Database collection if offline

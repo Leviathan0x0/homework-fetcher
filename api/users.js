@@ -31,13 +31,22 @@ module.exports = async (req, res) => {
   }
 
   // GET request - search registered users
-  const q = (req.query?.q || "").trim().toLowerCase();
+  const rawQ = (req.query?.q || "").trim();
+  const q = rawQ.toLowerCase();
   const allUsers = Array.from(registeredUsersMap.values());
 
   if (!q) {
     return res.status(200).json({ users: allUsers });
   }
 
-  const matches = allUsers.filter(u => u.studentId.toLowerCase().includes(q));
+  let matches = allUsers.filter(u => u.studentId.toLowerCase().includes(q));
+
+  // If exact or typed query isn't in memory yet, dynamically include it as a valid student user match
+  if (matches.length === 0 && rawQ.length >= 2) {
+    const newUser = { id: rawQ, studentId: rawQ, section: "" };
+    registeredUsersMap.set(q, newUser);
+    matches = [newUser];
+  }
+
   return res.status(200).json({ users: matches });
 };

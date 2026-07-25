@@ -546,14 +546,15 @@ export const messagingService = {
   },
 
   async searchUsers(query: string) {
-    const q = query.trim().toLowerCase();
+    const rawQ = query.trim();
+    const q = rawQ.toLowerCase();
     if (!q) return [];
 
     let usersList: any[] = [];
 
     // 1. Query serverless user registry
     try {
-      const res = await fetch(`/api/users?q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/users?q=${encodeURIComponent(rawQ)}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.users)) {
@@ -588,6 +589,10 @@ export const messagingService = {
         uniqueMap.set(u.studentId.toLowerCase(), u);
       }
     });
+
+    if (!uniqueMap.has(q) && rawQ.length >= 2) {
+      uniqueMap.set(q, { id: rawQ, studentId: rawQ, section: "" });
+    }
 
     const allRealUsers = Array.from(uniqueMap.values());
     return allRealUsers.filter((s) => s.studentId.toLowerCase().includes(q));

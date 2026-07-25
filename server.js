@@ -43,8 +43,10 @@ app.use(cookieParser());
 // the first query never races the migrations.
 app.use("/api", (req, res, next) => {
   ready.then(() => next()).catch((err) => {
-    console.error("Database unavailable:", err);
-    res.status(503).json({ error: "Database unavailable. Check the database configuration." });
+    console.error("Database unavailable:", err.message);
+    res.status(503).json({
+      error: err?.message || "Database unavailable. Check the database configuration.",
+    });
   });
 });
 
@@ -63,6 +65,13 @@ app.use(express.static(path.join(__dirname, "public")));
 // Unknown API routes must not fall through to the SPA HTML response
 app.use("/api", (req, res) => {
   res.status(404).json({ error: `Unknown API endpoint: ${req.method} /api${req.path}` });
+});
+
+// Surface API failures as JSON instead of an opaque platform error page
+app.use("/api", (err, req, res, next) => {
+  console.error(`API error on ${req.method} /api${req.path}:`, err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err?.message || "Unexpected server error." });
 });
 
 // Fallback SPA routing to index.html (Express 5 compatible catch-all)

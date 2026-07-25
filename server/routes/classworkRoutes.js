@@ -6,14 +6,12 @@ const multer = require("multer");
 const { eq, and, desc } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { db, schema } = require("../db/client");
+const { resolveUploadDir } = require("../uploads");
 
 const router = express.Router();
 
-// Ensure safe uploads directory exists
-const UPLOADS_DIR = path.join(process.env.UPLOADS_DIR || path.join(__dirname, "../../uploads"), "classwork");
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+// Resolved lazily-safe: never throws on read-only serverless filesystems
+const UPLOADS_DIR = resolveUploadDir("classwork").dir;
 
 // File extension & MIME type validation
 const ALLOWED_MIME_TYPES = new Set([

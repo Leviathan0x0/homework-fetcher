@@ -56,12 +56,23 @@ app.use("/api", (req, res) => {
 });
 
 // Fallback SPA routing to index.html (Express 5 compatible catch-all)
-app.use((req, res) => {
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) return next();
   const distHtml = path.join(__dirname, "dist", "index.html");
   res.sendFile(distHtml, (err) => {
     if (err) {
-      res.sendFile(path.join(__dirname, "public", "index.html"));
+      res.sendFile(path.join(__dirname, "public", "index.html"), () => res.status(404).end());
     }
+  });
+});
+
+// Express Global Error Handler (catches any unhandled route exceptions)
+app.use((err, req, res, next) => {
+  console.error("EXPRESS UNCAUGHT ROUTE ERROR:", err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({
+    authenticated: false,
+    error: err.message || "An unexpected server error occurred."
   });
 });
 

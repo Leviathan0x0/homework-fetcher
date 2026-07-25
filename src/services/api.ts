@@ -29,7 +29,8 @@ export const authService = {
 
     const data = await apiJson<any>(res);
     if (!res.ok || !data.authenticated) {
-      throw new Error(data.error || "Invalid student ID or password.");
+      const msg = typeof data.error === "string" ? data.error : (data.error?.message || data.message || "Invalid student ID or password.");
+      throw new Error(msg);
     }
 
     return {

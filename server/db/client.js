@@ -4,7 +4,12 @@ const Database = require("better-sqlite3");
 const { drizzle } = require("drizzle-orm/better-sqlite3");
 const schema = require("./schema");
 
-const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || path.join(__dirname, "../../sqlite.db");
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME || !!process.env.LAMBDA_TASK_ROOT || !!process.env.NOW_BUILDER;
+const defaultDbPath = isServerless 
+  ? path.join(os.tmpdir(), "homework-fetcher.db")
+  : path.join(__dirname, "../../sqlite.db");
+
+const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || defaultDbPath;
 
 /**
  * Opens the SQLite database, falling back to the OS temp directory when the
@@ -13,23 +18,32 @@ const dbPath = process.env.SQLITE_DB_PATH || process.env.DATABASE_URL || path.jo
  * set SQLITE_DB_PATH to a persistent writable volume in production.
  */
 function openDatabase(preferredPath) {
+  const fallbackPath = path.join(os.tmpdir(), "homework-fetcher.db");
+
   try {
-    return new Database(preferredPath);
+    const dbInstance = new Database(preferredPath);
+    dbInstance.pragma("foreign_keys = ON");
+    return dbInstance;
   } catch (err) {
-    const fallbackPath = path.join(os.tmpdir(), "homework-fetcher.db");
     console.error(
       `Unable to open SQLite database at ${preferredPath} (${err.message}). ` +
-      `Falling back to the ephemeral path ${fallbackPath}. Set SQLITE_DB_PATH to a writable, persistent location.`
+      `Falling back to ephemeral path ${fallbackPath}.`
     );
-    return new Database(fallbackPath);
+    try {
+      const fallbackDb = new Database(fallbackPath);
+      fallbackDb.pragma("foreign_keys = ON");
+      return fallbackDb;
+    } catch (fallbackErr) {
+      console.error(`Fallback SQLite open failed: ${fallbackErr.message}`);
+      const memDb = new Database(":memory:");
+      memDb.pragma("foreign_keys = ON");
+      return memDb;
+    }
   }
 }
 
 // Initialize native SQLite database
 const sqlite = openDatabase(dbPath);
-
-// Enable foreign key constraints in SQLite
-sqlite.pragma("foreign_keys = ON");
 
 // Initialize Drizzle ORM client
 const db = drizzle(sqlite, { schema });

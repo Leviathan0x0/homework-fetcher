@@ -94,33 +94,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span>Sign out</span>
                 </button>
               </div>
-
-              {/* Section selector */}
-              <div className="pt-2 border-t border-neutral-200/60 dark:border-neutral-800/80 flex items-center justify-between gap-2">
-                <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Class Section:</span>
-                <select
-                  value={user?.section || 'Section 9-F'}
-                  onChange={async (e) => {
-                    const newSec = e.target.value;
-                    await authService.updateSection(newSec);
-                    window.location.reload();
-                  }}
-                  className="h-8 rounded-lg px-2.5 bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-800 dark:text-neutral-200 focus:outline-none cursor-pointer"
-                >
-                  <option value="Section 9-F">Section 9-F</option>
-                  <option value="Section 9-A">Section 9-A</option>
-                  <option value="Section 9-B">Section 9-B</option>
-                  <option value="Section 9-C">Section 9-C</option>
-                  <option value="Section 9-D">Section 9-D</option>
-                  <option value="Section 9-E">Section 9-E</option>
-                  <option value="Section 10-A">Section 10-A</option>
-                  <option value="Section 10-B">Section 10-B</option>
-                  <option value="Section 10-C">Section 10-C</option>
-                  <option value="Section 10-D">Section 10-D</option>
-                  <option value="Section 10-E">Section 10-E</option>
-                  <option value="Section 10-F">Section 10-F</option>
-                </select>
-              </div>
             </div>
           </div>
 

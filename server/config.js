@@ -26,7 +26,28 @@ const crossSiteCookies = process.env.CROSS_SITE_COOKIES === "true" || allowedOri
 
 function isAllowedOrigin(origin) {
   if (!origin) return false;
-  return allowedOrigins.includes(stripTrailingSlash(origin));
+  const cleanOrigin = stripTrailingSlash(origin);
+  if (allowedOrigins.length > 0) {
+    if (allowedOrigins.includes("*") || allowedOrigins.includes(cleanOrigin)) return true;
+  }
+  try {
+    const url = new URL(cleanOrigin);
+    const hostname = url.hostname;
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]" ||
+      hostname.endsWith(".localhost") ||
+      /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+    ) {
+      return true;
+    }
+  } catch {
+    // Ignore URL parse errors
+  }
+  return false;
 }
 
 /**

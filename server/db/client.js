@@ -111,6 +111,12 @@ function openLocalDatabase(preferredPath, Database) {
     try {
       const instance = new Database(candidate);
       instance.pragma("foreign_keys = ON");
+      if (candidate !== ":memory:") {
+        // Write-ahead logging lets readers continue while a write is in flight,
+        // which matters as soon as several students use the app at once.
+        instance.pragma("journal_mode = WAL");
+        instance.pragma("busy_timeout = 5000");
+      }
       return instance;
     } catch (err) {
       lastError = err;

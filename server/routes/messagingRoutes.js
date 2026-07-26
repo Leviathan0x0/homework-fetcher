@@ -2,6 +2,7 @@ const express = require("express");
 const crypto = require("crypto");
 const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema, isRemote } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
 const {
@@ -10,66 +11,17 @@ const {
   resolveUploadType,
   uploadFileFilter,
 } = require("../files/fileTypes");
+const { createNotifications } = require("../notifications/notificationService");
+const {
+  MAX_UPLOAD_BYTES,
+  MAX_MESSAGE_CHARS,
+  MAX_SEARCH_QUERY_CHARS,
+  rateLimit,
+  limitText,
+} = require("../limits");
 
 const router = express.Router();
 
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-  if (!activeSession) {
-    return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
-  }
-  req.user = activeSession.user;
-  next();
-}
-
-async function createNotifications(userIds, type, title, body, link, referenceId) {
-  if (!userIds || userIds.length === 0) return;
-  const now = new Date().toISOString();
-  for (const uid of userIds) {
-    if (type === "new_message") {
-      // Consolidate message notifications from the same sender/conversation into 1 notification
-      const existing = await db
-        .select()
-        .from(schema.notifications)
-        .where(
-          and(
-            eq(schema.notifications.userId, uid),
-            eq(schema.notifications.type, "new_message"),
-            eq(schema.notifications.referenceId, referenceId),
-            eq(schema.notifications.isRead, 0)
-          )
-        )
-        .get();
-
-      if (existing) {
-        await db.update(schema.notifications)
-          .set({
-            title,
-            body: body || null,
-            createdAt: now,
-          })
-          .where(eq(schema.notifications.id, existing.id))
-          .run();
-        continue;
-      }
-    }
-
-    await db.insert(schema.notifications)
-      .values({
-        id: crypto.randomUUID(),
-        userId: uid,
-        type,
-        title,
-        body: body || null,
-        link: link || null,
-        referenceId: referenceId || null,
-        isRead: 0,
-        createdAt: now,
-      })
-      .run();
-  }
-}
 
 async function isParticipant(conversationId, userId) {
   const row = await db
@@ -100,37 +52,40 @@ function toPublicUser(user) {
   };
 }
 
-router.get("/users/search", requireAuth, async (req, res) => {
-  try {
-    const q = (req.query.q || "").trim();
-    if (!q) return res.json({ users: [] });
+router.get(
+  "/users/search",
+  requireAuth,
+  rateLimit({ name: "user-search", windowMs: 60 * 1000, max: 120 }),
+  async (req, res) => {
+    try {
+      const { value: q } = limitText(req.query.q, MAX_SEARCH_QUERY_CHARS);
+      if (!q) return res.json({ users: [] });
 
-    const needle = normalizeSearchValue(q);
-    if (!needle) return res.json({ users: [] });
+      // Matching happens in SQL so a search never reads the whole user table.
+      const needle = `%${q.toLowerCase().replace(/[%_]/g, "")}%`;
+      const matched = await db
+        .select()
+        .from(schema.users)
+        .where(
+          and(
+            ne(schema.users.id, req.user.id),
+            or(
+              sql`lower(${schema.users.studentId}) LIKE ${needle}`,
+              sql`lower(coalesce(${schema.users.displayName}, '')) LIKE ${needle}`
+            )
+          )
+        )
+        .orderBy(asc(schema.users.displayName), asc(schema.users.studentId))
+        .limit(20)
+        .all();
 
-    const allUsers = await db
-      .select()
-      .from(schema.users)
-      .all();
-
-    const matched = allUsers
-      .filter((u) => {
-        if (u.id === req.user.id) return false;
-        return (
-          normalizeSearchValue(u.studentId).includes(needle) ||
-          normalizeSearchValue(u.displayName).includes(needle)
-        );
-      })
-      .sort((a, b) => (a.displayName || a.studentId).localeCompare(b.displayName || b.studentId))
-      .slice(0, 20)
-      .map(toPublicUser);
-
-    return res.json({ users: matched });
-  } catch (err) {
-    console.error("User Search Error:", err);
-    return res.status(500).json({ error: "Search failed." });
+      return res.json({ users: matched.map(toPublicUser) });
+    } catch (err) {
+      console.error("User Search Error:", err);
+      return res.status(500).json({ error: "Search failed." });
+    }
   }
-});
+);
 
 router.get("/conversations", requireAuth, async (req, res) => {
   try {
@@ -301,7 +256,7 @@ const multer = require("multer");
 // disk is wiped between deployments and is not shared between instances, so
 // attachments are stored in the database instead of on disk.
 const STORE_ATTACHMENTS_IN_DB = !process.env.UPLOADS_DIR && (isRemote || isServerless);
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = MAX_UPLOAD_BYTES;
 
 const MSG_UPLOADS_DIR = STORE_ATTACHMENTS_IN_DB
   ? path.join(require("os").tmpdir(), "homework-fetcher-uploads", "messages")
@@ -373,9 +328,20 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
+router.post(
+  "/conversations/:id/messages",
+  requireAuth,
+  rateLimit({ name: "send-message", windowMs: 60 * 1000, max: 40 }),
+  async (req, res) => {
   msgUpload.single("file")(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message || "File upload error" });
+    if (err) {
+      const tooLarge = err.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge
+          ? `Attachments are limited to ${Math.round(MAX_ATTACHMENT_BYTES / (1024 * 1024))} MB.`
+          : err.message || "File upload error",
+      });
+    }
 
     try {
       const convId = req.params.id;
@@ -384,14 +350,19 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
         return res.status(403).json({ error: "Access denied." });
       }
 
-      const { content } = req.body || {};
-      if ((!content || !content.trim()) && !req.file) {
+      const { value: content, tooLong } = limitText((req.body || {}).content, MAX_MESSAGE_CHARS);
+      if (!content && !req.file) {
         return res.status(400).json({ error: "Message content or file attachment is required." });
+      }
+      if (tooLong) {
+        return res.status(413).json({
+          error: `Messages are limited to ${MAX_MESSAGE_CHARS} characters.`,
+        });
       }
 
       const id = req.messageId || crypto.randomUUID();
       const now = new Date().toISOString();
-      const trimmed = content && typeof content === "string" ? content.trim() : "";
+      const trimmed = content;
 
       let attachmentUrl = null;
       let originalFilename = null;
@@ -482,7 +453,8 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res) => {
       return res.status(500).json({ error: "Failed to send message." });
     }
   });
-});
+  }
+);
 
 router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
   try {

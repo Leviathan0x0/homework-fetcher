@@ -2,38 +2,18 @@ const express = require("express");
 const crypto = require("crypto");
 const { eq, desc, and } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
+const { createNotifications } = require("../notifications/notificationService");
+const {
+  MAX_REQUEST_TITLE_CHARS,
+  MAX_REQUEST_BODY_CHARS,
+  rateLimit,
+  limitText,
+} = require("../limits");
 
 const router = express.Router();
 
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-  if (!activeSession) {
-    return res.status(401).json({ code: "UNAUTHENTICATED", message: "Not authenticated." });
-  }
-  req.user = activeSession.user;
-  next();
-}
-
-async function createNotifications(userIds, type, title, body, link, referenceId) {
-  if (!userIds || userIds.length === 0) return;
-  const now = new Date().toISOString();
-  const values = userIds.map((uid) => ({
-    id: crypto.randomUUID(),
-    userId: uid,
-    type,
-    title,
-    body: body || null,
-    link: link || null,
-    referenceId: referenceId || null,
-    isRead: 0,
-    createdAt: now,
-  }));
-  for (const v of values) {
-    await db.insert(schema.notifications).values(v).run();
-  }
-}
 
 router.get("/requests", requireAuth, async (req, res) => {
   try {
@@ -67,15 +47,28 @@ router.get("/requests", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/requests", requireAuth, async (req, res) => {
+router.post(
+  "/requests",
+  requireAuth,
+  rateLimit({ name: "create-request", windowMs: 60 * 1000, max: 10 }),
+  async (req, res) => {
   try {
-    const { title, content, category } = req.body || {};
-    if (!title || typeof title !== "string" || !title.trim()) {
+    const { category } = req.body || {};
+    const titleField = limitText((req.body || {}).title, MAX_REQUEST_TITLE_CHARS);
+    const contentField = limitText((req.body || {}).content, MAX_REQUEST_BODY_CHARS);
+    if (!titleField.value) {
       return res.status(400).json({ error: "Title is required." });
     }
-    if (!content || typeof content !== "string" || !content.trim()) {
+    if (!contentField.value) {
       return res.status(400).json({ error: "Content is required." });
     }
+    if (titleField.tooLong || contentField.tooLong) {
+      return res.status(413).json({
+        error: `Titles are limited to ${MAX_REQUEST_TITLE_CHARS} characters and details to ${MAX_REQUEST_BODY_CHARS}.`,
+      });
+    }
+    const title = titleField.value;
+    const content = contentField.value;
     const section = req.user.section;
     if (!section) return res.status(400).json({ error: "Section not set." });
 
@@ -88,8 +81,8 @@ router.post("/requests", requireAuth, async (req, res) => {
       studentId: req.user.studentId,
       section,
       category: category && typeof category === "string" ? category.trim() : null,
-      title: title.trim(),
-      content: content.trim(),
+      title,
+      content,
       status: "open",
       createdAt: now,
       updatedAt: now,
@@ -110,7 +103,7 @@ router.post("/requests", requireAuth, async (req, res) => {
       await createNotifications(
         otherUserIds,
         "new_request",
-        `New request: ${title.trim().substring(0, 60)}`,
+        `New request: ${title.substring(0, 60)}`,
         `${req.user.studentId} posted a request in ${section}`,
         "requests",
         id
@@ -125,7 +118,8 @@ router.post("/requests", requireAuth, async (req, res) => {
     console.error("Create Request Error:", err);
     return res.status(500).json({ error: "Failed to create request." });
   }
-});
+  }
+);
 
 router.patch("/requests/:id/status", requireAuth, async (req, res) => {
   try {

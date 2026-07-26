@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { classworkService } from '../services/api';
+import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
+import { MAX_UPLOAD_BYTES } from '../lib/api';
 import {
   UploadCloud,
   FileText,
@@ -99,30 +101,31 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
     fetchClasswork();
   }, [fetchClasswork]);
 
+  // Shrinks photos before upload and rejects anything still too large
+  const acceptFile = async (file: File) => {
+    setModalError(null);
+    const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
+    if (prepared.size > MAX_UPLOAD_BYTES) {
+      setModalError(
+        `This file is ${formatBytes(prepared.size)}; the maximum upload size is ${formatBytes(MAX_UPLOAD_BYTES)}.`
+      );
+      return;
+    }
+    setSelectedFile(prepared);
+  };
+
   // Handle File Selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setModalError(null);
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 10 * 1024 * 1024) {
-        setModalError('File size exceeds maximum limit of 10 MB.');
-        return;
-      }
-      setSelectedFile(file);
+      acceptFile(e.target.files[0]);
     }
   };
 
   // Drag & Drop
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setModalError(null);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.size > 10 * 1024 * 1024) {
-        setModalError('File size exceeds maximum limit of 10 MB.');
-        return;
-      }
-      setSelectedFile(file);
+      acceptFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -574,7 +577,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                           Click to choose a file or drag & drop here
                         </p>
                         <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Images, PDFs, Word, Excel, PowerPoint, Text (Max 10 MB)
+                          Images, PDFs, Word, Excel, PowerPoint, Text (photos are compressed automatically)
                         </p>
                       </div>
                     </div>

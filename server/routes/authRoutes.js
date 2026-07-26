@@ -3,6 +3,7 @@ const sessionService = require("../auth/sessionService");
 const { fetchProfileFromEduSecure } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
+const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
 
 const FALLBACK_SECTION = "Section 10-A";
 const needsRefresh = (s) => !s || s === FALLBACK_SECTION;
@@ -14,7 +15,9 @@ router.post("/login", async (req, res) => {
   try {
     const { studentId, password } = req.body || {};
 
-    if (!studentId || typeof studentId !== "string" || !studentId.trim()) {
+    const cleanStudentId = (studentId || "").trim().replace(/@manavmangalschool\.com/gi, "");
+
+    if (!cleanStudentId) {
       return res.status(400).json({
         authenticated: false,
         error: "Student ID is required."
@@ -30,7 +33,7 @@ router.post("/login", async (req, res) => {
 
     let sessionCookies;
     try {
-      sessionCookies = await loginToEduSecure(studentId, password);
+      sessionCookies = await loginToEduSecure(cleanStudentId, password);
     } catch (authErr) {
       console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
       // Only report bad credentials when the portal actually rejected them;
@@ -47,7 +50,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const user = await sessionService.findOrCreateUser(studentId);
+    const user = await sessionService.findOrCreateUser(cleanStudentId);
     await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
     const appToken = await sessionService.createAppSession(user.id);
@@ -76,6 +79,9 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       authenticated: true,
+      // Browsers use the httpOnly cookie set above; native clients store this
+      // token and send it as `Authorization: Bearer <token>`.
+      token: appToken,
       user: {
         id: user.id,
         studentId: user.studentId,
@@ -96,8 +102,7 @@ router.post("/login", async (req, res) => {
 
 // GET /api/auth/me
 router.get("/me", async (req, res) => {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
+  const activeSession = await getRequestSession(req);
 
   if (!activeSession) {
     return res.json({
@@ -142,8 +147,7 @@ router.get("/me", async (req, res) => {
 // PATCH /api/auth/profile
 // Lets a student choose the name other students see instead of their student ID.
 router.patch("/profile", async (req, res) => {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
+  const activeSession = await getRequestSession(req);
 
   if (!activeSession) {
     return res.status(401).json({ error: "Not authenticated." });
@@ -174,7 +178,7 @@ router.patch("/profile", async (req, res) => {
 
 // POST /api/auth/logout
 router.post("/logout", async (req, res) => {
-  const token = req.cookies?.app_session;
+  const token = getRequestToken(req);
 
   if (token) {
     await sessionService.destroyAppSession(token);

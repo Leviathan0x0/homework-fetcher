@@ -22,6 +22,7 @@ import { MessagesView } from './MessagesView';
 import { SettingsModal } from './SettingsModal';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { isTodayDate } from '../utils/dateUtils';
 import { Loader2 } from 'lucide-react';
 
@@ -78,7 +79,12 @@ export const AppShell: React.FC = () => {
   });
 
   const handleOpenSettings = () => setIsSettingsOpen(true);
-  const handleCloseSettings = () => setIsSettingsOpen(false);
+  const handleCloseSettings = () => {
+    setIsSettingsOpen(false);
+    if (activeView === 'settings') {
+      setActiveView('today');
+    }
+  };
 
   const handleViewChange = (view: typeof activeView) => {
     if (view === 'settings') {
@@ -194,6 +200,8 @@ export const AppShell: React.FC = () => {
               onOpenSettings={handleOpenSettings}
             />
           )}
+
+          <PWAInstallPrompt variant="banner" />
 
           {activeView === 'today' && (
             <TodayView

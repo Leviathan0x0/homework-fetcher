@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const multer = require("multer");
 const { eq, and, desc } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
+const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { resolveUploadDir } = require("../uploads");
 const {
@@ -13,6 +14,7 @@ const {
   resolveUploadType,
   uploadFileFilter,
 } = require("../files/fileTypes");
+const { MAX_UPLOAD_BYTES, rateLimit } = require("../limits");
 
 const router = express.Router();
 
@@ -35,7 +37,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10 MB limit
+    fileSize: MAX_UPLOAD_BYTES,
   },
   // The extension allowlist is authoritative. The browser-declared MIME type
   // is attacker controlled, so accepting a file because that value looks
@@ -46,20 +48,6 @@ const upload = multer({
 /**
  * Middleware: Require valid session authentication.
  */
-async function requireAuth(req, res, next) {
-  const token = req.cookies?.app_session;
-  const activeSession = await sessionService.getAppSession(token);
-
-  if (!activeSession) {
-    return res.status(401).json({
-      code: "UNAUTHENTICATED",
-      message: "Not authenticated. Please sign in."
-    });
-  }
-
-  req.user = activeSession.user;
-  next();
-}
 
 /**
  * GET /api/classwork
@@ -118,15 +106,19 @@ router.get("/classwork", requireAuth, async (req, res) => {
  * POST /api/classwork
  * Uploads today's classwork file for a subject.
  */
-router.post("/classwork", requireAuth, async (req, res) => {
+router.post(
+  "/classwork",
+  requireAuth,
+  rateLimit({ name: "upload-classwork", windowMs: 60 * 1000, max: 20 }),
+  async (req, res) => {
   upload.single("file")(req, res, async (err) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === "LIMIT_FILE_SIZE") {
-        return res.status(400).json({ error: "File size exceeds limit of 10 MB." });
-      }
-      return res.status(400).json({ error: `Upload error: ${err.message}` });
-    } else if (err) {
-      return res.status(400).json({ error: err.message || "File upload failed." });
+    if (err) {
+      const tooLarge = err.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge
+          ? `Uploads are limited to ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB. Photos are compressed automatically — try re-selecting the file.`
+          : err.message || "File upload failed.",
+      });
     }
 
     if (!req.file) {

@@ -39,7 +39,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
     return tokens.map((token, index) => {
       if (token.startsWith('`') && token.endsWith('`')) {
         return (
-          <code key={index} className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/15 font-mono text-[11px]">
+          <code key={index} className="px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/15 text-[11px] font-medium">
             {token.slice(1, -1)}
           </code>
         );
@@ -118,7 +118,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
       {parts.map((part, index) => {
         if (part.type === 'codeblock') {
           return (
-            <div key={index} className="my-1.5 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-neutral-900 text-neutral-100 p-2.5 font-mono text-[11px]">
+            <div key={index} className="my-1.5 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-neutral-900 text-neutral-100 p-2.5 text-[11px]">
               <div className="text-[9px] uppercase tracking-wider text-neutral-400 mb-1 select-none font-sans font-semibold">{part.lang}</div>
               <pre className="overflow-x-auto whitespace-pre">{part.code}</pre>
             </div>

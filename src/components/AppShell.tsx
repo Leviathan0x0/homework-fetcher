@@ -61,7 +61,17 @@ export const AppShell: React.FC = () => {
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const viewBeforeSettings = useRef<typeof activeView>('today');
+
+  useEffect(() => {
+    const handleActiveConv = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      setIsMobileChatOpen(Boolean(detail));
+    };
+    window.addEventListener('active_conv_changed', handleActiveConv);
+    return () => window.removeEventListener('active_conv_changed', handleActiveConv);
+  }, []);
 
   const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
 
@@ -162,7 +172,9 @@ export const AppShell: React.FC = () => {
     return (
       <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <img src="/logo.svg" alt="MMSS Mohali" className="w-10 h-10 rounded-2xl object-contain shadow-xs" />
+          <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-2xs overflow-hidden">
+            <img src="/logo.png" alt="MMSS Mohali" className="w-full h-full object-contain" />
+          </div>
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
             <span>Checking your session</span>
@@ -356,10 +368,12 @@ export const AppShell: React.FC = () => {
           )}
         </div>
 
-        <MobileNavigation
-          activeView={activeView}
-          onViewChange={handleViewChange}
-        />
+        {!(activeView === 'messages' && isMobileChatOpen) && (
+          <MobileNavigation
+            activeView={activeView}
+            onViewChange={handleViewChange}
+          />
+        )}
 
         <SettingsModal
           isOpen={isSettingsOpen}

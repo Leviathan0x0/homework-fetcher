@@ -72,7 +72,7 @@
 
   /* Typography */
   --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans Hindi", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+  --font-mono: var(--font-family);
 }
 
 [data-theme="dark"] {

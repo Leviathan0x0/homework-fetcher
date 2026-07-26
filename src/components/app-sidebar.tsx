@@ -85,7 +85,7 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-white dark:bg-neutral-900 shrink-0 transition-transform duration-300 group-hover:scale-105 shadow-2xs p-0.5 border border-neutral-200/60 dark:border-neutral-800/60 overflow-hidden">
+              <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-white shrink-0 transition-transform duration-300 group-hover:scale-105 shadow-2xs p-0.5 border border-neutral-200/60 dark:border-neutral-800/60 overflow-hidden">
                 <img src="/logo.png" alt="MMSS Mohali Logo" className="w-full h-full object-contain" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">

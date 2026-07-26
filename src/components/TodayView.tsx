@@ -8,6 +8,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { ScrollToTopButton } from './ScrollToTopButton';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -93,6 +94,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           })}
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 };

@@ -12,6 +12,7 @@ import {
   X,
   Loader2,
   ArrowUp,
+  ArrowDown,
   ArrowLeft,
   Search,
   Paperclip,
@@ -44,6 +45,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
 
   useEffect(() => {
     authService.getCurrentUser().then(u => {
@@ -52,6 +54,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       }
     });
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('active_conv_changed', { detail: activeConvId }));
+  }, [activeConvId]);
 
   const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string } | null>(null);
 
@@ -483,7 +489,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       </div>
 
       {/* Messages Scroll View */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50/30 dark:bg-[#09090b]">
+      <div
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const isFarFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 120;
+          setShowScrollBottom(isFarFromBottom);
+        }}
+        className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50/30 dark:bg-[#09090b] relative"
+      >
         {messagesLoading ? (
           <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
         ) : messages.length === 0 ? (
@@ -579,7 +592,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                       <MarkdownRenderer content={m.content} className="break-words leading-relaxed flex-1 text-xs" />
                     )}
                     <span className={cn(
-                      'text-[9px] shrink-0 font-mono self-end opacity-60 ml-2 mb-0.5',
+                      'text-[9px] shrink-0 font-medium self-end opacity-60 ml-2 mb-0.5',
                       isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500 dark:text-neutral-400'
                     )}>
                       {timeStr}
@@ -591,10 +604,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           })
         )}
         <div ref={messagesEndRef} />
+
+        {/* Scroll to Bottom Button */}
+        {showScrollBottom && (
+          <button
+            onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            aria-label="Scroll to bottom"
+            title="Scroll to bottom"
+            className="sticky bottom-2 right-2 ml-auto z-30 p-2.5 rounded-full bg-neutral-900/90 text-white dark:bg-white/90 dark:text-neutral-900 shadow-lg border border-neutral-200/20 backdrop-blur-xs hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center animate-in fade-in zoom-in-90"
+          >
+            <ArrowDown className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
-      <div className="p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
+      <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
         {fileError && (
           <div className="mb-2 px-2 text-[11px] text-rose-600 dark:text-rose-400">{fileError}</div>
         )}

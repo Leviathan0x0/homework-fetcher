@@ -60,7 +60,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           {/* Header Title & Subtitle */}
           <div className="space-y-3">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-900 flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-2xs overflow-hidden">
+              <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-2xs overflow-hidden">
                 <img src="/logo.png" alt="MMSS Mohali Logo" className="w-full h-full object-contain" />
               </div>
               <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">

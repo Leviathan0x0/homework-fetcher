@@ -143,7 +143,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
               <div>
                 <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
-                <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 font-mono">
+                <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
                   {user?.studentId || 'Authenticated'}
                 </div>
               </div>
@@ -256,7 +256,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <ShieldCheck className="w-4 h-4 text-emerald-500 transition-transform duration-200 group-hover/sec:rotate-12" />
           <span>Secure HTTP-only session</span>
         </span>
-        <span className="font-mono text-[11px]">mmss64 · v1.1.0</span>
+        <span className="text-[11px] font-medium">mmss64 · v1.1.0</span>
       </div>
 
       {/* Footer Actions */}

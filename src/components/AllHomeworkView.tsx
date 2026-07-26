@@ -13,6 +13,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
+import { ScrollToTopButton } from './ScrollToTopButton';
 
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
@@ -157,6 +158,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           />
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 };

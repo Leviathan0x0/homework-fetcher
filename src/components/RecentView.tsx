@@ -11,6 +11,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
+import { ScrollToTopButton } from './ScrollToTopButton';
 
 interface RecentViewProps {
   homework: HomeworkEntry[];
@@ -119,6 +120,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
           />
         </div>
       )}
+      <ScrollToTopButton />
     </div>
   );
 };

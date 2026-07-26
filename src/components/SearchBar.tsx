@@ -27,7 +27,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, inputRef 
           <X className="w-4 h-4 sm:w-3.5 sm:h-3.5 transition-transform duration-200 group-hover/clear:rotate-90" />
         </button>
       ) : (
-        <kbd className="hidden sm:block absolute right-3.5 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[10px] font-mono font-medium text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-full pointer-events-none transition-all duration-200 group-focus-within/search:opacity-50">
+        <kbd className="hidden sm:block absolute right-3.5 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[10px] font-sans font-medium text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-full pointer-events-none transition-all duration-200 group-focus-within/search:opacity-50">
           /
         </kbd>
       )}

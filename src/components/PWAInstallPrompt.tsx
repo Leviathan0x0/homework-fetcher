@@ -164,22 +164,22 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   if (variant === 'button') {
     return (
       <>
-        <div className="inline-flex items-center rounded-xl bg-indigo-600 text-white shadow-2xs border border-indigo-500/40 overflow-hidden text-xs font-semibold shrink-0">
+        <div className="inline-flex items-center rounded-xl bg-indigo-600 text-white shadow-2xs border border-indigo-500/40 overflow-hidden text-xs font-semibold shrink-0 whitespace-nowrap">
           <button
             onClick={handleInstallClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 transition-colors cursor-pointer touch-manipulation"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 transition-colors cursor-pointer touch-manipulation whitespace-nowrap shrink-0"
             title="Install MMSS Mohali App"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Install App</span>
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            <span className="whitespace-nowrap">Install App</span>
           </button>
           <button
             onClick={handleDismiss}
-            className="px-2 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 text-indigo-200 hover:text-white border-l border-indigo-500/40 transition-colors cursor-pointer touch-manipulation"
+            className="px-2 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 text-indigo-200 hover:text-white border-l border-indigo-500/40 transition-colors cursor-pointer touch-manipulation shrink-0"
             title="Dismiss install button"
             aria-label="Dismiss install button"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-3.5 h-3.5 shrink-0" />
           </button>
         </div>
         {ModalContent}

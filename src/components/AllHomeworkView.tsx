@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { formatToISODate } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
+import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { DateHeader } from './DateHeader';
 import { SearchBar } from './SearchBar';
@@ -11,6 +12,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { LoadMoreButton } from './LoadMoreButton';
 
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
@@ -73,14 +75,17 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
     filtered = filtered.filter((item) => formatToISODate(item.date) === selectedDateFilter);
   }
 
+  // Batch loading (25 items per batch)
+  const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
+
   const getEntryId = (item: HomeworkEntry) =>
     item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
 
-  // Group chronologically by date
+  // Group chronologically by date for displayed batch
   const grouped: { date: string; entries: HomeworkEntry[] }[] = [];
   const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
 
-  for (const item of filtered) {
+  for (const item of displayedItems) {
     const d = item.date || 'School Diary';
     if (!map.has(d)) {
       const groupObj = { date: d, entries: [] };
@@ -137,6 +142,14 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
               </div>
             </section>
           ))}
+
+          {/* Pagination / Batch load trigger */}
+          <LoadMoreButton
+            hasMore={hasMore}
+            onLoadMore={loadMore}
+            visibleCount={visibleCount}
+            totalCount={totalCount}
+          />
         </div>
       )}
     </div>

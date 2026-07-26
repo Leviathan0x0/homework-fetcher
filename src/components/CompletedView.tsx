@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
+import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { LoadMoreButton } from './LoadMoreButton';
 
 interface CompletedViewProps {
   homework: HomeworkEntry[];
@@ -46,6 +48,8 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
       ? completedEntries
       : completedEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
 
+  const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -71,7 +75,7 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
         />
       ) : (
         <div className="space-y-3.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-          {filteredEntries.map((item, index) => {
+          {displayedItems.map((item, index) => {
             const entryId = getEntryId(item);
             return (
               <HomeworkCard
@@ -84,6 +88,14 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
               />
             );
           })}
+
+          {/* Pagination / Batch load trigger */}
+          <LoadMoreButton
+            hasMore={hasMore}
+            onLoadMore={loadMore}
+            visibleCount={visibleCount}
+            totalCount={totalCount}
+          />
         </div>
       )}
     </div>

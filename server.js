@@ -1,5 +1,21 @@
 const express = require("express");
 const path = require("path");
+
+// Load .env variables into process.env if present
+try {
+  const fs = require("fs");
+  const envPath = path.join(__dirname, ".env");
+  if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, "utf8");
+    envConfig.split("\n").forEach((line) => {
+      const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+      if (match && !process.env[match[1]]) {
+        process.env[match[1]] = (match[2] || "").trim().replace(/^['"]|['"]$/g, "");
+      }
+    });
+  }
+} catch (e) {}
+
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 

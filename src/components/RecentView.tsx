@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { isWithinLast7Days } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
+import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { DateHeader } from './DateHeader';
 import { SubjectFilterPills } from './SubjectFilterPills';
@@ -9,6 +10,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { LoadMoreButton } from './LoadMoreButton';
 
 interface RecentViewProps {
   homework: HomeworkEntry[];
@@ -42,6 +44,8 @@ export const RecentView: React.FC<RecentViewProps> = ({
     ? recentAllEntries
     : recentAllEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
 
+  const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
+
   const getEntryId = (item: HomeworkEntry) =>
     item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
 
@@ -49,7 +53,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
   const grouped: { date: string; entries: HomeworkEntry[] }[] = [];
   const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
 
-  for (const item of filteredEntries) {
+  for (const item of displayedItems) {
     const d = item.date || 'School Diary';
     if (!map.has(d)) {
       const groupObj = { date: d, entries: [] };
@@ -100,6 +104,14 @@ export const RecentView: React.FC<RecentViewProps> = ({
               </div>
             </section>
           ))}
+
+          {/* Pagination / Batch load trigger */}
+          <LoadMoreButton
+            hasMore={hasMore}
+            onLoadMore={loadMore}
+            visibleCount={visibleCount}
+            totalCount={totalCount}
+          />
         </div>
       )}
     </div>

@@ -611,7 +611,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
             aria-label="Scroll to bottom"
             title="Scroll to bottom"
-            className="sticky bottom-2 right-2 ml-auto z-30 p-2.5 rounded-full bg-neutral-900/90 text-white dark:bg-white/90 dark:text-neutral-900 shadow-lg border border-neutral-200/20 backdrop-blur-xs hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center animate-in fade-in zoom-in-90"
+            className="sticky bottom-2 right-2 ml-auto z-30 p-2.5 rounded-full bg-neutral-200/90 text-neutral-700 hover:text-neutral-900 dark:bg-neutral-800/90 dark:text-neutral-300 dark:hover:text-white shadow-md border border-neutral-300/80 dark:border-neutral-700/80 backdrop-blur-md hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center animate-in fade-in zoom-in-90"
           >
             <ArrowDown className="w-4 h-4" />
           </button>

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { formatToISODate } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
@@ -21,7 +21,7 @@ interface AllHomeworkViewProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   selectedDateFilter: string;
-  onDateFilterChange: (d: string) => void;
+  onDateFilterChange: (date: string) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
@@ -45,38 +45,42 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
   // Extract unique subjects
-  const availableSubjects = Array.from(
-    new Set(homework.map((item) => detectSubject(item.homework).name))
-  );
+  const availableSubjects = useMemo(() => {
+    return Array.from(new Set(homework.map((item) => detectSubject(item.homework).name)));
+  }, [homework]);
 
   // Apply filters
-  let filtered = [...homework];
+  const filtered = useMemo(() => {
+    let result = [...homework];
 
-  if (selectedSubject !== 'All') {
-    filtered = filtered.filter((item) => detectSubject(item.homework).name === selectedSubject);
-  }
+    if (selectedSubject !== 'All') {
+      result = result.filter((item) => detectSubject(item.homework).name === selectedSubject);
+    }
 
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    filtered = filtered.filter((item) => {
-      const subject = detectSubject(item.homework).name.toLowerCase();
-      const noteStr = (item.note || '').toLowerCase();
-      return (
-        item.homework.toLowerCase().includes(q) ||
-        subject.includes(q) ||
-        item.date.toLowerCase().includes(q) ||
-        noteStr.includes(q) ||
-        (item.type && item.type.toLowerCase().includes(q))
-      );
-    });
-  }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter((item) => {
+        const subject = detectSubject(item.homework).name.toLowerCase();
+        const noteStr = (item.note || '').toLowerCase();
+        return (
+          item.homework.toLowerCase().includes(q) ||
+          subject.includes(q) ||
+          item.date.toLowerCase().includes(q) ||
+          noteStr.includes(q) ||
+          (item.type && item.type.toLowerCase().includes(q))
+        );
+      });
+    }
 
-  if (selectedDateFilter) {
-    filtered = filtered.filter((item) => formatToISODate(item.date) === selectedDateFilter);
-  }
+    if (selectedDateFilter) {
+      result = result.filter((item) => formatToISODate(item.date) === selectedDateFilter);
+    }
+
+    return result;
+  }, [homework, selectedSubject, searchQuery, selectedDateFilter]);
 
   // Batch loading (25 items per batch)
-  const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
+  const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
 
   const getEntryId = (item: HomeworkEntry) =>
     item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
@@ -146,6 +150,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {/* Pagination / Batch load trigger */}
           <LoadMoreButton
             hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
             visibleCount={visibleCount}
             totalCount={totalCount}

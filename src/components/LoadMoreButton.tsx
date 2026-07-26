@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 
 interface LoadMoreButtonProps {
   hasMore: boolean;
   onLoadMore: () => void;
   visibleCount: number;
   totalCount: number;
+  isLoadingMore?: boolean;
 }
 
 export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
@@ -13,11 +14,12 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
   onLoadMore,
   visibleCount,
   totalCount,
+  isLoadingMore = false,
 }) => {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!hasMore || !sentinelRef.current) return;
+    if (!hasMore || isLoadingMore || !sentinelRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -30,7 +32,7 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
 
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMore, onLoadMore]);
+  }, [hasMore, isLoadingMore, onLoadMore]);
 
   if (totalCount === 0) return null;
 
@@ -47,10 +49,20 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
       {hasMore && (
         <button
           onClick={onLoadMore}
-          className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200 cursor-pointer active:scale-95 border border-neutral-200/60 dark:border-neutral-700/60 shadow-2xs"
+          disabled={isLoadingMore}
+          className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-all duration-200 cursor-pointer active:scale-95 border border-neutral-200/60 dark:border-neutral-700/60 shadow-2xs disabled:opacity-75 disabled:cursor-not-allowed"
         >
-          <span>Load More Cards</span>
-          <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+          {isLoadingMore ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-500 dark:text-neutral-400" />
+              <span>Loading more cards…</span>
+            </>
+          ) : (
+            <>
+              <span>Load More Cards</span>
+              <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+            </>
+          )}
         </button>
       )}
     </div>

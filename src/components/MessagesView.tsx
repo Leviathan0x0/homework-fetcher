@@ -523,7 +523,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                   {m.attachmentUrl && (
                     <div className="mb-2 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 p-2 space-y-1.5">
                       {isImage ? (
-                        <div className="relative group/img overflow-hidden rounded-lg max-h-48 bg-neutral-900/10">
+                        <div
+                          onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' })}
+                          className="relative group/img overflow-hidden rounded-lg max-h-48 bg-neutral-900/10 cursor-pointer active:opacity-90 transition-opacity"
+                        >
                           <img
                             src={m.attachmentUrl}
                             alt={m.originalFilename || 'Attachment'}
@@ -531,7 +534,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                           />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button
-                              onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' })}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' });
+                              }}
                               className="p-1.5 rounded-full bg-white/90 text-neutral-900 hover:scale-105 transition-transform cursor-pointer"
                               title="Preview photo in-app"
                             >
@@ -540,6 +546,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                             <a
                               href={m.attachmentUrl}
                               download={m.originalFilename || 'photo'}
+                              onClick={(e) => e.stopPropagation()}
                               className="p-1.5 rounded-full bg-white/90 text-neutral-900 hover:scale-105 transition-transform cursor-pointer"
                               title="Download photo"
                             >

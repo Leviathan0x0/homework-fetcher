@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { isWithinLast7Days } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
@@ -18,8 +18,8 @@ interface RecentViewProps {
   onRefresh: (force?: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
-  onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onUpdateNote: (id: string, note: string) => void;
+  onOpenPreview: (url: string, filename?: string) => void;
 }
 
 export const RecentView: React.FC<RecentViewProps> = ({
@@ -33,18 +33,22 @@ export const RecentView: React.FC<RecentViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
-  const recentAllEntries = homework.filter((item) => isWithinLast7Days(item.date));
+  const recentAllEntries = useMemo(() => {
+    return homework.filter((item) => isWithinLast7Days(item.date));
+  }, [homework]);
 
   // Extract unique subjects
-  const availableSubjects = Array.from(
-    new Set(recentAllEntries.map((item) => detectSubject(item.homework).name))
-  );
+  const availableSubjects = useMemo(() => {
+    return Array.from(new Set(recentAllEntries.map((item) => detectSubject(item.homework).name)));
+  }, [recentAllEntries]);
 
-  const filteredEntries = selectedSubject === 'All'
-    ? recentAllEntries
-    : recentAllEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
+  const filteredEntries = useMemo(() => {
+    return selectedSubject === 'All'
+      ? recentAllEntries
+      : recentAllEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
+  }, [recentAllEntries, selectedSubject]);
 
-  const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
+  const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 
   const getEntryId = (item: HomeworkEntry) =>
     item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
@@ -108,6 +112,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
           {/* Pagination / Batch load trigger */}
           <LoadMoreButton
             hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
             onLoadMore={loadMore}
             visibleCount={visibleCount}
             totalCount={totalCount}

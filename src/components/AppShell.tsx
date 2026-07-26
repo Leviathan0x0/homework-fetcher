@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { notificationService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useIsMobile } from '../hooks/use-mobile';
 import { LoginPage } from './LoginPage';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
@@ -20,6 +21,7 @@ import { ClassworkView } from './ClassworkView';
 import { RequestsView } from './RequestsView';
 import { MessagesView } from './MessagesView';
 import { SettingsModal } from './SettingsModal';
+import { SettingsView } from './SettingsView';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
 import { isTodayDate } from '../utils/dateUtils';
@@ -53,10 +55,12 @@ export const AppShell: React.FC = () => {
   } = useHomework();
 
   const { theme, setTheme, toggleTheme } = useTheme();
+  const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const viewBeforeSettings = useRef<typeof activeView>('today');
 
   const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
 
@@ -77,16 +81,36 @@ export const AppShell: React.FC = () => {
     },
   });
 
-  const handleOpenSettings = () => setIsSettingsOpen(true);
+  // Phones get a dedicated settings page; desktop keeps the modal.
+  const handleOpenSettings = () => handleViewChange('settings');
   const handleCloseSettings = () => setIsSettingsOpen(false);
 
-  const handleViewChange = (view: typeof activeView) => {
-    if (view === 'settings') {
-      setIsSettingsOpen(true);
-    } else {
-      setActiveView(view);
-    }
+  const handleLeaveSettings = () => {
+    setActiveView(viewBeforeSettings.current === 'settings' ? 'today' : viewBeforeSettings.current);
   };
+
+  function handleViewChange(view: typeof activeView) {
+    if (view === 'settings') {
+      if (isMobile) {
+        if (activeView !== 'settings') viewBeforeSettings.current = activeView;
+        setActiveView('settings');
+      } else {
+        setIsSettingsOpen(true);
+      }
+      return;
+    }
+    setActiveView(view);
+  }
+
+  // A settings page left over from a narrow viewport becomes the modal again.
+  useEffect(() => {
+    if (activeView !== 'settings') return;
+    // Checked directly so the first render, before the media query resolves,
+    // cannot mistake a phone for a desktop.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) return;
+    handleLeaveSettings();
+    setIsSettingsOpen(true);
+  }, [isMobile, activeView]);
 
   const handleOpenPreview = (url: string, filename?: string) => {
     setPreviewFileUrl(url);
@@ -132,9 +156,7 @@ export const AppShell: React.FC = () => {
     return (
       <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-semibold text-base shadow-xs">
-            H
-          </div>
+          <img src="/logo.svg" alt="MMSS Mohali" className="w-10 h-10 rounded-2xl object-contain shadow-xs" />
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
             <span>Checking your session</span>
@@ -168,7 +190,7 @@ export const AppShell: React.FC = () => {
         isLoading={isLoading || isRefreshing}
       />
 
-      <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-screen max-h-screen overflow-hidden flex flex-col")}>
+      <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-dvh max-h-dvh overflow-hidden flex flex-col")}>
         <SiteHeader
           activeView={activeView}
           theme={theme}
@@ -184,8 +206,8 @@ export const AppShell: React.FC = () => {
         <div className={cn(
           "flex-1 w-full mx-auto min-h-0",
           activeView === 'messages'
-            ? "h-[calc(100vh-7rem)] md:h-[calc(100vh-3.5rem)] p-0 max-w-none flex flex-col overflow-hidden"
-            : "max-w-4xl px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-10 space-y-6"
+            ? "h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
+            : "max-w-4xl px-4 sm:px-6 lg:px-8 py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-10 space-y-6"
         )}>
           {errorMessage && (
             <ErrorBanner
@@ -310,6 +332,18 @@ export const AppShell: React.FC = () => {
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}
               onOpenPreview={handleOpenPreview}
+            />
+          )}
+
+          {activeView === 'settings' && (
+            <SettingsView
+              user={user}
+              onLogout={logout}
+              onUserChange={setUser}
+              sessionStatus={sessionStatus}
+              theme={theme}
+              onThemeChange={setTheme}
+              onBack={handleLeaveSettings}
             />
           )}
         </div>

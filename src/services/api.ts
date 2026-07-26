@@ -1,4 +1,36 @@
 import { apiFetch, apiJson, apiUrl } from "../lib/api";
+
+/**
+ * Conversations from the last successful load.
+ * The Messages tab renders this cache immediately instead of waiting a full
+ * round trip before the inbox has anything to show. It is dropped on login and
+ * logout so it can only ever belong to the signed-in account.
+ */
+const CONVERSATIONS_CACHE_KEY = "cachedConversations";
+
+function readConversationCache(): any[] {
+  try {
+    const raw = localStorage.getItem(CONVERSATIONS_CACHE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeConversationCache(conversations: any[]) {
+  try {
+    localStorage.setItem(CONVERSATIONS_CACHE_KEY, JSON.stringify(conversations));
+  } catch {}
+}
+
+function clearConversationCache() {
+  try {
+    localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
+  } catch {}
+}
+
 // --- AUTH SERVICE ---
 export const authService = {
   async getCurrentUser() {
@@ -34,6 +66,9 @@ export const authService = {
       throw new Error(msg);
     }
 
+    // A new session must never read the previous account's cached conversations.
+    clearConversationCache();
+
     return {
       id: data.user.id,
       studentId: data.user.studentId,
@@ -67,6 +102,8 @@ export const authService = {
       });
     } catch (err) {
       console.error("Logout error:", err);
+    } finally {
+      clearConversationCache();
     }
   }
 };
@@ -152,11 +189,31 @@ export const messagingService = {
     return data.users || [];
   },
 
+  /** Conversations stored by the previous load, available synchronously. */
+  getCachedConversations() {
+    return readConversationCache();
+  },
+
   async getConversations(_currentStudentId?: string) {
     const res = await apiFetch("/api/conversations", { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error("Failed to load conversations.");
     const data = await apiJson<any>(res);
-    return data.conversations || [];
+    const conversations = data.conversations || [];
+    writeConversationCache(conversations);
+    return conversations;
+  },
+
+  async deleteConversation(convId: string) {
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}`, { method: "DELETE" });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to delete conversation.");
+    writeConversationCache(readConversationCache().filter((c: any) => c.id !== convId));
+  },
+
+  async deleteMessage(messageId: string) {
+    const res = await apiFetch(`/api/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to delete message.");
   },
 
   async getMessages(convId: string) {

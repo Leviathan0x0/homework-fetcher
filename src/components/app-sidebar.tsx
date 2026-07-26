@@ -85,12 +85,14 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
-              <div className="flex aspect-square size-8 items-center justify-center rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold shrink-0 transition-transform duration-300 group-hover:rotate-12 shadow-2xs">
-                H
-              </div>
+              <img
+                src="/logo.svg"
+                alt="MMSS Mohali"
+                className="aspect-square size-8 rounded-2xl object-contain shrink-0 shadow-2xs"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold text-xs">Homework</span>
-                <span className="truncate text-[11px] text-muted-foreground">Student portal</span>
+                <span className="truncate font-semibold text-xs">MMSS Mohali</span>
+                <span className="truncate text-[11px] text-muted-foreground">Student Portal</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>

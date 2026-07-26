@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent } from '../utils/contentParser';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import { aiService, AiFormatResponse } from '../services/aiService';
-import { Paperclip, Eye, Calendar, Check, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen, Sparkles, Loader2, ListChecks } from 'lucide-react';
+import { Paperclip, Eye, Calendar, Check, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface HomeworkCardProps {
@@ -13,7 +11,6 @@ interface HomeworkCardProps {
   onToggleCompleted?: () => void;
   onUpdateNote?: (id: string, note: string | null) => void;
   onOpenPreview?: (url: string) => void;
-  autoFormat?: boolean;
 }
 
 const isValidUrl = (url: string | null | undefined): boolean => {
@@ -32,31 +29,12 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   onToggleCompleted,
   onUpdateNote,
   onOpenPreview,
-  autoFormat = true,
 }) => {
   const subjectInfo = detectSubject(item.homework);
-  const parsed = parseHomeworkContent(item.homework, subjectInfo.name, autoFormat);
+  const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(item.note || '');
-  const [aiData, setAiData] = useState<AiFormatResponse | null>(null);
-  const [isLoadingAi, setIsLoadingAi] = useState(false);
-  const [checkedTasks, setCheckedTasks] = useState<Record<number, boolean>>({});
-
-  const handleAiFormat = async () => {
-    if (isLoadingAi) return;
-    setIsLoadingAi(true);
-    const result = await aiService.formatHomework(item.homework, subjectInfo.name);
-    setAiData(result);
-    setIsLoadingAi(false);
-  };
-
-  const toggleTaskChecked = (idx: number) => {
-    setCheckedTasks((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  };
-
-  const displayCW = aiData?.formattedClassWork || parsed.classWork;
-  const displayHW = aiData?.formattedHomeWork || parsed.homeWork;
 
   // Extract filename or label from attachment URL
   const getAttachmentLabel = (url: string) => {
@@ -132,32 +110,9 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
           >
             {subjectInfo.name}
           </span>
-
-          {/* AI Badge */}
-          {aiData?.isAi && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60">
-              <Sparkles className="w-3 h-3 text-purple-500" />
-              <span>AI Formatted</span>
-            </span>
-          )}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-          {/* AI Format Trigger Button */}
-          <button
-            onClick={handleAiFormat}
-            disabled={isLoadingAi}
-            title="Format with AI"
-            className="group/ai inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-300 hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-950/40 dark:hover:text-purple-300 transition-colors duration-200 cursor-pointer disabled:opacity-50"
-          >
-            {isLoadingAi ? (
-              <Loader2 className="w-3 h-3 animate-spin text-purple-600 dark:text-purple-400" />
-            ) : (
-              <Sparkles className="w-3 h-3 text-purple-500 transition-transform group-hover/ai:scale-110" />
-            )}
-            <span>{aiData ? 'Re-format AI' : 'AI Format'}</span>
-          </button>
-
           {item.type && (
             <span className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
               {item.type}
@@ -180,54 +135,26 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         )}
       >
         {/* Class Work Section (CW tag) */}
-        {displayCW && (
+        {parsed.classWork && (
           <div className="flex items-start gap-2.5">
             <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
               CW
             </span>
-            <div className="flex-1 leading-relaxed text-xs sm:text-sm min-w-0">
-              <MarkdownRenderer content={displayCW} />
-            </div>
+            <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
+              {parsed.classWork}
+            </span>
           </div>
         )}
 
         {/* Home Work Section (HW tag) */}
-        {displayHW && (
+        {parsed.homeWork && (
           <div className="flex items-start gap-2.5">
             <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
               HW
             </span>
-            <div className="flex-1 leading-relaxed text-xs sm:text-sm min-w-0">
-              <MarkdownRenderer content={displayHW} />
-            </div>
-          </div>
-        )}
-
-        {/* AI Extracted Action Tasks Checklist */}
-        {aiData?.actionItems && aiData.actionItems.length > 0 && (
-          <div className="mt-3 pt-2.5 border-t border-purple-100 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 p-3 rounded-2xl">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2">
-              <ListChecks className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Extracted Sub-tasks</span>
-            </div>
-            <div className="space-y-1.5">
-              {aiData.actionItems.map((task, idx) => (
-                <label
-                  key={idx}
-                  className="flex items-center gap-2 text-xs text-neutral-700 dark:text-neutral-300 cursor-pointer select-none"
-                >
-                  <input
-                    type="checkbox"
-                    checked={Boolean(checkedTasks[idx])}
-                    onChange={() => toggleTaskChecked(idx)}
-                    className="w-3.5 h-3.5 rounded border-neutral-300 dark:border-neutral-700 text-purple-600 focus:ring-purple-500"
-                  />
-                  <span className={cn(checkedTasks[idx] && 'line-through text-neutral-400 dark:text-neutral-500')}>
-                    {task}
-                  </span>
-                </label>
-              ))}
-            </div>
+            <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
+              {parsed.homeWork}
+            </span>
           </div>
         )}
       </div>

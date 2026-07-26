@@ -18,7 +18,6 @@ import {
   Eye,
   FileText,
   Download,
-  ExternalLink,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -45,7 +44,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     });
   }, []);
 
-  const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{ url: string; name: string } | null>(null);
 
   const [showNewModal, setShowNewModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -409,7 +408,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         ) : (
           messages.map((m) => {
             const isMine = Boolean(m.isMine);
-            const isImage = m.mimeType?.startsWith('image/') || m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i);
+            const isImage = m.mimeType?.startsWith('image/') || m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i);
             const timeStr = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
             return (
@@ -432,7 +431,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                           />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button
-                              onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image', isImage: true })}
+                              onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' })}
                               className="p-1.5 rounded-full bg-white/90 text-neutral-900 hover:scale-105 transition-transform cursor-pointer"
                               title="Preview photo in-app"
                             >
@@ -454,23 +453,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                             <FileText className="w-4 h-4 opacity-70 shrink-0" />
                             <span className="text-xs font-medium truncate">{m.originalFilename || 'Document'}</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'File', isImage: false })}
-                              className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                              title="Preview file"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <a
-                              href={m.attachmentUrl}
-                              download={m.originalFilename || 'file'}
-                              className="p-1 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                              title="Download"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </a>
-                          </div>
+                          <a
+                            href={m.attachmentUrl}
+                            download={m.originalFilename || 'file'}
+                            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download</span>
+                          </a>
                         </div>
                       )}
                     </div>
@@ -627,36 +617,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         </div>
       )}
 
-      {/* Lightbox / Media Preview Modal with Liquid Glass */}
+      {/* Image lightbox. Only images are previewed in-app: any other attachment
+          would have to be rendered as a document on this origin, which would let
+          the sender run code in the viewer's session. */}
       {previewMedia && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
           <div className="relative max-w-3xl w-full max-h-[90vh] bg-white/85 dark:bg-[#121215]/90 border border-white/50 dark:border-white/10 rounded-3xl p-5 flex flex-col items-center justify-center space-y-4 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-full flex items-center justify-between border-b border-neutral-200/60 dark:border-white/10 pb-3">
               <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{previewMedia.name}</span>
-              <div className="flex items-center gap-2">
-                {!previewMedia.isImage && (
-                  <a
-                    href={previewMedia.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[11px] font-semibold shadow-2xs flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>Open Full PDF</span>
-                  </a>
-                )}
-                <button onClick={() => setPreviewMedia(null)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <button onClick={() => setPreviewMedia(null)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            {previewMedia.isImage ? (
-              <img src={previewMedia.url} alt={previewMedia.name} className="max-h-[70vh] w-auto max-w-full object-contain rounded-2xl shadow-md" />
-            ) : (
-              <div className="w-full h-[65vh] rounded-2xl overflow-y-scroll -webkit-overflow-scrolling-touch touch-pan-y overscroll-contain bg-white border border-neutral-200 dark:border-neutral-800 shadow-2xs">
-                <iframe src={previewMedia.url} title={previewMedia.name} className="w-full h-full min-h-[60vh] border-0" />
-              </div>
-            )}
+            <img src={previewMedia.url} alt={previewMedia.name} className="max-h-[70vh] w-auto max-w-full object-contain rounded-2xl shadow-md" />
             <a
               href={previewMedia.url}
               download={previewMedia.name}

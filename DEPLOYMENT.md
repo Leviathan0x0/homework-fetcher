@@ -53,8 +53,14 @@ UPLOADS_DIR=/data/uploads
 
 ## Local development
 
-No configuration needed: the database is `sqlite.db` and uploads go to `uploads/` in the project
-root. `npm run dev` serves the frontend, `npm start` serves both API and built frontend.
+The database is `sqlite.db` and uploads go to `uploads/` in the project root. The only required
+setting is the root secret:
+
+```bash
+ENCRYPTION_KEY=$(openssl rand -hex 32)
+```
+
+`npm run dev` serves the frontend, `npm start` serves both API and built frontend.
 
 ## Troubleshooting
 
@@ -63,8 +69,12 @@ persistent, and whether `ENCRYPTION_KEY` is set. Start there — `"persistent": 
 (including EduSecure sessions) is being written to a temporary filesystem and no hosted database
 is configured.
 
-Session cookies are signed with a key derived from `ENCRYPTION_KEY`, so **set `ENCRYPTION_KEY` in
-production**: without it the public default key is used and the warning is logged on startup.
+`ENCRYPTION_KEY` is **required everywhere, including local development**. It is the root secret for
+both the session cookie signature and the encryption of stored EduSecure session cookies, and there
+is no fallback value: without it the API answers every `/api` request with `503` and refuses to
+start under `npm start`. Generate one with `openssl rand -hex 32`. Changing it signs out every
+student and forces a fresh school portal login, which is exactly what you want if the old value
+ever leaked.
 
 
 `500 A server error has occurred` from `/api/...` means the function crashed while loading.
@@ -140,7 +150,7 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Hosted libSQL database (required on serverless hosts) |
 | `SQLITE_DB_PATH` | Local SQLite file location when not using a hosted database |
 | `UPLOADS_DIR` | Directory for uploaded files (persistent volume) |
-| `ENCRYPTION_KEY` | AES key used to encrypt stored EduSecure session cookies |
+| `ENCRYPTION_KEY` | **Required.** 32+ character root secret for session cookie signing and EduSecure session encryption |
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |

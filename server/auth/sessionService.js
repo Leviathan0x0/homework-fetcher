@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { eq, and, gt } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
+const { deriveKey } = require("./secrets");
 
 const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
 
@@ -99,7 +100,7 @@ async function fetchSectionFromEduSecure(sessionCookies) {
   return profile.section;
 }
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Key used to sign session cookies. Derived from ENCRYPTION_KEY so every
@@ -107,22 +108,18 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
  * serverless instance could not be verified by the next one.
  */
 function getSigningKey() {
-  const secret = process.env.ENCRYPTION_KEY || "default-homework-app-development-secret-key-32-bytes";
-  if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === "production") {
-    console.warn(
-      "[auth] ENCRYPTION_KEY is not set. Session cookies are signed with the public default key; " +
-        "set ENCRYPTION_KEY to a random 32-byte hex value in production."
-    );
-  }
-  return crypto.createHmac("sha256", secret).update("app-session-signing-key").digest();
+  return deriveKey("app-session-signing-key");
 }
 
 const base64url = (buffer) => Buffer.from(buffer).toString("base64url");
 
 /**
- * Builds a self-contained session token: payload.signature.
- * Any instance can verify it without reading the database, so a refresh no
- * longer depends on landing on the instance that handled the login.
+ * Builds a signed session token: payload.signature.
+ *
+ * The signature proves the token was issued by this API, but it is not proof
+ * on its own that the session is still live: the payload carries a `jti` that
+ * must still have a matching row in app_sessions, which is what makes logout
+ * and revocation actually take effect.
  */
 function signSessionToken(payload) {
   const body = base64url(JSON.stringify(payload));
@@ -146,7 +143,7 @@ function verifySessionToken(token) {
 
   try {
     const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-    if (!payload || !payload.uid || !payload.sid) return null;
+    if (!payload || !payload.uid || !payload.sid || !payload.jti) return null;
     if (!payload.exp || Date.now() > payload.exp) return null;
     return payload;
   } catch {
@@ -347,22 +344,23 @@ class SessionService {
   async createAppSession(userId) {
     const expiresAt = Date.now() + SESSION_TTL_MS;
     const createdAt = new Date().toISOString();
+    const jti = crypto.randomUUID();
 
     const user = await this.getUserById(userId);
     const token = signSessionToken({
+      jti,
       uid: userId,
       sid: user ? user.studentId : userId,
       exp: expiresAt,
     });
 
-    memAppSessions.set(token, { token, userId, expiresAt });
-
-    // Stored as well so sessions can be listed and revoked when a shared
-    // database is configured; the token stays valid without it.
+    // The stored row is what keeps the session alive: deleting it (logout,
+    // revocation) immediately stops the signed cookie from being accepted.
+    // `token` holds the jti, never the cookie value.
     try {
       await db.insert(schema.appSessions)
         .values({
-          token,
+          token: jti,
           userId,
           expiresAt,
           createdAt,
@@ -372,7 +370,45 @@ class SessionService {
       console.error("createAppSession could not store the session:", err.message);
     }
 
+    memAppSessions.set(jti, { jti, userId, expiresAt });
+
     return token;
+  }
+
+  /**
+   * Looks up the revocation record for a session id.
+   * Returns null when the session was revoked, expired or never existed.
+   */
+  async findLiveSession(jti) {
+    let record = null;
+    try {
+      record = await db
+        .select()
+        .from(schema.appSessions)
+        .where(eq(schema.appSessions.token, jti))
+        .get();
+    } catch (err) {
+      // A database hiccup must not hand out access on its own, so fall back to
+      // this instance's own record of the session rather than to "allow".
+      console.error("getAppSession revocation lookup failed:", err.message);
+      record = memAppSessions.get(jti) || null;
+    }
+
+    if (!record) return null;
+    if (Date.now() > record.expiresAt) {
+      await this.deleteSessionRecord(jti);
+      return null;
+    }
+    return record;
+  }
+
+  async deleteSessionRecord(jti) {
+    memAppSessions.delete(jti);
+    try {
+      await db.delete(schema.appSessions)
+        .where(eq(schema.appSessions.token, jti))
+        .run();
+    } catch {}
   }
 
   async getAppSession(token) {
@@ -380,20 +416,15 @@ class SessionService {
 
     const payload = verifySessionToken(token);
     if (payload) {
-      let user = await this.getUserById(payload.uid);
+      const record = await this.findLiveSession(payload.jti);
+      if (!record) return null;
 
-      // The signature proves the session is genuine, so recreate the account
-      // row if this instance has never seen it (fresh serverless filesystem).
-      if (!user) {
-        try {
-          user = await this.findOrCreateUser(payload.sid);
-        } catch (err) {
-          console.error("Could not restore user for a valid session:", err.message);
-          return null;
-        }
-      }
-
+      // A signature only proves the token was issued here. An account that no
+      // longer exists must not be recreated from its own cookie, otherwise a
+      // deleted or banned student simply comes back on the next request.
+      const user = await this.getUserById(payload.uid);
       if (!user) return null;
+
       return { token, user };
     }
 
@@ -424,27 +455,38 @@ class SessionService {
       console.error("getAppSession database lookup failed:", err.message);
     }
 
-    const memSession = memAppSessions.get(token);
-    if (!memSession) return null;
-    if (Date.now() > memSession.expiresAt) {
-      memAppSessions.delete(token);
-      return null;
-    }
-
-    const user = await this.getUserById(memSession.userId);
-    if (!user) return null;
-
-    return { token: memSession.token, user };
+    return null;
   }
 
   async destroyAppSession(token) {
     if (!token) return;
-    memAppSessions.delete(token);
+
+    const payload = verifySessionToken(token);
+    if (payload) {
+      await this.deleteSessionRecord(payload.jti);
+      return;
+    }
+
+    // Legacy opaque token: the cookie value is the stored key.
+    await this.deleteSessionRecord(token);
+  }
+
+  /**
+   * Revokes every session belonging to a user, on every device.
+   * @param {string} userId
+   */
+  async destroyAllUserSessions(userId) {
+    if (!userId) return;
+    for (const [jti, session] of memAppSessions) {
+      if (session.userId === userId) memAppSessions.delete(jti);
+    }
     try {
       await db.delete(schema.appSessions)
-        .where(eq(schema.appSessions.token, token))
+        .where(eq(schema.appSessions.userId, userId))
         .run();
-    } catch {}
+    } catch (err) {
+      console.error("destroyAllUserSessions failed:", err.message);
+    }
   }
 
   async updateSection(userId, section) {
@@ -479,5 +521,6 @@ class SessionService {
 const sessionService = new SessionService();
 
 module.exports = sessionService;
+module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
 module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;

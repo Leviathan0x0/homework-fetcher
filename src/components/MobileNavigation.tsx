@@ -34,12 +34,12 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
             className="flex flex-col items-center justify-center flex-1 h-full py-1 rounded-2xl cursor-pointer touch-manipulation group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-500/50"
           >
             <div className={cn(
-              'w-8 h-8 rounded-2xl flex items-center justify-center transition-all duration-200',
+              'flex items-center justify-center transition-all duration-200',
               isActive
-                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-sm'
-                : 'bg-transparent text-neutral-500 dark:text-neutral-400'
+                ? 'text-neutral-900 dark:text-white scale-105'
+                : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
             )}>
-              <Icon size={18} weight={isActive ? "fill" : "regular"} />
+              <Icon size={22} weight={isActive ? "fill" : "regular"} />
             </div>
             <span className={cn(
               'text-[9px] leading-tight tracking-tight mt-0.5 truncate max-w-[56px] transition-colors',

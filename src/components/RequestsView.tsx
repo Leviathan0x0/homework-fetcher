@@ -106,9 +106,13 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     if (!confirm('Delete this request?')) return;
     setDeletingId(id);
     try {
+      await requestService.deleteRequest(id);
       setRequests((prev) => prev.filter((r) => r.id !== id));
-    } catch { alert('Failed to delete request.'); }
-    finally { setDeletingId(null); }
+    } catch (err: any) {
+      alert(typeof err?.message === 'string' ? err.message : 'Failed to delete request.');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const [helpingId, setHelpingId] = useState<string | null>(null);

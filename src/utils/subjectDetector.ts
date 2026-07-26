@@ -25,15 +25,23 @@ const SUBJECT_RULES: SubjectRule[] = [
     textStyle: 'text-indigo-700 dark:text-indigo-300'
   },
   {
-    // Checked before Science so "Social Science" is not read as "Science".
+    name: 'History',
+    aliases: ['history', 'hist', 'historyandcivics', 'histcivics'],
+    keywords: ['HISTORY', 'HIST'],
+    badgeClass: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40',
+    bgStyle: 'bg-amber-50 dark:bg-amber-950/40',
+    textStyle: 'text-amber-700 dark:text-amber-300'
+  },
+  {
+    // Checked after History so "History" is distinct from "Social Science".
     name: 'Social Science',
     aliases: [
       'socialscience', 'socialsciences', 'socialstudies', 'socialstudy', 'social',
-      'sst', 'ssc', 'sostudies', 'sscience', 'history', 'civics', 'geography'
+      'sst', 'ssc', 'sostudies', 'sscience', 'civics', 'geography'
     ],
     keywords: [
       'SOCIAL SCIENCE', 'SOCIAL STUDIES', 'SOCIAL', 'S.ST', 'SST', 'SSC',
-      'HISTORY', 'CIVICS', 'GEOGRAPHY', 'POLITICAL SCIENCE', 'सामाजिक'
+      'CIVICS', 'GEOGRAPHY', 'POLITICAL SCIENCE', 'सामाजिक'
     ],
     badgeClass: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40',
     bgStyle: 'bg-rose-50 dark:bg-rose-950/40',
@@ -265,25 +273,29 @@ export function normalizeSubjectName(value: string): string {
   return rule ? rule.name : formatSubjectName(trimmed.toUpperCase());
 }
 
-export function detectSubject(text: string): SubjectInfo {
-  if (!text) return DEFAULT_SUBJECT;
-
-  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-  const firstLine = lines[0] || text;
-
-  // 1. Explicit label in front of a separator: "MATHEMATICS: Assignment 8",
-  //    "Comp. Sci. - Learn and complete", "SOCIAL STUDIES – Chapter 4".
-  for (const separator of LABEL_SEPARATORS) {
-    const index = firstLine.indexOf(separator);
-    if (index <= 0) continue;
-
-    const candidate = firstLine.slice(0, index).trim();
-    const rule = matchAlias(candidate) || matchKeywords(candidate);
-    if (rule) return toSubjectInfo(rule);
-
-    if (normalizeSubjectKey(candidate).length > 2 && candidate.length < 30) {
+/**
+ * Subject detection pipeline following strict priority hierarchy:
+ * Priority 1: Explicit subject provided by EduSecure
+ * Priority 2 & 3: Subject detected from homework content only
+ * Priority 4: Fallback signal from Classwork (CW)
+ * Priority 5: Language-based fallback
+ */
+export function detectSubject(
+  text: string,
+  explicitSubject?: string | null,
+  classworkSignal?: string | null
+): SubjectInfo {
+  // Priority 1: Explicit subject provided by EduSecure
+  if (explicitSubject && typeof explicitSubject === 'string') {
+    const trimmed = explicitSubject.trim();
+    if (
+      trimmed &&
+      !['HOMEWORK', 'SCHOOL DIARY', 'ANNOUNCEMENT', 'GENERAL'].includes(trimmed.toUpperCase())
+    ) {
+      const rule = matchAlias(trimmed) || matchKeywords(trimmed);
+      if (rule) return toSubjectInfo(rule);
       return {
-        name: formatSubjectName(candidate.toUpperCase()),
+        name: formatSubjectName(trimmed),
         badgeClass: DEFAULT_SUBJECT.badgeClass,
         bgStyle: DEFAULT_SUBJECT.bgStyle,
         textStyle: DEFAULT_SUBJECT.textStyle
@@ -291,13 +303,49 @@ export function detectSubject(text: string): SubjectInfo {
     }
   }
 
-  // 2. A subject named anywhere in the entry.
-  const scanned = matchKeywords(text);
-  if (scanned) return toSubjectInfo(scanned);
+  // Priority 2 & 3: Detect subject ONLY from actual homework content
+  if (text) {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const firstLine = lines[0] || text;
 
-  // 3. Nothing names a subject: fall back to the language it is written in.
-  const language = detectLanguageSubject(text);
-  if (language) return toSubjectInfo(language);
+    // Explicit label in front of separator ("HISTORY: Chapter 2")
+    for (const separator of LABEL_SEPARATORS) {
+      const index = firstLine.indexOf(separator);
+      if (index <= 0) continue;
+
+      const candidate = firstLine.slice(0, index).trim();
+      const rule = matchAlias(candidate) || matchKeywords(candidate);
+      if (rule) return toSubjectInfo(rule);
+
+      if (normalizeSubjectKey(candidate).length > 2 && candidate.length < 30) {
+        return {
+          name: formatSubjectName(candidate.toUpperCase()),
+          badgeClass: DEFAULT_SUBJECT.badgeClass,
+          bgStyle: DEFAULT_SUBJECT.bgStyle,
+          textStyle: DEFAULT_SUBJECT.textStyle
+        };
+      }
+    }
+
+    // Scan homework text for subject keywords
+    const scanned = matchKeywords(text);
+    if (scanned) return toSubjectInfo(scanned);
+  }
+
+  // Priority 4: Classwork (CW) signal fallback
+  if (classworkSignal && typeof classworkSignal === 'string') {
+    const trimmedCw = classworkSignal.trim();
+    if (trimmedCw) {
+      const cwRule = matchAlias(trimmedCw) || matchKeywords(trimmedCw);
+      if (cwRule) return toSubjectInfo(cwRule);
+    }
+  }
+
+  // Priority 5: Language-based fallback logic (Punjabi, Hindi, French)
+  if (text) {
+    const language = detectLanguageSubject(text);
+    if (language) return toSubjectInfo(language);
+  }
 
   return DEFAULT_SUBJECT;
 }

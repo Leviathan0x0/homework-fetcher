@@ -19,7 +19,7 @@ interface RecentViewProps {
   onRefresh: (force?: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
-  onUpdateNote: (id: string, note: string) => void;
+  onUpdateNote: (id: string, note: string | null) => void;
   onOpenPreview: (url: string, filename?: string) => void;
 }
 

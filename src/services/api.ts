@@ -242,11 +242,11 @@ export const messagingService = {
     return mapMessage(data.message);
   },
 
-  async startConversation(_currentStudentId: string, participantId: string) {
+  async startConversation(_currentStudentId: string, participantId: string, noticeToken: string) {
     const res = await apiFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ participantId }),
+      body: JSON.stringify({ participantId, noticeToken }),
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.conversationId) {

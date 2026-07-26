@@ -10,20 +10,65 @@ const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES
  * @param {string} type 
  * @returns {string}
  */
-function detectSubjectFromText(text = "", type = "") {
-  const combined = `${type} ${text}`.toUpperCase();
+function detectSubjectFromText(text = "", explicitSubject = "", classworkType = "") {
+  // Priority 1: Explicit subject provided by EduSecure
+  if (explicitSubject && typeof explicitSubject === "string") {
+    const trimmed = explicitSubject.trim();
+    if (trimmed && !["HOMEWORK", "SCHOOL DIARY", "ANNOUNCEMENT"].includes(trimmed.toUpperCase())) {
+      if (/HISTORY|HIST/i.test(trimmed)) return "History";
+      if (/MATH|ALGEBRA|GEOMETRY|गणित/i.test(trimmed)) return "Mathematics";
+      if (/PHYSICS|PHYS/i.test(trimmed)) return "Physics";
+      if (/CHEMISTRY|CHEM/i.test(trimmed)) return "Chemistry";
+      if (/BIOLOGY|BIO/i.test(trimmed)) return "Biology";
+      if (/SCIENCE|EVS|SCI|विज्ञान/i.test(trimmed)) return "Science";
+      if (/ENGLISH|ENG|LITERATURE|GRAMMAR|अंग्रेजी/i.test(trimmed)) return "English";
+      if (/HINDI|हिंदी/i.test(trimmed)) return "Hindi";
+      if (/COMPUTER|COMPUTERS|CODING|IT|कंप्यूटर/i.test(trimmed)) return "Computers";
+      if (/S\.ST|SOCIAL|SST|CIVICS|GEOGRAPHY|सामाजिक/i.test(trimmed)) return "Social Science";
+      if (/PUNJABI|पंजाबी/i.test(trimmed)) return "Punjabi";
+      if (/FRENCH|FRANÇAIS/i.test(trimmed)) return "French";
+      if (/G\.K|GK|GENERAL KNOWLEDGE/i.test(trimmed)) return "General Knowledge";
+      if (/ART|DRAWING|CRAFT/i.test(trimmed)) return "Art";
+      return trimmed;
+    }
+  }
 
-  if (/MATH|ALGEBRA|GEOMETRY|गणित/.test(combined)) return "Mathematics";
-  if (/SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|EVS|SCI|विज्ञान/.test(combined)) return "Science";
-  if (/ENGLISH|ENG|LITERATURE|GRAMMAR|अंग्रेजी/.test(combined)) return "English";
-  if (/HINDI|हिंदी/.test(combined)) return "Hindi";
-  if (/COMPUTER|COMPUTERS|CODING|IT|कंप्यूटर/.test(combined)) return "Computers";
-  if (/S\.ST|SOCIAL|HISTORY|CIVICS|GEOGRAPHY|SST|सामाजिक/.test(combined)) return "Social Studies";
-  if (/PUNJABI|पंजाबी/.test(combined)) return "Punjabi";
-  if (/G\.K|GK|GENERAL KNOWLEDGE/.test(combined)) return "General Knowledge";
-  if (/ART|DRAWING|CRAFT/.test(combined)) return "Art";
+  // Priority 2 & 3: Detect subject ONLY from homework content text
+  const upperText = (text || "").toUpperCase();
+  if (/\b(HISTORY|HIST)\b/.test(upperText)) return "History";
+  if (/\b(MATHEMATICS|MATHS|MATH|ALGEBRA|GEOMETRY|TRIGONOMETRY|गणित|ਗਣਿਤ)\b/.test(upperText)) return "Mathematics";
+  if (/\b(PHYSICS)\b/.test(upperText)) return "Physics";
+  if (/\b(CHEMISTRY)\b/.test(upperText)) return "Chemistry";
+  if (/\b(BIOLOGY)\b/.test(upperText)) return "Biology";
+  if (/\b(SCIENCE|SCI|EVS|विज्ञान)\b/.test(upperText)) return "Science";
+  if (/\b(ENGLISH|LITERATURE|GRAMMAR|अंग्रेजी)\b/.test(upperText)) return "English";
+  if (/\b(HINDI|हिंदी|हिन्दी)\b/.test(upperText)) return "Hindi";
+  if (/\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|CODING|PROGRAMMING|ICT|कंप्यूटर)\b/.test(upperText)) return "Computers";
+  if (/\b(SOCIAL SCIENCE|SOCIAL STUDIES|SOCIAL|S\.ST|SST|SSC|CIVICS|GEOGRAPHY|POLITICAL SCIENCE|सामाजिक)\b/.test(upperText)) return "Social Science";
+  if (/\b(PUNJABI|PANJABI|ਪੰਜਾਬੀ|पंजाबी)\b/.test(upperText)) return "Punjabi";
+  if (/\b(FRENCH|FRANÇAIS|FRANCAIS)\b/.test(upperText)) return "French";
+  if (/\b(GENERAL KNOWLEDGE|G\.K)\b/.test(upperText)) return "General Knowledge";
+  if (/\b(ART|DRAWING|CRAFT|PAINTING)\b/.test(upperText)) return "Art";
 
-  return type || "School Diary";
+  // Priority 4: Fallback signal from classworkType if no subject from homework content
+  if (classworkType && typeof classworkType === "string") {
+    const upperCw = classworkType.toUpperCase();
+    if (/\b(HISTORY|HIST)\b/.test(upperCw)) return "History";
+    if (/\b(MATH|MATHEMATICS)\b/.test(upperCw)) return "Mathematics";
+    if (/\b(PHYSICS)\b/.test(upperCw)) return "Physics";
+    if (/\b(CHEMISTRY)\b/.test(upperCw)) return "Chemistry";
+    if (/\b(BIOLOGY)\b/.test(upperCw)) return "Biology";
+    if (/\b(SCIENCE)\b/.test(upperCw)) return "Science";
+    if (/\b(ENGLISH)\b/.test(upperCw)) return "English";
+    if (/\b(HINDI)\b/.test(upperCw)) return "Hindi";
+    if (/\b(COMPUTER)\b/.test(upperCw)) return "Computers";
+    if (/\b(S\.ST|SOCIAL|SST)\b/.test(upperCw)) return "Social Science";
+    if (/\b(PUNJABI)\b/.test(upperCw)) return "Punjabi";
+    if (/\b(FRENCH)\b/.test(upperCw)) return "French";
+  }
+
+  // Priority 5: Default fallback
+  return "School Diary";
 }
 
 /**
@@ -59,7 +104,7 @@ class HomeworkCacheService {
       const date = item.date || "";
       const content = item.homework || "";
       const attachmentUrl = item.attachment || null;
-      const subject = detectSubjectFromText(content, type);
+      const subject = detectSubjectFromText(content, item.subject || "", type);
 
       const homeworkId = generateHomeworkId(userId, date, subject, content, attachmentUrl);
 
@@ -313,3 +358,4 @@ class HomeworkCacheService {
 const homeworkCacheService = new HomeworkCacheService();
 
 module.exports = homeworkCacheService;
+module.exports.detectSubjectFromText = detectSubjectFromText;

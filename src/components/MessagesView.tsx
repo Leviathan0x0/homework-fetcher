@@ -6,6 +6,7 @@ import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
 import {
   MessageCircle,
   Plus,
@@ -46,6 +47,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  // State for monitoring notice dialog
+  const [showNoticeDialog, setShowNoticeDialog] = useState(false);
+  const [pendingParticipant, setPendingParticipant] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     authService.getCurrentUser().then(u => {
@@ -278,9 +283,31 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     } catch {} finally { setSearching(false); }
   };
 
-  const handleStartConversation = async (participantId: string) => {
+  const handleInitiateChat = (u: { id: string; studentId: string; displayName?: string | null }) => {
+    const name = u.displayName || u.studentId;
+    const existing = conversations.find(c => c.otherUser?.id === u.id);
+    if (existing) {
+      setShowNewModal(false);
+      setSearchQuery('');
+      setSearchResults([]);
+      setActiveConvId(existing.id);
+    } else {
+      setPendingParticipant({ id: u.id, name });
+      setShowNoticeDialog(true);
+    }
+  };
+
+  const handleConfirmNotice = async (noticeToken: string) => {
+    if (!pendingParticipant) return;
+    const participantId = pendingParticipant.id;
+    setShowNoticeDialog(false);
+    setPendingParticipant(null);
+    await handleStartConversation(participantId, noticeToken);
+  };
+
+  const handleStartConversation = async (participantId: string, noticeToken: string) => {
     try {
-      const data = await messagingService.startConversation(currentStudentId, participantId);
+      const data = await messagingService.startConversation(currentStudentId, participantId, noticeToken);
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);
@@ -298,7 +325,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           ...prev,
         ];
       });
-    } catch {}
+    } catch (err: any) {
+      alert(err.message || 'Failed to start conversation.');
+    }
   };
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
@@ -343,7 +372,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             searchResults.map((u) => (
               <button
                 key={u.id}
-                onClick={() => handleStartConversation(u.id)}
+                onClick={() => handleInitiateChat(u)}
                 className="w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
               >
                 <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
@@ -719,7 +748,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
               ) : searchResults.length > 0 ? (
                 searchResults.map((u) => (
-                  <button key={u.id} onClick={() => handleStartConversation(u.id)}
+                  <button key={u.id} onClick={() => handleInitiateChat(u)}
                     className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
@@ -773,6 +802,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </div>
         </div>
       )}
+
+      {/* Monitoring Notice Dialog */}
+      <MonitoringNoticeDialog
+        isOpen={showNoticeDialog}
+        participantId={pendingParticipant?.id || ''}
+        participantName={pendingParticipant?.name}
+        onConfirm={handleConfirmNotice}
+        onCancel={() => {
+          setShowNoticeDialog(false);
+          setPendingParticipant(null);
+        }}
+      />
     </div>
   );
 };

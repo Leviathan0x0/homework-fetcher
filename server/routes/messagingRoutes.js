@@ -169,15 +169,63 @@ router.get("/conversations", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/conversations", requireAuth, async (req, res) => {
+const noticeTokens = new Map();
+
+// Periodic cleanup of expired notice tokens
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, data] of noticeTokens.entries()) {
+    if (now > data.expiresAt) noticeTokens.delete(token);
+  }
+}, 60 * 1000);
+
+router.post("/conversations/notice-token", requireAuth, async (req, res) => {
   try {
     const { participantId } = req.body || {};
+    if (!participantId || typeof participantId !== "string") {
+      return res.status(400).json({ error: "Participant ID is required." });
+    }
+    const token = crypto.randomUUID();
+    const now = Date.now();
+    noticeTokens.set(token, {
+      userId: req.user.id,
+      participantId,
+      validAfter: now + 5000,
+      expiresAt: now + 5 * 60 * 1000,
+    });
+    return res.json({ noticeToken: token, validAfter: now + 5000 });
+  } catch (err) {
+    console.error("Notice Token Error:", err);
+    return res.status(500).json({ error: "Failed to generate notice token." });
+  }
+});
+
+router.post("/conversations", requireAuth, async (req, res) => {
+  try {
+    const { participantId, noticeToken } = req.body || {};
     if (!participantId || typeof participantId !== "string") {
       return res.status(400).json({ error: "Participant ID is required." });
     }
     if (participantId === req.user.id) {
       return res.status(400).json({ error: "Cannot start a conversation with yourself." });
     }
+
+    // Server-side validation of monitoring notice countdown
+    if (!noticeToken || typeof noticeToken !== "string") {
+      return res.status(403).json({ error: "Monitoring notice confirmation is required before starting a conversation." });
+    }
+    const tokenData = noticeTokens.get(noticeToken);
+    if (
+      !tokenData ||
+      tokenData.userId !== req.user.id ||
+      tokenData.participantId !== participantId
+    ) {
+      return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
+    }
+    if (Date.now() < tokenData.validAfter) {
+      return res.status(403).json({ error: "Monitoring notice countdown must be completed before starting a conversation." });
+    }
+    noticeTokens.delete(noticeToken);
 
     const otherUser = await db
       .select()

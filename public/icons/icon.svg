@@ -1,23 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#18181b"/>
-      <stop offset="100%" stop-color="#09090b"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#818cf8"/>
-      <stop offset="100%" stop-color="#4f46e5"/>
-    </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="16" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-  </defs>
-  <rect width="512" height="512" rx="128" fill="url(#bg)" />
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="4" />
-  <g transform="translate(128, 128)">
-    <rect width="256" height="256" rx="56" fill="url(#accent)" filter="url(#glow)" />
-    <path d="M76 64h104c8.8 0 16 7.2 16 16v96c0 8.8-7.2 16-16 16H76c-8.8 0-16-7.2-16-16V80c0-8.8 7.2-16 16-16z" fill="none" stroke="#ffffff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M128 64v128M60 112h136" fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Manav Mangal Smart School, Mohali">
+  <title>MMSS Mohali</title>
+  <circle cx="64" cy="64" r="60" fill="#1d4ed8" />
+  <circle cx="64" cy="64" r="52" fill="#3b82f6" />
+  <g fill="none" stroke="#dbeafe" stroke-width="2.5" opacity="0.85">
+    <circle cx="64" cy="64" r="52" />
+    <path d="M64 12c14 14 14 90 0 104" />
+    <path d="M64 12c-14 14-14 90 0 104" />
+    <path d="M14 46h100" />
+    <path d="M14 82h100" />
   </g>
+  <g>
+    <path d="M40 96c-3-12 1-24 9-31l7 6c-6 6-9 15-7 25z" fill="#f97316" />
+    <circle cx="52" cy="46" r="10" fill="#fbbf24" />
+    <path d="M44 60c2-6 6-9 12-9s10 4 11 10l-4 22H47z" fill="#ef4444" />
+    <circle cx="82" cy="52" r="9" fill="#fde68a" />
+    <path d="M74 65c2-5 5-8 10-8s9 3 10 8l-3 20H77z" fill="#22c55e" />
+    <rect x="60" y="70" width="26" height="17" rx="3" fill="#f8fafc" />
+    <path d="M73 70v17" stroke="#94a3b8" stroke-width="2" />
+  </g>
+  <path d="M22 100h84" stroke="#0f172a" stroke-width="4" stroke-linecap="round" opacity="0.25" />
 </svg>

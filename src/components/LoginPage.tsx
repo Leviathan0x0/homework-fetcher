@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, AlertCircle, BookOpen, User, Lock, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, User, Lock, ArrowRight } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface LoginPageProps {
@@ -59,8 +59,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         <div className="w-full max-w-md my-auto space-y-8">
           {/* Header Title & Subtitle */}
           <div className="space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-neutral-900 flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-sm overflow-hidden">
-              <img src="/logo.png" alt="Homework Logo" className="w-full h-full object-contain" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-900 flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-2xs overflow-hidden">
+                <img src="/logo.png" alt="MMSS Mohali Logo" className="w-full h-full object-contain" />
+              </div>
+              <span className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">
+                MMSS Mohali
+              </span>
             </div>
             <div className="space-y-1">
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
@@ -120,7 +125,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     placeholder="Enter your password"
                     disabled={isLoading}
                     autoComplete="current-password"
-                    className="w-full bg-transparent text-sm h-12 pl-11 pr-12 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 font-mono"
+                    className="w-full bg-transparent text-sm h-12 pl-11 pr-12 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 font-normal"
                   />
                   <button
                     type="button"
@@ -160,12 +165,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               )}
             </button>
           </form>
-
-          {/* Footer Security Badge */}
-          <div className="pt-2 text-center text-xs text-neutral-400 dark:text-neutral-500 font-medium flex items-center justify-center gap-1.5">
-            <BookOpen className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Direct & secure school portal integration</span>
-          </div>
         </div>
       </section>
 

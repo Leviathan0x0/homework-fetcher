@@ -521,6 +521,131 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
   }
 });
 
+/** Removes the stored bytes and on-disk file of the given message rows. */
+async function removeMessageArtifacts(msgs) {
+  const withAttachment = msgs.filter((m) => m.attachmentUrl);
+  if (withAttachment.length === 0) return;
+
+  await db
+    .delete(schema.messageAttachments)
+    .where(inArray(schema.messageAttachments.messageId, withAttachment.map((m) => m.id)))
+    .run();
+
+  for (const msg of withAttachment) {
+    if (msg.filePath) fs.unlink(msg.filePath, () => {});
+  }
+}
+
+/** Rewrites a conversation's preview so the inbox reflects the remaining messages. */
+async function refreshConversationPreview(convId) {
+  const last = await db
+    .select()
+    .from(schema.messages)
+    .where(eq(schema.messages.conversationId, convId))
+    .orderBy(desc(schema.messages.createdAt))
+    .limit(1)
+    .get();
+
+  const preview = last
+    ? last.attachmentUrl
+      ? `[Attachment] ${last.originalFilename}`
+      : (last.content || "").substring(0, 80)
+    : null;
+
+  await db
+    .update(schema.conversations)
+    .set({
+      lastMessagePreview: preview,
+      lastMessageAt: last ? last.createdAt : null,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(eq(schema.conversations.id, convId))
+    .run();
+}
+
+// Only the author may delete a message: participation alone is not enough.
+router.delete(
+  "/messages/:id",
+  requireAuth,
+  rateLimit({ name: "delete-message", windowMs: 60 * 1000, max: 60 }),
+  async (req, res) => {
+    try {
+      const messageId = req.params.id;
+      const msg = await db
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.id, messageId))
+        .get();
+
+      if (!msg) return res.status(404).json({ error: "Message not found." });
+      if (msg.senderId !== req.user.id) {
+        return res.status(403).json({ error: "You can only delete your own messages." });
+      }
+
+      await removeMessageArtifacts([msg]);
+      await db.delete(schema.messages).where(eq(schema.messages.id, messageId)).run();
+      await refreshConversationPreview(msg.conversationId);
+
+      return res.json({ success: true, conversationId: msg.conversationId });
+    } catch (err) {
+      console.error("Delete Message Error:", err);
+      return res.status(500).json({ error: "Failed to delete message." });
+    }
+  }
+);
+
+// A one-to-one chat is deleted for both participants, so only someone who is in
+// the conversation may remove it.
+router.delete(
+  "/conversations/:id",
+  requireAuth,
+  rateLimit({ name: "delete-conversation", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const convId = req.params.id;
+      const conversation = await db
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.id, convId))
+        .get();
+
+      if (!conversation) return res.status(404).json({ error: "Conversation not found." });
+      if (!await isParticipant(convId, req.user.id)) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const msgs = await db
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.conversationId, convId))
+        .all();
+
+      await removeMessageArtifacts(msgs);
+
+      await db.delete(schema.messages).where(eq(schema.messages.conversationId, convId)).run();
+      await db
+        .delete(schema.conversationParticipants)
+        .where(eq(schema.conversationParticipants.conversationId, convId))
+        .run();
+      await db
+        .delete(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.type, "new_message"),
+            eq(schema.notifications.referenceId, convId)
+          )
+        )
+        .run();
+      await db.delete(schema.conversations).where(eq(schema.conversations.id, convId)).run();
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Delete Conversation Error:", err);
+      return res.status(500).json({ error: "Failed to delete conversation." });
+    }
+  }
+);
+
 router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;

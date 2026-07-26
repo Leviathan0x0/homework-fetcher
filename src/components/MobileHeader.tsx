@@ -17,13 +17,13 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onOpenSettings,
 }) => {
   return (
-    <header className="md:hidden flex items-center justify-between h-14 px-4 bg-neutral-50/90 dark:bg-[#09090b]/90 border-b border-neutral-200/80 dark:border-neutral-800/80 sticky top-0 z-30 backdrop-blur-md pt-[env(safe-area-inset-top)]">
+    <header className="md:hidden flex items-center justify-between h-[calc(3.5rem+env(safe-area-inset-top))] px-4 bg-neutral-50/90 dark:bg-[#09090b]/90 border-b border-neutral-200/80 dark:border-neutral-800/80 sticky top-0 z-30 backdrop-blur-md pt-[env(safe-area-inset-top)]">
       <div className="flex items-center gap-2 group/brand">
         <div className="w-7 h-7 rounded-xl bg-white dark:bg-neutral-900 flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-300 group-hover/brand:scale-105 p-0.5 border border-neutral-200/60 dark:border-neutral-800/60 overflow-hidden">
-          <img src="/logo.png" alt="Homework Logo" className="w-full h-full object-contain" />
+          <img src="/logo.png" alt="MMSS Mohali Logo" className="w-full h-full object-contain" />
         </div>
         <span className="font-semibold text-sm tracking-tight text-neutral-900 dark:text-neutral-100">
-          Homework
+          MMSS Mohali
         </span>
       </div>
 

@@ -18,6 +18,8 @@ import {
   Eye,
   FileText,
   Download,
+  ExternalLink,
+  Trash2,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -25,8 +27,13 @@ interface MessagesViewProps {
 }
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seeded from the last load so the inbox paints immediately instead of
+  // showing an empty list until the first request comes back.
+  const [conversations, setConversations] = useState<Conversation[]>(
+    () => messagingService.getCachedConversations() as Conversation[]
+  );
+  const [isLoading, setIsLoading] = useState(() => messagingService.getCachedConversations().length === 0);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -34,6 +41,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
 
   useEffect(() => {
@@ -80,14 +89,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   };
 
   const fetchConversations = useCallback(async () => {
-    setIsLoading(true);
     try {
-      const convs = await messagingService.getConversations(currentStudentId);
-      if (convs && convs.length > 0) {
-        setConversations(convs);
-      }
-    } catch {} finally { setIsLoading(false); }
-  }, [currentStudentId]);
+      const convs = await messagingService.getConversations();
+      setConversations(convs);
+      setLoadError(null);
+    } catch {
+      setLoadError('Conversations could not be loaded. Retrying…');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchConversations();
@@ -113,14 +124,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     try {
       const msgs = await messagingService.getMessages(convId);
       setMessages((prev) => {
+        // The server list is authoritative, so deleted messages stay deleted.
+        // Only locally sent messages the server has not returned yet are kept.
         const map = new Map<string, Message>();
+        msgs.forEach((m: Message) => map.set(m.id, m));
+        const newestServerAt = msgs.length
+          ? new Date(msgs[msgs.length - 1].createdAt).getTime()
+          : 0;
         prev.forEach((m) => {
-          if (m.conversationId === convId) {
-            map.set(m.id, m);
-          }
-        });
-        msgs.forEach((m: Message) => {
-          map.set(m.id, m);
+          if (m.conversationId !== convId || map.has(m.id)) return;
+          if (new Date(m.createdAt).getTime() > newestServerAt) map.set(m.id, m);
         });
         return Array.from(map.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
@@ -216,6 +229,37 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       return;
     }
     setSelectedFile(prepared);
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!confirm('Delete this message for everyone?')) return;
+    setDeletingMessageId(messageId);
+    try {
+      await messagingService.deleteMessage(messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+      fetchConversations();
+    } catch (err: any) {
+      setFileError(typeof err?.message === 'string' ? err.message : 'Message could not be deleted.');
+    } finally {
+      setDeletingMessageId(null);
+    }
+  };
+
+  const handleDeleteConversation = async (convId: string) => {
+    if (!confirm('Delete this conversation and all of its messages?')) return;
+    setDeletingConvId(convId);
+    try {
+      await messagingService.deleteConversation(convId);
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+      if (activeConvId === convId) {
+        setActiveConvId(null);
+        setMessages([]);
+      }
+    } catch (err: any) {
+      setLoadError(typeof err?.message === 'string' ? err.message : 'Conversation could not be deleted.');
+    } finally {
+      setDeletingConvId(null);
+    }
   };
 
   const handleSearch = async (q: string) => {
@@ -318,54 +362,81 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             <div className="p-6 text-center text-xs text-neutral-400">No users found</div>
           )
         ) : conversations.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
-            <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
-              <MessageCircle className="w-5 h-5" />
+          isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
             </div>
-            <p className="text-xs text-neutral-500 font-medium">No active conversations</p>
-            <p className="text-[11px] text-neutral-400 mt-1">Search for a student ID above to start chatting</p>
-          </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
+              <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
+                <MessageCircle className="w-5 h-5" />
+              </div>
+              <p className="text-xs text-neutral-500 font-medium">
+                {loadError ? 'Conversations unavailable' : 'No active conversations'}
+              </p>
+              <p className="text-[11px] text-neutral-400 mt-1">
+                {loadError || 'Search for a student ID above to start chatting'}
+              </p>
+            </div>
+          )
         ) : (
           conversations.map((conv) => (
-            <button
+            <div
               key={conv.id}
-              onClick={() => setActiveConvId(conv.id)}
               className={cn(
-                'w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40',
+                'flex items-center gap-1 pr-2 transition-all hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40 group/conv',
                 activeConvId === conv.id && 'bg-neutral-200/80 dark:bg-neutral-800/80 font-medium'
               )}
             >
-              <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
-                {userLabel(conv.otherUser).charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {userLabel(conv.otherUser)}
-                    </span>
-                    {conv.otherUser?.section && (
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
-                        {conv.otherUser.section}
+              <button
+                onClick={() => setActiveConvId(conv.id)}
+                className="flex-1 min-w-0 text-left pl-3.5 pr-1 py-3 flex items-center gap-3 cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
+                  {userLabel(conv.otherUser).charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                        {userLabel(conv.otherUser)}
+                      </span>
+                      {conv.otherUser?.section && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
+                          {conv.otherUser.section}
+                        </span>
+                      )}
+                    </div>
+                    {conv.lastMessageAt && (
+                      <span className="text-[10px] text-neutral-400 shrink-0">
+                        {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
-                  {conv.lastMessageAt && (
-                    <span className="text-[10px] text-neutral-400 shrink-0">
-                      {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                  {conv.lastMessagePreview && (
+                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{conv.lastMessagePreview}</p>
                   )}
                 </div>
-                {conv.lastMessagePreview && (
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{conv.lastMessagePreview}</p>
+                {conv.unreadCount > 0 && (
+                  <span className="flex size-4 items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[10px] font-bold shrink-0">
+                    {conv.unreadCount}
+                  </span>
                 )}
-              </div>
-              {conv.unreadCount > 0 && (
-                <span className="flex size-4 items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[10px] font-bold shrink-0">
-                  {conv.unreadCount}
-                </span>
-              )}
-            </button>
+              </button>
+              <button
+                onClick={() => handleDeleteConversation(conv.id)}
+                disabled={deletingConvId === conv.id}
+                title="Delete conversation"
+                aria-label="Delete conversation"
+                className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 md:opacity-0 md:group-hover/conv:opacity-100 md:focus-visible:opacity-100"
+              >
+                {deletingConvId === conv.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
           ))
         )}
       </div>
@@ -395,6 +466,20 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             </div>
           </div>
         </div>
+
+        <button
+          onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
+          disabled={!activeConvId || deletingConvId === activeConvId}
+          title="Delete conversation"
+          aria-label="Delete conversation"
+          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+        >
+          {deletingConvId === activeConvId ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+        </button>
       </div>
 
       {/* Messages Scroll View */}
@@ -419,6 +504,21 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 rounded-tr-xs'
                     : 'bg-neutral-200/80 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 rounded-tl-xs'
                 )}>
+                  {isMine && (
+                    <button
+                      onClick={() => handleDeleteMessage(m.id)}
+                      disabled={deletingMessageId === m.id}
+                      title="Delete message"
+                      aria-label="Delete message"
+                      className="absolute -left-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity cursor-pointer disabled:opacity-50 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                    >
+                      {deletingMessageId === m.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
                   {/* Attachment Box with Preview */}
                   {m.attachmentUrl && (
                     <div className="mb-2 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 p-2 space-y-1.5">
@@ -487,7 +587,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       </div>
 
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
-      <div className="p-3 pb-20 md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
+      <div className="p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
         {fileError && (
           <div className="mb-2 px-2 text-[11px] text-rose-600 dark:text-rose-400">{fileError}</div>
         )}
@@ -567,7 +667,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       </div>
 
       {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">New Message</h3>
@@ -621,7 +721,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           would have to be rendered as a document on this origin, which would let
           the sender run code in the viewer's session. */}
       {previewMedia && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/75 backdrop-blur-md animate-in fade-in duration-200" onClick={() => setPreviewMedia(null)}>
           <div className="relative max-w-3xl w-full max-h-[90vh] bg-white/85 dark:bg-[#121215]/90 border border-white/50 dark:border-white/10 rounded-3xl p-5 flex flex-col items-center justify-center space-y-4 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="w-full flex items-center justify-between border-b border-neutral-200/60 dark:border-white/10 pb-3">
               <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{previewMedia.name}</span>

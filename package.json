@@ -1,6 +1,6 @@
 {
   "name": "homework-fetcher",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Clean, minimal, calm consumer homework dashboard",
   "main": "server.js",
   "scripts": {

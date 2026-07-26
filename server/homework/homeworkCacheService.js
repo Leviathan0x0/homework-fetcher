@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and, desc } = require("drizzle-orm");
+const { eq, and, desc, or } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
@@ -7,7 +7,8 @@ const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES
 /**
  * Detects subject from homework text or type string.
  * @param {string} text 
- * @param {string} type 
+ * @param {string} explicitSubject 
+ * @param {string} classworkType 
  * @returns {string}
  */
 function detectSubjectFromText(text = "", explicitSubject = "", classworkType = "") {
@@ -72,18 +73,71 @@ function detectSubjectFromText(text = "", explicitSubject = "", classworkType = 
 }
 
 /**
- * Generates a stable deterministic SHA-256 ID for a homework entry.
- * Prevents duplicate insertions upon refreshing EduSecure.
+ * Normalizes content text for stable ID generation and deduplication.
+ * Strips dynamic shortlinks (e.g. tiny.edusecure.in/random) and collapses whitespace.
+ * @param {string} text 
+ * @returns {string}
+ */
+function normalizeContentForHashing(text = "") {
+  return (text || "")
+    .replace(/https?:\/\/tiny\.edusecure\.in\/[A-Za-z0-9]+/gi, "http://tiny.edusecure.in/normalized")
+    .replace(/[\s\r\n\t]+/g, " ")
+    .trim();
+}
+
+/**
+ * Generates a stable deterministic SHA-256 ID for a homework entry based on content.
+ * Prevents duplicate insertions when subjects or tracking shortlinks update.
  * @param {string} userId 
  * @param {string} date 
- * @param {string} subject 
  * @param {string} content 
- * @param {string|null} attachmentUrl 
  * @returns {string} SHA-256 hash string
  */
-function generateHomeworkId(userId, date, subject, content, attachmentUrl) {
-  const rawKey = `${userId}:${(date || "").trim()}:${(subject || "").trim()}:${(content || "").trim()}:${(attachmentUrl || "").trim()}`;
+function generateHomeworkId(userId, date, content) {
+  const normContent = normalizeContentForHashing(content);
+  const rawKey = `${userId}:${(date || "").trim()}:${normContent}`;
   return crypto.createHash("sha256").update(rawKey).digest("hex");
+}
+
+/**
+ * Purges duplicate entries for the same user, date, and content.
+ */
+async function cleanDuplicateHomework(userId) {
+  if (!userId) return;
+  try {
+    const all = await db
+      .select()
+      .from(schema.homework)
+      .where(eq(schema.homework.userId, userId))
+      .all();
+
+    const seen = new Map();
+    const toDeleteIds = [];
+
+    for (const r of all) {
+      const normContent = normalizeContentForHashing(r.content);
+      const key = `${(r.date || "").trim()}:${normContent}`;
+      if (seen.has(key)) {
+        const existing = seen.get(key);
+        if (r.subject === "History" && existing.subject !== "History") {
+          toDeleteIds.push(existing.id);
+          seen.set(key, r);
+        } else {
+          toDeleteIds.push(r.id);
+        }
+      } else {
+        seen.set(key, r);
+      }
+    }
+
+    if (toDeleteIds.length > 0) {
+      for (const delId of toDeleteIds) {
+        await db.delete(schema.homework).where(eq(schema.homework.id, delId)).run();
+      }
+    }
+  } catch (err) {
+    console.error("Cleanup Duplicate Homework Error:", err);
+  }
 }
 
 class HomeworkCacheService {
@@ -101,22 +155,35 @@ class HomeworkCacheService {
 
     for (const item of parsedHomework) {
       const type = item.type || "Homework";
-      const date = item.date || "";
-      const content = item.homework || "";
+      const date = (item.date || "").trim();
+      const content = (item.homework || "").trim();
+      if (!content) continue;
+
       const attachmentUrl = item.attachment || null;
       const subject = detectSubjectFromText(content, item.subject || "", type);
-
-      const homeworkId = generateHomeworkId(userId, date, subject, content, attachmentUrl);
+      const homeworkId = generateHomeworkId(userId, date, content);
 
       const existing = await db
         .select()
         .from(schema.homework)
-        .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
+        .where(
+          and(
+            eq(schema.homework.userId, userId),
+            or(
+              eq(schema.homework.id, homeworkId),
+              and(
+                eq(schema.homework.date, date),
+                eq(schema.homework.content, content)
+              )
+            )
+          )
+        )
         .get();
 
       if (existing) {
         await db.update(schema.homework)
           .set({
+            id: homeworkId,
             date,
             subject,
             content,
@@ -124,8 +191,15 @@ class HomeworkCacheService {
             type,
             updatedAt: now,
           })
-          .where(eq(schema.homework.id, homeworkId))
+          .where(eq(schema.homework.id, existing.id))
           .run();
+
+        if (existing.id !== homeworkId) {
+          await db.update(schema.homeworkUserState)
+            .set({ homeworkId })
+            .where(and(eq(schema.homeworkUserState.homeworkId, existing.id), eq(schema.homeworkUserState.userId, userId)))
+            .run();
+        }
       } else {
         await db.insert(schema.homework)
           .values({
@@ -144,6 +218,8 @@ class HomeworkCacheService {
       }
     }
 
+    await cleanDuplicateHomework(userId);
+
     return await this.getCachedHomework(userId);
   }
 
@@ -155,6 +231,8 @@ class HomeworkCacheService {
    */
   async getCachedHomework(userId) {
     if (!userId) return [];
+
+    await cleanDuplicateHomework(userId);
 
     // Query homework left joining homework_user_state for completion status & personal notes
     const rows = await db
@@ -182,17 +260,26 @@ class HomeworkCacheService {
       .where(eq(schema.homework.userId, userId))
       .all();
 
-    return rows.map((row) => ({
-      id: row.id,
-      type: row.type,
-      date: row.date,
-      subject: row.subject,
-      homework: row.homework,
-      attachment: row.attachment,
-      completed: row.completed === 1,
-      note: row.note || null,
-      updatedAt: row.updatedAt,
-    }));
+    const uniqueMap = new Map();
+    for (const row of rows) {
+      const normContent = normalizeContentForHashing(row.homework);
+      const key = `${(row.date || "").trim()}:${normContent}`;
+      if (!uniqueMap.has(key) || (row.subject === "History" && uniqueMap.get(key).subject !== "History")) {
+        uniqueMap.set(key, {
+          id: row.id,
+          type: row.type,
+          date: row.date,
+          subject: row.subject,
+          homework: row.homework,
+          attachment: row.attachment,
+          completed: row.completed === 1,
+          note: row.note || null,
+          updatedAt: row.updatedAt,
+        });
+      }
+    }
+
+    return Array.from(uniqueMap.values());
   }
 
   /**

@@ -58,6 +58,42 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     setNameSaved(false);
   }, [user?.displayName]);
 
+  useEffect(() => {
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true;
+    if (isStandalone) {
+      setIsInstalled(true);
+      return;
+    }
+
+    const ua = window.navigator.userAgent;
+    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as Event as BeforeInstallPromptEvent);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+      }
+      setDeferredPrompt(null);
+    } else if (isIOS) {
+      setShowIOSModal(true);
+    } else {
+      alert('To install, open your browser menu (⋮ or ⋯) and tap "Install App" or "Add to Home Screen".');
+    }
+  };
+
   const handleSaveName = async () => {
     setSavingName(true);
     setNameError(null);
@@ -157,7 +193,40 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         )}
       </div>
 
-      {/* Section 3: Appearance Theme */}
+      {/* Section 3: PWA Installation App Option */}
+      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
+              <Smartphone className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
+                <span>Install Application</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-300/60 dark:border-neutral-700/60">PWA</span>
+              </div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                {isInstalled
+                  ? 'App is installed on your device.'
+                  : 'Add directly to your home screen for quick access.'}
+              </div>
+            </div>
+          </div>
+
+          {!isInstalled && (
+            <button
+              type="button"
+              onClick={handleInstallClick}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer active:scale-95 transition-transform"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Install</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Section 4: Appearance Theme */}
       <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
           Appearance
@@ -181,7 +250,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       </div>
 
-      {/* Section 4: App Identity & Security Info */}
+      {/* Section 5: App Identity & Security Info */}
       <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
         <span className="flex items-center gap-1.5 group/sec">
           <ShieldCheck className="w-4 h-4 text-emerald-500 transition-transform duration-200 group-hover/sec:rotate-12" />
@@ -200,6 +269,34 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           >
             Done
           </button>
+        </div>
+      )}
+
+      {/* iOS Safari Installation Guide Modal */}
+      {showIOSModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install on iPhone / iPad</h3>
+              <button onClick={() => setShowIOSModal(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-300">
+              To install this app on your iOS home screen:
+            </p>
+            <ol className="text-xs text-neutral-600 dark:text-neutral-400 space-y-2.5 list-decimal list-inside pl-1">
+              <li>Tap the <strong>Share</strong> icon in Safari toolbar</li>
+              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
+              <li>Tap <strong>Add</strong> in the top right corner</li>
+            </ol>
+            <button
+              onClick={() => setShowIOSModal(false)}
+              className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200"
+            >
+              Got it
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -257,34 +354,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           className="overflow-y-auto flex-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         />
       </div>
-
-      {/* iOS Safari Installation Guide Modal */}
-      {showIOSModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install on iPhone / iPad</h3>
-              <button onClick={() => setShowIOSModal(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300">
-              To install this app on your iOS home screen:
-            </p>
-            <ol className="text-xs text-neutral-600 dark:text-neutral-400 space-y-2.5 list-decimal list-inside pl-1">
-              <li>Tap the <strong>Share</strong> icon in Safari toolbar</li>
-              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
-              <li>Tap <strong>Add</strong> in the top right corner</li>
-            </ol>
-            <button
-              onClick={() => setShowIOSModal(false)}
-              className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

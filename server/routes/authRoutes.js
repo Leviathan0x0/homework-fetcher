@@ -4,6 +4,7 @@ const { fetchProfileFromEduSecure } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
+const homeworkCacheService = require("../homework/homeworkCacheService");
 
 const FALLBACK_SECTION = "Section 10-A";
 const needsRefresh = (s) => !s || s === FALLBACK_SECTION;
@@ -32,8 +33,15 @@ router.post("/login", async (req, res) => {
     }
 
     let sessionCookies;
+    let initialHomework = [];
     try {
-      sessionCookies = await loginToEduSecure(cleanStudentId, password);
+      const authResult = await loginToEduSecure(cleanStudentId, password);
+      if (typeof authResult === "string") {
+        sessionCookies = authResult;
+      } else {
+        sessionCookies = authResult.sessionCookies;
+        initialHomework = authResult.initialHomework || [];
+      }
     } catch (authErr) {
       console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
       // Only report bad credentials when the portal actually rejected them;
@@ -53,6 +61,13 @@ router.post("/login", async (req, res) => {
     const user = await sessionService.findOrCreateUser(cleanStudentId);
     await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
+    // Immediately cache homework parsed during login verification
+    if (initialHomework && initialHomework.length > 0) {
+      homeworkCacheService.upsertHomework(user.id, initialHomework).catch((err) => {
+        console.error("Failed to upsert initial homework cache:", err.message);
+      });
+    }
+
     const appToken = await sessionService.createAppSession(user.id);
 
     res.cookie("app_session", appToken, sessionCookieOptions({
@@ -61,20 +76,19 @@ router.post("/login", async (req, res) => {
 
     let section = user.section;
     let displayName = user.displayName;
+
+    // Fetch profile in non-blocking background task so response returns immediately
     if (needsRefresh(section) || !displayName) {
-      try {
-        const profile = await fetchProfileFromEduSecure(sessionCookies);
+      fetchProfileFromEduSecure(sessionCookies).then(async (profile) => {
         if (profile.section && needsRefresh(section)) {
           await sessionService.updateSection(user.id, profile.section);
-          section = profile.section;
         }
         if (profile.displayName && !displayName) {
           await sessionService.updateDisplayName(user.id, profile.displayName);
-          displayName = profile.displayName;
         }
-      } catch (err) {
-        console.error("Profile fetch failed:", err.message);
-      }
+      }).catch((err) => {
+        console.error("Background profile fetch failed:", err.message);
+      });
     }
 
     return res.json({

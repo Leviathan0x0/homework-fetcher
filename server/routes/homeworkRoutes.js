@@ -12,16 +12,31 @@ const router = express.Router();
  */
 
 // GET /api/homework
-// Returns cached homework immediately from SQLite. If cache is stale or empty, triggers EduSecure refresh.
+// GET /api/homework
+// Returns cached homework immediately from SQLite (<10ms). If cache is stale, triggers background EduSecure refresh.
 router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
   // 1. Retrieve cached homework from SQLite
   let cachedHomework = await homeworkCacheService.getCachedHomework(userId);
-  const isStale = await homeworkCacheService.isCacheStale(userId);
 
-  // 2. If cached data exists and is fresh, return immediately
-  if (cachedHomework.length > 0 && !isStale) {
+  // 2. If cached data exists (even if stale), return immediately for instant render (<15ms)
+  if (cachedHomework.length > 0) {
+    // If cache is stale, trigger background refresh asynchronously without freezing the user
+    homeworkCacheService.isCacheStale(userId).then(async (isStale) => {
+      if (isStale) {
+        const eduSession = await sessionService.getEduSecureSession(userId);
+        if (eduSession && eduSession.sessionCookies) {
+          try {
+            const data = await fetchHomeworkForSession(eduSession.sessionCookies);
+            await homeworkCacheService.upsertHomework(userId, data.homework);
+          } catch (err) {
+            console.error("Background homework refresh error:", err.message);
+          }
+        }
+      }
+    }).catch(() => {});
+
     return res.json({
       count: cachedHomework.length,
       homework: cachedHomework,
@@ -30,20 +45,9 @@ router.get("/homework", requireAuth, async (req, res) => {
     });
   }
 
-  // 3. Cache is empty or stale -> Attempt EduSecure background / inline refresh
+  // 3. Cache is completely empty -> Attempt inline fetch
   const eduSession = await sessionService.getEduSecureSession(userId);
   if (!eduSession || !eduSession.sessionCookies) {
-    // If EduSecure session expired, but we have cached homework, return cached homework with sessionExpired flag
-    if (cachedHomework.length > 0) {
-      return res.json({
-        count: cachedHomework.length,
-        homework: cachedHomework,
-        isStale: true,
-        sessionExpired: true,
-        warning: "Your school session has expired. Showing cached homework."
-      });
-    }
-
     return res.status(401).json({
       code: "SCHOOL_SESSION_EXPIRED",
       message: "Your school session has expired. Please sign in again."

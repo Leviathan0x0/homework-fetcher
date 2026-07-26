@@ -192,13 +192,16 @@ async function loginToEduSecure(studentId, password) {
 
       const verifyHtml = await verifyRes.text();
 
-      if (verifyRes.status === 302 || verifyHtml.includes("Login.aspx") || verifyHtml.includes("txtusername")) {
-        continue;
-      }
-
       const sessionCookies = mapToCookieString(trialCookieMap);
       if (sessionCookies) {
-        return sessionCookies;
+        let initialHomework = [];
+        try {
+          const { parseHomeworkHtml } = require("./htmlParser");
+          initialHomework = parseHomeworkHtml(verifyHtml, "https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework");
+        } catch (e) {
+          console.error("Failed to parse initial homework during login:", e.message);
+        }
+        return { sessionCookies, initialHomework };
       }
     } catch (err) {
       if (err instanceof EduSecureAuthError && err.code === "portal_unreachable") {

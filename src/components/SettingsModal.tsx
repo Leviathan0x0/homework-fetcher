@@ -49,8 +49,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   // PWA Install state inside settings
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-  const [showIOSModal, setShowIOSModal] = useState(false);
+  const [installTab, setInstallTab] = useState<'computer' | 'android' | 'ios'>('computer');
+  const [showInstallModal, setShowInstallModal] = useState(false);
 
   useEffect(() => {
     setNameDraft(user?.displayName || '');
@@ -68,7 +68,13 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
 
     const ua = window.navigator.userAgent;
-    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
+    if (/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream) {
+      setInstallTab('ios');
+    } else if (/Android/i.test(ua)) {
+      setInstallTab('android');
+    } else {
+      setInstallTab('computer');
+    }
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -79,19 +85,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setIsInstalled(true);
-      }
-      setDeferredPrompt(null);
-    } else if (isIOS) {
-      setShowIOSModal(true);
-    } else {
-      alert('To install, open your browser menu (⋮ or ⋯) and tap "Install App" or "Add to Home Screen".');
-    }
+  const handleInstallClick = () => {
+    setShowInstallModal(true);
   };
 
   const handleSaveName = async () => {
@@ -272,30 +267,145 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       )}
 
-      {/* iOS Safari Installation Guide Modal */}
-      {showIOSModal && (
+      {/* Comprehensive Multi-Device Installation Guide Modal */}
+      {showInstallModal && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-neutral-900 text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">Install on iPhone / iPad</h3>
-              <button onClick={() => setShowIOSModal(false)} className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white">
+          <div className="bg-white dark:bg-[#141418] text-neutral-900 dark:text-white border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-neutral-200/80 dark:border-neutral-800/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">Install MMSS Mohali App</h3>
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Select your device for instructions</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInstallModal(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-neutral-600 dark:text-neutral-300">
-              To install this app on your iOS home screen:
-            </p>
-            <ol className="text-xs text-neutral-600 dark:text-neutral-400 space-y-2.5 list-decimal list-inside pl-1">
-              <li>Tap the <strong>Share</strong> icon in Safari toolbar</li>
-              <li>Scroll down and tap <strong>Add to Home Screen</strong></li>
-              <li>Tap <strong>Add</strong> in the top right corner</li>
-            </ol>
-            <button
-              onClick={() => setShowIOSModal(false)}
-              className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-200"
-            >
-              Got it
-            </button>
+
+            {/* Device Choice Tabs */}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-neutral-100 dark:bg-neutral-900 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setInstallTab('computer')}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer',
+                  installTab === 'computer'
+                    ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                )}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>Computer</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstallTab('android')}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer',
+                  installTab === 'android'
+                    ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                )}
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Android</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInstallTab('ios')}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer',
+                  installTab === 'ios'
+                    ? 'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white shadow-2xs'
+                    : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+                )}
+              >
+                <Smartphone className="w-3.5 h-3.5 text-sky-500" />
+                <span>iOS</span>
+              </button>
+            </div>
+
+            {/* Tab Instructions Content */}
+            <div className="space-y-3 py-1 min-h-[140px]">
+              {installTab === 'computer' && (
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Desktop Chrome, Edge, Brave, or Safari:
+                  </div>
+                  <ol className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 list-decimal list-inside pl-1 leading-relaxed">
+                    <li>Look for the <strong>Install icon (⬇️ or ⊕)</strong> in your browser search bar</li>
+                    <li>Or click your browser menu (<strong>⋮</strong> or <strong>⋯</strong>) in the top right</li>
+                    <li>Click <strong>"Install MMSS Mohali"</strong> or <strong>"Create Shortcut"</strong></li>
+                    <li>Click <strong>Install</strong> to add the app directly to your desktop</li>
+                  </ol>
+                </div>
+              )}
+
+              {installTab === 'android' && (
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    Android Chrome or Samsung Internet:
+                  </div>
+                  <ol className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 list-decimal list-inside pl-1 leading-relaxed">
+                    <li>Open Chrome or Samsung Internet on your Android phone</li>
+                    <li>Tap the <strong>Menu icon (⋮)</strong> in the top right corner</li>
+                    <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong></li>
+                    <li>Tap <strong>Add</strong> to confirm — the app icon will appear on your home screen</li>
+                  </ol>
+                </div>
+              )}
+
+              {installTab === 'ios' && (
+                <div className="space-y-2.5">
+                  <div className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                    iPhone or iPad (Safari):
+                  </div>
+                  <ol className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 list-decimal list-inside pl-1 leading-relaxed">
+                    <li>Click the <strong>Share icon</strong> in the search bar / navigation bar (the box with an upward arrow ⎋)</li>
+                    <li>Click <strong>View More</strong> (or scroll down the share menu)</li>
+                    <li>Click <strong>Add to Home Screen</strong> (➕)</li>
+                    <li>Tap <strong>Add</strong> in the top right corner</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+
+            {/* Action Footer */}
+            <div className="pt-2 space-y-2 border-t border-neutral-200/80 dark:border-neutral-800/80">
+              {deferredPrompt && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') setIsInstalled(true);
+                    setDeferredPrompt(null);
+                    setShowInstallModal(false);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Install Instantly (1-Click)</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowInstallModal(false)}
+                className="w-full py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors cursor-pointer active:scale-95"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

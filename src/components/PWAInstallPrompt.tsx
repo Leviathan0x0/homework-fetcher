@@ -88,11 +88,8 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     }
   };
 
-  // Hide completely ONLY when running inside an installed standalone PWA window
-  if (isInstalled) return null;
-
-  // Banner variant can be dismissed by the user
-  if (variant === 'banner' && isDismissed) return null;
+  // Completely disappear when installed or dismissed
+  if (isInstalled || isDismissed) return null;
 
   const ModalContent = showHelpModal
     ? createPortal(
@@ -154,7 +151,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             {/* Action Button */}
             <button
               onClick={handleCloseModal}
-              className="w-full py-2.5 rounded-xl bg-purple-600 text-white font-medium text-xs hover:bg-purple-700 transition-colors cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-medium text-xs hover:bg-indigo-700 transition-colors cursor-pointer"
             >
               Got it
             </button>
@@ -167,14 +164,24 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   if (variant === 'button') {
     return (
       <>
-        <button
-          onClick={handleInstallClick}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white dark:bg-purple-600 dark:hover:bg-purple-500 dark:text-white text-xs font-semibold shadow-xs hover:shadow-purple-500/20 border border-purple-500/30 transition-all duration-200 cursor-pointer active:scale-95 touch-manipulation shrink-0"
-          title="Install MMSS Mohali App"
-        >
-          <Download className="w-3.5 h-3.5" />
-          <span>Install App</span>
-        </button>
+        <div className="inline-flex items-center rounded-xl bg-indigo-600 text-white shadow-2xs border border-indigo-500/40 overflow-hidden text-xs font-semibold shrink-0">
+          <button
+            onClick={handleInstallClick}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 transition-colors cursor-pointer touch-manipulation"
+            title="Install MMSS Mohali App"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install App</span>
+          </button>
+          <button
+            onClick={handleDismiss}
+            className="px-2 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 text-indigo-200 hover:text-white border-l border-indigo-500/40 transition-colors cursor-pointer touch-manipulation"
+            title="Dismiss install button"
+            aria-label="Dismiss install button"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
         {ModalContent}
       </>
     );
@@ -182,24 +189,24 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs text-neutral-900 dark:text-neutral-100">
+      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-neutral-900 dark:text-neutral-100">
         <div className="flex items-center gap-3">
-          <Smartphone className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+          <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
           <div>
-            <span className="font-semibold block text-purple-950 dark:text-purple-200">Install MMSS Mohali App</span>
-            <span className="text-purple-700/80 dark:text-purple-300/80">Install to your home screen or desktop for fast offline access.</span>
+            <span className="font-semibold block text-indigo-950 dark:text-indigo-200">Install MMSS Mohali App</span>
+            <span className="text-indigo-700/80 dark:text-indigo-300/80">Install to your home screen or desktop for fast offline access.</span>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={handleInstallClick}
-            className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-semibold text-xs hover:bg-purple-700 transition-colors cursor-pointer shadow-xs"
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs hover:bg-indigo-700 transition-colors cursor-pointer shadow-xs"
           >
             Install
           </button>
           <button
             onClick={handleDismiss}
-            className="p-1.5 text-purple-400 hover:text-purple-700 dark:hover:text-purple-200 cursor-pointer"
+            className="p-1.5 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 cursor-pointer"
             aria-label="Dismiss banner"
           >
             <X className="w-4 h-4" />

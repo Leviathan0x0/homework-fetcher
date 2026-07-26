@@ -28,8 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="space-y-6">
         {/* Wordmark Header */}
         <div className="flex items-center gap-2 px-2 py-1 group/brand">
-          <div className="w-6 h-6 rounded-lg bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 flex items-center justify-center font-bold text-xs transition-transform duration-300 group-hover/brand:rotate-12 shadow-2xs">
-            H
+          <div className="w-7 h-7 rounded-lg bg-white dark:bg-neutral-900 flex items-center justify-center shrink-0 transition-transform duration-300 group-hover/brand:scale-105 shadow-2xs p-0.5 border border-neutral-200/60 dark:border-neutral-800/60 overflow-hidden">
+            <img src="/logo.png" alt="Homework Logo" className="w-full h-full object-contain" />
           </div>
           <span className="font-semibold text-sm tracking-tight text-neutral-900 dark:text-neutral-100">
             Homework

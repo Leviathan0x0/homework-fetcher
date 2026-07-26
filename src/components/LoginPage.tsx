@@ -58,13 +58,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       <section className="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="w-full max-w-md my-auto space-y-8">
           {/* Header Title & Subtitle */}
-          <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
-              Welcome back
-            </h1>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-medium">
-              Sign in to see your school homework
-            </p>
+          <div className="space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-white dark:bg-neutral-900 flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-sm overflow-hidden">
+              <img src="/logo.png" alt="Homework Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50">
+                Welcome back
+              </h1>
+              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 font-medium">
+                Sign in to see your school homework
+              </p>
+            </div>
           </div>
 
           {/* Error Banner */}

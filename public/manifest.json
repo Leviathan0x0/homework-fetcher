@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "short_name": "Homework",
-  "name": "Homework Fetcher",
-  "description": "Access your school diary, homework, classwork notes, section requests & classmate messages.",
+  "short_name": "MMSS Mohali",
+  "name": "MMSS Mohali",
+  "description": "MMSS Mohali Student Portal — Access school diary, homework, classwork notes, section requests & classmate messages.",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

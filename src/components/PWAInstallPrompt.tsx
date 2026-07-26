@@ -99,7 +99,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                  Install Homework App
+                  Install MMSS Mohali App
                 </h3>
                 <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
                   Follow the instructions below for your device
@@ -129,8 +129,8 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                 <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 2: Desktop Menu</div>
                 <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-400">
                   <li>Click the <strong>3-dots menu (⋮)</strong> in the top right.</li>
-                  <li>Select <strong>Cast, Save, and Share</strong>.</li>
-                  <li>Click <strong>Install Homework Fetcher...</strong>.</li>
+                  <li>Click or hover <strong>Cast, save and share</strong>.</li>
+                  <li>Click <strong>Install MMSS Mohali...</strong>.</li>
                 </ol>
               </div>
 
@@ -142,7 +142,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                     <strong>Android:</strong> Tap <strong>3-dots menu (⋮)</strong> → select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
                   </li>
                   <li>
-                    <strong>iOS (iPhone/iPad):</strong> Tap <strong>Share</strong> icon in Safari → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
+                    <strong>iOS (iPhone/iPad):</strong> Tap <strong>Share</strong> icon in Safari → tap <strong>View More</strong> → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
                   </li>
                 </ul>
               </div>

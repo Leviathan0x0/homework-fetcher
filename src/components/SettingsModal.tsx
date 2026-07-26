@@ -344,8 +344,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   </div>
                   <ol className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 list-decimal list-inside pl-1 leading-relaxed">
                     <li>Look for the <strong>Install icon (⬇️ or ⊕)</strong> in your browser search bar</li>
-                    <li>Or click your browser menu (<strong>⋮</strong> or <strong>⋯</strong>) in the top right</li>
-                    <li>Click <strong>"Install MMSS Mohali"</strong> or <strong>"Create Shortcut"</strong></li>
+                    <li>Or click the <strong>3 dots menu (⋮)</strong> in the top right corner</li>
+                    <li>Hover or click <strong>"Cast, save and share"</strong></li>
+                    <li>Click <strong>"Install MMSS Mohali..."</strong> (or <strong>"Create shortcut..."</strong>)</li>
                     <li>Click <strong>Install</strong> to add the app directly to your desktop</li>
                   </ol>
                 </div>

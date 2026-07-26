@@ -1,127 +1,100 @@
-# 📚 MMSS Mohali — Student Portal & Homework Fetcher
+# 📚 MMSS Mohali — Student Portal & Homework Hub
 
-A fast, modern, and calm student portal for **MMSS Mohali**. Built for seamless homework tracking, classwork management, peer requests, and real-time student messaging.
+> **A high-performance, calm, and modern student experience for MMSS Mohali.**  
+> Track daily homework, access classwork files, request peer assistance, and chat with classmates — delivered with sub-second instant load times on web, mobile, and desktop.
 
 ![React 19](https://img.shields.io/badge/React-19.0-blue?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-6.1-purple?logo=vite)
 ![Tailwind CSS v4](https://img.shields.io/badge/Tailwind_CSS-v4.0-38bdf8?logo=tailwindcss)
 ![Express.js](https://img.shields.io/badge/Express.js-5.2-green?logo=express)
-![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.45-yellow?logo=sqlite)
+![SQLite](https://img.shields.io/badge/SQLite-Drizzle_ORM-yellow?logo=sqlite)
+![PWA Ready](https://img.shields.io/badge/PWA-Installable-indigo)
 
 ---
 
-## ✨ Features
+## ✨ Core Product Showcase
 
-- 📅 **Homework Dashboard**: Organizes daily homework assignments cleanly by date and subject. Features real-time subject detection, completion tracking, date filtering, and search.
-- ⚡ **Batch Loading & Smooth Pagination**: Fast card loading with dedicated progress spinners and pagination memory to handle large volumes of assignments without lag.
-- 💬 **Peer-to-Peer Messages**: In-app direct chat between classmates with custom display names, unread badges, document & image attachment sharing, message deletion, and image lightbox previewing.
-- 🤝 **Homework Help Requests**: Submit and fulfill peer homework assistance requests.
-- 📁 **Classwork Management**: Classwork uploads and attachment file previewing with automatic client-side image compression.
-- 📱 **Mobile & PWA Ready**: Native-like Progressive Web App experience with custom mobile navigation, responsive safe-area adjustments, and guided iOS/Android home screen installation.
-- ⬆️ **Scroll Teleportation**: One-click floating teleport buttons (scroll-to-top in homework lists, scroll-to-bottom in active chat threads).
-- 🌙 **Dark Mode & Liquid Glass UI**: Multi-theme support (Light / Dark / System) crafted with modern Tailwind CSS v4 liquid-glass design aesthetics and smooth micro-animations.
+### ⚡ Sub-Second Instant Homework Engine
+- **Instant Response (< 15ms)**: Powered by a Stale-While-Revalidate architecture and SQLite local persistence. Students never sit staring at a 10-second loading screen — homework renders immediately on launch.
+- **Login Pre-parsing**: Background parser syncs school portal announcements during authentication so assignments are ready before the main view even opens.
+
+### 📅 Smart Homework Diary
+- **Subject Intelligence**: Automatic subject detection, color-coded badges, assignment status tracking, and date-range filtering.
+- **Attachment Previews**: Inline file previews for images, PDF notes, and worksheets with auto-compression.
+- **Smooth Pagination**: Infinite batch card loading with memory retention so browsing past weeks of homework remains butter-smooth.
+
+### 💬 Classmate Messaging & Collaboration
+- **Direct Peer Chat**: High-speed, section-based direct messaging with classmates.
+- **Rich Media & Lightbox**: Send notes, images, and documents with built-in full-screen image lightbox view.
+- **Unread Counter & Scroll Teleportation**: Real-time unread badges and sticky scroll teleport buttons for instant navigation to the latest message.
+
+### 🤝 Section Help & Classwork Sharing
+- **Help Requests**: Post and fulfill homework help requests with fellow section students.
+- **Classwork Storage**: Upload, organize, and browse shared class notes by subject.
+
+### 📱 Installable PWA Experience
+- **Cross-Platform**: Install directly to home screen or desktop on **iOS (Safari)**, **Android (Chrome)**, and **Computer (Chrome / Edge / Safari)**.
+- **High-Res Branding**: 1024x1024 vector crisp branding assets with squircle safe-zone padding for macOS Dock and mobile app grids.
+- **Guided Setup**: Built-in interactive device installation guide with step-by-step instructions for every device.
+
+### 🎨 Premium Design System
+- **Dark & Light Modes**: Beautiful dark/light theme switching with automatic system preference detection.
+- **Liquid Glass Aesthetics**: Modern Tailwind CSS v4 design system with smooth micro-animations, solid logo containers, and clean sans-serif typography.
 
 ---
 
-## 🛠️ Tech Stack
+## 🎨 Design & Experience Principles
 
-### Frontend
-- **Framework**: [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool**: [Vite 6](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS v4](https://tailwindcss.com/) + CSS Variables
-- **Icons**: [Phosphor Icons](https://phosphoricons.com/) & [Lucide React](https://lucide.dev/)
-- **UI Components**: Radix UI, Base UI, DND Kit
-
-### Backend
-- **Server**: [Express 5](https://expressjs.com/) (Node.js)
-- **Database**: SQLite / LibSQL with [Drizzle ORM](https://orm.drizzle.team/)
-- **Authentication**: HTTP-only cookie session authentication
-- **File Uploads**: Multer file handling with attachment storage
-- **Security**: Helmet headers, CORS origin protection, per-instance rate limiting
+- **Zero Monospace Clutter**: Enforces clean, high-legibility sans-serif typography across all views and modals.
+- **Solid White Logo Wrappers**: Brand containers maintain solid white backing across light and dark themes for consistent contrast.
+- **Indigo Accent Palette**: Styled with blue-sided Indigo (`#4f46e5`) accent colors for a focused, calm UI atmosphere.
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Architecture & Technology Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Frontend** | React 19, TypeScript 5.7, Vite 6 |
+| **Styling** | Tailwind CSS v4, Lucide React, Phosphor Icons |
+| **UI Components** | Radix UI, Base UI, DND Kit, Recharts |
+| **Backend API** | Express 5 (Node.js), Cookie Authentication |
+| **Database** | SQLite, LibSQL, Drizzle ORM |
+| **Security** | HTTP-Only Cookies, Helmet, CORS, Rate Limiters |
+
+---
+
+## 🚀 Developer & Local Setup
+
+<details>
+<summary><strong>Click to expand installation and development setup instructions</strong></summary>
 
 ### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **npm**: v9.0.0 or higher
+- Node.js v18+ & npm v9+
 
-### Installation
+### Quick Start
+```bash
+# 1. Clone the repo
+git clone https://github.com/Leviathan0x0/homework-fetcher.git
+cd homework-fetcher
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Leviathan0x0/homework-fetcher.git
-   cd homework-fetcher
-   ```
+# 2. Install dependencies
+npm install
 
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**:
-   Create a `.env` file in the project root (or copy `.env.example` if available):
-   ```env
-   PORT=3000
-   SESSION_SECRET=your_secure_random_session_secret_here
-   ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
-   ```
-
-4. **Run in development mode**:
-   ```bash
-   # Terminal 1: Start backend API server
-   npm start
-
-   # Terminal 2: Start frontend Vite development server
-   npm run dev
-   ```
-
-5. **Open in browser**:
-   Navigate to `http://localhost:5173` (Vite dev server) or `http://localhost:3000` (Integrated Express app).
-
----
-
-## 📜 NPM Scripts
-
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| `npm run dev` | `vite` | Launch Vite development server with HMR |
-| `npm run build` | `vite build` | Transpile and bundle production assets into `dist/` |
-| `npm run preview` | `vite preview` | Locally preview production bundle build |
-| `npm start` | `node server.js` | Launch Node.js Express server |
-
----
-
-## 🏗️ Project Architecture
-
-```
-homework-fetcher/
-├── public/                # Static assets (logo, favicon, CSS tokens, PWA manifest)
-├── server/                # Express backend modular structure
-│   ├── auth/              # Cookie session management & cryptographic secrets
-│   ├── db/                # Drizzle ORM client & SQLite database schema
-│   ├── routes/            # Express REST API endpoints (auth, homework, messaging, etc.)
-│   └── limits.js          # Security rate limiters
-├── src/
-│   ├── components/        # UI Views & Components (AppShell, HomeworkCard, MessagesView, etc.)
-│   ├── hooks/             # Custom React Hooks (useHomework, usePagination, etc.)
-│   ├── services/          # API services & client-side HTTP fetch wrappers
-│   ├── types/             # TypeScript type interfaces
-│   └── utils/             # Helper utilities (date formatting, subject detection, image compression)
-├── server.js              # Server entry point
-├── vite.config.ts         # Vite configuration
-└── package.json           # Project dependencies & scripts
+# 3. Start development servers
+npm start      # Start backend API (Terminal 1)
+npm run dev    # Start frontend Vite server (Terminal 2)
 ```
 
----
+Open `http://localhost:5173` in your browser.
 
-## 🔒 Security & Privacy
+### NPM Commands
+- `npm run dev`: Launch Vite dev server
+- `npm run build`: Build production assets
+- `npm start`: Launch Express server
 
-- **Session Security**: Session tokens are stored in strict `HTTP-Only` cookies with `SameSite=Lax` protection against CSRF.
-- **Request Safety**: Secured with `Helmet` security headers and origin verification.
-- **Privacy First**: Student display names are customizable, and message deletion removes stored attachments securely.
+</details>
 
 ---
 

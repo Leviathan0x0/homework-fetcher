@@ -1,9 +1,15 @@
+import { formatHomeworkText } from './homeworkFormatter';
+
 export interface ParsedHomeworkContent {
   classWork?: string;
   homeWork?: string;
 }
 
-export function parseHomeworkContent(rawText: string, subjectName: string): ParsedHomeworkContent {
+export function parseHomeworkContent(
+  rawText: string,
+  subjectName: string,
+  autoFormat: boolean = true
+): ParsedHomeworkContent {
   if (!rawText) return { homeWork: '' };
 
   let cleaned = rawText.trim();
@@ -31,6 +37,9 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
     'gi'
   );
   cleaned = cleaned.replace(inlineSubjectRegex, '\n').trim();
+
+  let resultCW: string | undefined;
+  let resultHW: string | undefined;
 
   // 4. Explicit Marker Detection (CLASS WORK / HOME WORK / C.W. / H.W. / CW / HW)
   const cwMarkerPattern = /(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)[:\-\s]*/i;
@@ -77,59 +86,57 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
     const finalCW = cwText.trim();
     const finalHW = hwText.trim();
 
-    return {
-      classWork: finalCW || undefined,
-      homeWork: finalHW || (finalCW ? undefined : cleaned),
-    };
-  }
+    resultCW = finalCW || undefined;
+    resultHW = finalHW || (finalCW ? undefined : cleaned);
+  } else {
+    // 5. Smart Sentence & Line Keyword Detection (When explicit CW/HW tags are missing)
+    const statements = cleaned
+      .split(/(?<=[.\n])\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
 
-  // 5. Smart Sentence & Line Keyword Detection (When explicit CW/HW tags are missing)
-  // Split entry into distinct statements/lines
-  const statements = cleaned
-    .split(/(?<=[.\n])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+    const cwKeywords = /(?:\b(?:topics?\s*(?:covered|discussed)|covered|discussed|completed|explained|taught|introduced|started|continued|read in class|done in class)\b|\b(?:exercise|ex|q|q\.|questions?|page|pg|pg\.)\s*[\d\s,\-and&]+\s*done\b|\bdone\b|\bcompleted\b|\bfinished\b|\btopics?\s*covered[:\-\s])/i;
+    const hwKeywords = /(?:\b(?:test|exam|unit\s*test|eval|evaluation)\b|\b(?:bring|carry)\b|\b(?:learn|memorize|revise)\b|\b(?:do|complete|solve|write|make|frame|prepare)\b.*\b(?:notebook|register|fair notebook|assignment|project|file)\b|\b(?:practice\s+writing|practice\s+doing)\b|\b(?:do|complete|solve|write)\s+(?:q\/ans|questions?|ex|exercise|page|pg)\b)/i;
 
-  const cwKeywords = /(?:\b(?:topics?\s*(?:covered|discussed)|covered|discussed|completed|explained|taught|introduced|started|continued|read in class|done in class)\b|\b(?:exercise|ex|q|q\.|questions?|page|pg|pg\.)\s*[\d\s,\-and&]+\s*done\b|\bdone\b|\bcompleted\b|\bfinished\b|\btopics?\s*covered[:\-\s])/i;
+    const foundCWStatements: string[] = [];
+    const foundHWStatements: string[] = [];
 
-  const hwKeywords = /(?:\b(?:test|exam|unit\s*test|eval|evaluation)\b|\b(?:bring|carry)\b|\b(?:learn|memorize|revise)\b|\b(?:do|complete|solve|write|make|frame|prepare)\b.*\b(?:notebook|register|fair notebook|assignment|project|file)\b|\b(?:practice\s+writing|practice\s+doing)\b|\b(?:do|complete|solve|write)\s+(?:q\/ans|questions?|ex|exercise|page|pg)\b)/i;
+    for (const stmt of statements) {
+      const isCW = cwKeywords.test(stmt);
+      const isHW = hwKeywords.test(stmt);
 
-  const foundCWStatements: string[] = [];
-  const foundHWStatements: string[] = [];
-
-  for (const stmt of statements) {
-    const isCW = cwKeywords.test(stmt);
-    const isHW = hwKeywords.test(stmt);
-
-    if (isCW && !isHW) {
-      foundCWStatements.push(stmt);
-    } else if (isHW) {
-      foundHWStatements.push(stmt);
-    } else if (statements.length > 1) {
-      if (isCW) {
+      if (isCW && !isHW) {
         foundCWStatements.push(stmt);
-      } else {
+      } else if (isHW) {
         foundHWStatements.push(stmt);
+      } else if (statements.length > 1) {
+        if (isCW) {
+          foundCWStatements.push(stmt);
+        } else {
+          foundHWStatements.push(stmt);
+        }
       }
+    }
+
+    if (foundCWStatements.length > 0 && foundHWStatements.length > 0) {
+      resultCW = foundCWStatements.join('\n');
+      resultHW = foundHWStatements.join('\n');
+    } else if (foundCWStatements.length > 0 && foundHWStatements.length === 0) {
+      resultCW = foundCWStatements.join('\n');
+      resultHW = undefined;
+    } else {
+      resultHW = cleaned;
     }
   }
 
-  if (foundCWStatements.length > 0 && foundHWStatements.length > 0) {
-    return {
-      classWork: foundCWStatements.join('\n'),
-      homeWork: foundHWStatements.join('\n'),
-    };
+  // 6. Apply Auto-formatting if enabled
+  if (autoFormat) {
+    if (resultCW) resultCW = formatHomeworkText(resultCW);
+    if (resultHW) resultHW = formatHomeworkText(resultHW);
   }
 
-  if (foundCWStatements.length > 0 && foundHWStatements.length === 0) {
-    return {
-      classWork: foundCWStatements.join('\n'),
-      homeWork: undefined,
-    };
-  }
-
-  // 6. Default: Entire text as Home Work
   return {
-    homeWork: cleaned,
+    classWork: resultCW,
+    homeWork: resultHW,
   };
 }

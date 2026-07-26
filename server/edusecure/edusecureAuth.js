@@ -19,18 +19,50 @@ const invalidCredentialsError = () =>
   new EduSecureAuthError("Invalid student ID or password", "invalid_credentials");
 
 /**
- * Performs a request against the school portal, converting transport failures
- * (DNS, TLS, blocked egress, timeouts) into a portal_unreachable error instead
- * of letting them surface as an authentication failure.
+ * Performs a request against the school portal with automatic retries and timeouts,
+ * converting transport failures (DNS, TLS, blocked egress, timeouts) into a
+ * portal_unreachable error instead of letting them surface as an authentication failure.
  */
-async function portalFetch(url, options, step) {
-  try {
-    return await fetch(url, options);
-  } catch (err) {
-    throw new EduSecureAuthError(
-      `Could not reach the school portal while ${step} (${err.message}). The server hosting this app may not be allowed to make outbound requests to edusecure.in.`,
-      "portal_unreachable"
-    );
+async function portalFetch(url, options = {}, step = "connecting to school portal", maxRetries = 2) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout
+
+      const reqOptions = {
+        ...options,
+        signal: controller.signal
+      };
+
+      const res = await fetch(url, reqOptions);
+      clearTimeout(timeoutId);
+      return res;
+    } catch (err) {
+      lastError = err;
+      const isAbort = err.name === "AbortError" || (err.message && err.message.includes("aborted"));
+      const isTransient = isAbort ||
+        err.code === "ECONNRESET" ||
+        err.code === "ETIMEDOUT" ||
+        err.code === "ENOTFOUND" ||
+        (err.message && err.message.includes("fetch failed"));
+
+      if (isTransient && attempt <= maxRetries) {
+        console.warn(`[EduSecure Auth] Retrying ${step} (attempt ${attempt}/${maxRetries}): ${err.message}`);
+        await new Promise((resolve) => setTimeout(resolve, attempt * 400));
+        continue;
+      }
+
+      const reason = isAbort
+        ? "The school portal did not respond in time (12s timeout)"
+        : err.message || "Network request failed";
+
+      throw new EduSecureAuthError(
+        `Could not reach the school portal while ${step} (${reason}). The school servers may be slow or temporarily unreachable.`,
+        "portal_unreachable"
+      );
+    }
   }
 }
 

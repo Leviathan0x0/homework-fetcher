@@ -37,9 +37,23 @@ export class ApiUnreachableError extends Error {
   }
 }
 
-/** fetch() wrapper that targets the API origin and always sends session cookies. */
-export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(apiUrl(path), { credentials: "include", ...init });
+/** fetch() wrapper that targets the API origin and always sends session cookies with automatic retry on transient network errors. */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = apiUrl(path);
+  try {
+    return await fetch(url, { credentials: "include", ...init });
+  } catch (err: any) {
+    // Retry once for transient network drops or dev server blips
+    if (init.method === "GET" || path.includes("/api/auth/login")) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return await fetch(url, { credentials: "include", ...init });
+      } catch {}
+    }
+    throw new Error(
+      "Unable to connect to the server. Please check your internet connection or try again."
+    );
+  }
 }
 
 /**

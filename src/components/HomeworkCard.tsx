@@ -1,10 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent } from '../utils/contentParser';
-import { smartFormatHomework } from '../utils/smartFormat';
-import { SmartHomeworkContent } from './SmartHomeworkContent';
-import { Paperclip, Eye, Calendar, Check, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen, Sparkles, AlignLeft } from 'lucide-react';
+import { Paperclip, Eye, Calendar, Check, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface HomeworkCardProps {
@@ -34,20 +32,6 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
 }) => {
   const subjectInfo = detectSubject(item.homework);
   const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
-
-  // Smart Homework Formatter (see src/utils/smartFormat). Deterministic, so it is
-  // safe to compute on render; memoised because a card can re-render often.
-  const smart = useMemo(
-    () => smartFormatHomework(item.homework, subjectInfo.name),
-    [item.homework, subjectInfo.name]
-  );
-
-  // High confidence renders the structured version, low confidence keeps the
-  // original wording. Either way the user can toggle between the two, and their
-  // choice (null = follow the confidence score) wins over the default.
-  const [smartFormatPreference, setSmartFormatPreference] = useState<boolean | null>(null);
-  const canShowSmartFormat = smart.formatted.sections.length > 0;
-  const isSmartFormatVisible = (smartFormatPreference ?? smart.isConfident) && canShowSmartFormat;
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(item.note || '');
@@ -120,43 +104,15 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
           {/* Subject Badge */}
           <span
             className={cn(
-              'inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border cursor-default',
+              'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border cursor-default',
               subjectInfo.badgeClass
             )}
           >
-            {isSmartFormatVisible && <span aria-hidden="true">{smart.formatted.icon}</span>}
             {subjectInfo.name}
           </span>
         </div>
 
         <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 font-medium">
-          {/* Original <-> Smart Format toggle */}
-          {canShowSmartFormat && (
-            <button
-              type="button"
-              onClick={() => setSmartFormatPreference(!isSmartFormatVisible)}
-              title={
-                isSmartFormatVisible
-                  ? 'Show the original homework text'
-                  : `Show smart format (${smart.confidence}% confidence)`
-              }
-              aria-pressed={isSmartFormatVisible}
-              className={cn(
-                'group/smart inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-colors duration-200 cursor-pointer active:scale-95',
-                isSmartFormatVisible
-                  ? 'border-neutral-300 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800'
-                  : 'border-transparent text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
-              )}
-            >
-              {isSmartFormatVisible ? (
-                <AlignLeft className="w-3.5 h-3.5" />
-              ) : (
-                <Sparkles className="w-3.5 h-3.5 transition-transform duration-300 group-hover/smart:rotate-12" />
-              )}
-              <span className="hidden sm:inline">{isSmartFormatVisible ? 'Original' : 'Smart format'}</span>
-            </button>
-          )}
-
           {item.type && (
             <span className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-700 dark:text-neutral-300 px-2.5 py-0.5 rounded-full text-[11px] font-medium">
               {item.type}
@@ -171,48 +127,37 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         </div>
       </div>
 
-      {/* Homework Content: Smart Format when confident, otherwise the original text */}
-      {isSmartFormatVisible ? (
-        <>
-          <SmartHomeworkContent formatted={smart.formatted} isCompleted={isCompleted} />
-          {!smart.isConfident && (
-            <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-              Formatted with low confidence ({smart.confidence}%) — switch to Original if anything looks off.
-            </p>
-          )}
-        </>
-      ) : (
-        <div
-          className={cn(
-            'space-y-2.5 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200 font-normal transition-all',
-            isCompleted && 'line-through text-neutral-400 dark:text-neutral-500'
-          )}
-        >
-          {/* Class Work Section (CW tag) */}
-          {parsed.classWork && (
-            <div className="flex items-start gap-2.5">
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-                CW
-              </span>
-              <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
-                {parsed.classWork}
-              </span>
-            </div>
-          )}
+      {/* Homework Content: Display CW (if present) and HW with subtle tags */}
+      <div
+        className={cn(
+          'space-y-2.5 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200 font-normal transition-all',
+          isCompleted && 'line-through text-neutral-400 dark:text-neutral-500'
+        )}
+      >
+        {/* Class Work Section (CW tag) */}
+        {parsed.classWork && (
+          <div className="flex items-start gap-2.5">
+            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              CW
+            </span>
+            <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
+              {parsed.classWork}
+            </span>
+          </div>
+        )}
 
-          {/* Home Work Section (HW tag) */}
-          {parsed.homeWork && (
-            <div className="flex items-start gap-2.5">
-              <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-                HW
-              </span>
-              <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
-                {parsed.homeWork}
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+        {/* Home Work Section (HW tag) */}
+        {parsed.homeWork && (
+          <div className="flex items-start gap-2.5">
+            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-600 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              HW
+            </span>
+            <span className="whitespace-pre-wrap break-words flex-1 leading-relaxed text-xs sm:text-sm">
+              {parsed.homeWork}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Improved Personal Note Section */}
       <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/60">

@@ -22,7 +22,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   ];
 
   return (
-    <nav className="md:hidden fixed left-3 right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-w-md mx-auto h-16 rounded-3xl liquid-glass-nav text-neutral-900 dark:text-white z-40 px-2 flex items-center justify-around select-none">
+    <nav className="md:hidden fixed left-3 right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] max-w-md mx-auto h-16 rounded-3xl bg-white/95 dark:bg-[#141417]/95 border border-neutral-200 dark:border-neutral-800 shadow-lg text-neutral-900 dark:text-white z-40 px-2 flex items-center justify-around select-none">
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = activeView === item.id;

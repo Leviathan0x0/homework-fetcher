@@ -70,8 +70,8 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
       {/* Backdrop Click */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* Slide-over Sidebar with Liquid Glass */}
-      <aside className="relative z-10 w-full max-w-2xl lg:max-w-3xl h-full liquid-glass rounded-l-3xl flex flex-col animate-in slide-in-from-right duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+      {/* Slide-over Sidebar */}
+      <aside className="relative z-10 w-full max-w-2xl lg:max-w-3xl h-full bg-white dark:bg-[#141417] border-l border-neutral-200 dark:border-neutral-800 rounded-l-3xl flex flex-col animate-in slide-in-from-right duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200/60 dark:border-neutral-800/60 shrink-0 gap-3 bg-white/40 dark:bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">

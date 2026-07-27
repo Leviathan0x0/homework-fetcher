@@ -276,7 +276,6 @@ export function normalizeSubjectName(value: string): string {
   return rule ? rule.name : formatSubjectName(trimmed.toUpperCase());
 }
 
-/**
 const NON_SUBJECT_HEADERS = new Set([
   'HOMEWORK', 'HOME WORK', 'CLASSWORK', 'CLASS WORK', 'CW', 'HW',
   'C.W.', 'H.W.', 'C.W', 'H.W', 'ANNOUNCEMENT', 'SCHOOL DIARY', 'GENERAL', 'NOTE', 'NOTES'

@@ -125,6 +125,7 @@ export const homeworkService = {
       const deduplicated: any[] = [];
 
       for (const doc of rawList) {
+        if (!doc) continue;
         const text = (doc.homework || doc.content || "").trim();
         const key = `${(doc.date || "").trim()}:${text}`;
         if (seen.has(key)) continue;

@@ -26,10 +26,15 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
   onUpdateNote,
   onOpenPreview,
 }) => {
-  const attachmentEntries = homework.filter((item) => Boolean(item.attachment));
+  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
+  const attachmentEntries = validHomework.filter((item) => Boolean(item?.attachment));
 
-  const getEntryId = (item: HomeworkEntry) =>
-    item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
+  const getEntryId = (item: HomeworkEntry) => {
+    if (!item) return '';
+    const d = item.date || '';
+    const hw = item.homework || '';
+    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+  };
 
   return (
     <div className="space-y-6">

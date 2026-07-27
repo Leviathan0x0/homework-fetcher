@@ -49,8 +49,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   // Map YMD strings to homework entries
   const homeworkByDate = useMemo(() => {
     const map: Record<string, HomeworkEntry[]> = {};
-    homework.forEach((item) => {
-      const ymd = getHomeworkDateYmd(item.date);
+    const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
+    validHomework.forEach((item) => {
+      const ymd = getHomeworkDateYmd(item?.date);
       if (ymd) {
         if (!map[ymd]) {
           map[ymd] = [];

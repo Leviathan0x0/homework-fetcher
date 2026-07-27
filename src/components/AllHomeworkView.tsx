@@ -45,46 +45,54 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
+  const validHomework = useMemo(() => (Array.isArray(homework) ? homework.filter(Boolean) : []), [homework]);
+
   // Extract unique subjects
   const availableSubjects = useMemo(() => {
-    return Array.from(new Set(homework.map((item) => detectSubject(item.homework).name)));
-  }, [homework]);
+    return Array.from(new Set(validHomework.map((item) => detectSubject(item?.homework || '').name)));
+  }, [validHomework]);
 
   // Apply filters
   const filtered = useMemo(() => {
-    let result = [...homework];
+    let result = [...validHomework];
 
     if (selectedSubject !== 'All') {
-      result = result.filter((item) => detectSubject(item.homework).name === selectedSubject);
+      result = result.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
     }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter((item) => {
-        const subject = detectSubject(item.homework).name.toLowerCase();
-        const noteStr = (item.note || '').toLowerCase();
+        const hwText = item?.homework || '';
+        const dateText = item?.date || '';
+        const subject = detectSubject(hwText).name.toLowerCase();
+        const noteStr = (item?.note || '').toLowerCase();
         return (
-          item.homework.toLowerCase().includes(q) ||
+          hwText.toLowerCase().includes(q) ||
           subject.includes(q) ||
-          item.date.toLowerCase().includes(q) ||
+          dateText.toLowerCase().includes(q) ||
           noteStr.includes(q) ||
-          (item.type && item.type.toLowerCase().includes(q))
+          (item?.type && item.type.toLowerCase().includes(q))
         );
       });
     }
 
     if (selectedDateFilter) {
-      result = result.filter((item) => formatToISODate(item.date) === selectedDateFilter);
+      result = result.filter((item) => formatToISODate(item?.date) === selectedDateFilter);
     }
 
     return result;
-  }, [homework, selectedSubject, searchQuery, selectedDateFilter]);
+  }, [validHomework, selectedSubject, searchQuery, selectedDateFilter]);
 
   // Batch loading (25 items per batch)
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
 
-  const getEntryId = (item: HomeworkEntry) =>
-    item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
+  const getEntryId = (item: HomeworkEntry) => {
+    if (!item) return '';
+    const d = item.date || '';
+    const hw = item.homework || '';
+    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+  };
 
   // Group chronologically by date for displayed batch
   const grouped: { date: string; entries: HomeworkEntry[] }[] = [];

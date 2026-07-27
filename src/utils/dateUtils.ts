@@ -1,8 +1,9 @@
 import { HomeworkEntry } from '../types/homework';
 
-export function parseHomeworkDate(dateStr: string): Date | null {
-  if (!dateStr) return null;
+export function parseHomeworkDate(dateStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== 'string') return null;
   const str = String(dateStr).trim();
+  if (!str) return null;
 
   // 1. Try standard JS Date parse (e.g. "Feb 24, 2026", "2026-02-24", "Jul 22 2026")
   let parsed = new Date(str);
@@ -37,9 +38,9 @@ export function parseHomeworkDate(dateStr: string): Date | null {
 export function sortHomeworkNewestFirst(entries: HomeworkEntry[]): HomeworkEntry[] {
   if (!entries || !Array.isArray(entries)) return [];
 
-  return [...entries].sort((a, b) => {
-    const dateA = parseHomeworkDate(a.date);
-    const dateB = parseHomeworkDate(b.date);
+  return [...entries].filter(Boolean).sort((a, b) => {
+    const dateA = parseHomeworkDate(a?.date);
+    const dateB = parseHomeworkDate(b?.date);
     if (dateA && dateB) {
       return dateB.getTime() - dateA.getTime();
     }
@@ -49,7 +50,8 @@ export function sortHomeworkNewestFirst(entries: HomeworkEntry[]): HomeworkEntry
   });
 }
 
-export function isTodayDate(dateStr: string): boolean {
+export function isTodayDate(dateStr?: string | null): boolean {
+  if (!dateStr || typeof dateStr !== 'string') return false;
   const homeworkDate = parseHomeworkDate(dateStr);
   if (!homeworkDate) {
     const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -61,7 +63,8 @@ export function isTodayDate(dateStr: string): boolean {
          homeworkDate.getFullYear() === today.getFullYear();
 }
 
-export function isWithinLast7Days(dateStr: string): boolean {
+export function isWithinLast7Days(dateStr?: string | null): boolean {
+  if (!dateStr || typeof dateStr !== 'string') return false;
   const homeworkDate = parseHomeworkDate(dateStr);
   if (!homeworkDate) return true;
   const now = new Date();
@@ -70,7 +73,8 @@ export function isWithinLast7Days(dateStr: string): boolean {
   return diffDays <= 7;
 }
 
-export function formatToISODate(dateStr: string): string {
+export function formatToISODate(dateStr?: string | null): string {
+  if (!dateStr || typeof dateStr !== 'string') return '';
   const parsed = parseHomeworkDate(dateStr);
   if (!parsed) return '';
   const yyyy = parsed.getFullYear();
@@ -91,7 +95,8 @@ export function getTimeGreeting(): string {
   return 'Good evening';
 }
 
-export function formatRelativeDateHeader(dateStr: string): string {
+export function formatRelativeDateHeader(dateStr?: string | null): string {
+  if (!dateStr || typeof dateStr !== 'string') return '';
   const parsed = parseHomeworkDate(dateStr);
   if (!parsed) return dateStr;
 

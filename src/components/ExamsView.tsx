@@ -33,15 +33,17 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
 
   // Filter exam-related homework
   const examItems = useMemo(() => {
-    return filterExamHomework(homework);
+    const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
+    return filterExamHomework(validHomework);
   }, [homework]);
 
   // Total statistics
   const totalExamsCount = examItems.length;
   const completedCount = useMemo(() => {
     return examItems.filter(({ entry }) => {
+      if (!entry) return false;
       const isDone = completedMap[entry.id || ''] ?? entry.completed;
-      return isDone;
+      return Boolean(isDone);
     }).length;
   }, [examItems, completedMap]);
 
@@ -50,10 +52,10 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
   // Filtered by confidence pill
   const filteredExamItems = useMemo(() => {
     if (selectedFilter === 'high') {
-      return examItems.filter((i) => i.detection.category === 'Exam-related');
+      return examItems.filter((i) => i?.detection?.category === 'Exam-related');
     }
     if (selectedFilter === 'medium') {
-      return examItems.filter((i) => i.detection.category === 'Possibly exam-related');
+      return examItems.filter((i) => i?.detection?.category === 'Possibly exam-related');
     }
     return examItems;
   }, [examItems, selectedFilter]);
@@ -62,7 +64,8 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
   const groupedBySubject = useMemo(() => {
     const map: Record<string, typeof examItems> = {};
     filteredExamItems.forEach((item) => {
-      const subject = detectSubject(item.entry.homework).name;
+      if (!item?.entry) return;
+      const subject = detectSubject(item.entry.homework || '').name;
       if (!map[subject]) {
         map[subject] = [];
       }

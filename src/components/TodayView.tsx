@@ -35,20 +35,25 @@ export const TodayView: React.FC<TodayViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
-  const todayAllEntries = homework.filter((item) => isTodayDate(item.date));
+  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
+  const todayAllEntries = validHomework.filter((item) => isTodayDate(item?.date));
 
   // Extract unique subjects for subject filter pills
   const availableSubjects = Array.from(
-    new Set(todayAllEntries.map((item) => detectSubject(item.homework).name))
+    new Set(todayAllEntries.map((item) => detectSubject(item?.homework || '').name))
   );
 
   // Apply Subject Filter
   const todayEntries = selectedSubject === 'All'
     ? todayAllEntries
-    : todayAllEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
+    : todayAllEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
 
-  const getEntryId = (item: HomeworkEntry) =>
-    item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
+  const getEntryId = (item: HomeworkEntry) => {
+    if (!item) return '';
+    const d = item.date || '';
+    const hw = item.homework || '';
+    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+  };
 
   const dateStr = formatContextualDate();
 

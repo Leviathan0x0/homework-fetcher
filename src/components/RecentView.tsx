@@ -34,25 +34,31 @@ export const RecentView: React.FC<RecentViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
+  const validHomework = useMemo(() => (Array.isArray(homework) ? homework.filter(Boolean) : []), [homework]);
+
   const recentAllEntries = useMemo(() => {
-    return homework.filter((item) => isWithinLast7Days(item.date));
-  }, [homework]);
+    return validHomework.filter((item) => isWithinLast7Days(item?.date));
+  }, [validHomework]);
 
   // Extract unique subjects
   const availableSubjects = useMemo(() => {
-    return Array.from(new Set(recentAllEntries.map((item) => detectSubject(item.homework).name)));
+    return Array.from(new Set(recentAllEntries.map((item) => detectSubject(item?.homework || '').name)));
   }, [recentAllEntries]);
 
   const filteredEntries = useMemo(() => {
     return selectedSubject === 'All'
       ? recentAllEntries
-      : recentAllEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
+      : recentAllEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
   }, [recentAllEntries, selectedSubject]);
 
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 
-  const getEntryId = (item: HomeworkEntry) =>
-    item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
+  const getEntryId = (item: HomeworkEntry) => {
+    if (!item) return '';
+    const d = item.date || '';
+    const hw = item.homework || '';
+    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+  };
 
   // Group chronologically by date
   const grouped: { date: string; entries: HomeworkEntry[] }[] = [];

@@ -4,10 +4,14 @@ import './index.css';
 import App from './App.tsx';
 import { registerServiceWorker } from './registerServiceWorker';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

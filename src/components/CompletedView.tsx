@@ -31,22 +31,28 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
-  const getEntryId = (item: HomeworkEntry) =>
-    item.id || `${item.date}_${detectSubject(item.homework).name}_${item.homework.slice(0, 30)}`;
+  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
 
-  const completedEntries = homework.filter((item) => {
+  const getEntryId = (item: HomeworkEntry) => {
+    if (!item) return '';
+    const d = item.date || '';
+    const hw = item.homework || '';
+    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+  };
+
+  const completedEntries = validHomework.filter((item) => {
     const id = getEntryId(item);
-    return Boolean(completedMap[id]) || item.completed === true;
+    return Boolean(completedMap[id]) || item?.completed === true;
   });
 
   const availableSubjects = Array.from(
-    new Set(completedEntries.map((item) => detectSubject(item.homework).name))
+    new Set(completedEntries.map((item) => detectSubject(item?.homework || '').name))
   );
 
   const filteredEntries =
     selectedSubject === 'All'
       ? completedEntries
-      : completedEntries.filter((item) => detectSubject(item.homework).name === selectedSubject);
+      : completedEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
 
   const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 

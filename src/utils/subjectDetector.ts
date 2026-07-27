@@ -75,14 +75,6 @@ const SUBJECT_RULES: SubjectRule[] = [
     textStyle: 'text-green-700 dark:text-green-300'
   },
   {
-    name: 'Science',
-    aliases: ['science', 'sciences', 'sci', 'generalscience', 'evs', 'environmentalstudies'],
-    keywords: ['SCIENCE', 'SCI', 'EVS', 'विज्ञान'],
-    badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
-    bgStyle: 'bg-emerald-50 dark:bg-emerald-950/40',
-    textStyle: 'text-emerald-700 dark:text-emerald-300'
-  },
-  {
     name: 'Computers',
     aliases: [
       'computers', 'computer', 'computerscience', 'computersci', 'compsci', 'comp',
@@ -97,6 +89,14 @@ const SUBJECT_RULES: SubjectRule[] = [
     badgeClass: 'bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/60 dark:border-sky-800/40',
     bgStyle: 'bg-sky-50 dark:bg-sky-950/40',
     textStyle: 'text-sky-700 dark:text-sky-300'
+  },
+  {
+    name: 'Science',
+    aliases: ['science', 'sciences', 'sci', 'generalscience', 'evs', 'environmentalstudies'],
+    keywords: ['SCIENCE', 'SCI', 'EVS', 'विज्ञान'],
+    badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
+    bgStyle: 'bg-emerald-50 dark:bg-emerald-950/40',
+    textStyle: 'text-emerald-700 dark:text-emerald-300'
   },
   {
     name: 'English',

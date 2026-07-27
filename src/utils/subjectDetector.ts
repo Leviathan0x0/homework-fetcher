@@ -37,11 +37,14 @@ const SUBJECT_RULES: SubjectRule[] = [
     name: 'Social Science',
     aliases: [
       'socialscience', 'socialsciences', 'socialstudies', 'socialstudy', 'social',
-      'sst', 'ssc', 'sostudies', 'sscience', 'civics', 'geography'
+      'sst', 'ssc', 'sostudies', 'sscience', 'civics', 'geography',
+      'socalscience', 'socalsciences', 'socalstudies', 'socalstudy', 'socal',
+      'ssciences', 'soscience', 's-science', 's.science'
     ],
     keywords: [
-      'SOCIAL SCIENCE', 'SOCIAL STUDIES', 'SOCIAL', 'S.ST', 'SST', 'SSC',
-      'CIVICS', 'GEOGRAPHY', 'POLITICAL SCIENCE', 'सामाजिक'
+      'SOCIAL SCIENCE', 'SOCAL SCIENCE', 'SOCIAL STUDIES', 'SOCAL STUDIES',
+      'SOCIAL', 'SOCAL', 'S.ST', 'SST', 'SSC', 'S.SCIENCE', 'S SCIENCE',
+      'SO SCIENCE', 'CIVICS', 'GEOGRAPHY', 'POLITICAL SCIENCE', 'सामाजिक'
     ],
     badgeClass: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40',
     bgStyle: 'bg-rose-50 dark:bg-rose-950/40',
@@ -193,7 +196,7 @@ function escapeRegExp(value: string): string {
  * spacing schools use ("SCI.", "COMPUTER SCI.", "S.ST").
  */
 function containsKeyword(upperText: string, keyword: string): boolean {
-  const pattern = escapeRegExp(keyword).replace(/(\\\.)?\s+/g, '[\\s.]*');
+  const pattern = escapeRegExp(keyword).replace(/(\\\.)?\s+/g, '[\\s.\\-_/:]*');
   return new RegExp(`(^|[^\\p{L}\\p{N}])${pattern}([^\\p{L}\\p{N}]|$)`, 'u').test(upperText);
 }
 

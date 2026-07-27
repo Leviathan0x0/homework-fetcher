@@ -36,7 +36,7 @@ const COMMON_SUBJECTS = [
   'Mathematics',
   'Science',
   'English',
-  'Social Studies',
+  'Social Science',
   'Hindi',
   'Computers',
   'Punjabi',

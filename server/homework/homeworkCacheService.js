@@ -21,11 +21,11 @@ function detectSubjectFromText(text = "", explicitSubject = "", classworkType = 
       if (/PHYSICS|PHYS/i.test(trimmed)) return "Physics";
       if (/CHEMISTRY|CHEM/i.test(trimmed)) return "Chemistry";
       if (/BIOLOGY|BIO/i.test(trimmed)) return "Biology";
+      if (/S\.ST|SOCIAL|SOCAL|SST|CIVICS|GEOGRAPHY|POLITICAL|सामाजिक/i.test(trimmed)) return "Social Science";
       if (/SCIENCE|EVS|SCI|विज्ञान/i.test(trimmed)) return "Science";
       if (/ENGLISH|ENG|LITERATURE|GRAMMAR|अंग्रेजी/i.test(trimmed)) return "English";
       if (/HINDI|हिंदी/i.test(trimmed)) return "Hindi";
       if (/COMPUTER|COMPUTERS|CODING|IT|कंप्यूटर/i.test(trimmed)) return "Computers";
-      if (/S\.ST|SOCIAL|SST|CIVICS|GEOGRAPHY|सामाजिक/i.test(trimmed)) return "Social Science";
       if (/PUNJABI|पंजाबी/i.test(trimmed)) return "Punjabi";
       if (/FRENCH|FRANÇAIS/i.test(trimmed)) return "French";
       if (/G\.K|GK|GENERAL KNOWLEDGE/i.test(trimmed)) return "General Knowledge";
@@ -41,11 +41,11 @@ function detectSubjectFromText(text = "", explicitSubject = "", classworkType = 
   if (/\b(PHYSICS)\b/.test(upperText)) return "Physics";
   if (/\b(CHEMISTRY)\b/.test(upperText)) return "Chemistry";
   if (/\b(BIOLOGY)\b/.test(upperText)) return "Biology";
+  if (/\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|CODING|PROGRAMMING|ICT|कंप्यूटर)\b/.test(upperText)) return "Computers";
+  if (/\b(SOCIAL[\s.\-:/]*SCIENCE|SOCAL[\s.\-:/]*SCIENCE|SOCIAL[\s.\-:/]*STUDIES|SOCAL[\s.\-:/]*STUDIES|SOCIAL|SOCAL|S[\s.]*ST|SST|SSC|CIVICS|GEOGRAPHY|POLITICAL SCIENCE|SO[\s.]*SCIENCE|S[\s.]*SCIENCE|सामाजिक)\b/.test(upperText)) return "Social Science";
   if (/\b(SCIENCE|SCI|EVS|विज्ञान)\b/.test(upperText)) return "Science";
   if (/\b(ENGLISH|LITERATURE|GRAMMAR|अंग्रेजी)\b/.test(upperText)) return "English";
   if (/\b(HINDI|हिंदी|हिन्दी)\b/.test(upperText)) return "Hindi";
-  if (/\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|CODING|PROGRAMMING|ICT|कंप्यूटर)\b/.test(upperText)) return "Computers";
-  if (/\b(SOCIAL SCIENCE|SOCIAL STUDIES|SOCIAL|S\.ST|SST|SSC|CIVICS|GEOGRAPHY|POLITICAL SCIENCE|सामाजिक)\b/.test(upperText)) return "Social Science";
   if (/\b(PUNJABI|PANJABI|ਪੰਜਾਬੀ|पंजाबी)\b/.test(upperText)) return "Punjabi";
   if (/\b(FRENCH|FRANÇAIS|FRANCAIS)\b/.test(upperText)) return "French";
   if (/\b(GENERAL KNOWLEDGE|G\.K)\b/.test(upperText)) return "General Knowledge";
@@ -59,11 +59,11 @@ function detectSubjectFromText(text = "", explicitSubject = "", classworkType = 
     if (/\b(PHYSICS)\b/.test(upperCw)) return "Physics";
     if (/\b(CHEMISTRY)\b/.test(upperCw)) return "Chemistry";
     if (/\b(BIOLOGY)\b/.test(upperCw)) return "Biology";
+    if (/\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER)\b/.test(upperCw)) return "Computers";
+    if (/\b(SOCIAL[\s.\-:/]*SCIENCE|SOCAL[\s.\-:/]*SCIENCE|SOCIAL[\s.\-:/]*STUDIES|SOCAL[\s.\-:/]*STUDIES|SOCIAL|SOCAL|S[\s.]*ST|SST)\b/.test(upperCw)) return "Social Science";
     if (/\b(SCIENCE)\b/.test(upperCw)) return "Science";
     if (/\b(ENGLISH)\b/.test(upperCw)) return "English";
     if (/\b(HINDI)\b/.test(upperCw)) return "Hindi";
-    if (/\b(COMPUTER)\b/.test(upperCw)) return "Computers";
-    if (/\b(S\.ST|SOCIAL|SST)\b/.test(upperCw)) return "Social Science";
     if (/\b(PUNJABI)\b/.test(upperCw)) return "Punjabi";
     if (/\b(FRENCH)\b/.test(upperCw)) return "French";
   }

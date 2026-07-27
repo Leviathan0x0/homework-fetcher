@@ -55,11 +55,11 @@
   // Canonical Subject Mappings & CSS Classes
   const SUBJECT_RULES = [
     { keys: ['MATH', 'MATHEMATICS', 'MATHS', 'ALGEBRA', 'GEOMETRY', 'गणित'], name: 'Mathematics', class: 'sub-math' },
+    { keys: ['SOCIAL SCIENCE', 'SOCAL SCIENCE', 'SOCIAL STUDIES', 'SOCAL STUDIES', 'SOCIAL', 'SOCAL', 'S.ST', 'SST', 'CIVICS', 'GEOGRAPHY', 'HISTORY', 'सामाजिक'], name: 'Social Science', class: 'sub-sst' },
     { keys: ['SCIENCE', 'PHYSICS', 'CHEMISTRY', 'BIOLOGY', 'EVS', 'SCI', 'विज्ञान'], name: 'Science', class: 'sub-science' },
     { keys: ['ENGLISH', 'ENG', 'LITERATURE', 'GRAMMAR', 'अंग्रेजी'], name: 'English', class: 'sub-english' },
     { keys: ['HINDI', 'कक्षा कार्य', 'गृह कार्य', 'हिंदी'], name: 'Hindi', class: 'sub-hindi' },
     { keys: ['COMPUTERS', 'COMPUTER', 'IT', 'CODING', 'COMP', 'कंप्यूटर'], name: 'Computers', class: 'sub-comp' },
-    { keys: ['S.ST', 'SOCIAL', 'HISTORY', 'CIVICS', 'GEOGRAPHY', 'SST', 'सामाजिक'], name: 'Social Studies', class: 'sub-sst' },
     { keys: ['PUNJABI', 'पंजाबी'], name: 'Punjabi', class: 'sub-hindi' },
     { keys: ['G.K', 'GK', 'GENERAL KNOWLEDGE'], name: 'General Knowledge', class: 'sub-default' },
     { keys: ['ART', 'DRAWING', 'CRAFT'], name: 'Art', class: 'sub-default' }

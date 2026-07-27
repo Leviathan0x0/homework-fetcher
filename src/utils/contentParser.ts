@@ -9,7 +9,7 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
   let cleaned = rawText.trim();
 
   // 1. Separate sub-subject headers embedded without whitespace (e.g. "symbolsChemistry ch-9:")
-  const subjectsPattern = '(?:MATHEMATICS|MATHS|MATH|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|ENGLISH|HINDI|COMPUTERS|COMPUTER|IT|S\\.ST|SOCIAL STUDIES|HISTORY|CIVICS|GEOGRAPHY|PUNJABI|ART)';
+  const subjectsPattern = '(?:MATHEMATICS|MATHS|MATH|SOCIAL SCIENCE|SOCIAL STUDIES|SOCAL SCIENCE|SOCAL STUDIES|SOCAL|SOCIAL|S\\.ST|SST|COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|ENGLISH|HINDI|IT|HISTORY|CIVICS|GEOGRAPHY|PUNJABI|ART)';
 
   const embeddedSubjectRegex = new RegExp(
     `(?<=[a-zA-Z0-9.,!\\)])(?=${subjectsPattern}(?:\\s*(?:ch|chapter|unit|ex|exercise|\\d+))?[:\\-\\s])`,

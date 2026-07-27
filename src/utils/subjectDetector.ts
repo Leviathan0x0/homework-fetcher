@@ -277,18 +277,58 @@ export function normalizeSubjectName(value: string): string {
 }
 
 /**
+const NON_SUBJECT_HEADERS = new Set([
+  'HOMEWORK', 'HOME WORK', 'CLASSWORK', 'CLASS WORK', 'CW', 'HW',
+  'C.W.', 'H.W.', 'C.W', 'H.W', 'ANNOUNCEMENT', 'SCHOOL DIARY', 'GENERAL', 'NOTE', 'NOTES'
+]);
+
+/**
  * Subject detection pipeline following strict priority hierarchy:
- * Priority 1: Explicit subject provided by EduSecure
- * Priority 2 & 3: Subject detected from homework content only
- * Priority 4: Fallback signal from Classwork (CW)
- * Priority 5: Language-based fallback
+ * Priority 1: Specific subject detected from actual homework content (e.g. "SOCIAL SCIENCE- GEOGRAPHY")
+ * Priority 2: Explicit subject provided by EduSecure
+ * Priority 3: Fallback signal from Classwork (CW)
+ * Priority 4: Language-based fallback
  */
 export function detectSubject(
   text: string,
   explicitSubject?: string | null,
   classworkSignal?: string | null
 ): SubjectInfo {
-  // Priority 1: Explicit subject provided by EduSecure
+  // Priority 1: Detect subject from actual homework content text first
+  if (text) {
+    // Scan full homework text for subject keywords (e.g. "SOCIAL SCIENCE- GEOGRAPHY")
+    const scanned = matchKeywords(text);
+    if (scanned) return toSubjectInfo(scanned);
+
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const firstLine = lines[0] || text;
+
+    // Explicit label in front of separator ("HISTORY: Chapter 2")
+    for (const separator of LABEL_SEPARATORS) {
+      const index = firstLine.indexOf(separator);
+      if (index <= 0) continue;
+
+      const candidate = firstLine.slice(0, index).trim();
+      const normKey = normalizeSubjectKey(candidate).toUpperCase();
+      if (NON_SUBJECT_HEADERS.has(candidate.toUpperCase()) || NON_SUBJECT_HEADERS.has(normKey)) {
+        continue;
+      }
+
+      const rule = matchAlias(candidate) || matchKeywords(candidate);
+      if (rule) return toSubjectInfo(rule);
+
+      if (normalizeSubjectKey(candidate).length > 2 && candidate.length < 30) {
+        return {
+          name: formatSubjectName(candidate.toUpperCase()),
+          badgeClass: DEFAULT_SUBJECT.badgeClass,
+          bgStyle: DEFAULT_SUBJECT.bgStyle,
+          textStyle: DEFAULT_SUBJECT.textStyle
+        };
+      }
+    }
+  }
+
+  // Priority 2: Explicit subject provided by EduSecure
   if (explicitSubject && typeof explicitSubject === 'string') {
     const trimmed = explicitSubject.trim();
     if (
@@ -306,36 +346,7 @@ export function detectSubject(
     }
   }
 
-  // Priority 2 & 3: Detect subject ONLY from actual homework content
-  if (text) {
-    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
-    const firstLine = lines[0] || text;
-
-    // Explicit label in front of separator ("HISTORY: Chapter 2")
-    for (const separator of LABEL_SEPARATORS) {
-      const index = firstLine.indexOf(separator);
-      if (index <= 0) continue;
-
-      const candidate = firstLine.slice(0, index).trim();
-      const rule = matchAlias(candidate) || matchKeywords(candidate);
-      if (rule) return toSubjectInfo(rule);
-
-      if (normalizeSubjectKey(candidate).length > 2 && candidate.length < 30) {
-        return {
-          name: formatSubjectName(candidate.toUpperCase()),
-          badgeClass: DEFAULT_SUBJECT.badgeClass,
-          bgStyle: DEFAULT_SUBJECT.bgStyle,
-          textStyle: DEFAULT_SUBJECT.textStyle
-        };
-      }
-    }
-
-    // Scan homework text for subject keywords
-    const scanned = matchKeywords(text);
-    if (scanned) return toSubjectInfo(scanned);
-  }
-
-  // Priority 4: Classwork (CW) signal fallback
+  // Priority 3: Classwork (CW) signal fallback
   if (classworkSignal && typeof classworkSignal === 'string') {
     const trimmedCw = classworkSignal.trim();
     if (trimmedCw) {
@@ -344,7 +355,7 @@ export function detectSubject(
     }
   }
 
-  // Priority 5: Language-based fallback logic (Punjabi, Hindi, French)
+  // Priority 4: Language-based fallback logic (Punjabi, Hindi, French)
   if (text) {
     const language = detectLanguageSubject(text);
     if (language) return toSubjectInfo(language);

@@ -30,7 +30,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   onUpdateNote,
   onOpenPreview,
 }) => {
-  const subjectInfo = detectSubject(item.homework);
+  const subjectInfo = detectSubject(item.homework, item.subject, item.type);
   const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
 
   const [isEditingNote, setIsEditingNote] = useState(false);

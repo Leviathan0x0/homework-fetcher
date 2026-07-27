@@ -17,20 +17,13 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
   );
   cleaned = cleaned.replace(embeddedSubjectRegex, '\n').trim();
 
-  // 2. Remove subject name prefixes at the very start
+  // 2. Remove matching subject name prefix at the very start if followed by separator
   const escapedSubject = subjectName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const leadingSubjectRegex = new RegExp(
-    `^(?:${escapedSubject}|${subjectsPattern})[:\\-\\s]*`,
+    `^(?:${escapedSubject})[:\\-\\s]+`,
     'i'
   );
   cleaned = cleaned.replace(leadingSubjectRegex, '').trim();
-
-  // 3. Inline subject headers: replace with newline
-  const inlineSubjectRegex = new RegExp(
-    `(?<=[.\\n\\s])${subjectsPattern}[:\\-\\s]+`,
-    'gi'
-  );
-  cleaned = cleaned.replace(inlineSubjectRegex, '\n').trim();
 
   // 4. Explicit Marker Detection (CLASS WORK / HOME WORK / C.W. / H.W. / CW / HW)
   const cwMarkerPattern = /(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)[:\-\s]*/i;

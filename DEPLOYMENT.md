@@ -33,8 +33,11 @@ permanent. No extra npm package is needed — the app talks to libSQL over HTTPS
    TURSO_DATABASE_URL=libsql://<your-db>.turso.io
    TURSO_AUTH_TOKEN=<token>
    ENCRYPTION_KEY=<32-byte hex key>
+   OPENAI_API_KEY=<openai-api-key>
    NODE_ENV=production
    ```
+
+   See **Content safety** below for what `OPENAI_API_KEY` does.
 
 3. Redeploy. Tables and migrations are created automatically on the first request.
 
@@ -151,6 +154,43 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `SQLITE_DB_PATH` | Local SQLite file location when not using a hosted database |
 | `UPLOADS_DIR` | Directory for uploaded files (persistent volume) |
 | `ENCRYPTION_KEY` | **Required.** 32+ character root secret for session cookie signing and EduSecure session encryption |
+| `OPENAI_API_KEY` | See **Content safety** below |
+
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
+
+## Content safety (`OPENAI_API_KEY`)
+
+This is only about blocking bad text and NSFW images in **Messages**, **Requests**, and **Classwork**.
+
+### What students can send
+- Text that is not abusive / NSFW
+- Homework files only: **PDF** and photos (**JPG / PNG / WebP**)
+- No Word/Excel/PPT, GIF, etc.
+
+### How filtering works (two layers)
+1. **Rules (always on)** — bad-word list + file-type allowlist. Works even without any API key.
+2. **AI (needs key)** — OpenAI **Moderation API** model `omni-moderation-latest` checks text and images for sexual / hate / harassment / self-harm / violence content and **hard-blocks** it (student sees a generic error; nothing is saved).
+
+This is **not** ChatGPT. It is OpenAI’s cheap moderation endpoint, so checking lots of homework photos stays affordable.
+
+### What you need to set
+1. Create an API key at [platform.openai.com](https://platform.openai.com/api-keys).
+2. Add this env var on the server / Vercel:
+
+```bash
+OPENAI_API_KEY=sk-...
+```
+
+3. Redeploy.
+
+| Where | `OPENAI_API_KEY` |
+| --- | --- |
+| Production (school live site) | **Set it** — AI image/text checks run |
+| Your laptop (local) | Optional — rules still block bad words and wrong file types; AI is skipped and the server logs a warning |
+
+### What is not checked yet
+- Inside of PDFs (no OCR) — only the file type is allowed
+- Teacher/admin review queue — blocked content is rejected only, not saved for staff to review
+

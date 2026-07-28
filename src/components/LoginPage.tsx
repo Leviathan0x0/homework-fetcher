@@ -100,7 +100,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="For e.g. guranshbir126"
+                    placeholder="For e.g. ternus9"
                     disabled={isLoading}
                     autoComplete="username"
                     className="w-full bg-transparent text-sm h-12 pl-11 pr-4 rounded-2xl focus:outline-none text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 font-normal"

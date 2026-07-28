@@ -97,7 +97,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
 
         {/* Notice Text */}
         <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed font-medium">
-          Your conversations are constantly monitored for off-topic chatting and abuse.
+          Your conversations are constantly monitored for off-topic chatting and abuse. Automated filters block inappropriate text and images; only homework PDFs and photos may be shared.
         </p>
 
         {tokenError && (

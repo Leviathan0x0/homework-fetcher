@@ -258,6 +258,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   // upload limit and waste everyone's mobile data.
   const handlePickFile = async (file: File) => {
     setFileError(null);
+    const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    if (!allowed.includes(ext)) {
+      setFileError('Only homework PDFs and photos (JPG, PNG, WebP) are allowed.');
+      return;
+    }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
     if (prepared.size > MAX_UPLOAD_BYTES) {
       setFileError(
@@ -702,6 +708,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <input
             type="file"
             ref={fileInputRef}
+            accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
             onChange={(e) => {
               const picked = e.target.files?.[0];
               if (picked) handlePickFile(picked);
@@ -714,7 +721,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             onMouseEnter={() => setHoveredAction('attach')}
             onMouseLeave={() => setHoveredAction(null)}
             className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer mb-0.5"
-            title="Attach photo or document"
+            title="Attach homework PDF or photo"
           >
             <AttachFileIcon size={18} isAnimated={hoveredAction === 'attach'} />
           </button>

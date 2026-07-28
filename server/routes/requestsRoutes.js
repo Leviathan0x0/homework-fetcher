@@ -11,6 +11,7 @@ const {
   rateLimit,
   limitText,
 } = require("../limits");
+const { checkRequestText } = require("../moderation/checkContent");
 
 const router = express.Router();
 
@@ -71,6 +72,11 @@ router.post(
     const content = contentField.value;
     const section = req.user.section;
     if (!section) return res.status(400).json({ error: "Section not set." });
+
+    const safety = await checkRequestText(title, content);
+    if (!safety.ok) {
+      return res.status(400).json({ error: safety.reason });
+    }
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();

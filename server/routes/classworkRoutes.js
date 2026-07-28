@@ -15,6 +15,7 @@ const {
   uploadFileFilter,
 } = require("../files/fileTypes");
 const { MAX_UPLOAD_BYTES, rateLimit } = require("../limits");
+const { checkContent } = require("../moderation/checkContent");
 
 const router = express.Router();
 
@@ -137,6 +138,18 @@ router.post(
       const id = crypto.randomUUID();
       const now = new Date().toISOString();
       const todayDate = date && String(date).trim() ? String(date).trim() : now.split("T")[0];
+      const trimmedTitle = title && typeof title === "string" ? title.trim() : null;
+      const mimeType = resolveUploadType(req.file.originalname).contentType;
+
+      const safety = await checkContent({
+        text: [subject.trim(), trimmedTitle].filter(Boolean).join("\n"),
+        filePath: req.file.path,
+        mimeType,
+      });
+      if (!safety.ok) {
+        fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ error: safety.reason });
+      }
 
       const newUpload = {
         id,
@@ -144,7 +157,7 @@ router.post(
         studentId: req.user.studentId,
         section: req.user.section,
         subject: subject.trim(),
-        title: title && typeof title === "string" ? title.trim() : null,
+        title: trimmedTitle,
         date: todayDate,
         fileUrl: `/api/classwork/files/${id}`,
         filePath: req.file.path,
@@ -152,7 +165,7 @@ router.post(
         fileSize: req.file.size,
         // Derived from the extension allowlist, never from the value the
         // browser declared, because this is what gets served back.
-        mimeType: resolveUploadType(req.file.originalname).contentType,
+        mimeType,
         createdAt: now,
         updatedAt: now,
       };

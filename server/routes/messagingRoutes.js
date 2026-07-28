@@ -19,6 +19,7 @@ const {
   rateLimit,
   limitText,
 } = require("../limits");
+const { checkContent } = require("../moderation/checkContent");
 
 const router = express.Router();
 
@@ -405,6 +406,7 @@ router.post(
         return res.status(400).json({ error: "Message content or file attachment is required." });
       }
       if (tooLong) {
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
         return res.status(413).json({
           error: `Messages are limited to ${MAX_MESSAGE_CHARS} characters.`,
         });
@@ -426,6 +428,17 @@ router.post(
         // browser declared, because this is what gets served back.
         mimeType = resolveUploadType(req.file.originalname).contentType;
         filePath = req.file.path || null;
+      }
+
+      const safety = await checkContent({
+        text: trimmed,
+        filePath,
+        buffer: req.file?.buffer || null,
+        mimeType,
+      });
+      if (!safety.ok) {
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ error: safety.reason });
       }
 
       await db.insert(schema.messages)

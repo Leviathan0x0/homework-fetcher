@@ -9,22 +9,14 @@ const path = require("path");
  * whether an upload is accepted and which content type the server will serve.
  */
 
-// Extension -> the only content type the server will ever serve for it.
+// Homework-only: PDFs and photos. Office docs / GIF / text are intentionally
+// blocked so peer sharing stays on assignment material, not arbitrary files.
 const ALLOWED_TYPES = new Map([
   [".png", "image/png"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
   [".webp", "image/webp"],
-  [".gif", "image/gif"],
   [".pdf", "application/pdf"],
-  [".txt", "text/plain"],
-  [".csv", "text/csv"],
-  [".doc", "application/msword"],
-  [".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
-  [".xls", "application/vnd.ms-excel"],
-  [".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
-  [".ppt", "application/vnd.ms-powerpoint"],
-  [".pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
 ]);
 
 // SVG is intentionally absent: it is an XML document that renders as a page on
@@ -35,12 +27,11 @@ const INLINE_TYPES = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
-  "image/gif",
   "application/pdf",
 ]);
 
 const UNSUPPORTED_FILE_MESSAGE =
-  "Unsupported file format. Please upload an image, PDF, or common document file.";
+  "Only homework PDFs and photos (JPG, PNG, WebP) are allowed.";
 
 /**
  * Resolves the server-chosen content type for an uploaded filename.
@@ -68,7 +59,6 @@ function uploadFileFilter(req, file, cb) {
 const MAGIC_BYTES = [
   { type: "image/png", bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
   { type: "image/jpeg", bytes: [0xff, 0xd8, 0xff] },
-  { type: "image/gif", bytes: [0x47, 0x49, 0x46, 0x38] },
   { type: "application/pdf", bytes: [0x25, 0x50, 0x44, 0x46] },
 ];
 

@@ -104,6 +104,12 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   // Shrinks photos before upload and rejects anything still too large
   const acceptFile = async (file: File) => {
     setModalError(null);
+    const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    if (!allowed.includes(ext)) {
+      setModalError('Only homework PDFs and photos (JPG, PNG, WebP) are allowed.');
+      return;
+    }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
     if (prepared.size > MAX_UPLOAD_BYTES) {
       setModalError(
@@ -558,7 +564,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                    accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
 

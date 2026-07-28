@@ -14,6 +14,7 @@ import {
   SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { CalendarCheckIcon } from "@/components/ui/calendar-check"
+import { CalendarDaysIcon } from "@/components/ui/calendar-days"
 import { UploadIcon } from "@/components/ui/upload"
 import { HeartHandshakeIcon } from "@/components/ui/heart-handshake"
 import { MessageSquareIcon } from "@/components/ui/message-square"
@@ -66,7 +67,7 @@ export function AppSidebar({
     {
       label: "Planning",
       items: [
-        { id: "calendar" as ViewType, title: "Calendar", IconComponent: CalendarCheckIcon },
+        { id: "calendar" as ViewType, title: "Calendar", IconComponent: CalendarDaysIcon },
         { id: "exams" as ViewType, title: "Exams", IconComponent: GraduationCapIcon },
       ],
     },

@@ -117,7 +117,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ unread
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                <Bell className="w-8 h-8 text-neutral-300 dark:text-neutral-600 mb-2" />
+                <BellIcon size={32} className="text-neutral-300 dark:text-neutral-600 mb-2" />
                 <p className="text-xs text-neutral-500">No notifications yet</p>
               </div>
             ) : (

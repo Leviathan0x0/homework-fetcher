@@ -235,28 +235,30 @@ router.post("/conversations", requireAuth, async (req, res) => {
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
     const existing = await db
-      .select()
+      .select({ conversationId: schema.conversationParticipants.conversationId })
       .from(schema.conversationParticipants)
       .where(eq(schema.conversationParticipants.userId, req.user.id))
       .all();
     const existingConvIds = existing.map((p) => p.conversationId);
 
     if (existingConvIds.length > 0) {
-      const others = await db
-        .select()
+      const match = await db
+        .select({ conversationId: schema.conversationParticipants.conversationId })
         .from(schema.conversationParticipants)
-        .all();
-      for (const p of others) {
-        if (
-          existingConvIds.includes(p.conversationId) &&
-          p.userId === participantId
-        ) {
-          return res.json({
-            conversationId: p.conversationId,
-            existing: true,
-            otherUser: toPublicUser(otherUser),
-          });
-        }
+        .where(
+          and(
+            inArray(schema.conversationParticipants.conversationId, existingConvIds),
+            eq(schema.conversationParticipants.userId, participantId)
+          )
+        )
+        .get();
+
+      if (match) {
+        return res.json({
+          conversationId: match.conversationId,
+          existing: true,
+          otherUser: toPublicUser(otherUser),
+        });
       }
     }
 

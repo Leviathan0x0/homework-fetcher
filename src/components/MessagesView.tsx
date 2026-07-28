@@ -328,6 +328,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const participantId = pendingParticipant.id;
     setShowNoticeDialog(false);
     setPendingParticipant(null);
+
+    const existingConv = conversations.find(
+      (c) => c.otherUser?.id === participantId || c.otherUser?.studentId === participantId
+    );
+    if (existingConv) {
+      setActiveConvId(existingConv.id);
+    }
     await handleStartConversation(participantId, noticeToken);
   };
 

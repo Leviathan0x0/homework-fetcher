@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { ViewType } from '../types/homework';
 import { CalendarCheckIcon } from '@/components/ui/calendar-check';
 import { UploadIcon } from '@/components/ui/upload';
@@ -47,6 +48,9 @@ function useVisualViewportBottomOffset() {
   return offset;
 }
 
+const springSoft = { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.7 };
+const springSnap = { type: 'spring' as const, stiffness: 520, damping: 36, mass: 0.55 };
+
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeView,
   onViewChange,
@@ -59,7 +63,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     setMounted(true);
   }, []);
 
-  const items: { id: ViewType; label: string; IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }> }[] = [
+  const items: {
+    id: ViewType;
+    label: string;
+    IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>;
+  }[] = [
     { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon },
     { id: 'classwork', label: 'Classwork', IconComponent: UploadIcon },
     { id: 'requests', label: 'Requests', IconComponent: HeartHandshakeIcon },
@@ -73,56 +81,127 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       aria-label="Primary"
       className="md:hidden fixed inset-x-0 z-40 flex justify-center px-3 pointer-events-none"
       style={{
-        // Pin to the visual viewport bottom, then add home-indicator / margin gap.
         bottom: viewportBottomOffset,
-        paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))',
-        // Promote to its own layer so iOS scroll rubber-banding doesn’t jitter it.
+        paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0px))',
         transform: 'translateZ(0)',
       }}
     >
-      <div className="pointer-events-auto w-full max-w-md h-16 rounded-3xl bg-white/95 dark:bg-[#141417]/95 border border-neutral-200 dark:border-neutral-800 shadow-lg text-neutral-900 dark:text-white px-2 flex items-center justify-around select-none">
-        {items.map((item) => {
-          const IconComp = item.IconComponent;
-          const isActive = activeView === item.id;
-          const isHovered = hoveredId === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onViewChange(item.id)}
-              onMouseEnter={() => setHoveredId(item.id)}
-              onMouseLeave={() => setHoveredId(null)}
-              aria-current={isActive ? 'page' : undefined}
-              className="flex flex-col items-center justify-center flex-1 h-full py-1 rounded-2xl cursor-pointer touch-manipulation group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-500/50"
-            >
-              <div
+      <motion.div
+        initial={{ y: 28, opacity: 0, scale: 0.96 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        transition={springSoft}
+        className={cn(
+          'pointer-events-auto relative w-full max-w-[22.5rem]',
+          'rounded-[1.35rem] px-1.5 py-1.5',
+          'flex items-stretch justify-between gap-0.5',
+          'bg-white/80 dark:bg-[#121215]/82',
+          'backdrop-blur-2xl backdrop-saturate-150',
+          'border border-white/70 dark:border-white/[0.08]',
+          'shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35),0_0_0_1px_rgba(15,23,42,0.04),inset_0_1px_0_rgba(255,255,255,0.65)]',
+          'dark:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.65),0_0_0_1px_rgba(255,255,255,0.04),inset_0_1px_0_rgba(255,255,255,0.06)]',
+          'select-none'
+        )}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-gradient-to-b from-white/50 to-transparent dark:from-white/[0.06] dark:to-transparent"
+        />
+
+        <LayoutGroup id="mobile-nav">
+          {items.map((item) => {
+            const IconComp = item.IconComponent;
+            const isActive = activeView === item.id;
+            const isHovered = hoveredId === item.id;
+
+            return (
+              <motion.button
+                key={item.id}
+                type="button"
+                onClick={() => onViewChange(item.id)}
+                onMouseEnter={() => setHoveredId(item.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                aria-current={isActive ? 'page' : undefined}
+                aria-label={item.label}
+                whileTap={{ scale: 0.9 }}
+                transition={springSnap}
                 className={cn(
-                  'flex items-center justify-center transition-all duration-200',
-                  isActive
-                    ? 'text-neutral-900 dark:text-white scale-105'
-                    : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+                  'relative z-[1] flex flex-1 flex-col items-center justify-center gap-0.5',
+                  'min-w-0 h-[3.25rem] rounded-[1.05rem]',
+                  'cursor-pointer touch-manipulation',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent'
                 )}
               >
-                <IconComp size={22} isAnimated={isActive || isHovered} className="shrink-0" />
-              </div>
-              <span
-                className={cn(
-                  'text-[9px] leading-tight tracking-tight mt-1 truncate max-w-[56px] transition-colors',
-                  isActive
-                    ? 'text-neutral-900 dark:text-white font-semibold'
-                    : 'text-neutral-500 dark:text-neutral-400'
-                )}
-              >
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+                {/* Sliding active pill */}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      layoutId="mobile-nav-pill"
+                      className="absolute inset-0 rounded-[1.05rem] bg-neutral-900/[0.07] dark:bg-white/[0.1]"
+                      transition={springSoft}
+                    />
+                  )}
+                </AnimatePresence>
+
+                {/* Active top accent */}
+                <AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      layoutId="mobile-nav-accent"
+                      initial={{ opacity: 0, scaleX: 0.4 }}
+                      animate={{ opacity: 1, scaleX: 1 }}
+                      exit={{ opacity: 0, scaleX: 0.4 }}
+                      transition={springSnap}
+                      aria-hidden
+                      className="absolute inset-x-2 top-1 h-[2px] origin-center rounded-full bg-indigo-500 dark:bg-indigo-400"
+                    />
+                  )}
+                </AnimatePresence>
+
+                <motion.span
+                  animate={{
+                    scale: isActive ? 1.12 : 1,
+                    y: isActive ? -0.5 : 0,
+                  }}
+                  transition={springSnap}
+                  className={cn(
+                    'relative z-[1] flex items-center justify-center',
+                    isActive
+                      ? 'text-indigo-600 dark:text-indigo-400'
+                      : isHovered
+                        ? 'text-neutral-700 dark:text-neutral-200'
+                        : 'text-neutral-500 dark:text-neutral-400'
+                  )}
+                >
+                  <IconComp
+                    size={20}
+                    isAnimated={isActive || isHovered}
+                    className="shrink-0"
+                  />
+                </motion.span>
+
+                <motion.span
+                  animate={{
+                    opacity: isActive ? 1 : 0.85,
+                    y: isActive ? 0 : 1,
+                  }}
+                  transition={springSnap}
+                  className={cn(
+                    'relative z-[1] text-[8.5px] leading-none tracking-[-0.02em] truncate max-w-[3.4rem]',
+                    isActive
+                      ? 'font-semibold text-neutral-900 dark:text-white'
+                      : 'font-medium text-neutral-500 dark:text-neutral-400'
+                  )}
+                >
+                  {item.label}
+                </motion.span>
+              </motion.button>
+            );
+          })}
+        </LayoutGroup>
+      </motion.div>
     </nav>
   );
 
-  // Render on document.body so no parent transform/overflow can re-root `fixed`.
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(nav, document.body);
 };

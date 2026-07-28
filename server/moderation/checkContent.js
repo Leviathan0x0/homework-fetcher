@@ -28,7 +28,14 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
   }
 
   if (mimeType && String(mimeType).startsWith("image/")) {
-    const aiImage = await moderateImage({ filePath, buffer, mimeType });
+    // Photos are the highest-risk channel — always run rigorous image moderation
+    // (requires OPENAI_API_KEY; fails closed if verification is unavailable).
+    const aiImage = await moderateImage({
+      filePath,
+      buffer,
+      mimeType,
+      text: trimmed || null,
+    });
     if (!aiImage.ok) return aiImage;
   }
 

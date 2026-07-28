@@ -170,8 +170,10 @@ This is only about blocking bad text and NSFW images in **Messages**, **Requests
 - No Word/Excel/PPT, GIF, etc.
 
 ### How filtering works (two layers)
-1. **Rules (always on)** — bad-word list + file-type allowlist. Works even without any API key.
+1. **Rules (always on)** — `profanity-hindi` + local bad-word list + file-type allowlist. Works even without any API key.
 2. **AI (needs key)** — OpenAI **Moderation API** model `omni-moderation-latest` checks text and images for sexual / hate / harassment / self-harm / violence content and **hard-blocks** it (student sees a generic error; nothing is saved).
+
+**Photos are stricter than text:** every image upload must pass AI moderation. If `OPENAI_API_KEY` is missing or the check fails, the photo is **blocked** (not skipped). Score thresholds for sexual / graphic content are set lower than OpenAI’s default flags so borderline NSFW is rejected for school use.
 
 This is **not** ChatGPT. It is OpenAI’s cheap moderation endpoint, so checking lots of homework photos stays affordable.
 

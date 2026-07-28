@@ -1,14 +1,15 @@
 /**
  * Rules-first text filter for student messaging and section requests.
- * Normalizes obfuscation (punctuation, zero-width chars, repeated letters)
- * then matches against a compact blocklist.
+ * Uses `profanity-hindi` for Hindi/English abuse, plus a local blocklist
+ * for obfuscation and gaps the library misses.
  */
+
+const { isMessageDirty } = require("profanity-hindi");
 
 const GUIDELINE_MESSAGE =
   "This message can’t be sent because it doesn’t follow school guidelines.";
 
-// Compact English + common school-chat slang. Keep list focused; AI layer
-// catches broader sexual / hate / harassment cases.
+// Extra English + school-chat slang / obfuscation gaps beyond profanity-hindi.
 const BAD_WORDS = [
   "fuck",
   "fucker",
@@ -88,6 +89,17 @@ function normalizeForFilter(text) {
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
 function checkBadWords(text) {
+  if (!text || typeof text !== "string" || !text.trim()) return { ok: true };
+
+  // Library check on the raw message (Hindi romanized + common English abuse).
+  try {
+    if (isMessageDirty(text)) {
+      return { ok: false, reason: GUIDELINE_MESSAGE };
+    }
+  } catch (err) {
+    console.error("[moderation] profanity-hindi failed:", err.message);
+  }
+
   const normalized = normalizeForFilter(text);
   if (!normalized) return { ok: true };
 

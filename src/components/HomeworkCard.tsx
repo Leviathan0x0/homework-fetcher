@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
-import { detectHomeworkPriority, getAssignmentMeta } from '../utils/priorityDetector';
-import { Check, Eye, Plus, Pencil, Trash2, NotebookPen, Clock } from 'lucide-react';
+import { Check, Eye, Plus, Pencil, Trash2, NotebookPen } from 'lucide-react';
 import { AnimatedPaperclip, AnimatedIcon } from './ui/animated-icon';
 import { cn } from '../utils/cn';
 
@@ -14,23 +13,6 @@ interface HomeworkCardProps {
   onUpdateNote?: (id: string, note: string | null) => void;
   onOpenPreview?: (url: string) => void;
 }
-
-const SUBJECT_MARK: Record<string, string> = {
-  History: '📖',
-  Physics: '🔬',
-  English: '📘',
-  Mathematics: '📐',
-  Chemistry: '🧪',
-  Biology: '🌿',
-  Science: '🔭',
-  'Social Science': '🌍',
-  Computers: '💻',
-  Hindi: '📜',
-  Punjabi: '🪔',
-  French: '🇫🇷',
-  Art: '🎨',
-  'General Knowledge': '💡',
-};
 
 const isValidUrl = (url: string | null | undefined): boolean => {
   if (!url) return false;
@@ -52,9 +34,6 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   const subjectInfo = detectSubject(item.homework, item.subject, item.type);
   const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
   const hwHierarchy = splitTaskHierarchy(parsed.homeWork || '');
-  const priority = detectHomeworkPriority(item, { text: item.homework });
-  const meta = getAssignmentMeta(item);
-  const subjectMark = SUBJECT_MARK[subjectInfo.name];
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(item.note || '');
@@ -100,12 +79,12 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   return (
     <article
       className={cn(
-        'group relative bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 border-l-[3px] rounded-3xl p-5 sm:p-6 shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
+        'group relative bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 border-l-2 rounded-2xl p-5 sm:p-6 shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
         subjectInfo.accentBorderClass,
         isCompleted && 'opacity-65 bg-neutral-50/60 dark:bg-[#101012]/60 border-neutral-200/40 dark:border-neutral-800/40 shadow-none'
       )}
     >
-      {/* Top: checkbox + subject + priority */}
+      {/* Top: checkbox + subject */}
       <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-3.5">
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
           {onToggleCompleted && (
@@ -125,22 +104,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
           <span
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border cursor-default',
+              'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border cursor-default',
               subjectInfo.badgeClass
             )}
           >
-            {subjectMark && <span className="text-[13px] leading-none" aria-hidden>{subjectMark}</span>}
             {subjectInfo.name}
-          </span>
-
-          <span
-            className={cn(
-              'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border',
-              priority.badgeClass
-            )}
-          >
-            <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', priority.dotClass)} aria-hidden />
-            {priority.label}
           </span>
         </div>
 
@@ -151,18 +119,23 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         )}
       </div>
 
-      {/* Hierarchy: action pops, detail is quieter */}
+      {/* Hierarchy: compact HW / CW tags */}
       <div className={cn('space-y-2.5', isCompleted && 'opacity-80')}>
         {parsed.homeWork && (
-          <div className={cn(isCompleted && 'line-through decoration-neutral-400/80')}>
-            <p className="text-[15px] sm:text-base font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight">
-              {hwHierarchy.action}
-            </p>
-            {hwHierarchy.detail && (
-              <p className="mt-1 text-xs sm:text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
-                {hwHierarchy.detail}
+          <div className="flex items-start gap-2.5">
+            <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[9px] font-bold tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-1">
+              HW
+            </span>
+            <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
+              <p className="text-[15px] sm:text-base font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight">
+                {hwHierarchy.action}
               </p>
-            )}
+              {hwHierarchy.detail && (
+                <p className="mt-1 text-xs sm:text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                  {hwHierarchy.detail}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -173,7 +146,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             </span>
             <span
               className={cn(
-                'whitespace-pre-wrap break-words flex-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed',
+                'whitespace-pre-wrap break-words flex-1 text-xs sm:text-[13px] text-neutral-500 dark:text-neutral-400 leading-relaxed',
                 isCompleted && 'line-through'
               )}
             >
@@ -187,16 +160,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         )}
       </div>
 
-      {/* Assignment / due meta */}
-      <div className="mt-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs font-medium text-neutral-500 dark:text-neutral-400">
-        <span>{meta.assigned}</span>
-        {meta.due && (
-          <span className="inline-flex items-center gap-1 text-neutral-700 dark:text-neutral-300">
-            <Clock className="w-3 h-3 text-neutral-400" aria-hidden />
-            {meta.due}
-          </span>
-        )}
-      </div>
+      {item.date && (
+        <p className="mt-3.5 text-[11px] sm:text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          {item.date}
+        </p>
+      )}
 
       {/* Personal note */}
       <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/60">

@@ -28,7 +28,9 @@ function firstNameFrom(displayName?: string | null, studentId?: string | null): 
   const raw = (displayName || studentId || '').trim();
   if (!raw) return 'there';
   const token = raw.split(/[\s@._-]+/).filter(Boolean)[0] || raw;
-  return token.charAt(0).toUpperCase() + token.slice(1);
+  // Strip trailing digits schools often append to student IDs (e.g. "kiaan1240").
+  const cleaned = token.replace(/\d+$/, '') || token;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
 }
 
 function progressEncouragement(done: number, total: number): string {
@@ -86,9 +88,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const dateStr = formatContextualDate();
   const pendingCount = Math.max(totalCount - doneCount, 0);
 
+  const allDone = !isLoading && totalCount > 0 && doneCount >= totalCount;
+
   return (
     <div className="space-y-6">
-      {/* Personal greeting */}
+      {/* Greeting */}
       <div className="flex flex-col gap-3 pb-5 border-b border-neutral-200/70 dark:border-neutral-800/70 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
         <div className="min-w-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
           <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">{dateStr}</p>
@@ -101,7 +105,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               ? 'Loading today’s homework…'
               : totalCount === 0
                 ? 'No homework assigned for today.'
-                : pendingCount === 0
+                : allDone
                   ? `You finished all ${totalCount} homework task${totalCount === 1 ? '' : 's'} for today.`
                   : `You have ${pendingCount} homework task${pendingCount === 1 ? '' : 's'} left today.`}
           </p>
@@ -135,16 +139,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <div
               className={cn(
                 'h-full rounded-full transition-[width] duration-500 ease-out',
-                doneCount >= totalCount
-                  ? 'bg-emerald-500'
-                  : 'bg-neutral-900 dark:bg-neutral-100'
+                allDone ? 'bg-emerald-500' : 'bg-neutral-500 dark:bg-neutral-500'
               )}
               style={{ width: `${progressPct}%` }}
             />
           </div>
           <p className="mt-2.5 text-xs text-neutral-500 dark:text-neutral-400">
             {progressEncouragement(doneCount, totalCount)}
-            {doneCount > 0 && doneCount < totalCount ? ' 💪' : doneCount >= totalCount ? ' ✨' : ''}
+            {doneCount > 0 && doneCount < totalCount ? ' 💪' : allDone ? ' ✨' : ''}
           </p>
         </section>
       )}

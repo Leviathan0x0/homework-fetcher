@@ -3,6 +3,7 @@ import { requestService, authService } from '../services/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
+import { friendlyContentError } from '../utils/friendlyErrors';
 import {
   Handshake,
   Plus,
@@ -89,7 +90,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
       setFormContent('');
       setFormCategory('Help');
     } catch (err: any) {
-      setFormError(typeof err?.message === 'string' ? err.message : 'Failed to create request.');
+      setFormError(friendlyContentError(err, 'Failed to create request.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -97,9 +98,14 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
   const handleToggleStatus = async (id: string, current: string) => {
     const next = current === 'open' ? 'completed' : 'open';
+    const previous = current === 'open' ? 'open' : 'completed';
+    setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: next as 'open' | 'completed' } : r)));
     try {
-      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: next as 'open' | 'completed' } : r)));
-    } catch { alert('Failed to update request.'); }
+      await requestService.updateStatus(id, next);
+    } catch (err: any) {
+      setRequests((prev) => prev.map((r) => (r.id === id ? { ...r, status: previous as 'open' | 'completed' } : r)));
+      alert(typeof err?.message === 'string' ? err.message : 'Failed to update request.');
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -153,8 +159,18 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">
-          <div className="flex items-center gap-2"><AlertCircle className="w-4 h-4 shrink-0" /><span>{errorMessage}</span></div>
-          <button onClick={fetchRequests} className="font-medium underline hover:text-rose-900 cursor-pointer">Retry</button>
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="leading-snug">{errorMessage}</span>
+          </div>
+          <button
+            onClick={fetchRequests}
+            disabled={isLoading}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-semibold hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
+          >
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            Retry
+          </button>
         </div>
       )}
 
@@ -187,10 +203,31 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="py-12 flex flex-col items-center justify-center gap-3 text-neutral-400">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span className="text-xs font-medium">Loading requests...</span>
+      {isLoading && requests.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading requests">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <div className="h-5 w-16 rounded-full bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                  <div className="h-5 w-12 rounded-full bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                </div>
+                <div className="h-3 w-16 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
+              <div className="h-4 w-4/5 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              <div className="space-y-1.5">
+                <div className="h-3 w-full rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                <div className="h-3 w-2/3 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
+              <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex justify-between">
+                <div className="h-3 w-24 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                <div className="h-7 w-20 rounded-xl bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
@@ -209,7 +246,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={cn(
+          'grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity',
+          isLoading && requests.length > 0 && 'opacity-60'
+        )}>
           {filtered.map((item) => (
             <div key={item.id} className={cn(
               'group relative rounded-2xl border bg-white dark:bg-[#141417] p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-xs',

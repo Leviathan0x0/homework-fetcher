@@ -278,6 +278,29 @@ CREATE TABLE IF NOT EXISTS users (
       data TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS moderation_strikes (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_flag_log (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      student_id TEXT NOT NULL,
+      section TEXT,
+      conversation_id TEXT,
+      reason TEXT NOT NULL,
+      detail TEXT,
+      source TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_admin_flag_created ON admin_flag_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_admin_flag_user ON admin_flag_log(user_id);
+    CREATE INDEX IF NOT EXISTS idx_admin_flag_type ON admin_flag_log(type);
 `;
 
 /** Splits the schema script into individual statements. */

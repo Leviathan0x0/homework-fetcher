@@ -3,6 +3,7 @@ import { apiFetch, apiUrl } from '../lib/api';
 import { messagingService, authService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
+import { friendlyContentError } from '../utils/friendlyErrors';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
@@ -24,6 +25,7 @@ import {
   Download,
   ExternalLink,
   Trash2,
+  Flag,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -48,6 +50,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [fileError, setFileError] = useState<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
+  const [reportingConv, setReportingConv] = useState(false);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
@@ -250,7 +253,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       // Put the draft back so nothing is silently lost, and say why it failed.
       setInputText(textCopy);
       setSelectedFile(fileCopy);
-      setFileError(typeof err?.message === 'string' ? err.message : 'Message could not be sent. Try again.');
+      setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
     } finally { setSending(false); }
   };
 
@@ -261,7 +264,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
     const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
     if (!allowed.includes(ext)) {
-      setFileError('Only homework PDFs and photos (JPG, PNG, WebP) are allowed.');
+      setFileError('Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.');
       return;
     }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
@@ -302,6 +305,24 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       setLoadError(typeof err?.message === 'string' ? err.message : 'Conversation could not be deleted.');
     } finally {
       setDeletingConvId(null);
+    }
+  };
+
+  const handleReportConversation = async () => {
+    if (!activeConvId || reportingConv) return;
+    const ok = confirm(
+      'Report this chat to school staff?\n\nUse this only for serious issues (abuse, harassment, or unsafe behaviour).'
+    );
+    if (!ok) return;
+    setReportingConv(true);
+    try {
+      const data = await messagingService.reportConversation(activeConvId);
+      setFileError(null);
+      alert(typeof data?.message === 'string' ? data.message : 'Thanks — this chat was reported for school review.');
+    } catch (err: any) {
+      setFileError(friendlyContentError(err, 'Could not submit the report. Please try again.'));
+    } finally {
+      setReportingConv(false);
     }
   };
 
@@ -541,19 +562,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </div>
         </div>
 
-        <button
-          onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
-          disabled={!activeConvId || deletingConvId === activeConvId}
-          title="Delete conversation"
-          aria-label="Delete conversation"
-          className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
-        >
-          {deletingConvId === activeConvId ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Trash2 className="w-4 h-4" />
-          )}
-        </button>
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={handleReportConversation}
+            disabled={!activeConvId || reportingConv}
+            title="Report this chat"
+            aria-label="Report this chat"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {reportingConv ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Flag className="w-4 h-4" />
+            )}
+          </button>
+          <button
+            onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
+            disabled={!activeConvId || deletingConvId === activeConvId}
+            title="Delete conversation"
+            aria-label="Delete conversation"
+            className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+          >
+            {deletingConvId === activeConvId ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Messages Scroll View */}
@@ -569,7 +605,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-xs text-neutral-400">
-            No messages yet. Send a message to start conversation!
+            No messages yet. Send homework notes, a PDF, or a photo to get started.
           </div>
         ) : (
           messages.map((m) => {
@@ -689,7 +725,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
       <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
         {fileError && (
-          <div className="mb-2 px-2 text-[11px] text-rose-600 dark:text-rose-400">{fileError}</div>
+          <div className="mb-2 px-2.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 leading-snug">
+            {fileError}
+          </div>
         )}
 
         {selectedFile && (
@@ -721,7 +759,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             onMouseEnter={() => setHoveredAction('attach')}
             onMouseLeave={() => setHoveredAction(null)}
             className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer mb-0.5"
-            title="Attach homework PDF or photo"
+            title="Attach homework PDF or photo only"
+            aria-label="Attach homework PDF or photo"
           >
             <AttachFileIcon size={18} isAnimated={hoveredAction === 'attach'} />
           </button>
@@ -745,6 +784,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
           </button>
         </div>
+        <p className="mt-1.5 px-1 text-[10px] text-neutral-400 dark:text-neutral-500">
+          Attachments: homework PDFs and photos only
+        </p>
       </div>
     </div>
   );

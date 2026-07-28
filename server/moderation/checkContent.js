@@ -1,7 +1,7 @@
 /**
  * Single entry for content safety: rules first, then OpenAI Moderations.
  *
- * @typedef {{ ok: true } | { ok: false, reason: string }} CheckResult
+ * @typedef {{ ok: true } | { ok: false, reason: string, kind: 'text' | 'image' }} CheckResult
  */
 
 const { checkBadWords, GUIDELINE_MESSAGE } = require("./badWords");
@@ -21,10 +21,10 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
 
   if (trimmed) {
     const rules = checkBadWords(trimmed);
-    if (!rules.ok) return rules;
+    if (!rules.ok) return { ...rules, kind: "text" };
 
     const aiText = await moderateText(trimmed);
-    if (!aiText.ok) return aiText;
+    if (!aiText.ok) return { ...aiText, kind: "text" };
   }
 
   if (mimeType && String(mimeType).startsWith("image/")) {
@@ -36,7 +36,7 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
       mimeType,
       text: trimmed || null,
     });
-    if (!aiImage.ok) return aiImage;
+    if (!aiImage.ok) return { ...aiImage, kind: "image" };
   }
 
   return { ok: true };
@@ -53,13 +53,13 @@ async function checkRequestText(title, body) {
   if (!combined.trim()) return { ok: true };
 
   const rules = checkBadWords(combined);
-  if (!rules.ok) return rules;
+  if (!rules.ok) return { ...rules, kind: "text" };
 
   // Moderate fields separately so short titles aren't diluted by long bodies.
   for (const part of [title, body]) {
     if (!part || !String(part).trim()) continue;
     const ai = await moderateText(String(part).trim());
-    if (!ai.ok) return ai;
+    if (!ai.ok) return { ...ai, kind: "text" };
   }
 
   return { ok: true };

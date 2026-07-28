@@ -14,7 +14,7 @@ const MODEL = "omni-moderation-latest";
 const ENDPOINT = "https://api.openai.com/v1/moderations";
 
 const VERIFY_FAILED_MESSAGE =
-  "This photo couldn’t be verified for school guidelines. Please try again in a moment.";
+  "We couldn’t check that photo right now. Please try again in a moment.";
 
 /** Categories that must hard-block when OpenAI sets them true. */
 const BLOCK_CATEGORIES = [

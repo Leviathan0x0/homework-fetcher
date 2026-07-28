@@ -228,6 +228,17 @@ export const messagingService = {
     if (!res.ok) throw new Error(data.error || "Failed to delete message.");
   },
 
+  async reportConversation(convId: string, reason?: string) {
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ reason: reason || "" }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Could not submit the report.");
+    return data;
+  },
+
   async getMessages(convId: string) {
     const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
       headers: { Accept: "application/json" },
@@ -362,7 +373,8 @@ export const requestService = {
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ status }),
     });
-    if (!res.ok) throw new Error("Failed to update request.");
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to update request.");
   },
 
   async deleteRequest(id: string) {

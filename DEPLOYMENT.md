@@ -177,6 +177,12 @@ This is only about blocking bad text and NSFW images in **Messages**, **Requests
 
 This is **not** ChatGPT. It is OpenAI’s cheap moderation endpoint, so checking lots of homework photos stays affordable.
 
+### Staff flag log (database only for now)
+- Table `admin_flag_log` stores staff-facing events.
+- **3-strike rule:** each blocked vulgar/abuse **text** attempt increments `moderation_strikes` for that student. At **3** strikes, a `strike_threshold` row is written and the counter resets.
+- **Report this chat:** from Messages (flag icon), a student can report a conversation → `chat_report` row (who, which chat, when).
+- No teacher UI yet — query these tables in the DB when staff need a review trail.
+
 ### What you need to set
 1. Create an API key at [platform.openai.com](https://platform.openai.com/api-keys).
 2. Add this env var on the server / Vercel:
@@ -194,5 +200,5 @@ OPENAI_API_KEY=sk-...
 
 ### What is not checked yet
 - Inside of PDFs (no OCR) — only the file type is allowed
-- Teacher/admin review queue — blocked content is rejected only, not saved for staff to review
+- Teacher dashboard for the flag log — data is stored; UI comes later
 

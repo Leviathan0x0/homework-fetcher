@@ -31,7 +31,7 @@ const INLINE_TYPES = new Set([
 ]);
 
 const UNSUPPORTED_FILE_MESSAGE =
-  "Only homework PDFs and photos (JPG, PNG, WebP) are allowed.";
+  "Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.";
 
 /**
  * Resolves the server-chosen content type for an uploaded filename.

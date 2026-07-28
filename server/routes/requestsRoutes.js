@@ -12,6 +12,7 @@ const {
   limitText,
 } = require("../limits");
 const { checkRequestText } = require("../moderation/checkContent");
+const { recordProfanityStrike } = require("../moderation/flagLogService");
 
 const router = express.Router();
 
@@ -75,6 +76,19 @@ router.post(
 
     const safety = await checkRequestText(title, content);
     if (!safety.ok) {
+      if (safety.kind === "text") {
+        try {
+          await recordProfanityStrike({
+            userId: req.user.id,
+            studentId: req.user.studentId,
+            section: req.user.section,
+            source: "requests",
+            snippet: `${title}\n${content}`,
+          });
+        } catch (strikeErr) {
+          console.error("Profanity strike log failed:", strikeErr.message);
+        }
+      }
       return res.status(400).json({ error: safety.reason });
     }
 

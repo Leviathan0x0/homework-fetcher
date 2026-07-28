@@ -210,6 +210,45 @@ const messageAttachments = sqliteTable(
   }
 );
 
+/** Running count of blocked vulgar/abuse text attempts per student. */
+const moderationStrikes = sqliteTable(
+  "moderation_strikes",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    count: integer("count").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
+
+/**
+ * Staff-facing log. Written when a student hits 3 vulgar blocks, or when a
+ * student reports a conversation. No teacher UI yet — query this table later.
+ */
+const adminFlagLog = sqliteTable(
+  "admin_flag_log",
+  {
+    id: text("id").primaryKey(),
+    type: text("type").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    studentId: text("student_id").notNull(),
+    section: text("section"),
+    conversationId: text("conversation_id"),
+    reason: text("reason").notNull(),
+    detail: text("detail"),
+    source: text("source"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_admin_flag_created").on(t.createdAt),
+    index("idx_admin_flag_user").on(t.userId),
+    index("idx_admin_flag_type").on(t.type),
+  ]
+);
+
 module.exports = {
   users,
   edusecureSessions,
@@ -223,4 +262,6 @@ module.exports = {
   conversationParticipants,
   messages,
   messageAttachments,
+  moderationStrikes,
+  adminFlagLog,
 };

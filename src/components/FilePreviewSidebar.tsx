@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, ExternalLink, Download, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { AuthenticatedImage } from './AuthenticatedImage';
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -151,13 +152,14 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
 
           {isImage ? (
             <div className="w-full h-full flex items-center justify-center overflow-auto">
-              <img
+              <AuthenticatedImage
                 src={fileUrl}
-                alt={fileName}
-                onLoad={() => setLoading(false)}
-                onError={() => setLoading(false)}
+                alt=""
+                onReady={() => setLoading(false)}
+                onFail={() => setLoading(false)}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 className="max-w-full max-h-full object-contain rounded-2xl shadow-md transition-transform duration-200"
+                fallbackClassName="min-h-[40vh] rounded-2xl"
               />
             </div>
           ) : isPdf ? (

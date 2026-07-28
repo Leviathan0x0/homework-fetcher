@@ -20,6 +20,7 @@ const {
   limitText,
 } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
+const { recordProfanityStrike, reportConversation } = require("../moderation/flagLogService");
 
 const router = express.Router();
 
@@ -438,6 +439,20 @@ router.post(
       });
       if (!safety.ok) {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
+        if (safety.kind === "text") {
+          try {
+            await recordProfanityStrike({
+              userId: req.user.id,
+              studentId: req.user.studentId,
+              section: req.user.section,
+              source: "messages",
+              snippet: trimmed,
+              conversationId: convId,
+            });
+          } catch (strikeErr) {
+            console.error("Profanity strike log failed:", strikeErr.message);
+          }
+        }
         return res.status(400).json({ error: safety.reason });
       }
 
@@ -625,6 +640,39 @@ async function refreshConversationPreview(convId) {
     .where(eq(schema.conversations.id, convId))
     .run();
 }
+
+/** Student reports a conversation for staff review (stored in admin_flag_log). */
+router.post(
+  "/conversations/:id/report",
+  requireAuth,
+  rateLimit({ name: "report-conversation", windowMs: 60 * 1000, max: 5 }),
+  async (req, res) => {
+    try {
+      const convId = req.params.id;
+      if (!(await isParticipant(convId, req.user.id))) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const reasonField = limitText((req.body || {}).reason, 500);
+      const result = await reportConversation({
+        reporterUserId: req.user.id,
+        reporterStudentId: req.user.studentId,
+        reporterSection: req.user.section,
+        conversationId: convId,
+        reason: reasonField.value || null,
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: "Thanks — this chat was reported for school review.",
+        id: result.id,
+      });
+    } catch (err) {
+      console.error("Report Conversation Error:", err);
+      return res.status(500).json({ error: "Could not submit the report. Please try again." });
+    }
+  }
+);
 
 // Only the author may delete a message: participation alone is not enough.
 router.delete(

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { classworkService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
+import { friendlyContentError } from '../utils/friendlyErrors';
 import {
   UploadCloud,
   FileText,
@@ -26,6 +27,7 @@ import { ClassworkEntry, SubjectInfo } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
+import { AuthenticatedImage } from './AuthenticatedImage';
 
 interface ClassworkViewProps {
   userSection?: string;
@@ -107,7 +109,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
     const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
     if (!allowed.includes(ext)) {
-      setModalError('Only homework PDFs and photos (JPG, PNG, WebP) are allowed.');
+      setModalError('Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.');
       return;
     }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
@@ -166,7 +168,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       setCustomSubject('');
     } catch (err: any) {
       console.error('Upload Classwork Error:', err);
-      setModalError(typeof err?.message === 'string' ? err.message : 'Upload failed. Please try again.');
+      setModalError(friendlyContentError(err, 'Upload failed. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -221,14 +223,16 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       {/* Error Banner */}
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{errorMessage}</span>
+            <span className="leading-snug">{errorMessage}</span>
           </div>
           <button
             onClick={fetchClasswork}
-            className="font-medium underline hover:text-rose-900 cursor-pointer"
+            disabled={isLoading}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-semibold hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
           >
+            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
             Retry
           </button>
         </div>
@@ -285,10 +289,34 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       </div>
 
       {/* Classwork List / Loading / Empty State */}
-      {isLoading ? (
-        <div className="py-12 flex flex-col items-center justify-center gap-3 text-neutral-400">
-          <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
-          <span className="text-xs font-medium">Loading section classwork...</span>
+      {isLoading && classwork.length === 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading classwork">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] p-4 space-y-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="h-5 w-20 rounded-full bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                <div className="h-4 w-14 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-3/4 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-xl bg-neutral-100 dark:bg-neutral-800 animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3 w-full rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                    <div className="h-2.5 w-1/3 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+              <div className="h-28 w-full rounded-xl bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex justify-between">
+                <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+                <div className="h-6 w-16 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : filteredClasswork.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
@@ -316,7 +344,10 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={cn(
+          'grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity',
+          isLoading && classwork.length > 0 && 'opacity-60'
+        )}>
           {filteredClasswork.map((item) => {
             const subjInfo: SubjectInfo = detectSubject(item.subject);
             const isImage = item.mimeType.startsWith('image/');
@@ -373,9 +404,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                     onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
                     className="mt-3 relative h-32 w-full rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 cursor-pointer group/img"
                   >
-                    <img
+                    <AuthenticatedImage
                       src={item.fileUrl}
-                      alt={item.originalFilename}
+                      alt=""
                       className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">

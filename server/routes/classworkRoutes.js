@@ -16,7 +16,7 @@ const {
 } = require("../files/fileTypes");
 const { MAX_UPLOAD_BYTES, rateLimit } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
-const { recordProfanityStrike } = require("../moderation/flagLogService");
+const { recordProfanityStrike, withStrikeWarning } = require("../moderation/flagLogService");
 
 const router = express.Router();
 
@@ -149,15 +149,19 @@ router.post(
       });
       if (!safety.ok) {
         fs.unlink(req.file.path, () => {});
-        if (safety.kind === "text") {
+        if (safety.strikeable) {
           try {
-            await recordProfanityStrike({
+            const strike = await recordProfanityStrike({
               userId: req.user.id,
               studentId: req.user.studentId,
               section: req.user.section,
               source: "classwork",
-              snippet: [subject.trim(), trimmedTitle].filter(Boolean).join("\n"),
+              snippet:
+                safety.kind === "image"
+                  ? `[blocked image] ${req.file.originalname}`
+                  : [subject.trim(), trimmedTitle].filter(Boolean).join("\n"),
             });
+            return res.status(400).json({ error: withStrikeWarning(safety.reason, strike) });
           } catch (strikeErr) {
             console.error("Profanity strike log failed:", strikeErr.message);
           }

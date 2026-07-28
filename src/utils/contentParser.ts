@@ -3,6 +3,37 @@ export interface ParsedHomeworkContent {
   homeWork?: string;
 }
 
+export interface TaskHierarchy {
+  /** Short action line that should visually dominate. */
+  action: string;
+  /** Supporting detail — chapter range, notes, etc. */
+  detail?: string;
+}
+
+/** Pull a bold “do this” line out of free-form homework text. */
+export function splitTaskHierarchy(text: string): TaskHierarchy {
+  if (!text) return { action: '' };
+  const trimmed = text.trim();
+  if (!trimmed) return { action: '' };
+
+  const paren = trimmed.match(/^(.+?)\s*\(([^)]+)\)\s*\.?$/s);
+  if (paren && paren[1].trim().length > 2) {
+    return { action: paren[1].trim(), detail: paren[2].trim() };
+  }
+
+  const lines = trimmed.split(/\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length > 1) {
+    return { action: lines[0], detail: lines.slice(1).join('\n') };
+  }
+
+  const sentence = trimmed.match(/^([^.!?]{8,}[.!?])\s+([\s\S]+)$/);
+  if (sentence && sentence[2].trim().length > 4) {
+    return { action: sentence[1].trim(), detail: sentence[2].trim() };
+  }
+
+  return { action: trimmed };
+}
+
 export function parseHomeworkContent(rawText: string, subjectName: string): ParsedHomeworkContent {
   if (!rawText) return { homeWork: '' };
 

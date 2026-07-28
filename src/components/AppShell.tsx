@@ -225,7 +225,7 @@ export const AppShell: React.FC = () => {
           "flex-1 w-full mx-auto min-h-0",
           activeView === 'messages'
             ? "h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
-            : "max-w-4xl px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
+            : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
         )}>
           {errorMessage && (
             <ErrorBanner
@@ -248,9 +248,10 @@ export const AppShell: React.FC = () => {
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}
               onOpenPreview={handleOpenPreview}
+              displayName={user?.displayName}
+              studentId={user?.studentId}
             />
           )}
-
           {activeView === 'classwork' && (
             <ClassworkView
               userSection={user?.section}

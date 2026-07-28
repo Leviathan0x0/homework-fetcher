@@ -1,7 +1,14 @@
 /**
  * Single entry for content safety: rules first, then OpenAI Moderations.
  *
- * @typedef {{ ok: true } | { ok: false, reason: string, kind: 'text' | 'image' }} CheckResult
+ * @typedef {{
+ *   ok: true
+ * } | {
+ *   ok: false,
+ *   reason: string,
+ *   kind: 'text' | 'image',
+ *   strikeable?: boolean
+ * }} CheckResult
  */
 
 const { checkBadWords, GUIDELINE_MESSAGE } = require("./badWords");
@@ -21,10 +28,16 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
 
   if (trimmed) {
     const rules = checkBadWords(trimmed);
-    if (!rules.ok) return { ...rules, kind: "text" };
+    if (!rules.ok) return { ...rules, kind: "text", strikeable: true };
 
     const aiText = await moderateText(trimmed);
-    if (!aiText.ok) return { ...aiText, kind: "text" };
+    if (!aiText.ok) {
+      return {
+        ...aiText,
+        kind: "text",
+        strikeable: aiText.strikeable !== false,
+      };
+    }
   }
 
   if (mimeType && String(mimeType).startsWith("image/")) {
@@ -36,7 +49,14 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
       mimeType,
       text: trimmed || null,
     });
-    if (!aiImage.ok) return { ...aiImage, kind: "image" };
+    if (!aiImage.ok) {
+      return {
+        ...aiImage,
+        kind: "image",
+        // Vulgar / NSFW policy hits count as a strike; verify/size/type failures do not.
+        strikeable: aiImage.strikeable === true,
+      };
+    }
   }
 
   return { ok: true };
@@ -53,13 +73,19 @@ async function checkRequestText(title, body) {
   if (!combined.trim()) return { ok: true };
 
   const rules = checkBadWords(combined);
-  if (!rules.ok) return { ...rules, kind: "text" };
+  if (!rules.ok) return { ...rules, kind: "text", strikeable: true };
 
   // Moderate fields separately so short titles aren't diluted by long bodies.
   for (const part of [title, body]) {
     if (!part || !String(part).trim()) continue;
     const ai = await moderateText(String(part).trim());
-    if (!ai.ok) return { ...ai, kind: "text" };
+    if (!ai.ok) {
+      return {
+        ...ai,
+        kind: "text",
+        strikeable: ai.strikeable !== false,
+      };
+    }
   }
 
   return { ok: true };

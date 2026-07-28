@@ -83,7 +83,7 @@ async function recordProfanityStrike({
       studentId: studentId || userId,
       section: section || null,
       conversationId: conversationId || null,
-      reason: `Reached ${STRIKE_THRESHOLD} blocked vulgar/abuse attempts`,
+      reason: `Reached ${STRIKE_THRESHOLD} blocked vulgar/abuse attempts (text or NSFW images)`,
       detail: clipSnippet(snippet),
       source: source || "unknown",
       createdAt: stamped,
@@ -138,8 +138,30 @@ async function reportConversation({
   return { id, createdAt: stamped };
 }
 
+/**
+ * Appends a clear student-facing strike warning to a moderation block message.
+ * @param {string} baseReason
+ * @param {{ strikes: number, flagged: boolean }} result
+ */
+function withStrikeWarning(baseReason, { strikes, flagged }) {
+  const base =
+    (baseReason || "").trim() ||
+    "That content can’t be sent — it doesn’t follow school guidelines.";
+  if (flagged || strikes >= STRIKE_THRESHOLD) {
+    return (
+      `${base} This counts as warning ${STRIKE_THRESHOLD} of ${STRIKE_THRESHOLD}. ` +
+      `School staff have been notified, and further misuse may result in consequences.`
+    );
+  }
+  return (
+    `${base} This counts as warning ${strikes} of ${STRIKE_THRESHOLD}. ` +
+    `If you reach ${STRIKE_THRESHOLD} warnings, school staff will be notified and there may be consequences.`
+  );
+}
+
 module.exports = {
   STRIKE_THRESHOLD,
   recordProfanityStrike,
   reportConversation,
+  withStrikeWarning,
 };

@@ -350,8 +350,8 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
               <button onClick={() => setIsFormOpen(false)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
             </div>
             {formError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" /><span>{formError}</span>
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 font-medium leading-relaxed flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{formError}</span>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">

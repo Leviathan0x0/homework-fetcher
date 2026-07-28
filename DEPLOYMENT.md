@@ -179,7 +179,7 @@ This is **not** ChatGPT. It is OpenAI’s cheap moderation endpoint, so checking
 
 ### Staff flag log (database only for now)
 - Table `admin_flag_log` stores staff-facing events.
-- **3-strike rule:** each blocked vulgar/abuse **text** attempt increments `moderation_strikes` for that student. At **3** strikes, a `strike_threshold` row is written and the counter resets.
+- **3-strike rule:** each blocked vulgar/abuse **text** attempt **or vulgar/NSFW image** increments `moderation_strikes`. At **3** strikes, a `strike_threshold` row is written and the counter resets. (Failed photo *verification* / wrong file type does not count.)
 - **Report this chat:** from Messages (flag icon), a student can report a conversation → `chat_report` row (who, which chat, when).
 - No teacher UI yet — query these tables in the DB when staff need a review trail.
 

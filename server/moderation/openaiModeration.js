@@ -114,7 +114,7 @@ async function callModeration(input, options = {}) {
   if (!apiKey) {
     warnMissingKeyOnce();
     if (requireKey) {
-      return { ok: false, reason: VERIFY_FAILED_MESSAGE };
+      return { ok: false, reason: VERIFY_FAILED_MESSAGE, strikeable: false };
     }
     return { ok: true };
   }
@@ -134,6 +134,7 @@ async function callModeration(input, options = {}) {
     return {
       ok: false,
       reason: requireKey ? VERIFY_FAILED_MESSAGE : "Content could not be verified right now. Please try again in a moment.",
+      strikeable: false,
     };
   }
 
@@ -143,6 +144,7 @@ async function callModeration(input, options = {}) {
     return {
       ok: false,
       reason: requireKey ? VERIFY_FAILED_MESSAGE : "Content could not be verified right now. Please try again in a moment.",
+      strikeable: false,
     };
   }
 
@@ -151,12 +153,17 @@ async function callModeration(input, options = {}) {
     data = await res.json();
   } catch (err) {
     console.error("[moderation] Invalid Moderations JSON:", err.message);
-    return { ok: false, reason: requireKey ? VERIFY_FAILED_MESSAGE : GUIDELINE_MESSAGE };
+    return {
+      ok: false,
+      reason: requireKey ? VERIFY_FAILED_MESSAGE : GUIDELINE_MESSAGE,
+      strikeable: false,
+    };
   }
 
   const result = Array.isArray(data.results) ? data.results[0] : null;
   if (shouldBlock(result, scoreLimits)) {
-    return { ok: false, reason: failReason };
+    // Policy block (vulgar / NSFW / abuse) — counts toward staff strikes.
+    return { ok: false, reason: failReason, strikeable: true };
   }
   return { ok: true };
 }
@@ -195,11 +202,11 @@ async function moderateImage({ filePath = null, buffer = null, mimeType, text = 
       bytes = fs.readFileSync(filePath);
     } catch (err) {
       console.error("[moderation] Failed to read image for check:", err.message);
-      return { ok: false, reason: VERIFY_FAILED_MESSAGE };
+      return { ok: false, reason: VERIFY_FAILED_MESSAGE, strikeable: false };
     }
   }
   if (!bytes || !bytes.length) {
-    return { ok: false, reason: VERIFY_FAILED_MESSAGE };
+    return { ok: false, reason: VERIFY_FAILED_MESSAGE, strikeable: false };
   }
 
   // Reject polyglot / spoofed "images" before spending an API call.
@@ -208,6 +215,7 @@ async function moderateImage({ filePath = null, buffer = null, mimeType, text = 
     return {
       ok: false,
       reason: "Only real homework photo files (JPG, PNG, WebP) are allowed.",
+      strikeable: false,
     };
   }
 
@@ -217,6 +225,7 @@ async function moderateImage({ filePath = null, buffer = null, mimeType, text = 
     return {
       ok: false,
       reason: "That photo is too large to verify. Please compress it and try again.",
+      strikeable: false,
     };
   }
 

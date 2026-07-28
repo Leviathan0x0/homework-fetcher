@@ -725,7 +725,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       {/* Input bar with auto-expanding textarea & Shift+Enter support */}
       <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
         {fileError && (
-          <div className="mb-2 px-2.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-[11px] text-rose-700 dark:text-rose-300 leading-snug">
+          <div className="mb-2 px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-xs text-rose-800 dark:text-rose-200 leading-relaxed font-medium">
             {fileError}
           </div>
         )}

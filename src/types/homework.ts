@@ -49,6 +49,8 @@ export interface SubjectInfo {
   badgeClass: string;
   bgStyle: string;
   textStyle: string;
+  /** Left-edge accent on homework cards. */
+  accentBorderClass: string;
 }
 
 export interface SectionRequest {

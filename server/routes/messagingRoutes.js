@@ -20,7 +20,7 @@ const {
   limitText,
 } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
-const { recordProfanityStrike, reportConversation } = require("../moderation/flagLogService");
+const { recordProfanityStrike, reportConversation, withStrikeWarning } = require("../moderation/flagLogService");
 
 const router = express.Router();
 
@@ -439,16 +439,17 @@ router.post(
       });
       if (!safety.ok) {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
-        if (safety.kind === "text") {
+        if (safety.strikeable) {
           try {
-            await recordProfanityStrike({
+            const strike = await recordProfanityStrike({
               userId: req.user.id,
               studentId: req.user.studentId,
               section: req.user.section,
               source: "messages",
-              snippet: trimmed,
+              snippet: trimmed || (req.file ? `[blocked image] ${req.file.originalname}` : null),
               conversationId: convId,
             });
+            return res.status(400).json({ error: withStrikeWarning(safety.reason, strike) });
           } catch (strikeErr) {
             console.error("Profanity strike log failed:", strikeErr.message);
           }

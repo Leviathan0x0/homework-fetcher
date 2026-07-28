@@ -759,7 +759,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       )}>
         {activeConvId ? threadContent : (
           <div className="flex-1 flex flex-col items-center justify-center text-xs text-neutral-400 gap-2 bg-neutral-50/20 dark:bg-[#09090b]">
-            <MessageCircle className="w-8 h-8 opacity-20" />
+            <MessageSquareIcon size={32} className="opacity-20 text-neutral-400" />
             <span>Select a conversation to view messages</span>
           </div>
         )}

@@ -210,16 +210,6 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             {sectionName}
           </span>
         }
-        actions={
-          <button
-            type="button"
-            onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center justify-center gap-2 h-9 px-4 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors duration-150 active:scale-[0.98] shadow-2xs shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Upload Classwork</span>
-          </button>
-        }
       />
 
       {/* Error Banner */}
@@ -442,6 +432,25 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
               </div>
             );
           })}
+
+          {/* Add Classwork Card */}
+          <button
+            type="button"
+            onClick={() => setIsUploadOpen(true)}
+            className="group relative rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-neutral-400 dark:hover:border-neutral-500 bg-neutral-50/50 dark:bg-[#141417]/50 p-6 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 cursor-pointer min-h-[180px] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+          >
+            <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-2xs group-hover:scale-110 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-all duration-200">
+              <Plus className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
+                Upload Classwork
+              </span>
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 block">
+                Share notes or files with your section
+              </span>
+            </div>
+          </button>
         </div>
       )}
 

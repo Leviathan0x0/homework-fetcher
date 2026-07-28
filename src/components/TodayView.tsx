@@ -162,7 +162,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       ) : todayEntries.length === 0 ? (
         <EmptyState type="today" />
       ) : (
-        <div className="space-y-3.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+        <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {todayEntries.map((item, index) => {
             const entryId = getEntryId(item);
             return (

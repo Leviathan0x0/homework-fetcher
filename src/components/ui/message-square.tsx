@@ -3,7 +3,7 @@
 import type { Variants } from "motion/react";
 import { motion, useAnimation } from "motion/react";
 import type { HTMLAttributes } from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ export interface MessageSquareIconHandle {
 
 interface MessageSquareIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
+  isAnimated?: boolean;
 }
 
 const ICON_VARIANTS: Variants = {
@@ -22,18 +23,11 @@ const ICON_VARIANTS: Variants = {
     rotate: 0,
   },
   animate: {
-    scale: 1.05,
-    rotate: [0, -7, 7, 0],
+    scale: [1, 1.1, 0.95, 1],
+    rotate: [0, -3, 3, 0],
     transition: {
-      rotate: {
-        duration: 0.5,
-        ease: "easeInOut",
-      },
-      scale: {
-        type: "spring",
-        stiffness: 400,
-        damping: 10,
-      },
+      duration: 0.4,
+      ease: "easeInOut",
     },
   },
 };
@@ -41,9 +35,15 @@ const ICON_VARIANTS: Variants = {
 const MessageSquareIcon = forwardRef<
   MessageSquareIconHandle,
   MessageSquareIconProps
->(({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+>(({ onMouseEnter, onMouseLeave, className, size = 28, isAnimated, ...props }, ref) => {
   const controls = useAnimation();
   const isControlledRef = useRef(false);
+
+  useEffect(() => {
+    if (isAnimated !== undefined) {
+      controls.start(isAnimated ? "animate" : "normal");
+    }
+  }, [isAnimated, controls]);
 
   useImperativeHandle(ref, () => {
     isControlledRef.current = true;

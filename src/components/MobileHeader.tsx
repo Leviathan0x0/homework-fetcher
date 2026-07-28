@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ThemeMode } from '../types/homework';
 import { SunIcon } from '@/components/ui/sun';
 import { MoonIcon } from '@/components/ui/moon';
@@ -18,6 +18,8 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   onToggleTheme,
   onOpenSettings,
 }) => {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
   return (
     <header className="md:hidden flex items-center justify-between gap-2 h-[calc(3.5rem+env(safe-area-inset-top))] px-4 bg-neutral-50/90 dark:bg-[#09090b]/90 border-b border-neutral-200/80 dark:border-neutral-800/80 sticky top-0 z-30 backdrop-blur-md pt-[env(safe-area-inset-top)] overflow-hidden">
       <div className="flex items-center gap-2 group/brand min-w-0 shrink">
@@ -34,22 +36,26 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         <button
           onClick={onToggleTheme}
+          onMouseEnter={() => setHoveredButton('theme')}
+          onMouseLeave={() => setHoveredButton(null)}
           className="group/theme p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Toggle Theme"
         >
           {theme === 'dark' ? (
-            <SunIcon size={16} />
+            <SunIcon size={16} isAnimated={hoveredButton === 'theme'} />
           ) : (
-            <MoonIcon size={16} />
+            <MoonIcon size={16} isAnimated={hoveredButton === 'theme'} />
           )}
         </button>
 
         <button
           onClick={onOpenSettings}
+          onMouseEnter={() => setHoveredButton('settings')}
+          onMouseLeave={() => setHoveredButton(null)}
           className="group/set p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Settings"
         >
-          <SettingsIcon size={16} />
+          <SettingsIcon size={16} isAnimated={hoveredButton === 'settings'} />
         </button>
       </div>
     </header>

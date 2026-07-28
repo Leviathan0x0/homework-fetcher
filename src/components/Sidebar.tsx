@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ViewType, SessionStatus } from '../types/homework';
 import { CalendarCheckIcon } from '@/components/ui/calendar-check';
 import { ClockIcon } from '@/components/ui/clock';
@@ -20,7 +20,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sessionStatus,
   todayCount,
 }) => {
-  const navItems: { id: ViewType; label: string; IconComponent: React.ComponentType<{ size?: number; className?: string }>; badge?: number }[] = [
+  const [hoveredId, setHoveredId] = useState<ViewType | null>(null);
+
+  const navItems: { id: ViewType; label: string; IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>; badge?: number }[] = [
     { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon, badge: todayCount > 0 ? todayCount : undefined },
     { id: 'recent', label: 'Recent', IconComponent: ClockIcon },
     { id: 'all', label: 'All Homework', IconComponent: LayersIcon },
@@ -45,10 +47,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {navItems.map((item) => {
             const IconComp = item.IconComponent;
             const isActive = activeView === item.id;
+            const isHovered = hoveredId === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => onViewChange(item.id)}
+                onMouseEnter={() => setHoveredId(item.id)}
+                onMouseLeave={() => setHoveredId(null)}
                 className={cn(
                   'group/nav w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150 cursor-pointer active:scale-[0.98]',
                   isActive
@@ -57,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               >
                 <div className="flex items-center gap-2.5">
-                  <IconComp size={16} className={cn('shrink-0', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')} />
+                  <IconComp size={16} isAnimated={isActive || isHovered} className={cn('shrink-0', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')} />
                   <span>{item.label}</span>
                 </div>
 
@@ -76,6 +81,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="space-y-2 pt-4 border-t border-neutral-200/60 dark:border-neutral-800/60">
         <button
           onClick={() => onViewChange('settings')}
+          onMouseEnter={() => setHoveredId('settings')}
+          onMouseLeave={() => setHoveredId(null)}
           className={cn(
             'group/set w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150 cursor-pointer active:scale-[0.98]',
             activeView === 'settings'
@@ -83,7 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
           )}
         >
-          <SettingsIcon size={16} className="text-neutral-400 shrink-0" />
+          <SettingsIcon size={16} isAnimated={activeView === 'settings' || hoveredId === 'settings'} className="text-neutral-400 shrink-0" />
           <span>Settings</span>
         </button>
 

@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -35,6 +36,8 @@ export function SiteHeader({
   onNavigate,
   onUnreadCountChange,
 }: SiteHeaderProps) {
+  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+
   const getBreadcrumbTitle = (view: ViewType) => {
     switch (view) {
       case "today":
@@ -95,24 +98,28 @@ export function SiteHeader({
 
         <button
           onClick={onToggleTheme}
+          onMouseEnter={() => setHoveredButton('theme')}
+          onMouseLeave={() => setHoveredButton(null)}
           className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
           title="Toggle theme"
           aria-label="Toggle theme"
         >
           {theme === "dark" ? (
-            <SunIcon size={16} />
+            <SunIcon size={16} isAnimated={hoveredButton === 'theme'} />
           ) : (
-            <MoonIcon size={16} />
+            <MoonIcon size={16} isAnimated={hoveredButton === 'theme'} />
           )}
         </button>
 
         <button
           onClick={onOpenSettings}
+          onMouseEnter={() => setHoveredButton('settings')}
+          onMouseLeave={() => setHoveredButton(null)}
           className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
           title="Settings"
           aria-label="Settings"
         >
-          <SettingsIcon size={16} />
+          <SettingsIcon size={16} isAnimated={activeView === "settings" || hoveredButton === 'settings'} />
         </button>
       </div>
     </header>

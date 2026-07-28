@@ -48,7 +48,12 @@ export function AppSidebar({
   isLoading,
   ...props
 }: AppSidebarProps) {
-  const navGroups = [
+  const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);
+
+  const navGroups: {
+    label: string;
+    items: { id: ViewType; title: string; IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>; badge?: number }[];
+  }[] = [
     {
       label: "Main",
       items: [
@@ -105,15 +110,18 @@ export function AppSidebar({
                 {group.items.map((item) => {
                   const IconComp = item.IconComponent;
                   const isActive = activeView === item.id;
+                  const isHovered = hoveredId === item.id;
                   return (
                     <SidebarMenuItem key={item.id}>
                       <SidebarMenuButton
                         onClick={() => onViewChange(item.id)}
+                        onMouseEnter={() => setHoveredId(item.id)}
+                        onMouseLeave={() => setHoveredId(null)}
                         isActive={isActive}
                         tooltip={item.title}
                         className="group/sbitem cursor-pointer text-xs transition-colors duration-150 active:scale-95"
                       >
-                        <IconComp size={18} className="shrink-0" />
+                        <IconComp size={18} isAnimated={isActive || isHovered} className="shrink-0" />
                         <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                         {item.badge !== undefined && (
                           <span className="ml-auto flex size-4.5 items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[10px] font-semibold group-data-[collapsible=icon]:hidden">
@@ -138,11 +146,13 @@ export function AppSidebar({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => onViewChange("settings")}
+                  onMouseEnter={() => setHoveredId("settings")}
+                  onMouseLeave={() => setHoveredId(null)}
                   isActive={activeView === "settings"}
                   tooltip="Settings"
                   className="group/sbset cursor-pointer text-xs transition-colors duration-150 active:scale-95"
                 >
-                  <SettingsIcon size={18} className="shrink-0" />
+                  <SettingsIcon size={18} isAnimated={activeView === "settings" || hoveredId === "settings"} className="shrink-0" />
                   <span className="group-data-[collapsible=icon]:hidden">Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

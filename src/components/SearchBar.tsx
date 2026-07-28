@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { SearchIcon } from '@/components/ui/search';
 
@@ -9,16 +9,24 @@ interface SearchBarProps {
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, inputRef }) => {
+  const [isHoveredOrFocused, setIsHoveredOrFocused] = useState(false);
+
   return (
-    <div className="relative flex-1 group/search">
+    <div
+      className="relative flex-1 group/search"
+      onMouseEnter={() => setIsHoveredOrFocused(true)}
+      onMouseLeave={() => setIsHoveredOrFocused(false)}
+    >
       <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-200 group-focus-within/search:text-neutral-700 dark:group-focus-within/search:text-neutral-200 text-neutral-400">
-        <SearchIcon size={16} />
+        <SearchIcon size={16} isAnimated={isHoveredOrFocused} />
       </div>
       <input
         ref={inputRef}
         type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={() => setIsHoveredOrFocused(true)}
+        onBlur={() => setIsHoveredOrFocused(false)}
         placeholder="Search text, subject, date..."
         className="w-full h-11 sm:h-10 pl-11 pr-10 bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800 rounded-full text-sm sm:text-xs text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20 dark:focus:ring-neutral-600/20 transition-all duration-200 shadow-2xs"
       />

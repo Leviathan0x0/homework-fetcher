@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RefreshCWIcon } from '@/components/ui/refresh-cw';
 import { cn } from '../utils/cn';
 
@@ -16,10 +16,14 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({
   compact = false,
   className,
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <button
       type="button"
       onClick={onRefresh}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       disabled={isRefreshing}
       title="Refresh homework"
       aria-label="Refresh homework"
@@ -31,7 +35,7 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({
         className
       )}
     >
-      <RefreshCWIcon size={14} className={cn('shrink-0', isRefreshing && 'animate-spin')} />
+      <RefreshCWIcon size={14} isAnimated={isHovered} className={cn('shrink-0', isRefreshing && 'animate-spin')} />
       <span className={cn(compact && 'sr-only sm:not-sr-only')}>
         {isRefreshing ? 'Refreshing' : 'Refresh'}
       </span>

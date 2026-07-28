@@ -123,7 +123,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, [fetchConversations]);
 
   useEffect(() => {
-    const handleOpenConv = async (e: any) => {
+    const handleOpenConv = (e: any) => {
       const targetId = e.detail;
       if (!targetId) return;
 
@@ -137,23 +137,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         return null;
       };
 
-      let resolvedId = resolveConv(conversations);
+      const resolvedId = resolveConv(conversations);
       if (resolvedId) {
         setActiveConvId(resolvedId);
         return;
       }
 
-      try {
-        const freshList = await messagingService.getConversations();
-        setConversations(freshList);
-        resolvedId = resolveConv(freshList);
-        if (resolvedId) {
-          setActiveConvId(resolvedId);
-          return;
-        }
-      } catch {}
-
-      // If targetId is a user ID and no conversation exists yet, initiate a new conversation
+      // If targetId is a user ID and no conversation exists yet, initiate a new conversation immediately
       const name = targetId.startsWith('usr_') ? 'Student' : targetId;
       setPendingParticipant({ id: targetId, name });
       setShowNoticeDialog(true);

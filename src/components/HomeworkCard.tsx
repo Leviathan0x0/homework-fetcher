@@ -120,7 +120,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             </span>
           )}
           {item.date && (
-            <span className="flex items-center gap-1 text-[11px] sm:text-xs group/date">
+            <span className="flex items-center gap-1.5 text-[11px] sm:text-xs group/date">
               <AnimatedCalendar size={14} className="text-neutral-400" />
               {item.date}
             </span>

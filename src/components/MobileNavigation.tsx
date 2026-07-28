@@ -52,7 +52,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               <IconComp size={22} isAnimated={isActive || isHovered} className="shrink-0" />
             </div>
             <span className={cn(
-              'text-[9px] leading-tight tracking-tight mt-0.5 truncate max-w-[56px] transition-colors',
+              'text-[9px] leading-tight tracking-tight mt-1 truncate max-w-[56px] transition-colors',
               isActive ? 'text-neutral-900 dark:text-white font-semibold' : 'text-neutral-500 dark:text-neutral-400'
             )}>
               {item.label}

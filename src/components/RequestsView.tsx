@@ -267,7 +267,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                   )}
                   {!item.isOwner && item.status === 'open' && item.creatorUserId && (
                     <button onClick={() => handleHelp(item.creatorUserId!, item.id)} disabled={helpingId === item.id}
-                      className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                      className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                       title="Message the requester">
                       {helpingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
                       <span>Help</span>

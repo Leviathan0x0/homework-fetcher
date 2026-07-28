@@ -9,10 +9,11 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
   let cleaned = rawText.trim();
 
   // 1. Separate sub-subject headers embedded without whitespace (e.g. "symbolsChemistry ch-9:")
-  const subjectsPattern = '(?:MATHEMATICS|MATHS|MATH|SOCIAL SCIENCE|SOCIAL STUDIES|SOCAL SCIENCE|SOCAL STUDIES|SOCAL|SOCIAL|S\\.ST|SST|COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|ENGLISH|HINDI|IT|HISTORY|CIVICS|GEOGRAPHY|PUNJABI|ART)';
+  // \b ensures subjects like IT don't match inside words like "UNIT"
+  const subjectsPattern = '\\b(?:MATHEMATICS|MATHS|MATH|SOCIAL SCIENCE|SOCIAL STUDIES|SOCAL SCIENCE|SOCAL STUDIES|SOCAL|SOCIAL|S\\.ST|SST|COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|ENGLISH|HINDI|IT|HISTORY|CIVICS|GEOGRAPHY|PUNJABI|ART)\\b';
 
   const embeddedSubjectRegex = new RegExp(
-    `(?<=[a-zA-Z0-9.,!\\)])(?=${subjectsPattern}(?:\\s*(?:ch|chapter|unit|ex|exercise|\\d+))?[:\\-\\s])`,
+    `(?<=[.,!\\?\\)\\n]|^|\\s)(?=${subjectsPattern}(?:\\s*(?:ch|chapter|unit|ex|exercise|\\d+))?[:\\-])`,
     'gi'
   );
   cleaned = cleaned.replace(embeddedSubjectRegex, '\n').trim();
@@ -25,44 +26,58 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
   );
   cleaned = cleaned.replace(leadingSubjectRegex, '').trim();
 
-  // 4. Explicit Marker Detection (CLASS WORK / HOME WORK / C.W. / H.W. / CW / HW)
-  const cwMarkerPattern = /(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)[:\-\s]*/i;
-  const hwMarkerPattern = /(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)[:\-\s]*/i;
+  // 3. Explicit Header Marker Detection (CLASS WORK / HOME WORK / C.W. / H.W. / CW / HW)
+  // Headers must either start at beginning of line or be followed by : / -
+  const cwHeaderPattern = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:\-\s\n]|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:\-]+)/i;
+  const hwHeaderPattern = /(?:(?:^|\n)\s*(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-\s\n]|(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]+)/i;
 
-  const hasExplicitCW = cwMarkerPattern.test(cleaned);
-  const hasExplicitHW = hwMarkerPattern.test(cleaned);
+  const hasExplicitCW = cwHeaderPattern.test(cleaned);
+  const hasExplicitHW = hwHeaderPattern.test(cleaned);
 
   if (hasExplicitCW || hasExplicitHW) {
     let cwText = '';
     let hwText = '';
 
-    const parts = cleaned.split(/(CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)[:\-\s]*/i);
+    // Split on valid section headers
+    const sectionSplitRegex = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]*|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]+)/gi;
+
+    const parts = cleaned.split(sectionSplitRegex);
+    const matches = Array.from(cleaned.matchAll(sectionSplitRegex));
+
+    // Initial section before the first header (if any)
     let currentSection: 'cw' | 'hw' | 'none' = 'none';
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i].trim();
+
+      if (i > 0 && matches[i - 1]) {
+        const headerMatched = matches[i - 1][0];
+        if (cwHeaderPattern.test(headerMatched)) {
+          currentSection = 'cw';
+        } else if (hwHeaderPattern.test(headerMatched)) {
+          currentSection = 'hw';
+        }
+      }
+
       if (!part) continue;
 
-      if (cwMarkerPattern.test(part)) {
-        currentSection = 'cw';
-      } else if (hwMarkerPattern.test(part)) {
-        currentSection = 'hw';
-      } else {
-        // Strip any remaining internal "CLASSWORK:" or "CLASS WORK:" header strings
-        const cleanedPart = part.replace(/(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW)[:\-\s]*/gi, '').trim();
-        if (!cleanedPart) continue;
+      // Clean redundant headers (like ENGLISH:\nHOMEWORK:) from section text
+      const cleanedPart = part
+        .replace(/^(?:ENGLISH|MATHEMATICS|MATHS|MATH|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|HINDI|PUNJABI|SST|SOCIAL SCIENCE|COMPUTER|IT)[:\-\s]*/gi, '')
+        .replace(/^(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW)[:\-\s]*/gi, '')
+        .trim();
 
-        if (currentSection === 'cw') {
+      if (!cleanedPart) continue;
+
+      if (currentSection === 'cw') {
+        cwText += (cwText ? '\n' : '') + cleanedPart;
+      } else if (currentSection === 'hw') {
+        hwText += (hwText ? '\n' : '') + cleanedPart;
+      } else {
+        if (hasExplicitCW && !hasExplicitHW) {
           cwText += (cwText ? '\n' : '') + cleanedPart;
-        } else if (currentSection === 'hw') {
-          hwText += (hwText ? '\n' : '') + cleanedPart;
         } else {
-          // Default section before any marker is encountered
-          if (hasExplicitCW && !hasExplicitHW) {
-            cwText += (cwText ? '\n' : '') + cleanedPart;
-          } else {
-            hwText += (hwText ? '\n' : '') + cleanedPart;
-          }
+          hwText += (hwText ? '\n' : '') + cleanedPart;
         }
       }
     }
@@ -76,7 +91,7 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
     };
   }
 
-  // 5. Smart Sentence & Line Keyword Detection (When explicit CW/HW tags are missing)
+  // 4. Smart Sentence & Line Keyword Detection (When explicit CW/HW tags are missing)
   const statements = cleaned
     .split(/(?<=[.\n])\s+/)
     .map((s) => s.trim())
@@ -119,7 +134,7 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
     };
   }
 
-  // 6. Default: Entire text as Home Work
+  // 5. Default: Entire text as Home Work
   return {
     homeWork: cleaned,
   };

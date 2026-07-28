@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent } from '../utils/contentParser';
-import { Paperclip, Eye, Calendar, Check, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen } from 'lucide-react';
+import { Check, Eye, StickyNote, Plus, Pencil, X, CheckCheck, Trash2, NotebookPen } from 'lucide-react';
+import { AnimatedCalendar, AnimatedPaperclip, AnimatedCheck, AnimatedIcon } from './ui/animated-icon';
 import { cn } from '../utils/cn';
 
 interface HomeworkCardProps {
@@ -120,7 +121,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
           )}
           {item.date && (
             <span className="flex items-center gap-1 text-[11px] sm:text-xs group/date">
-              <Calendar className="w-3.5 h-3.5 text-neutral-400 transition-transform duration-200 group-hover/date:rotate-12" />
+              <AnimatedCalendar size={14} className="text-neutral-400" />
               {item.date}
             </span>
           )}
@@ -257,7 +258,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
       {item.attachment && isValidUrl(item.attachment) && (
         <div className="mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-full sm:max-w-[65%] group/att">
-            <Paperclip className="w-3.5 h-3.5 text-neutral-400 shrink-0 transition-transform duration-200 group-hover/att:rotate-12" />
+            <AnimatedPaperclip size={14} className="text-neutral-400 shrink-0" />
             <span className="truncate">{getAttachmentLabel(item.attachment)}</span>
           </div>
 
@@ -266,7 +267,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             className="group/preview inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1.5 px-3.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
           >
             <span>Preview attachment</span>
-            <Eye className="w-3.5 h-3.5" />
+            <AnimatedIcon icon={Eye} preset="zoom" size={14} />
           </button>
         </div>
       )}

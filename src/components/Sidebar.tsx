@@ -1,6 +1,10 @@
 import React from 'react';
 import { ViewType, SessionStatus } from '../types/homework';
-import { Calendar, Clock, Layers, Paperclip, Settings } from 'lucide-react';
+import { CalendarCheckIcon } from '@/components/ui/calendar-check';
+import { ClockIcon } from '@/components/ui/clock';
+import { LayersIcon } from '@/components/ui/layers';
+import { AttachFileIcon } from '@/components/ui/attach-file';
+import { SettingsIcon } from '@/components/ui/settings';
 import { cn } from '../utils/cn';
 
 interface SidebarProps {
@@ -16,11 +20,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   sessionStatus,
   todayCount,
 }) => {
-  const navItems: { id: ViewType; label: string; icon: React.ElementType; badge?: number }[] = [
-    { id: 'today', label: 'Today', icon: Calendar, badge: todayCount > 0 ? todayCount : undefined },
-    { id: 'recent', label: 'Recent', icon: Clock },
-    { id: 'all', label: 'All Homework', icon: Layers },
-    { id: 'attachments', label: 'Attachments', icon: Paperclip },
+  const navItems: { id: ViewType; label: string; IconComponent: React.ComponentType<{ size?: number; className?: string }>; badge?: number }[] = [
+    { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon, badge: todayCount > 0 ? todayCount : undefined },
+    { id: 'recent', label: 'Recent', IconComponent: ClockIcon },
+    { id: 'all', label: 'All Homework', IconComponent: LayersIcon },
+    { id: 'attachments', label: 'Attachments', IconComponent: AttachFileIcon },
   ];
 
   return (
@@ -39,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation List */}
         <nav className="space-y-1">
           {navItems.map((item) => {
-            const Icon = item.icon;
+            const IconComp = item.IconComponent;
             const isActive = activeView === item.id;
             return (
               <button
@@ -53,7 +57,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               >
                 <div className="flex items-center gap-2.5">
-                  <Icon className={cn('w-4 h-4 transition-transform duration-200 group-hover/nav:-rotate-6', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')} />
+                  <IconComp size={16} className={cn('shrink-0', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')} />
                   <span>{item.label}</span>
                 </div>
 
@@ -79,7 +83,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
           )}
         >
-          <Settings className="w-4 h-4 text-neutral-400 transition-transform duration-300 group-hover/set:rotate-45" />
+          <SettingsIcon size={16} className="text-neutral-400 shrink-0" />
           <span>Settings</span>
         </button>
 

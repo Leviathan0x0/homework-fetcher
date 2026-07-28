@@ -1,5 +1,6 @@
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { SearchIcon } from '@/components/ui/search';
 
 interface SearchBarProps {
   value: string;
@@ -10,7 +11,9 @@ interface SearchBarProps {
 export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, inputRef }) => {
   return (
     <div className="relative flex-1 group/search">
-      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none transition-colors duration-200 group-focus-within/search:text-neutral-700 dark:group-focus-within/search:text-neutral-200" />
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none transition-colors duration-200 group-focus-within/search:text-neutral-700 dark:group-focus-within/search:text-neutral-200 text-neutral-400">
+        <SearchIcon size={16} />
+      </div>
       <input
         ref={inputRef}
         type="search"

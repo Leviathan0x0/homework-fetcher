@@ -8,7 +8,9 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { ViewType, ThemeMode } from "../types/homework"
-import { Sun, Moon, Settings } from "lucide-react"
+import { SunIcon } from "@/components/ui/sun"
+import { MoonIcon } from "@/components/ui/moon"
+import { SettingsIcon } from "@/components/ui/settings"
 import { NotificationPopover } from "./NotificationPopover"
 import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
@@ -97,7 +99,11 @@ export function SiteHeader({
           title="Toggle theme"
           aria-label="Toggle theme"
         >
-          {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          {theme === "dark" ? (
+            <SunIcon size={16} />
+          ) : (
+            <MoonIcon size={16} />
+          )}
         </button>
 
         <button
@@ -106,7 +112,7 @@ export function SiteHeader({
           title="Settings"
           aria-label="Settings"
         >
-          <Settings className="size-4" />
+          <SettingsIcon size={16} />
         </button>
       </div>
     </header>

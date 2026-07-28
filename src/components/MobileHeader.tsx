@@ -1,6 +1,8 @@
 import React from 'react';
 import { ThemeMode } from '../types/homework';
-import { Sun, Moon, Settings } from 'lucide-react';
+import { SunIcon } from '@/components/ui/sun';
+import { MoonIcon } from '@/components/ui/moon';
+import { SettingsIcon } from '@/components/ui/settings';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface MobileHeaderProps {
@@ -36,9 +38,9 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           title="Toggle Theme"
         >
           {theme === 'dark' ? (
-            <Sun className="w-4 h-4 transition-transform duration-300 group-hover/theme:rotate-45" />
+            <SunIcon size={16} />
           ) : (
-            <Moon className="w-4 h-4 transition-transform duration-300 group-hover/theme:-rotate-12" />
+            <MoonIcon size={16} />
           )}
         </button>
 
@@ -47,7 +49,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           className="group/set p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Settings"
         >
-          <Settings className="w-4 h-4 transition-transform duration-300 group-hover/set:rotate-90" />
+          <SettingsIcon size={16} />
         </button>
       </div>
     </header>

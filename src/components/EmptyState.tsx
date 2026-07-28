@@ -1,5 +1,6 @@
 import React from 'react';
 import { CalendarCheck2, Inbox, Paperclip, SearchX } from 'lucide-react';
+import { AnimatedIcon } from './ui/animated-icon';
 
 interface EmptyStateProps {
   type?: 'today' | 'recent' | 'all' | 'attachments' | 'search';
@@ -38,12 +39,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     defaultIcon = SearchX;
   }
 
-  const Icon = icon || defaultIcon;
+  const IconComponent = icon || defaultIcon;
 
   return (
     <div className="flex flex-col items-center justify-center text-center px-6 py-14 sm:py-16 bg-white/60 dark:bg-[#18181b]/50 border border-dashed border-neutral-200 dark:border-neutral-800 rounded-3xl">
-      <div className="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800/80 flex items-center justify-center text-neutral-400 dark:text-neutral-500 mb-4">
-        <Icon className="w-5 h-5 stroke-[1.5]" />
+      <div className="w-11 h-11 rounded-full bg-neutral-100 dark:bg-neutral-800/80 flex items-center justify-center text-neutral-400 dark:text-neutral-500 mb-4 shadow-2xs">
+        <AnimatedIcon icon={IconComponent} preset="bounce" size={20} className="stroke-[1.5]" />
       </div>
       <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
         {title || defaultTitle}

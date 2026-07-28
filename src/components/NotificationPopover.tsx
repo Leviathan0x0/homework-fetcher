@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { notificationService, authService } from '../services/api';
 import { AppNotification } from '../types/homework';
-import { Bell, X, CheckCheck, Loader2, UploadCloud, Handshake, MessageCircle, RefreshCw } from 'lucide-react';
+import { X, CheckCheck, Loader2, RefreshCw } from 'lucide-react';
+import { BellIcon } from '@/components/ui/bell';
+import { UploadIcon } from '@/components/ui/upload';
+import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
+import { MessageSquareIcon } from '@/components/ui/message-square';
 import { cn } from '../utils/cn';
 
 interface NotificationPopoverProps {
@@ -12,10 +16,10 @@ interface NotificationPopoverProps {
 
 function getNotifIcon(type: string) {
   switch (type) {
-    case 'new_classwork': return <UploadCloud className="w-4 h-4 text-indigo-500" />;
-    case 'new_request': return <Handshake className="w-4 h-4 text-amber-500" />;
-    case 'new_message': return <MessageCircle className="w-4 h-4 text-emerald-500" />;
-    default: return <Bell className="w-4 h-4 text-neutral-500" />;
+    case 'new_classwork': return <UploadIcon size={16} className="text-indigo-500" />;
+    case 'new_request': return <HeartHandshakeIcon size={16} className="text-amber-500" />;
+    case 'new_message': return <MessageSquareIcon size={16} className="text-emerald-500" />;
+    default: return <BellIcon size={16} className="text-neutral-500" />;
   }
 }
 
@@ -85,7 +89,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ unread
       <button onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
         title="Notifications">
-        <Bell className="size-4" />
+        <BellIcon size={16} />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold">
             {unreadCount > 9 ? '9+' : unreadCount}

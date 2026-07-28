@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCWIcon } from '@/components/ui/refresh-cw';
 import { cn } from '../utils/cn';
 
 interface RefreshButtonProps {
@@ -31,7 +31,7 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({
         className
       )}
     >
-      <RefreshCw className={cn('w-3.5 h-3.5 shrink-0', isRefreshing && 'animate-spin')} />
+      <RefreshCWIcon size={14} className={cn('shrink-0', isRefreshing && 'animate-spin')} />
       <span className={cn(compact && 'sr-only sm:not-sr-only')}>
         {isRefreshing ? 'Refreshing' : 'Refresh'}
       </span>

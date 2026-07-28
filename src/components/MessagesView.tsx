@@ -7,15 +7,17 @@ import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
+import { SearchIcon } from '@/components/ui/search';
+import { AttachFileIcon } from '@/components/ui/attach-file';
+import { LogoutIcon } from '@/components/ui/logout';
+import { MessageSquareIcon } from '@/components/ui/message-square';
 import {
-  MessageCircle,
   Plus,
   X,
   Loader2,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  Search,
   Paperclip,
   Eye,
   FileText,
@@ -29,6 +31,7 @@ interface MessagesViewProps {
 }
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   // Seeded from the last load so the inbox paints immediately instead of
   // showing an empty list until the first request comes back.
   const [conversations, setConversations] = useState<Conversation[]>(
@@ -238,7 +241,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         textCopy.trim(),
         fileCopy
       );
-      setMessages((prev) => [...prev, sentMessage]);
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === sentMessage.id)) return prev;
+        return [...prev, sentMessage];
+      });
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConvId
@@ -372,7 +378,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+          <SearchIcon size={14} isAnimated={Boolean(searchQuery)} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
@@ -434,7 +440,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
               <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
-                <MessageCircle className="w-5 h-5" />
+                <MessageSquareIcon size={20} />
               </div>
               <p className="text-xs text-neutral-500 font-medium">
                 {loadError ? 'Conversations unavailable' : 'No active conversations'}
@@ -708,10 +714,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer mb-0.5"
+            onMouseEnter={() => setHoveredAction('attach')}
+            onMouseLeave={() => setHoveredAction(null)}
+            className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer mb-0.5"
             title="Attach photo or document"
           >
-            <Paperclip className="w-4 h-4" />
+            <AttachFileIcon size={18} isAnimated={hoveredAction === 'attach'} />
           </button>
 
           <textarea

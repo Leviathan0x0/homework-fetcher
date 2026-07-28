@@ -120,15 +120,45 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, [fetchConversations]);
 
   useEffect(() => {
-    const handleOpenConv = (e: any) => {
-      const convId = e.detail;
-      if (convId) {
-        setActiveConvId(convId);
+    const handleOpenConv = async (e: any) => {
+      const targetId = e.detail;
+      if (!targetId) return;
+
+      const resolveConv = (list: Conversation[]) => {
+        const byConvId = list.find((c) => c.id === targetId);
+        if (byConvId) return byConvId.id;
+        const byUserId = list.find(
+          (c) => c.otherUser?.id === targetId || c.otherUser?.studentId === targetId
+        );
+        if (byUserId) return byUserId.id;
+        return null;
+      };
+
+      let resolvedId = resolveConv(conversations);
+      if (resolvedId) {
+        setActiveConvId(resolvedId);
+        return;
       }
+
+      try {
+        const freshList = await messagingService.getConversations();
+        setConversations(freshList);
+        resolvedId = resolveConv(freshList);
+        if (resolvedId) {
+          setActiveConvId(resolvedId);
+          return;
+        }
+      } catch {}
+
+      // If targetId is a user ID and no conversation exists yet, initiate a new conversation
+      const name = targetId.startsWith('usr_') ? 'Student' : targetId;
+      setPendingParticipant({ id: targetId, name });
+      setShowNoticeDialog(true);
     };
+
     window.addEventListener('open_conversation', handleOpenConv);
     return () => window.removeEventListener('open_conversation', handleOpenConv);
-  }, []);
+  }, [conversations]);
 
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);

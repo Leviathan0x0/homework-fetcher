@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface LoginPageProps {
@@ -89,28 +89,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
             )}
 
-            <form className="space-y-4" onSubmit={handleSubmit}>
+            <form 
+              className="space-y-4 p-6 rounded-3xl backdrop-blur-[8px] bg-white/[0.06] border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.12)]" 
+              onSubmit={handleSubmit}
+            >
               <div className="space-y-2">
                 <label htmlFor="login-student-id" className="block pl-0.5 text-[11px] font-medium uppercase tracking-[0.16em] text-[#f4f0e8]/55">
                   Student ID
                 </label>
-                <input
-                  id="login-student-id"
-                  name="studentId"
-                  type="text"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value)}
-                  placeholder="ternus9"
-                  disabled={isLoading}
-                  autoComplete="username"
-                  className={cn(
-                    'h-12 w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 text-sm text-[#f7f2e9]',
-                    'placeholder:text-[#f4f0e8]/35 backdrop-blur-xl outline-none transition-[border-color,box-shadow,background-color] duration-200',
-                    'hover:border-white/20 hover:bg-white/[0.08]',
-                    'focus:border-[#c4a574]/55 focus:bg-white/[0.09] focus:shadow-[0_0_0_3px_rgba(196,165,116,0.15)]',
-                    'disabled:opacity-50'
-                  )}
-                />
+                <div className="relative">
+                  <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#f4f0e8]/40 pointer-events-none" />
+                  <input
+                    id="login-student-id"
+                    name="studentId"
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    placeholder="ternus9"
+                    disabled={isLoading}
+                    autoComplete="username"
+                    className={cn(
+                      'h-12 w-full rounded-2xl border border-white/12 bg-white/[0.06] pl-11 pr-4 text-sm text-[#f7f2e9]',
+                      'placeholder:text-[#f4f0e8]/35 backdrop-blur-xl outline-none transition-[border-color,box-shadow,background-color] duration-200',
+                      'hover:border-white/20 hover:bg-white/[0.08]',
+                      'focus:border-[#c4a574]/55 focus:bg-white/[0.09] focus:shadow-[0_0_0_3px_rgba(196,165,116,0.15)]',
+                      'disabled:opacity-50'
+                    )}
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -118,6 +124,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   Password
                 </label>
                 <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#f4f0e8]/40 pointer-events-none" />
                   <input
                     id="login-password"
                     name="password"
@@ -128,7 +135,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     disabled={isLoading}
                     autoComplete="current-password"
                     className={cn(
-                      'h-12 w-full rounded-2xl border border-white/12 bg-white/[0.06] px-4 pr-12 text-sm text-[#f7f2e9]',
+                      'h-12 w-full rounded-2xl border border-white/12 bg-white/[0.06] pl-11 pr-12 text-sm text-[#f7f2e9]',
                       'placeholder:text-[#f4f0e8]/35 backdrop-blur-xl outline-none transition-[border-color,box-shadow,background-color] duration-200',
                       'hover:border-white/20 hover:bg-white/[0.08]',
                       'focus:border-[#c4a574]/55 focus:bg-white/[0.09] focus:shadow-[0_0_0_3px_rgba(196,165,116,0.15)]',
@@ -163,7 +170,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Checking school portal…</span>
+                    <span>Signing you in...</span>
                   </>
                 ) : (
                   <>

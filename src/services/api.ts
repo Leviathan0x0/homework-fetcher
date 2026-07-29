@@ -62,6 +62,9 @@ export const authService = {
 
     const data = await apiJson<any>(res);
     if (!res.ok || !data.authenticated) {
+      if (res.status === 503) {
+        throw new Error("The school portal service is temporarily unavailable. Please try again in a moment.");
+      }
       const msg = typeof data.error === "string" ? data.error : (data.error?.message || data.message || "Invalid student ID or password.");
       throw new Error(msg);
     }

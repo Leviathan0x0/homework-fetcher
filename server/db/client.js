@@ -396,22 +396,63 @@ async function exec(sql) {
   sqlite.exec(sql);
 }
 
-// Schema initialization runs once per process; every request awaits it through
-// `ready` so the first query never races the migrations.
-const ready = initDb().catch((err) => {
-  console.error("Database initialization failed:", err.message);
-  throw err;
+// Schema initialization starts once per process. If a serverless cold start
+// hits a transient hosted-database outage, a later request may retry instead
+// of leaving that warm function instance permanently stuck on a rejected
+// promise.
+function startInitialization() {
+  return initDb().catch((err) => {
+    console.error("Database initialization failed:", err.message);
+    throw err;
+  });
+}
+
+let ready = startInitialization();
+let recoveryPromise = null;
+let lastInitializationFailureAt = 0;
+
+ready.catch(() => {
+  lastInitializationFailureAt = Date.now();
 });
 
-// Requests report the failure themselves; without this the rejection would be
-// unhandled and take the whole process (and every endpoint) down.
+async function ensureDatabaseReady() {
+  try {
+    await ready;
+  } catch (err) {
+    // Let the current request fail promptly. A later request can retry after a
+    // short cooldown, which prevents one request from doing two full rounds of
+    // hosted-database retries and exceeding a serverless execution limit.
+    if (Date.now() - lastInitializationFailureAt < 1_000) throw err;
+
+    if (!recoveryPromise) {
+      recoveryPromise = (async () => {
+        ready = startInitialization();
+        ready.catch(() => {
+          lastInitializationFailureAt = Date.now();
+        });
+        await ready;
+      })().finally(() => {
+        recoveryPromise = null;
+      });
+    }
+    await recoveryPromise;
+  }
+}
+
 ready.catch(() => {});
+
+/*
+ * Kept as an exported promise for existing callers and tests. Request-time
+ * code should use ensureDatabaseReady() so transient failures can recover.
+ */
+const initialReady = ready;
 
 module.exports = {
   db,
   sqlite,
   isRemote,
   initDb,
-  ready,
+  ready: initialReady,
+  ensureDatabaseReady,
   schema,
 };

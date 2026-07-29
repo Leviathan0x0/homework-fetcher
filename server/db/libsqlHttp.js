@@ -61,6 +61,54 @@ function decodeValue(cell) {
  */
 function createLibsqlClient(url, authToken) {
   const endpoint = `${toHttpUrl(url)}/v2/pipeline`;
+  const maxAttempts = 3;
+  const requestTimeoutMs = 2_500;
+
+  const wait = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  async function postPipeline(requests) {
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          body: JSON.stringify({ requests }),
+          signal: controller.signal,
+        });
+
+        if (res.ok) return res;
+
+        const detail = await res.text().catch(() => "");
+        const error = new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
+        const retryable = res.status === 408 || res.status === 425 || res.status === 429 || res.status >= 500;
+        if (!retryable) throw error;
+        lastError = error;
+      } catch (err) {
+        if (err?.message?.startsWith("libSQL request failed with 4")) throw err;
+        lastError = err?.name === "AbortError"
+          ? new Error(`libSQL request timed out after ${requestTimeoutMs}ms`)
+          : err;
+      } finally {
+        clearTimeout(timeout);
+      }
+
+      if (attempt < maxAttempts) {
+        await wait(150 * attempt);
+      }
+    }
+
+    throw new Error(
+      `Could not reach the hosted database after ${maxAttempts} attempts: ${lastError?.message || "unknown transport error"}`
+    );
+  }
 
   /**
    * Executes one or more statements in a single round trip.
@@ -77,19 +125,7 @@ function createLibsqlClient(url, authToken) {
     }));
     requests.push({ type: "close" });
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      },
-      body: JSON.stringify({ requests }),
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
-    }
+    const res = await postPipeline(requests);
 
     const payload = await res.json();
     const results = [];

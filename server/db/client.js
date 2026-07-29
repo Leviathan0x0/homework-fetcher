@@ -277,7 +277,6 @@ CREATE TABLE IF NOT EXISTS users (
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id);
 
     CREATE TABLE IF NOT EXISTS message_attachments (
       message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
@@ -348,11 +347,18 @@ async function initDb() {
   await ensureColumn("messages", "original_filename", "TEXT");
   await ensureColumn("messages", "mime_type", "TEXT");
   await ensureColumn("messages", "file_path", "TEXT");
-  await ensureColumn("messages", "reply_to_id", "TEXT REFERENCES messages(id)");
+  await ensureColumn("messages", "reply_to_id", "TEXT");
   await ensureColumn("conversations", "type", "TEXT NOT NULL DEFAULT 'dm'");
   await ensureColumn("conversations", "section", "TEXT");
   await ensureColumn("conversations", "pinned_homework_id", "TEXT");
   await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
+  
+  // Create indexes for new columns after they exist
+  try {
+    await exec("CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)");
+  } catch (err) {
+    console.error("Index creation (reply_to_id):", err.message);
+  }
 }
 
 /**

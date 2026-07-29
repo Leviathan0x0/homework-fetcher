@@ -406,7 +406,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   >
                     <AuthenticatedImage
                       src={item.fileUrl}
-                      alt=""
+                      alt={`Preview of ${item.originalFilename}`}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">

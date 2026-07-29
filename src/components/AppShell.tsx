@@ -58,7 +58,7 @@ export const AppShell: React.FC = () => {
     dismissError,
   } = useHomework();
 
-  const { theme, setTheme, toggleTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
@@ -260,7 +260,7 @@ export const AppShell: React.FC = () => {
       <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-dvh max-h-dvh overflow-hidden flex flex-col")}>
         <SiteHeader
           activeView={activeView}
-          theme={theme}
+          theme={resolvedTheme}
           onToggleTheme={toggleTheme}
           onRefresh={() => fetchHomework(true)}
           onOpenSettings={handleOpenSettings}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { cn } from '../utils/cn';
@@ -12,6 +12,12 @@ interface AuthenticatedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImage
   onReady?: () => void;
   onFail?: () => void;
 }
+
+type ImageLoadState = {
+  src: string;
+  status: 'loading' | 'ready' | 'error';
+  objectUrl: string | null;
+};
 
 /**
  * Loads protected upload URLs with credentials and renders via a blob URL.
@@ -27,32 +33,53 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   onFail,
   ...rest
 }) => {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [loadState, setLoadState] = useState<ImageLoadState>({
+    src,
+    status: 'loading',
+    objectUrl: null,
+  });
+  const onReadyRef = useRef(onReady);
+  const onFailRef = useRef(onFail);
+  onReadyRef.current = onReady;
+  onFailRef.current = onFail;
 
   useEffect(() => {
     let cancelled = false;
     let createdUrl: string | null = null;
 
-    setFailed(false);
-    setObjectUrl(null);
+    setLoadState({ src, status: 'loading', objectUrl: null });
 
     (async () => {
       try {
         const res = await apiFetch(src);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
-        if (cancelled) return;
         // JSON error bodies from the API should never be painted as an image.
         if (blob.type && !blob.type.startsWith('image/') && blob.type !== 'application/octet-stream') {
           throw new Error(`Unexpected type ${blob.type}`);
         }
         createdUrl = URL.createObjectURL(blob);
-        setObjectUrl(createdUrl);
+
+        // Decode before mounting the real <img>. Browsers may paint an img's
+        // alt text while its resource is still loading, even when the request
+        // eventually succeeds.
+        await new Promise<void>((resolve, reject) => {
+          const preload = new Image();
+          preload.onload = () => resolve();
+          preload.onerror = () => reject(new Error('Image decode failed'));
+          preload.src = createdUrl!;
+        });
+
+        if (cancelled) return;
+        setLoadState({ src, status: 'ready', objectUrl: createdUrl });
       } catch {
         if (!cancelled) {
-          setFailed(true);
-          onFail?.();
+          if (createdUrl) {
+            URL.revokeObjectURL(createdUrl);
+            createdUrl = null;
+          }
+          setLoadState({ src, status: 'error', objectUrl: null });
+          onFailRef.current?.();
         }
       }
     })();
@@ -61,11 +88,11 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-    // Only re-fetch when the URL changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
-  if (failed) {
+  const isCurrentSource = loadState.src === src;
+
+  if (isCurrentSource && loadState.status === 'error') {
     return (
       <div
         className={cn(
@@ -73,14 +100,17 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
           fallbackClassName
         )}
         role="img"
-        aria-label={alt || 'Image unavailable'}
+        aria-label={alt ? `${alt} unavailable` : 'Image unavailable'}
       >
-        <ImageIcon className="w-6 h-6 opacity-60" />
+        <div className="flex flex-col items-center justify-center gap-1.5 px-3 text-center">
+          <ImageIcon className="w-6 h-6 opacity-60" />
+          <span className="text-xs font-medium">Image unavailable</span>
+        </div>
       </div>
     );
   }
 
-  if (!objectUrl) {
+  if (!isCurrentSource || loadState.status !== 'ready' || !loadState.objectUrl) {
     return (
       <div
         className={cn(
@@ -89,19 +119,21 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
           className
         )}
         aria-busy="true"
+        role="status"
+        aria-label={alt ? `Loading ${alt}` : 'Loading image'}
       />
     );
   }
 
   return (
     <img
-      src={objectUrl}
+      src={loadState.objectUrl}
       alt={alt}
       className={className}
-      onLoad={() => onReady?.()}
+      onLoad={() => onReadyRef.current?.()}
       onError={() => {
-        setFailed(true);
-        onFail?.();
+        setLoadState({ src, status: 'error', objectUrl: null });
+        onFailRef.current?.();
       }}
       {...rest}
     />

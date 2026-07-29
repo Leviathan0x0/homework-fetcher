@@ -154,7 +154,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             <div className="w-full h-full flex items-center justify-center overflow-auto">
               <AuthenticatedImage
                 src={fileUrl}
-                alt=""
+                alt={`Preview of ${fileName}`}
                 onReady={() => setLoading(false)}
                 onFail={() => setLoading(false)}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}

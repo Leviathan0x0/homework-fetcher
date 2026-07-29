@@ -170,8 +170,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const helpDialogShownRef = useRef(false);
   const helpProcessedKeyRef = useRef<string | null>(null);
+  const noticeConfirmingRef = useRef(false);
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
+
+  const MONITOR_ACK_KEY = 'messaging_monitor_ack_v1';
+
+  const hasMonitorAck = () => {
+    try {
+      return sessionStorage.getItem(MONITOR_ACK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+
+  const setMonitorAck = () => {
+    try {
+      sessionStorage.setItem(MONITOR_ACK_KEY, '1');
+    } catch {
+      // ignore
+    }
+  };
 
   const applyHelpContext = useCallback((prefill?: string, request?: PendingRequestContext | null) => {
     if (request && request.id && request.title) {
@@ -194,26 +213,94 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     return null;
   }, []);
 
+  const openResolvedChat = useCallback(
+    (convId: string, prefill?: string, request?: PendingRequestContext | null) => {
+      helpDialogShownRef.current = false;
+      noticeConfirmingRef.current = false;
+      setShowNoticeDialog(false);
+      setPendingParticipant(null);
+      applyHelpContext(prefill, request);
+      setActiveConvId(convId);
+      clearPendingMessageOpen();
+    },
+    [applyHelpContext]
+  );
+
+  const showMonitorNotice = useCallback((participant: { id: string; name: string }) => {
+    if (noticeConfirmingRef.current) return;
+    if (helpDialogShownRef.current) return;
+    helpDialogShownRef.current = true;
+    setPendingParticipant(participant);
+    setShowNoticeDialog(true);
+  }, []);
+
   const openHelpTarget = useCallback(
-    (targetId: string, prefill?: string, request?: PendingRequestContext | null) => {
+    async (targetId: string, prefill?: string, request?: PendingRequestContext | null) => {
+      if (noticeConfirmingRef.current) return;
       applyHelpContext(prefill, request);
 
-      const resolvedId = resolveConvId(conversationsRef.current, targetId);
+      let resolvedId = resolveConvId(conversationsRef.current, targetId);
+      if (!resolvedId) {
+        try {
+          await fetchConversations();
+        } catch {
+          // keep going with whatever we have
+        }
+        resolvedId = resolveConvId(conversationsRef.current, targetId);
+      }
+
       if (resolvedId) {
-        helpDialogShownRef.current = false;
-        setShowNoticeDialog(false);
-        setPendingParticipant(null);
-        setActiveConvId(resolvedId);
+        openResolvedChat(resolvedId, prefill, request);
         return;
       }
 
-      if (helpDialogShownRef.current) return;
-      helpDialogShownRef.current = true;
-      const name = targetId.startsWith('usr_') ? 'Student' : targetId;
-      setPendingParticipant({ id: targetId, name });
-      setShowNoticeDialog(true);
+      // Already acknowledged this browser session — create/open without waiting again.
+      if (hasMonitorAck()) {
+        noticeConfirmingRef.current = true;
+        try {
+          const data = await messagingService.startConversation(currentStudentId, targetId, null);
+          openResolvedChat(data.conversationId, prefill, request);
+          setConversations((prev) => {
+            if (prev.some((c) => c.id === data.conversationId)) return prev;
+            return [
+              {
+                id: data.conversationId,
+                otherUser: data.otherUser,
+                unreadCount: 0,
+                lastMessagePreview: data.existing ? undefined : 'Started a new conversation',
+                lastMessageAt: new Date().toISOString(),
+              },
+              ...prev,
+            ];
+          });
+        } catch (err: any) {
+          noticeConfirmingRef.current = false;
+          if (err?.needsNotice) {
+            showMonitorNotice({
+              id: targetId,
+              name: targetId.startsWith('usr_') ? 'Student' : targetId,
+            });
+            return;
+          }
+          alert(err.message || 'Failed to start conversation.');
+          clearPendingMessageOpen();
+        }
+        return;
+      }
+
+      showMonitorNotice({
+        id: targetId,
+        name: targetId.startsWith('usr_') ? 'Student' : targetId,
+      });
     },
-    [applyHelpContext, resolveConvId]
+    [
+      applyHelpContext,
+      resolveConvId,
+      fetchConversations,
+      openResolvedChat,
+      showMonitorNotice,
+      currentStudentId,
+    ]
   );
 
   // Stable listener for Help / notification deep-links (uses conversationsRef).
@@ -229,9 +316,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             ? raw.conversationId
             : null;
       if (conversationId) {
-        setAttachedRequest(null);
-        setActiveConvId(conversationId);
-        clearPendingMessageOpen();
+        openResolvedChat(conversationId);
         return;
       }
 
@@ -239,9 +324,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       if (typeof raw === 'string' && raw) {
         const existing = conversationsRef.current.find((c) => c.id === raw);
         if (existing) {
-          setAttachedRequest(null);
-          setActiveConvId(raw);
-          clearPendingMessageOpen();
+          openResolvedChat(raw);
           return;
         }
       }
@@ -265,13 +348,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         return;
       }
       const key = `${targetId}:${request?.id || prefill || ''}`;
+      // Same Help handoff already handled — don't re-open the notice.
+      if (helpProcessedKeyRef.current === key && (helpDialogShownRef.current || activeConvId)) {
+        return;
+      }
       helpProcessedKeyRef.current = key;
-      openHelpTarget(targetId, prefill || undefined, request);
+      void openHelpTarget(targetId, prefill || undefined, request);
     };
 
     window.addEventListener('open_conversation', handleOpenConv);
     return () => window.removeEventListener('open_conversation', handleOpenConv);
-  }, [applyHelpContext, openHelpTarget]);
+  }, [applyHelpContext, openHelpTarget, openResolvedChat, activeConvId]);
 
   // One-shot sessionStorage handoff from Requests → Messages or notification taps.
   useEffect(() => {
@@ -279,9 +366,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!pending) return;
 
     if (pending.conversationId) {
-      setAttachedRequest(null);
-      setActiveConvId(pending.conversationId);
-      clearPendingMessageOpen();
+      openResolvedChat(pending.conversationId);
       return;
     }
 
@@ -289,27 +374,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const key = `${pending.targetId}:${pending.request?.id || pending.prefill || ''}`;
     if (helpProcessedKeyRef.current === key) return;
     helpProcessedKeyRef.current = key;
-    openHelpTarget(pending.targetId, pending.prefill, pending.request ?? null);
-  }, [openHelpTarget]);
+    void openHelpTarget(pending.targetId, pending.prefill, pending.request ?? null);
+  }, [openHelpTarget, openResolvedChat]);
 
-  // If Help opened the notice dialog before conversations loaded, resolve once they arrive.
+  // If Help opened before conversations loaded, jump into the chat once it appears.
   useEffect(() => {
     const pending = peekPendingMessageOpen();
     if (!pending?.targetId) return;
     const resolvedId = resolveConvId(conversations, pending.targetId);
     if (!resolvedId) return;
-
-    helpDialogShownRef.current = false;
-    setShowNoticeDialog(false);
-    setPendingParticipant(null);
-    applyHelpContext(pending.prefill, pending.request ?? null);
-
-    if (activeConvId !== resolvedId) {
-      setActiveConvId(resolvedId);
-    } else {
-      clearPendingMessageOpen();
-    }
-  }, [conversations, activeConvId, resolveConvId, applyHelpContext]);
+    openResolvedChat(resolvedId, pending.prefill, pending.request ?? null);
+  }, [conversations, resolveConvId, openResolvedChat]);
 
   useEffect(() => {
     if (!activeConvId) return;
@@ -740,43 +815,67 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     }, 280);
   };
 
-  const handleInitiateChat = (u: { id: string; studentId: string; displayName?: string | null }) => {
+  const handleInitiateChat = async (u: { id: string; studentId: string; displayName?: string | null }) => {
     const name = u.displayName || u.studentId;
-    const existing = conversations.find(c => c.otherUser?.id === u.id);
+    const existing = conversations.find((c) => c.otherUser?.id === u.id);
     if (existing) {
       setShowNewModal(false);
       setSearchQuery('');
       setSearchResults([]);
       setActiveConvId(existing.id);
-    } else {
-      setPendingParticipant({ id: u.id, name });
-      setShowNoticeDialog(true);
+      return;
     }
+
+    setShowNewModal(false);
+    setSearchQuery('');
+    setSearchResults([]);
+
+    if (hasMonitorAck()) {
+      noticeConfirmingRef.current = true;
+      try {
+        const data = await messagingService.startConversation(currentStudentId, u.id, null);
+        openResolvedChat(data.conversationId);
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === data.conversationId)) return prev;
+          return [
+            {
+              id: data.conversationId,
+              otherUser: data.otherUser,
+              unreadCount: 0,
+              lastMessagePreview: 'Started a new conversation',
+              lastMessageAt: new Date().toISOString(),
+            },
+            ...prev,
+          ];
+        });
+      } catch (err: any) {
+        noticeConfirmingRef.current = false;
+        if (err?.needsNotice) {
+          showMonitorNotice({ id: u.id, name });
+          return;
+        }
+        alert(err.message || 'Failed to start conversation.');
+      }
+      return;
+    }
+
+    showMonitorNotice({ id: u.id, name });
   };
 
   const handleConfirmNotice = async (noticeToken: string) => {
-    if (!pendingParticipant) return;
+    if (!pendingParticipant || noticeConfirmingRef.current) return;
     const participantId = pendingParticipant.id;
-    helpDialogShownRef.current = false;
+    noticeConfirmingRef.current = true;
     setShowNoticeDialog(false);
-    setPendingParticipant(null);
 
-    const existingConv = conversations.find(
-      (c) => c.otherUser?.id === participantId || c.otherUser?.studentId === participantId
-    );
-    if (existingConv) {
-      setActiveConvId(existingConv.id);
-    }
-    await handleStartConversation(participantId, noticeToken);
-  };
-
-  const handleStartConversation = async (participantId: string, noticeToken: string) => {
     try {
-      const data = await messagingService.startConversation(currentStudentId, participantId, noticeToken);
-      setShowNewModal(false);
-      setSearchQuery('');
-      setSearchResults([]);
-      setActiveConvId(data.conversationId);
+      setMonitorAck();
+      const data = await messagingService.startConversation(
+        currentStudentId,
+        participantId,
+        noticeToken
+      );
+      openResolvedChat(data.conversationId);
       setConversations((prev) => {
         if (prev.some((c) => c.id === data.conversationId)) return prev;
         return [
@@ -784,13 +883,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             id: data.conversationId,
             otherUser: data.otherUser,
             unreadCount: 0,
-            lastMessagePreview: 'Started a new conversation',
+            lastMessagePreview: data.existing ? undefined : 'Started a new conversation',
             lastMessageAt: new Date().toISOString(),
           },
           ...prev,
         ];
       });
     } catch (err: any) {
+      noticeConfirmingRef.current = false;
+      helpDialogShownRef.current = false;
+      setPendingParticipant(null);
+      clearPendingMessageOpen();
       alert(err.message || 'Failed to start conversation.');
     }
   };
@@ -1678,6 +1781,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         onCancel={() => {
           helpDialogShownRef.current = false;
           helpProcessedKeyRef.current = null;
+          noticeConfirmingRef.current = false;
           setShowNoticeDialog(false);
           setPendingParticipant(null);
           setAttachedRequest(null);

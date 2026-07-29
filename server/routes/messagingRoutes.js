@@ -222,10 +222,10 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
     noticeTokens.set(token, {
       userId: req.user.id,
       participantId,
-      validAfter: now + 5000,
+      validAfter: now + 3000,
       expiresAt: now + 5 * 60 * 1000,
     });
-    return res.json({ noticeToken: token, validAfter: now + 5000 });
+    return res.json({ noticeToken: token, validAfter: now + 3000 });
   } catch (err) {
     console.error("Notice Token Error:", err);
     return res.status(500).json({ error: "Failed to generate notice token." });
@@ -242,23 +242,6 @@ router.post("/conversations", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Cannot start a conversation with yourself." });
     }
 
-    // Server-side validation of monitoring notice countdown
-    if (!noticeToken || typeof noticeToken !== "string") {
-      return res.status(403).json({ error: "Monitoring notice confirmation is required before starting a conversation." });
-    }
-    const tokenData = noticeTokens.get(noticeToken);
-    if (
-      !tokenData ||
-      tokenData.userId !== req.user.id ||
-      tokenData.participantId !== participantId
-    ) {
-      return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
-    }
-    if (Date.now() < tokenData.validAfter) {
-      return res.status(403).json({ error: "Monitoring notice countdown must be completed before starting a conversation." });
-    }
-    noticeTokens.delete(noticeToken);
-
     const otherUser = await db
       .select()
       .from(schema.users)
@@ -266,6 +249,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
       .get();
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
+    // Existing DMs never need the monitoring notice again.
     const existing = await db
       .select({ conversationId: schema.conversationParticipants.conversationId })
       .from(schema.conversationParticipants)
@@ -293,6 +277,28 @@ router.post("/conversations", requireAuth, async (req, res) => {
         });
       }
     }
+
+    // New conversations require the monitoring notice countdown token.
+    if (!noticeToken || typeof noticeToken !== "string") {
+      return res.status(403).json({
+        error: "Monitoring notice confirmation is required before starting a conversation.",
+        needsNotice: true,
+      });
+    }
+    const tokenData = noticeTokens.get(noticeToken);
+    if (
+      !tokenData ||
+      tokenData.userId !== req.user.id ||
+      tokenData.participantId !== participantId
+    ) {
+      return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
+    }
+    if (Date.now() < tokenData.validAfter) {
+      return res.status(403).json({
+        error: "Monitoring notice countdown must be completed before starting a conversation.",
+      });
+    }
+    noticeTokens.delete(noticeToken);
 
     const convId = crypto.randomUUID();
     const now = new Date().toISOString();

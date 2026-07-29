@@ -11,26 +11,28 @@ interface MonitoringNoticeDialogProps {
   onCancel: () => void;
 }
 
+const COUNTDOWN_SEC = 3;
+
 export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
   isOpen,
   participantId,
   onConfirm,
   onCancel,
 }) => {
-  const [secondsLeft, setSecondsLeft] = useState(5);
+  const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SEC);
   const [noticeToken, setNoticeToken] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !participantId) {
-      setSecondsLeft(5);
+      setSecondsLeft(COUNTDOWN_SEC);
       setNoticeToken(null);
       setTokenError(null);
       return;
     }
 
-    setSecondsLeft(5);
+    setSecondsLeft(COUNTDOWN_SEC);
     setNoticeToken(null);
     setTokenError(null);
     setIsLoadingToken(true);
@@ -82,7 +84,6 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4 relative overflow-hidden">
-        {/* Header with CCTV Icon & Title */}
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 shrink-0">
             <Cctv className="w-5 h-5" />
@@ -92,12 +93,11 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
           </h3>
         </div>
 
-        {/* Divider Line */}
         <div className="h-px bg-neutral-200/80 dark:bg-neutral-800 w-full" />
 
-        {/* Notice Text */}
         <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed font-medium">
-          Your conversations are constantly monitored for off-topic chatting and abuse. Automated filters block inappropriate text and images; only homework PDFs and photos may be shared.
+          Your conversations are constantly monitored for off-topic chatting and abuse. Automated
+          filters block inappropriate text and images; only homework PDFs and photos may be shared.
         </p>
 
         {tokenError && (
@@ -106,7 +106,6 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
           </div>
         )}
 
-        {/* Action Row */}
         <div className="pt-2 flex items-center justify-between gap-3">
           <button
             type="button"

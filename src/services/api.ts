@@ -298,17 +298,24 @@ export const messagingService = {
     return mapMessage(data.message);
   },
 
-  async startConversation(_currentStudentId: string, participantId: string, noticeToken: string) {
+  async startConversation(_currentStudentId: string, participantId: string, noticeToken?: string | null) {
     const res = await apiFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ participantId, noticeToken }),
+      body: JSON.stringify({
+        participantId,
+        ...(noticeToken ? { noticeToken } : {}),
+      }),
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.conversationId) {
-      throw new Error(data.error || "Failed to start conversation.");
+      const err = new Error(data.error || "Failed to start conversation.") as Error & {
+        needsNotice?: boolean;
+      };
+      err.needsNotice = !!data.needsNotice;
+      throw err;
     }
-    return { conversationId: data.conversationId, otherUser: data.otherUser || null };
+    return { conversationId: data.conversationId, otherUser: data.otherUser || null, existing: !!data.existing };
   },
 
   async markAsRead(convId: string) {

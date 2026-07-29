@@ -39,7 +39,18 @@ export class ApiUnreachableError extends Error {
 
 /** fetch() wrapper that targets the API origin and always sends session cookies. */
 export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(apiUrl(path), { credentials: "include", ...init });
+  return fetch(apiUrl(path), { credentials: "include", ...init }).catch((err: unknown) => {
+    const reason = err instanceof Error ? err.message : String(err);
+    // Browser TypeError is usually just "Failed to fetch" — make it actionable.
+    if (/failed to fetch|networkerror|load failed|network request failed/i.test(reason)) {
+      throw new Error(
+        API_BASE_URL
+          ? `Can't reach the homework API at ${API_BASE_URL}. Check that the server is running and your network is online.`
+          : "Can't reach the homework API. Start the server (`npm start` / `npm run dev`) and try again."
+      );
+    }
+    throw err instanceof Error ? err : new Error(reason);
+  });
 }
 
 /**

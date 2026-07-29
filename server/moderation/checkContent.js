@@ -30,13 +30,21 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
     const rules = checkBadWords(trimmed);
     if (!rules.ok) return { ...rules, kind: "text", strikeable: true };
 
-    const aiText = await moderateText(trimmed);
-    if (!aiText.ok) {
-      return {
-        ...aiText,
-        kind: "text",
-        strikeable: aiText.strikeable !== false,
-      };
+    // Short plain chat ("ok", "thanks") already passed the blocklist — skip the
+    // OpenAI round-trip so everyday messaging stays fast. Longer text and anything
+    // with a link still goes through Moderations.
+    const needsAiText =
+      trimmed.length > 120 || /https?:\/\/|www\./i.test(trimmed);
+
+    if (needsAiText) {
+      const aiText = await moderateText(trimmed);
+      if (!aiText.ok) {
+        return {
+          ...aiText,
+          kind: "text",
+          strikeable: aiText.strikeable !== false,
+        };
+      }
     }
   }
 

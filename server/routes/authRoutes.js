@@ -54,7 +54,10 @@ router.post("/login", async (req, res) => {
       }
       return res.status(502).json({
         authenticated: false,
-        error: authErr.message || "The school portal is currently unreachable. Please try again later."
+        error:
+          authErr.code === "portal_unreachable"
+            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again — login needs a live connection to edusecure.in."
+            : authErr.message || "The school portal is currently unreachable. Please try again later.",
       });
     }
 

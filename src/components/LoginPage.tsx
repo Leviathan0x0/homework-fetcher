@@ -163,7 +163,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Signing in…</span>
+                    <span>Checking school portal…</span>
                   </>
                 ) : (
                   <>
@@ -175,7 +175,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </form>
 
             <p className="mt-8 text-[11px] leading-relaxed text-[#f4f0e8]/35">
-              Use your school student ID and password.
+              Use your school student ID and password. First sign-in talks to EduSecure, so it can take a few seconds.
             </p>
           </div>
         </section>

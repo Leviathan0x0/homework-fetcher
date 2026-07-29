@@ -6,11 +6,15 @@ import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
 import { Conversation, Message } from '../types/homework';
 import { cn } from '../utils/cn';
+import {
+  formatChatDayLabel,
+  formatChatListTime,
+  sameCalendarDay,
+} from '../utils/dateUtils';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
 import { SearchIcon } from '@/components/ui/search';
 import { AttachFileIcon } from '@/components/ui/attach-file';
-import { LogoutIcon } from '@/components/ui/logout';
 import { MessageSquareIcon } from '@/components/ui/message-square';
 import {
   clearPendingMessageOpen,
@@ -18,17 +22,14 @@ import {
   type PendingRequestContext,
 } from '../utils/pendingMessageOpen';
 import {
-  Plus,
   X,
   Loader2,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   Paperclip,
-  Eye,
   FileText,
   Download,
-  ExternalLink,
   Trash2,
   Flag,
   Handshake,
@@ -88,8 +89,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [searching, setSearching] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const stickToBottomRef = useRef(true);
+  const searchTimerRef = useRef<number | null>(null);
+  const messagesFpRef = useRef('');
+  const conversationsFpRef = useRef('');
 
   const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
     u?.displayName || u?.studentId || 'Unknown';
@@ -102,11 +108,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter') {
       if (isMobileDevice()) {
-        // Mobile device: Enter inserts a new line. Sending requires clicking the send button.
         return;
       }
       if (!e.shiftKey) {
-        // Desktop: Enter sends message, Shift+Enter inserts a new line.
         e.preventDefault();
         handleSend();
       }
@@ -115,8 +119,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const fetchConversations = useCallback(async () => {
     try {
-      const convs = await messagingService.getConversations();
-      setConversations(convs);
+      const convs = (await messagingService.getConversations()) as Conversation[];
+      const fp = convs
+        .map(
+          (c: Conversation) =>
+            `${c.id}:${c.unreadCount || 0}:${c.lastMessageAt || ''}:${c.lastMessagePreview || ''}`
+        )
+        .join('|');
+      if (fp !== conversationsFpRef.current) {
+        conversationsFpRef.current = fp;
+        setConversations(convs);
+      }
       setLoadError(null);
     } catch {
       setLoadError('Conversations could not be loaded. Retrying…');
@@ -127,9 +140,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   useEffect(() => {
     fetchConversations();
+    // Inbox list can refresh more slowly — active thread has its own poller.
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchConversations();
-    }, 6000);
+    }, 12000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
@@ -262,32 +276,44 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);
     try {
-      const msgs = await messagingService.getMessages(convId);
+      const msgs = (await messagingService.getMessages(convId)) as Message[];
+      const fp = msgs.map((m: Message) => m.id).join(',');
       setMessages((prev) => {
-        // The server list is authoritative, so deleted messages stay deleted.
-        // Only locally sent messages the server has not returned yet are kept.
         const map = new Map<string, Message>();
         msgs.forEach((m: Message) => map.set(m.id, m));
         const newestServerAt = msgs.length
           ? new Date(msgs[msgs.length - 1].createdAt).getTime()
           : 0;
+        // Keep optimistic temps + any local-only sends the poll hasn't returned yet.
         prev.forEach((m) => {
           if (m.conversationId !== convId || map.has(m.id)) return;
+          if (String(m.id).startsWith('temp_')) {
+            map.set(m.id, m);
+            return;
+          }
           if (new Date(m.createdAt).getTime() > newestServerAt) map.set(m.id, m);
         });
-        return Array.from(map.values()).sort(
+        const next = Array.from(map.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
+        const nextFp = next.map((m) => m.id).join(',');
+        if (silent && nextFp === messagesFpRef.current) return prev;
+        messagesFpRef.current = nextFp;
+        return next;
       });
-    } catch {} finally {
+    } catch {
+      // keep showing whatever we already have
+    } finally {
       if (!silent) setMessagesLoading(false);
     }
-  }, [currentStudentId]);
+  }, []);
 
   useEffect(() => {
     if (!activeConvId) return;
 
-    setMessages([]);
+    stickToBottomRef.current = true;
+    messagesFpRef.current = '';
+    setMessagesLoading(true);
     fetchMessages(activeConvId);
     messagingService.markAsRead(activeConvId);
     setConversations((prev) =>
@@ -297,15 +323,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     const messageInterval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchMessages(activeConvId, true);
-    }, 3000);
+    }, 5000);
 
     return () => {
       clearInterval(messageInterval);
     };
-  }, [activeConvId, fetchMessages, currentStudentId]);
+  }, [activeConvId, fetchMessages]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!stickToBottomRef.current) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages]);
 
   useEffect(() => {
@@ -319,17 +346,44 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const handleSend = async () => {
     if ((!inputText.trim() && !selectedFile) || !activeConvId || sending) return;
-    setSending(true);
 
     const textCopy = inputText;
     const fileCopy = selectedFile;
+    const tempId = `temp_${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
+      conversationId: activeConvId,
+      senderId: 'local',
+      content: textCopy.trim(),
+      attachmentUrl: fileCopy && fileCopy.type.startsWith('image/')
+        ? URL.createObjectURL(fileCopy)
+        : null,
+      originalFilename: fileCopy?.name || null,
+      mimeType: fileCopy?.type || null,
+      createdAt: new Date().toISOString(),
+      isMine: true,
+    };
 
+    setSending(true);
     setInputText('');
     setSelectedFile(null);
     setFileError(null);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    stickToBottomRef.current = true;
+    setMessages((prev) => [...prev, optimistic]);
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === activeConvId
+          ? {
+              ...c,
+              lastMessagePreview: fileCopy
+                ? `[Attachment] ${fileCopy.name}`
+                : textCopy.substring(0, 80),
+              lastMessageAt: optimistic.createdAt,
+            }
+          : c
+      )
+    );
 
     try {
       const sentMessage = await messagingService.sendMessage(
@@ -338,27 +392,38 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         textCopy.trim(),
         fileCopy
       );
+      if (optimistic.attachmentUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(optimistic.attachmentUrl);
+      }
       setMessages((prev) => {
-        if (prev.some((m) => m.id === sentMessage.id)) return prev;
-        return [...prev, sentMessage];
+        const withoutTemp = prev.filter((m) => m.id !== tempId);
+        if (withoutTemp.some((m) => m.id === sentMessage.id)) return withoutTemp;
+        return [...withoutTemp, sentMessage];
       });
       setConversations((prev) =>
         prev.map((c) =>
           c.id === activeConvId
             ? {
                 ...c,
-                lastMessagePreview: fileCopy ? `[Attachment] ${fileCopy.name}` : textCopy.substring(0, 80),
+                lastMessagePreview: fileCopy
+                  ? `[Attachment] ${fileCopy.name}`
+                  : textCopy.substring(0, 80),
                 lastMessageAt: sentMessage.createdAt,
               }
             : c
         )
       );
     } catch (err: any) {
-      // Put the draft back so nothing is silently lost, and say why it failed.
+      if (optimistic.attachmentUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(optimistic.attachmentUrl);
+      }
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setInputText(textCopy);
       setSelectedFile(fileCopy);
       setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
-    } finally { setSending(false); }
+    } finally {
+      setSending(false);
+    }
   };
 
   // Photos are downscaled in the browser: full-size camera images exceed the
@@ -430,14 +495,25 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     }
   };
 
-  const handleSearch = async (q: string) => {
+  const handleSearch = (q: string) => {
     setSearchQuery(q);
-    if (!q.trim()) { setSearchResults([]); return; }
+    if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    if (!q.trim()) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
     setSearching(true);
-    try {
-      const results = await messagingService.searchUsers(q, currentStudentId);
-      setSearchResults(results);
-    } catch {} finally { setSearching(false); }
+    searchTimerRef.current = window.setTimeout(async () => {
+      try {
+        const results = await messagingService.searchUsers(q, currentStudentId);
+        setSearchResults(results);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 280);
   };
 
   const handleInitiateChat = (u: { id: string; studentId: string; displayName?: string | null }) => {
@@ -500,24 +576,36 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const otherSection = activeConv?.otherUser?.section;
 
   const inboxContent = (
-    <div className="h-full flex flex-col bg-neutral-50/80 dark:bg-[#121215]">
-      {/* Header bar with inline search */}
-      <div className="p-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 space-y-2">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">Messages</span>
+    <div className="h-full flex flex-col bg-[#f7f7f8] dark:bg-[#0c0c0e]">
+      <div className="px-4 pt-4 pb-3 border-b border-neutral-200/70 dark:border-neutral-800/70 shrink-0 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+            Messages
+          </h2>
+          {conversations.length > 0 && !searchQuery && (
+            <span className="text-[11px] tabular-nums text-neutral-400">
+              {conversations.length}
+            </span>
+          )}
         </div>
         <div className="relative">
-          <SearchIcon size={14} isAnimated={Boolean(searchQuery)} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+          <SearchIcon
+            size={14}
+            isAnimated={Boolean(searchQuery)}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
+          />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search student ID..."
-            className="w-full text-xs h-8.5 pl-8 pr-7 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+            placeholder="Find by name or student ID"
+            className="w-full text-[13px] h-9 pl-9 pr-8 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
           />
           {searchQuery && (
             <button
-              onClick={() => { setSearchQuery(''); setSearchResults([]); }}
+              onClick={() => {
+                handleSearch('');
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
@@ -526,10 +614,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         </div>
       </div>
 
-      {/* Main List: Search Results or Active Conversations */}
-      <div className="flex-1 overflow-y-auto divide-y divide-neutral-200/40 dark:divide-neutral-800/40">
+      <div className="flex-1 overflow-y-auto">
         {searching ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-10">
             <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
           </div>
         ) : searchQuery.trim() ? (
@@ -538,135 +625,155 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               <button
                 key={u.id}
                 onClick={() => handleInitiateChat(u)}
-                className="w-full text-left px-3.5 py-3 flex items-center gap-3 transition-all cursor-pointer hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40"
+                className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-200/50 dark:hover:bg-white/[0.03] transition-colors"
               >
-                <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
-                  {u.studentId.charAt(0).toUpperCase()}
+                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 flex items-center justify-center text-[13px] font-semibold shrink-0">
+                  {(u.displayName || u.studentId).charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
-                      {u.studentId}
-                    </span>
-                    {u.section && (
-                      <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
-                        {u.section}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">Click to start conversation</p>
+                  <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                    {u.displayName || u.studentId}
+                  </p>
+                  <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                    {u.displayName ? u.studentId : 'Start a conversation'}
+                    {u.section ? ` · ${u.section}` : ''}
+                  </p>
                 </div>
               </button>
             ))
           ) : (
-            <div className="p-6 text-center text-xs text-neutral-400">No users found</div>
+            <p className="px-4 py-10 text-center text-[12px] text-neutral-400">No students matched.</p>
           )
         ) : conversations.length === 0 ? (
           isLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-10">
               <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center my-auto min-h-[200px]">
-              <div className="w-10 h-10 rounded-2xl bg-neutral-200/60 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 mb-2">
-                <MessageSquareIcon size={20} />
-              </div>
-              <p className="text-xs text-neutral-500 font-medium">
-                {loadError ? 'Conversations unavailable' : 'No active conversations'}
+            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+              <MessageSquareIcon size={22} className="text-neutral-300 dark:text-neutral-600 mb-3" />
+              <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">
+                {loadError ? 'Couldn’t load chats' : 'No conversations yet'}
               </p>
-              <p className="text-[11px] text-neutral-400 mt-1">
-                {loadError || 'Search for a student ID above to start chatting'}
+              <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[18rem] leading-relaxed">
+                {loadError || 'Search a classmate’s student ID above to message them.'}
               </p>
             </div>
           )
         ) : (
-          conversations.map((conv) => (
-            <div
-              key={conv.id}
-              className={cn(
-                'flex items-center gap-1 pr-2 transition-all hover:bg-neutral-200/40 dark:hover:bg-neutral-800/40 group/conv',
-                activeConvId === conv.id && 'bg-neutral-200/80 dark:bg-neutral-800/80 font-medium'
-              )}
-            >
-              <button
-                onClick={() => {
-                  setAttachedRequest(null);
-                  setActiveConvId(conv.id);
-                }}
-                className="flex-1 min-w-0 text-left pl-3.5 pr-1 py-3 flex items-center gap-3 cursor-pointer"
+          conversations.map((conv) => {
+            const active = activeConvId === conv.id;
+            const unread = (conv.unreadCount || 0) > 0;
+            return (
+              <div
+                key={conv.id}
+                className={cn(
+                  'flex items-stretch group/conv border-l-2',
+                  active
+                    ? 'bg-white dark:bg-[#141417] border-l-neutral-900 dark:border-l-neutral-100'
+                    : 'border-l-transparent hover:bg-white/70 dark:hover:bg-white/[0.03]'
+                )}
               >
-                <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
-                  {userLabel(conv.otherUser).charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">
+                <button
+                  onClick={() => {
+                    setAttachedRequest(null);
+                    setActiveConvId(conv.id);
+                  }}
+                  className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3 cursor-pointer"
+                >
+                  <div
+                    className={cn(
+                      'w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-semibold shrink-0',
+                      unread
+                        ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
+                    )}
+                  >
+                    {userLabel(conv.otherUser).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span
+                        className={cn(
+                          'text-[13px] truncate',
+                          unread
+                            ? 'font-semibold text-neutral-900 dark:text-neutral-50'
+                            : 'font-medium text-neutral-800 dark:text-neutral-200'
+                        )}
+                      >
                         {userLabel(conv.otherUser)}
                       </span>
-                      {conv.otherUser?.section && (
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-medium bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 shrink-0">
-                          {conv.otherUser.section}
+                      {conv.lastMessageAt && (
+                        <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
+                          {formatChatListTime(conv.lastMessageAt)}
                         </span>
                       )}
                     </div>
-                    {conv.lastMessageAt && (
-                      <span className="text-[10px] text-neutral-400 shrink-0">
-                        {new Date(conv.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p
+                        className={cn(
+                          'text-[12px] truncate flex-1',
+                          unread
+                            ? 'text-neutral-700 dark:text-neutral-300'
+                            : 'text-neutral-500 dark:text-neutral-500'
+                        )}
+                      >
+                        {conv.lastMessagePreview || 'No messages yet'}
+                      </p>
+                      {conv.otherUser?.section && (
+                        <span className="text-[10px] text-neutral-400 shrink-0">
+                          {conv.otherUser.section}
+                        </span>
+                      )}
+                      {unread && (
+                        <span className="min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[9px] font-bold flex items-center justify-center tabular-nums shrink-0">
+                          {conv.unreadCount! > 9 ? '9+' : conv.unreadCount}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  {conv.lastMessagePreview && (
-                    <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate mt-0.5">{conv.lastMessagePreview}</p>
+                </button>
+                <button
+                  onClick={() => handleDeleteConversation(conv.id)}
+                  disabled={deletingConvId === conv.id}
+                  title="Delete conversation"
+                  aria-label="Delete conversation"
+                  className="px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 opacity-0 group-hover/conv:opacity-100 focus-visible:opacity-100"
+                >
+                  {deletingConvId === conv.id ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
                   )}
-                </div>
-                {conv.unreadCount > 0 && (
-                  <span className="flex size-4 items-center justify-center rounded-full bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-[10px] font-bold shrink-0">
-                    {conv.unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => handleDeleteConversation(conv.id)}
-                disabled={deletingConvId === conv.id}
-                title="Delete conversation"
-                aria-label="Delete conversation"
-                className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 md:opacity-0 md:group-hover/conv:opacity-100 md:focus-visible:opacity-100"
-              >
-                {deletingConvId === conv.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="w-3.5 h-3.5" />
-                )}
-              </button>
-            </div>
-          ))
+                </button>
+              </div>
+            );
+          })
         )}
       </div>
     </div>
   );
 
   const threadContent = (
-    <div className="h-full flex flex-col bg-white dark:bg-[#09090b] relative">
-      {/* Header bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-neutral-50/50 dark:bg-[#121215]/50 backdrop-blur-xs z-10">
-        <div className="flex items-center gap-3 min-w-0">
-          <button onClick={() => setActiveConvId(null)}
-            className="md:hidden p-1 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">
+    <div className="h-full flex flex-col bg-[#fafafa] dark:bg-[#09090b] relative">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-neutral-200/70 dark:border-neutral-800/70 shrink-0 bg-[#fafafa]/90 dark:bg-[#09090b]/90 backdrop-blur-sm z-10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            onClick={() => setActiveConvId(null)}
+            className="md:hidden p-1.5 -ml-1 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="w-8 h-8 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
+          <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 flex items-center justify-center text-[12px] font-semibold shrink-0">
             {otherName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-neutral-900 dark:text-neutral-100">{otherName}</span>
-              {otherSection && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60">
-                  {otherSection}
-                </span>
-              )}
-            </div>
+            <p className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-50 truncate leading-tight">
+              {otherName}
+            </p>
+            {otherSection && (
+              <p className="text-[11px] text-neutral-500 truncate leading-tight mt-0.5">{otherSection}</p>
+            )}
           </div>
         </div>
 
@@ -676,205 +783,231 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             disabled={!activeConvId || reportingConv}
             title="Report this chat"
             aria-label="Report this chat"
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer disabled:opacity-50"
+            className="p-1.5 rounded-md text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {reportingConv ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Flag className="w-4 h-4" />
-            )}
+            {reportingConv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
             disabled={!activeConvId || deletingConvId === activeConvId}
             title="Delete conversation"
             aria-label="Delete conversation"
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
             {deletingConvId === activeConvId ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
       </div>
 
-      {/* Messages Scroll View */}
       <div
+        ref={messagesScrollRef}
         onScroll={(e) => {
           const el = e.currentTarget;
-          const isFarFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight > 120;
-          setShowScrollBottom(isFarFromBottom);
+          const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+          stickToBottomRef.current = distance < 80;
+          setShowScrollBottom(distance > 120);
         }}
-        className="flex-1 overflow-y-auto p-4 space-y-3 bg-neutral-50/30 dark:bg-[#09090b] relative"
+        className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 relative"
       >
-        {messagesLoading ? (
-          <div className="flex items-center justify-center py-8"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
+        {messagesLoading && messages.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+          </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-xs text-neutral-400">
-            No messages yet. Send homework notes, a PDF, or a photo to get started.
+          <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Say hello</p>
+            <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[16rem] leading-relaxed">
+              Share homework notes, a PDF, or a photo when it helps.
+            </p>
           </div>
         ) : (
-          messages.map((m) => {
-            const isMine = Boolean(m.isMine);
-            const isImage = m.mimeType?.startsWith('image/') || m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i);
-            const timeStr = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          <div className="space-y-1">
+            {messages.map((m, idx) => {
+              const isMine = Boolean(m.isMine);
+              const isPending = String(m.id).startsWith('temp_');
+              const isImage =
+                m.mimeType?.startsWith('image/') ||
+                Boolean(m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i));
+              const prev = messages[idx - 1];
+              const next = messages[idx + 1];
+              const showDay = !prev || !sameCalendarDay(prev.createdAt, m.createdAt);
+              const clusteredWithPrev =
+                prev &&
+                Boolean(prev.isMine) === isMine &&
+                sameCalendarDay(prev.createdAt, m.createdAt) &&
+                new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
+              const clusteredWithNext =
+                next &&
+                Boolean(next.isMine) === isMine &&
+                sameCalendarDay(next.createdAt, m.createdAt) &&
+                new Date(next.createdAt).getTime() - new Date(m.createdAt).getTime() < 5 * 60 * 1000;
+              const timeStr = new Date(m.createdAt).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              });
 
-            return (
-              <div key={m.id} className={cn('flex w-full', isMine ? 'justify-end' : 'justify-start')}>
-                <div className={cn(
-                  'max-w-[75%] sm:max-w-[65%] p-3 rounded-2xl text-xs shadow-2xs relative group',
-                  isMine
-                    ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 rounded-tr-xs'
-                    : 'bg-neutral-200/80 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100 rounded-tl-xs'
-                )}>
-                  {isMine && (
-                    <button
-                      onClick={() => handleDeleteMessage(m.id)}
-                      disabled={deletingMessageId === m.id}
-                      title="Delete message"
-                      aria-label="Delete message"
-                      className="absolute -left-7 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity cursor-pointer disabled:opacity-50 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                    >
-                      {deletingMessageId === m.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-                  )}
-                  {/* Attachment Box with Preview */}
-                  {m.attachmentUrl && (
-                    <div className="mb-2 rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/5 dark:bg-black/20 p-2 space-y-1.5">
-                      {isImage ? (
-                        <div
-                          onClick={() => setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' })}
-                          className="relative group/img overflow-hidden rounded-lg max-h-48 bg-neutral-900/10 cursor-pointer active:opacity-90 transition-opacity"
-                        >
-                          <img
-                            src={m.attachmentUrl}
-                            alt={m.originalFilename || 'Attachment'}
-                            className="w-full h-auto object-cover max-h-48 rounded-lg"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreviewMedia({ url: m.attachmentUrl!, name: m.originalFilename || 'Image' });
-                              }}
-                              className="p-1.5 rounded-full bg-white/90 text-neutral-900 hover:scale-105 transition-transform cursor-pointer"
-                              title="Preview photo in-app"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <a
-                              href={m.attachmentUrl}
-                              download={m.originalFilename || 'photo'}
-                              onClick={(e) => e.stopPropagation()}
-                              className="p-1.5 rounded-full bg-white/90 text-neutral-900 hover:scale-105 transition-transform cursor-pointer"
-                              title="Download photo"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2 p-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <FileText className="w-4 h-4 opacity-70 shrink-0" />
-                            <span className="text-xs font-medium truncate">{m.originalFilename || 'Document'}</span>
-                          </div>
-                          <a
-                            href={m.attachmentUrl}
-                            download={m.originalFilename || 'file'}
-                            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold hover:bg-black/10 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                            <span>Download</span>
-                          </a>
-                        </div>
-                      )}
+              return (
+                <React.Fragment key={m.id}>
+                  {showDay && (
+                    <div className="flex justify-center py-3">
+                      <span className="text-[10px] font-medium tracking-wide text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full">
+                        {formatChatDayLabel(m.createdAt)}
+                      </span>
                     </div>
                   )}
-
-                  {/* Message Content & Inline Date/Time Displayed on the Right or Left */}
-                  <div className="flex items-end justify-between gap-3">
-                    {m.content && (
-                      <MarkdownRenderer content={m.content} className="break-words leading-relaxed flex-1 text-xs" />
+                  <div
+                    className={cn(
+                      'flex w-full',
+                      isMine ? 'justify-end' : 'justify-start',
+                      clusteredWithPrev ? 'mt-0.5' : 'mt-2.5'
                     )}
-                    <span className={cn(
-                      'text-[9px] shrink-0 font-medium self-end opacity-60 ml-2 mb-0.5',
-                      isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500 dark:text-neutral-400'
-                    )}>
-                      {timeStr}
-                    </span>
+                  >
+                    <div
+                      className={cn(
+                        'max-w-[78%] sm:max-w-[62%] px-3 py-2 text-[13px] leading-relaxed relative group',
+                        isMine
+                          ? 'bg-neutral-900 text-neutral-50 dark:bg-[#e8e6e1] dark:text-neutral-900'
+                          : 'bg-white text-neutral-900 dark:bg-[#1a1a1e] dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800',
+                        !clusteredWithPrev && !clusteredWithNext && 'rounded-2xl',
+                        !clusteredWithPrev && clusteredWithNext && isMine && 'rounded-2xl rounded-br-md',
+                        !clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-2xl rounded-bl-md',
+                        clusteredWithPrev && !clusteredWithNext && isMine && 'rounded-2xl rounded-tr-md',
+                        clusteredWithPrev && !clusteredWithNext && !isMine && 'rounded-2xl rounded-tl-md',
+                        clusteredWithPrev && clusteredWithNext && isMine && 'rounded-md rounded-tr-md rounded-br-md',
+                        clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-md rounded-tl-md rounded-bl-md',
+                        isPending && 'opacity-70'
+                      )}
+                    >
+                      {isMine && !isPending && (
+                        <button
+                          onClick={() => handleDeleteMessage(m.id)}
+                          disabled={deletingMessageId === m.id}
+                          title="Delete message"
+                          aria-label="Delete message"
+                          className="absolute -left-8 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity cursor-pointer disabled:opacity-50 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
+                        >
+                          {deletingMessageId === m.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      )}
+
+                      {m.attachmentUrl && (
+                        <div className="mb-1.5 rounded-xl overflow-hidden">
+                          {isImage ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewMedia({
+                                  url: m.attachmentUrl!,
+                                  name: m.originalFilename || 'Image',
+                                })
+                              }
+                              className="block w-full cursor-pointer"
+                            >
+                              <img
+                                src={m.attachmentUrl}
+                                alt={m.originalFilename || 'Attachment'}
+                                className="w-full h-auto object-cover max-h-52 rounded-lg"
+                              />
+                            </button>
+                          ) : (
+                            <a
+                              href={m.attachmentUrl}
+                              download={m.originalFilename || 'file'}
+                              className={cn(
+                                'flex items-center gap-2 px-2 py-2 rounded-lg text-[12px] font-medium',
+                                isMine
+                                  ? 'bg-white/10 dark:bg-black/10'
+                                  : 'bg-neutral-100 dark:bg-neutral-900'
+                              )}
+                            >
+                              <FileText className="w-4 h-4 shrink-0 opacity-70" />
+                              <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
+                              <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-end gap-2">
+                        {m.content && (
+                          <MarkdownRenderer
+                            content={m.content}
+                            className="break-words leading-relaxed flex-1 text-[13px]"
+                          />
+                        )}
+                        {!clusteredWithNext && (
+                          <span
+                            className={cn(
+                              'text-[10px] shrink-0 tabular-nums self-end mb-px opacity-50',
+                              isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500'
+                            )}
+                          >
+                            {isPending ? 'Sending' : timeStr}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })
+                </React.Fragment>
+              );
+            })}
+          </div>
         )}
         <div ref={messagesEndRef} />
 
-        {/* Scroll to Bottom Button */}
         {showScrollBottom && (
           <button
-            onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+            onClick={() => {
+              stickToBottomRef.current = true;
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }}
             aria-label="Scroll to bottom"
-            title="Scroll to bottom"
-            className="sticky bottom-2 right-2 ml-auto z-30 p-2.5 rounded-full bg-neutral-200/90 text-neutral-700 hover:text-neutral-900 dark:bg-neutral-800/90 dark:text-neutral-300 dark:hover:text-white shadow-md border border-neutral-300/80 dark:border-neutral-700/80 backdrop-blur-md hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer flex items-center justify-center animate-in fade-in zoom-in-90"
+            className="sticky bottom-2 left-full -translate-x-10 z-30 p-2 rounded-full bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shadow-sm hover:text-neutral-900 dark:hover:text-white cursor-pointer"
           >
             <ArrowDown className="w-4 h-4" />
           </button>
         )}
       </div>
 
-      {/* Input bar with auto-expanding textarea & Shift+Enter support */}
-      <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 border-t border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-white dark:bg-[#121215] z-20">
+      <div className="px-3 sm:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 shrink-0 bg-[#fafafa] dark:bg-[#09090b] z-20">
         {fileError && (
-          <div className="mb-2 px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-xs text-rose-800 dark:text-rose-200 leading-relaxed font-medium">
+          <div className="mb-2 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-[12px] text-rose-800 dark:text-rose-200 leading-relaxed">
             {fileError}
           </div>
         )}
 
         {attachedRequest && (
-          <div className="mb-2 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-950/30 p-2.5 text-xs">
+          <div className="mb-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] p-2.5 text-[12px]">
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <div className="w-7 h-7 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center shrink-0">
                 <Handshake className="w-3.5 h-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700/80 dark:text-amber-400/80">
-                    Request
-                  </span>
-                  {attachedRequest.category && (
-                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-100/80 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
-                      {attachedRequest.category}
-                    </span>
-                  )}
-                </div>
+                <p className="text-[10px] uppercase tracking-[0.12em] text-neutral-400 font-medium">
+                  Request{attachedRequest.category ? ` · ${attachedRequest.category}` : ''}
+                </p>
                 <p className="font-semibold text-neutral-900 dark:text-neutral-100 mt-0.5 leading-snug">
                   {attachedRequest.title}
                 </p>
                 {attachedRequest.content.trim() && (
-                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 whitespace-pre-wrap leading-relaxed line-clamp-4">
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 whitespace-pre-wrap leading-relaxed line-clamp-3">
                     {attachedRequest.content}
-                  </p>
-                )}
-                {attachedRequest.studentId && (
-                  <p className="text-[10px] text-neutral-400 mt-1.5">
-                    from {attachedRequest.studentId}
                   </p>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => setAttachedRequest(null)}
-                className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer shrink-0"
+                className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer shrink-0"
                 aria-label="Dismiss request"
-                title="Dismiss request"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -883,36 +1016,40 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         )}
 
         {selectedFile && (
-          <div className="mb-2 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-between gap-2 text-xs">
+          <div className="mb-2 px-2.5 py-2 rounded-lg bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-2 text-[12px]">
             <div className="flex items-center gap-2 min-w-0">
-              <Paperclip className="w-4 h-4 text-neutral-500 shrink-0" />
+              <Paperclip className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
               <span className="font-medium truncate">{selectedFile.name}</span>
             </div>
-            <button onClick={() => setSelectedFile(null)} className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer">
+            <button
+              onClick={() => setSelectedFile(null)}
+              className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+            >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
 
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] px-1.5 py-1.5 shadow-2xs">
           <input
             type="file"
             ref={fileInputRef}
-            accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+            className="hidden"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp,application/pdf"
             onChange={(e) => {
               const picked = e.target.files?.[0];
-              if (picked) handlePickFile(picked);
               e.target.value = '';
+              if (picked) handlePickFile(picked);
             }}
-            className="hidden"
           />
           <button
-            onClick={() => fileInputRef.current?.click()}
+            type="button"
             onMouseEnter={() => setHoveredAction('attach')}
             onMouseLeave={() => setHoveredAction(null)}
-            className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer mb-0.5"
-            title="Attach homework PDF or photo only"
-            aria-label="Attach homework PDF or photo"
+            onClick={() => fileInputRef.current?.click()}
+            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+            title="Attach PDF or photo"
+            aria-label="Attach PDF or photo"
           >
             <AttachFileIcon size={18} isAnimated={hoveredAction === 'attach'} />
           </button>
@@ -927,17 +1064,20 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
             }}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
-            className="flex-1 text-xs py-2.5 px-3.5 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400 dark:focus:ring-neutral-500 resize-none max-h-32 leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none] [-ms-overflow-style:none]"
+            placeholder="Message…"
+            className="flex-1 text-[13px] py-2 px-1 bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none resize-none max-h-32 leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
           />
 
-          <button onClick={handleSend} disabled={(!inputText.trim() && !selectedFile) || sending}
-            className="p-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 hover:opacity-90 transition-opacity disabled:opacity-30 cursor-pointer shrink-0 shadow-2xs mb-0.5">
+          <button
+            onClick={handleSend}
+            disabled={(!inputText.trim() && !selectedFile) || sending}
+            className="p-2 rounded-xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 hover:opacity-90 transition-opacity disabled:opacity-25 cursor-pointer shrink-0 mb-0.5"
+          >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
           </button>
         </div>
-        <p className="mt-1.5 px-1 text-[10px] text-neutral-400 dark:text-neutral-500">
-          Attachments: homework PDFs and photos only
+        <p className="mt-1.5 px-1 text-[10px] text-neutral-400">
+          PDFs and photos only · Enter to send
         </p>
       </div>
     </div>
@@ -956,9 +1096,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         !activeConvId ? 'hidden md:flex' : 'flex'
       )}>
         {activeConvId ? threadContent : (
-          <div className="flex-1 flex flex-col items-center justify-center text-xs text-neutral-400 gap-2 bg-neutral-50/20 dark:bg-[#09090b]">
-            <MessageSquareIcon size={32} className="opacity-20 text-neutral-400" />
-            <span>Select a conversation to view messages</span>
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-[#fafafa] dark:bg-[#09090b] px-6 text-center">
+            <MessageSquareIcon size={28} className="text-neutral-300 dark:text-neutral-700" />
+            <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
+              Pick a conversation
+            </p>
+            <p className="text-[12px] text-neutral-400 max-w-[16rem] leading-relaxed">
+              Or search a student ID in the sidebar to start one.
+            </p>
           </div>
         )}
       </div>

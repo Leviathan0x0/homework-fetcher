@@ -959,13 +959,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                       )}
                     >
                       {!isPending && (
-                        <div className="absolute -left-20 top-1/2 -translate-y-1/2 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100">
+                        <>
                           {!isMine && (
                             <button
                               onClick={() => setReplyingTo(m)}
                               title="Reply to message"
                               aria-label="Reply to message"
-                              className="p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                              className="absolute -right-9 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                             >
                               <Reply className="w-3.5 h-3.5" />
                             </button>
@@ -976,7 +976,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                               disabled={deletingMessageId === m.id}
                               title="Delete message"
                               aria-label="Delete message"
-                              className="p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
+                              className="absolute -left-9 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                             >
                               {deletingMessageId === m.id ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -985,7 +985,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                               )}
                             </button>
                           )}
-                        </div>
+                        </>
                       )}
 
                       {m.replyTo && (

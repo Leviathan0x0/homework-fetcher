@@ -88,7 +88,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <label htmlFor="login-student-id" className="block text-sm font-medium text-[#f5f2eb]/80">
-                  EduSecure student ID
+                  Student ID
                 </label>
                 <div className="relative">
                   <CreditCard className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f5f2eb]/45" />
@@ -114,7 +114,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
               <div className="space-y-2">
                 <label htmlFor="login-password" className="block text-sm font-medium text-[#f5f2eb]/80">
-                  EduSecure password
+                  Password
                 </label>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f5f2eb]/45" />
@@ -178,13 +178,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           </div>
         </section>
 
-        {/* Desktop school identity on the open artwork. */}
-        <aside className="pointer-events-none relative hidden flex-1 md:flex md:items-end md:justify-end md:p-10 lg:p-12">
-          <p className="max-w-[18ch] text-right text-2xl leading-tight text-[#f8f5ee]/90 drop-shadow-md lg:text-3xl [font-family:'Fraunces',Georgia,serif]">
-            Manav Mangal Smart School
-            <span className="mt-1 block font-sans text-base text-[#e0c69a]">Mohali</span>
-          </p>
-        </aside>
+        {/* Preserve the open-artwork half of the desktop split without extra copy. */}
+        <div className="pointer-events-none relative hidden flex-1 md:block" aria-hidden />
       </div>
     </div>
   );

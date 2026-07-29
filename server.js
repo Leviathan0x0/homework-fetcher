@@ -27,7 +27,7 @@ const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
-const { ready, isRemote, db, schema } = require("./server/db/client");
+const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
 const { rateLimit } = require("./server/limits");
 
 const app = express();
@@ -77,7 +77,10 @@ app.use("/api", rateLimit({ name: "api", windowMs: 60 * 1000, max: 600 }));
 // The schema is created/migrated once per process; API requests wait for it so
 // the first query never races the migrations.
 app.use("/api", (req, res, next) => {
-  ready.then(() => next()).catch((err) => {
+  // Health must remain reachable when database startup is the failure being
+  // diagnosed; the route below reports that failure without exposing secrets.
+  if (req.path === "/health") return next();
+  ensureDatabaseReady().then(() => next()).catch((err) => {
     console.error("Database unavailable:", err.message);
     res.status(503).json({
       error: err?.message || "Database unavailable. Check the database configuration.",
@@ -101,7 +104,7 @@ app.get("/api/health", async (req, res) => {
   }
 
   try {
-    await ready;
+    await ensureDatabaseReady();
     await db.select().from(schema.users).limit(1).all();
   } catch (err) {
     status.ok = false;

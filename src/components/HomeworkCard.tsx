@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
+import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
 import { Check, Eye, Plus, Pencil, Trash2, NotebookPen } from 'lucide-react';
 import { AnimatedPaperclip, AnimatedIcon } from './ui/animated-icon';
 import { cn } from '../utils/cn';
@@ -31,6 +32,8 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   onOpenPreview,
 }) => {
   const subjectInfo = detectSubject(item.homework, item.subject, item.type);
+  const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
+  const hwHierarchy = splitTaskHierarchy(parsed.homeWork || '');
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(item.note || '');
@@ -119,15 +122,53 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         </div>
       </div>
 
-      {/* School-provided text is displayed verbatim; subject detection is metadata only. */}
-      <p
-        className={cn(
-          'whitespace-pre-wrap break-words text-sm font-normal leading-relaxed text-neutral-800 dark:text-neutral-200',
-          isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
+      {/* Hierarchy: compact HW / CW tags */}
+      <div className={cn('space-y-1.5', isCompleted && 'opacity-80')}>
+        {parsed.homeWork && (
+          <div className="flex items-start gap-2">
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              HW
+            </span>
+            <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
+                {hwHierarchy.action}
+              </p>
+              {hwHierarchy.detail && (
+                <p className="mt-0.5 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed whitespace-pre-wrap break-words">
+                  {hwHierarchy.detail}
+                </p>
+              )}
+            </div>
+          </div>
         )}
-      >
-        {item.homework}
-      </p>
+
+        {parsed.classWork && (
+          <div className="flex items-start gap-2">
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              CW
+            </span>
+            <span
+              className={cn(
+                'whitespace-pre-wrap break-words flex-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed',
+                isCompleted && 'line-through'
+              )}
+            >
+              {parsed.classWork}
+            </span>
+          </div>
+        )}
+
+        {!parsed.homeWork && !parsed.classWork && (
+          <p
+            className={cn(
+              'whitespace-pre-wrap break-words text-sm font-normal leading-relaxed text-neutral-800 dark:text-neutral-200',
+              isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
+            )}
+          >
+            {item.homework}
+          </p>
+        )}
+      </div>
 
       {/* Personal note */}
       <div className="mt-2.5 pt-2 border-t border-neutral-100 dark:border-neutral-800/60">

@@ -13,6 +13,7 @@ import {
 } from '../utils/dateUtils';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SearchIcon } from '@/components/ui/search';
 import { AttachFileIcon } from '@/components/ui/attach-file';
 import { MessageSquareIcon } from '@/components/ui/message-square';
@@ -40,6 +41,7 @@ import {
   Bell,
   Pin,
   Users,
+  LogOut,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -57,6 +59,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesConvId, setMessagesConvId] = useState<string | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -110,6 +113,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const searchTimerRef = useRef<number | null>(null);
   const messagesFpRef = useRef('');
   const conversationsFpRef = useRef('');
+  const activeConvIdRef = useRef(activeConvId);
+  const messagesRequestIdRef = useRef(0);
+  const loadedMessagesConvIdRef = useRef<string | null>(null);
+  activeConvIdRef.current = activeConvId;
 
   const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
     u?.displayName || u?.studentId || 'Unknown';
@@ -322,10 +329,20 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (peekPendingMessageOpen()) clearPendingMessageOpen();
   }, [activeConvId]);
 
-  const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
+  const fetchMessages = useCallback(async (
+    convId: string,
+    silent: boolean = false,
+    signal?: AbortSignal
+  ) => {
+    const requestId = ++messagesRequestIdRef.current;
     if (!silent) setMessagesLoading(true);
     try {
-      const msgs = (await messagingService.getMessages(convId)) as Message[];
+      const msgs = (await messagingService.getMessages(convId, signal)) as Message[];
+      if (
+        signal?.aborted ||
+        activeConvIdRef.current !== convId ||
+        requestId !== messagesRequestIdRef.current
+      ) return;
       const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
       setMessages((prev) => {
         const map = new Map<string, Message>();
@@ -350,20 +367,51 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         messagesFpRef.current = nextFp;
         return next;
       });
-    } catch {
-      // keep showing whatever we already have
+      loadedMessagesConvIdRef.current = convId;
+      setMessagesConvId(convId);
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;
+      if (
+        !silent &&
+        activeConvIdRef.current === convId &&
+        requestId === messagesRequestIdRef.current
+      ) {
+        // The request finished for the selected thread, so stop the loading
+        // skeleton without exposing data owned by another conversation.
+        loadedMessagesConvIdRef.current = convId;
+        setMessages([]);
+        setMessagesConvId(convId);
+      }
     } finally {
-      if (!silent) setMessagesLoading(false);
+      if (
+        !silent &&
+        !signal?.aborted &&
+        activeConvIdRef.current === convId &&
+        requestId === messagesRequestIdRef.current
+      ) {
+        setMessagesLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!activeConvId) return;
+    if (!activeConvId) {
+      messagesRequestIdRef.current += 1;
+      loadedMessagesConvIdRef.current = null;
+      setMessages([]);
+      setMessagesConvId(null);
+      setMessagesLoading(false);
+      return;
+    }
 
+    const controller = new AbortController();
     stickToBottomRef.current = true;
     messagesFpRef.current = '';
+    loadedMessagesConvIdRef.current = null;
+    setMessages([]);
+    setMessagesConvId(null);
     setMessagesLoading(true);
-    fetchMessages(activeConvId);
+    fetchMessages(activeConvId, false, controller.signal);
     messagingService.markAsRead(activeConvId);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
@@ -372,12 +420,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     const messageInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        fetchMessages(activeConvId, true);
+        if (loadedMessagesConvIdRef.current === activeConvId) {
+          fetchMessages(activeConvId, true, controller.signal);
+        }
         messagingService.markAsRead(activeConvId);
       }
     }, 5000);
 
     return () => {
+      controller.abort();
       clearInterval(messageInterval);
     };
   }, [activeConvId, fetchMessages]);
@@ -399,13 +450,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleSend = async () => {
     if ((!inputText.trim() && !selectedFile) || !activeConvId || sending) return;
 
+    const convId = activeConvId;
     const textCopy = inputText;
     const fileCopy = selectedFile;
     const replyToCopy = replyingTo;
     const tempId = `temp_${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
-      conversationId: activeConvId,
+      conversationId: convId,
       senderId: 'local',
       content: textCopy.trim(),
       attachmentUrl: fileCopy && fileCopy.type.startsWith('image/')
@@ -432,10 +484,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     setFileError(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     stickToBottomRef.current = true;
-    setMessages((prev) => [...prev, optimistic]);
+    const alreadyShowingConversation = loadedMessagesConvIdRef.current === convId;
+    loadedMessagesConvIdRef.current = convId;
+    setMessagesConvId(convId);
+    setMessages((prev) => alreadyShowingConversation ? [...prev, optimistic] : [optimistic]);
     setConversations((prev) =>
       prev.map((c) =>
-        c.id === activeConvId
+        c.id === convId
           ? {
               ...c,
               lastMessagePreview: fileCopy
@@ -449,7 +504,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     try {
       const sentMessage = await messagingService.sendMessage(
-        activeConvId,
+        convId,
         currentStudentId,
         textCopy.trim(),
         fileCopy,
@@ -458,14 +513,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
       }
-      setMessages((prev) => {
-        const withoutTemp = prev.filter((m) => m.id !== tempId);
-        if (withoutTemp.some((m) => m.id === sentMessage.id)) return withoutTemp;
-        return [...withoutTemp, sentMessage];
-      });
+      if (activeConvIdRef.current === convId) {
+        setMessages((prev) => {
+          const withoutTemp = prev.filter((m) => m.id !== tempId);
+          if (withoutTemp.some((m) => m.id === sentMessage.id)) return withoutTemp;
+          return [...withoutTemp, sentMessage];
+        });
+      }
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === activeConvId
+          c.id === convId
             ? {
                 ...c,
                 lastMessagePreview: fileCopy
@@ -480,11 +537,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
       }
-      setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      setInputText(textCopy);
-      setSelectedFile(fileCopy);
-      setReplyingTo(replyToCopy);
-      setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
+      if (activeConvIdRef.current === convId) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setInputText(textCopy);
+        setSelectedFile(fileCopy);
+        setReplyingTo(replyToCopy);
+        setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
+      }
     } finally {
       setSending(false);
     }
@@ -527,7 +586,26 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleDeleteConversation = async (convId: string) => {
     const target = conversations.find((c) => c.id === convId);
     if (target?.type === 'section') {
-      alert('Ask Class is shared with your whole section and can’t be deleted. Mute it if you don’t want notifications.');
+      const label = `Ask ${target.section || 'Class'}`;
+      if (!confirm(
+        `Remove ${label} from your chat list?\n\nThe group and its messages will remain available to your section. You can rejoin with “Ask your class”.`
+      )) return;
+      setDeletingConvId(convId);
+      try {
+        await messagingService.leaveConversation(convId);
+        setConversations((prev) => prev.filter((c) => c.id !== convId));
+        if (activeConvIdRef.current === convId) {
+          setActiveConvId(null);
+          setMessages([]);
+          loadedMessagesConvIdRef.current = null;
+          setMessagesConvId(null);
+        }
+        alert(`${label} was removed from your chat list.`);
+      } catch (err: any) {
+        setLoadError(typeof err?.message === 'string' ? err.message : 'Group could not be removed.');
+      } finally {
+        setDeletingConvId(null);
+      }
       return;
     }
     if (!confirm('Delete this conversation and all of its messages?')) return;
@@ -538,6 +616,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       if (activeConvId === convId) {
         setActiveConvId(null);
         setMessages([]);
+        loadedMessagesConvIdRef.current = null;
+        setMessagesConvId(null);
       }
     } catch (err: any) {
       setLoadError(typeof err?.message === 'string' ? err.message : 'Conversation could not be deleted.');
@@ -722,6 +802,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       : userLabel(activeConv.otherUser)
     : 'Conversation';
   const otherSection = activeConv?.type === 'section' ? null : activeConv?.otherUser?.section;
+  // Never render a thread's messages under another thread's title, even for
+  // the render before the selection effect clears local state.
+  const visibleMessages = messagesConvId === activeConvId ? messages : [];
+  const visibleMessagesLoading = Boolean(activeConvId) && (
+    messagesLoading || messagesConvId !== activeConvId
+  );
 
   const inboxContent = (
     <div className="h-full flex flex-col bg-[#f7f7f8] dark:bg-[#0c0c0e]">
@@ -903,16 +989,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 </button>
                 <button
                   onClick={() => handleDeleteConversation(conv.id)}
-                  disabled={deletingConvId === conv.id || conv.type === 'section'}
-                  title={conv.type === 'section' ? 'Ask Class can’t be deleted' : 'Delete conversation'}
-                  aria-label="Delete conversation"
-                  className={cn(
-                    'px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 focus-visible:opacity-100',
-                    conv.type === 'section' ? 'hidden' : 'opacity-0 group-hover/conv:opacity-100'
-                  )}
+                  disabled={deletingConvId === conv.id}
+                  title={conv.type === 'section' ? `Remove Ask ${conv.section || 'Class'} from my chat list` : 'Delete conversation'}
+                  aria-label={conv.type === 'section' ? `Remove Ask ${conv.section || 'Class'} from my chat list` : 'Delete conversation'}
+                  className="px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 opacity-0 group-hover/conv:opacity-100 focus-visible:opacity-100"
                 >
                   {deletingConvId === conv.id ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : conv.type === 'section' ? (
+                    <LogOut className="w-3.5 h-3.5" />
                   ) : (
                     <Trash2 className="w-3.5 h-3.5" />
                   )}
@@ -963,26 +1048,35 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            onClick={() => {
-              if (activeConv?.pinnedHomeworkId) {
-                handlePinHomework(null);
-              } else {
-                openPinPicker();
-              }
-            }}
-            disabled={!activeConvId || pinning}
-            title={activeConv?.pinnedHomeworkId ? 'Unpin homework' : 'Pin homework PDF'}
-            aria-label={activeConv?.pinnedHomeworkId ? 'Unpin homework' : 'Pin homework PDF'}
-            className={cn(
-              'p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50',
-              activeConv?.pinnedHomeworkId
-                ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-                : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-            )}
-          >
-            {pinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pin className="w-3.5 h-3.5" />}
-          </button>
+          <Tooltip>
+            <TooltipTrigger
+              render={(
+                <button
+                  onClick={() => {
+                    if (activeConv?.pinnedHomeworkId) {
+                      handlePinHomework(null);
+                    } else {
+                      openPinPicker();
+                    }
+                  }}
+                  disabled={!activeConvId || pinning}
+                  title={activeConv?.pinnedHomeworkId ? 'Unpin homework from this chat' : 'Pin homework to this chat'}
+                  aria-label={activeConv?.pinnedHomeworkId ? 'Unpin homework from this chat' : 'Pin homework to this chat'}
+                  className={cn(
+                    'p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50',
+                    activeConv?.pinnedHomeworkId
+                      ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                      : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                  )}
+                >
+                  {pinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pin className="w-3.5 h-3.5" />}
+                </button>
+              )}
+            />
+            <TooltipContent side="bottom">
+              {activeConv?.pinnedHomeworkId ? 'Unpin homework from this chat' : 'Pin homework to this chat.'}
+            </TooltipContent>
+          </Tooltip>
           <button
             onClick={handleToggleMute}
             disabled={!activeConvId || muting}
@@ -1009,16 +1103,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </button>
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
-            disabled={!activeConvId || deletingConvId === activeConvId || activeConv?.type === 'section'}
-            title={activeConv?.type === 'section' ? 'Ask Class can’t be deleted' : 'Delete conversation'}
-            aria-label="Delete conversation"
-            className={cn(
-              'p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50',
-              activeConv?.type === 'section' && 'hidden'
-            )}
+            disabled={!activeConvId || deletingConvId === activeConvId}
+            title={activeConv?.type === 'section' ? `Remove ${otherName} from my chat list` : 'Delete conversation'}
+            aria-label={activeConv?.type === 'section' ? `Remove ${otherName} from my chat list` : 'Delete conversation'}
+            className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
             {deletingConvId === activeConvId ? (
               <Loader2 className="w-4 h-4 animate-spin" />
+            ) : activeConv?.type === 'section' ? (
+              <LogOut className="w-3.5 h-3.5" />
             ) : (
               <Trash2 className="w-3.5 h-3.5" />
             )}
@@ -1027,9 +1120,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       </div>
 
       {activeConv?.pinnedHomework && (
-        <div className="mx-3 mt-2 mb-0 flex items-start gap-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/30 px-3 py-2.5 shrink-0">
+        <div className="mx-3 mt-2 mb-0 flex items-start gap-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/30 px-3 py-2.5 shrink-0" role="status">
           <Pin className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/80 mb-0.5">
+              Pinned homework in this chat
+            </p>
             <p className="text-[12px] font-semibold text-amber-950 dark:text-amber-100 truncate">
               {activeConv.pinnedHomework.subject}
               {activeConv.pinnedHomework.date ? (
@@ -1079,11 +1175,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         }}
         className="flex-1 overflow-y-auto px-3 sm:px-5 py-4 relative"
       >
-        {messagesLoading && messages.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+        {visibleMessagesLoading && visibleMessages.length === 0 ? (
+          <div className="space-y-3 py-8" aria-busy="true" aria-label={`Loading messages for ${otherName}`}>
+            <div className="h-9 w-2/5 rounded-2xl bg-neutral-200/70 dark:bg-neutral-800/70 animate-pulse" />
+            <div className="ml-auto h-12 w-3/5 rounded-2xl bg-neutral-200/70 dark:bg-neutral-800/70 animate-pulse" />
+            <div className="h-16 w-1/2 rounded-2xl bg-neutral-200/70 dark:bg-neutral-800/70 animate-pulse" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : visibleMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
             <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Say hello</p>
             <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[16rem] leading-relaxed">
@@ -1092,14 +1190,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </div>
         ) : (
           <div className="space-y-1">
-            {messages.map((m, idx) => {
+            {visibleMessages.map((m, idx) => {
               const isMine = Boolean(m.isMine);
               const isPending = String(m.id).startsWith('temp_');
               const isImage =
                 m.mimeType?.startsWith('image/') ||
                 Boolean(m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i));
-              const prev = messages[idx - 1];
-              const next = messages[idx + 1];
+              const prev = visibleMessages[idx - 1];
+              const next = visibleMessages[idx + 1];
               const showDay = !prev || !sameCalendarDay(prev.createdAt, m.createdAt);
               const clusteredWithPrev =
                 prev &&
@@ -1245,10 +1343,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                           >
                             {isPending ? 'Sending' : timeStr}
                             {isMine && !isPending && m.readBy && m.readBy.length > 0 && (
-                              <CheckCheck className="w-3 h-3" title={`Read by ${m.readBy.length}`} />
+                              <span title={`Read by ${m.readBy.length}`}>
+                                <CheckCheck className="w-3 h-3" aria-hidden />
+                              </span>
                             )}
                             {isMine && !isPending && (!m.readBy || m.readBy.length === 0) && (
-                              <Check className="w-3 h-3" title="Sent" />
+                              <span title="Sent">
+                                <Check className="w-3 h-3" aria-hidden />
+                              </span>
                             )}
                           </span>
                         )}
@@ -1586,4 +1688,3 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     </div>
   );
 };
-

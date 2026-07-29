@@ -234,6 +234,16 @@ export const messagingService = {
     writeConversationCache(readConversationCache().filter((c: any) => c.id !== convId));
   },
 
+  async leaveConversation(convId: string) {
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/leave`, {
+      method: "DELETE",
+      headers: { Accept: "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to remove group from your chat list.");
+    writeConversationCache(readConversationCache().filter((c: any) => c.id !== convId));
+  },
+
   async deleteMessage(messageId: string) {
     const res = await apiFetch(`/api/messages/${encodeURIComponent(messageId)}`, { method: "DELETE" });
     const data = await apiJson<any>(res);
@@ -251,9 +261,10 @@ export const messagingService = {
     return data;
   },
 
-  async getMessages(convId: string) {
+  async getMessages(convId: string, signal?: AbortSignal) {
     const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
       headers: { Accept: "application/json" },
+      signal,
     });
     if (!res.ok) throw new Error("Failed to load messages.");
     const data = await apiJson<any>(res);

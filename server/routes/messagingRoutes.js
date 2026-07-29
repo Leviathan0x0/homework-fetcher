@@ -830,6 +830,59 @@ router.delete(
   }
 );
 
+// Removing a section thread is deliberately per-user: no student can delete
+// the shared group or its messages for classmates.
+router.delete(
+  "/conversations/:id/leave",
+  requireAuth,
+  rateLimit({ name: "leave-section-conversation", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const convId = req.params.id;
+      const conversation = await db
+        .select()
+        .from(schema.conversations)
+        .where(eq(schema.conversations.id, convId))
+        .get();
+
+      if (!conversation) return res.status(404).json({ error: "Conversation not found." });
+      if (conversation.type !== "section") {
+        return res.status(400).json({ error: "Only section groups can be removed from your chat list." });
+      }
+      if (!(await isParticipant(convId, req.user.id))) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      // Leaving is per-user only. The section conversation and every message
+      // remain untouched for all other students.
+      await db
+        .delete(schema.conversationParticipants)
+        .where(
+          and(
+            eq(schema.conversationParticipants.conversationId, convId),
+            eq(schema.conversationParticipants.userId, req.user.id)
+          )
+        )
+        .run();
+      await db
+        .delete(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.userId, req.user.id),
+            eq(schema.notifications.type, "new_message"),
+            eq(schema.notifications.referenceId, convId)
+          )
+        )
+        .run();
+
+      return res.json({ success: true, removedFromChatList: true });
+    } catch (err) {
+      console.error("Leave Section Conversation Error:", err);
+      return res.status(500).json({ error: "Failed to remove group from your chat list." });
+    }
+  }
+);
+
 // A one-to-one chat is deleted for both participants, so only someone who is in
 // the conversation may remove it.
 router.delete(

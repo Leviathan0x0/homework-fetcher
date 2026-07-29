@@ -39,6 +39,19 @@ async function isParticipant(conversationId, userId) {
   return !!row;
 }
 
+/** Public shape for a homework item pinned in a chat. */
+function toPinnedHomework(hw) {
+  if (!hw) return null;
+  return {
+    id: hw.id,
+    subject: hw.subject,
+    date: hw.date,
+    content: (hw.content || "").substring(0, 160),
+    attachmentUrl: hw.attachmentUrl || null,
+    type: hw.type || "Homework",
+  };
+}
+
 function normalizeSearchValue(value) {
   return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -152,6 +165,13 @@ router.get("/conversations", requireAuth, async (req, res) => {
       unreadByConv[conversationId] = Number(unread) || 0;
     }
 
+    const pinnedIds = [...new Set(convs.map((c) => c.pinnedHomeworkId).filter(Boolean))];
+    const pinnedRows = pinnedIds.length
+      ? await db.select().from(schema.homework).where(inArray(schema.homework.id, pinnedIds)).all()
+      : [];
+    const pinnedById = {};
+    for (const hw of pinnedRows) pinnedById[hw.id] = toPinnedHomework(hw);
+
     const result = convs.map((c) => {
       const participation = participationByConv[c.id];
       return {
@@ -164,6 +184,7 @@ router.get("/conversations", requireAuth, async (req, res) => {
         unreadCount: unreadByConv[c.id] || 0,
         muted: !!participation?.muted,
         pinnedHomeworkId: c.pinnedHomeworkId || null,
+        pinnedHomework: c.pinnedHomeworkId ? pinnedById[c.pinnedHomeworkId] || null : null,
       };
     });
 
@@ -558,16 +579,30 @@ router.post(
         .where(eq(schema.conversationParticipants.conversationId, convId))
         .all();
 
+      // Skip muted recipients — mute means no notification, unread still updates in inbox.
       const otherUserIds = participants
-        .map((p) => p.userId)
-        .filter((uid) => uid !== req.user.id);
+        .filter((p) => p.userId !== req.user.id && !p.muted)
+        .map((p) => p.userId);
 
       if (otherUserIds.length > 0) {
+        const convMeta = await db
+          .select()
+          .from(schema.conversations)
+          .where(eq(schema.conversations.id, convId))
+          .get();
+        const fromName = req.user.displayName || req.user.studentId;
+        const isSection = convMeta?.type === "section";
+        const title = isSection
+          ? `Ask ${convMeta.section || "Class"}`
+          : fromName;
+        const body = isSection
+          ? `${fromName}: ${previewText}`
+          : previewText || "Sent an attachment";
         await createNotifications(
           otherUserIds,
           "new_message",
-          `Message from ${req.user.displayName || req.user.studentId}`,
-          previewText,
+          title,
+          body,
           `messages:${convId}`,
           convId
         );
@@ -814,6 +849,11 @@ router.delete(
       if (!await isParticipant(convId, req.user.id)) {
         return res.status(403).json({ error: "Access denied." });
       }
+      if (conversation.type === "section") {
+        return res.status(403).json({
+          error: "Ask Class is shared with your section and cannot be deleted. Mute it instead.",
+        });
+      }
 
       const msgs = await db
         .select()
@@ -850,6 +890,10 @@ router.delete(
 router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
+    if (!(await isParticipant(convId, req.user.id))) {
+      return res.status(403).json({ error: "Access denied." });
+    }
+
     const now = new Date().toISOString();
 
     await db.update(schema.conversationParticipants)
@@ -872,6 +916,42 @@ router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
         )
       )
       .run();
+
+    // Write per-message read receipts so senders see “seen”.
+    const othersMsgs = await db
+      .select({ id: schema.messages.id })
+      .from(schema.messages)
+      .where(
+        and(
+          eq(schema.messages.conversationId, convId),
+          ne(schema.messages.senderId, req.user.id)
+        )
+      )
+      .all();
+
+    for (const msg of othersMsgs) {
+      const existing = await db
+        .select()
+        .from(schema.messageReadReceipts)
+        .where(
+          and(
+            eq(schema.messageReadReceipts.messageId, msg.id),
+            eq(schema.messageReadReceipts.userId, req.user.id)
+          )
+        )
+        .get();
+      if (!existing) {
+        await db
+          .insert(schema.messageReadReceipts)
+          .values({
+            id: crypto.randomUUID(),
+            messageId: msg.id,
+            userId: req.user.id,
+            readAt: now,
+          })
+          .run();
+      }
+    }
 
     return res.json({ success: true });
   } catch (err) {
@@ -973,10 +1053,11 @@ router.patch(
       const convId = req.params.id;
       const { homeworkId } = req.body || {};
 
-      if (!await isParticipant(convId, req.user.id)) {
+      if (!(await isParticipant(convId, req.user.id))) {
         return res.status(403).json({ error: "Access denied." });
       }
 
+      let pinned = null;
       if (homeworkId) {
         const hw = await db
           .select()
@@ -986,6 +1067,15 @@ router.patch(
         if (!hw) {
           return res.status(404).json({ error: "Homework not found." });
         }
+        if (hw.userId !== req.user.id) {
+          return res.status(403).json({ error: "You can only pin your own homework." });
+        }
+        if (!hw.attachmentUrl) {
+          return res.status(400).json({
+            error: "That homework has no PDF or file to pin. Pick one with an attachment.",
+          });
+        }
+        pinned = toPinnedHomework(hw);
       }
 
       await db
@@ -994,7 +1084,11 @@ router.patch(
         .where(eq(schema.conversations.id, convId))
         .run();
 
-      return res.json({ success: true, pinnedHomeworkId: homeworkId || null });
+      return res.json({
+        success: true,
+        pinnedHomeworkId: homeworkId || null,
+        pinnedHomework: pinned,
+      });
     } catch (err) {
       console.error("Pin Homework Error:", err);
       return res.status(500).json({ error: "Failed to pin homework." });
@@ -1026,9 +1120,23 @@ router.post(
         .get();
 
       if (existing) {
+        // Late joiners (new accounts / first open) still get into the section thread.
+        const alreadyIn = await isParticipant(existing.id, req.user.id);
+        if (!alreadyIn) {
+          await db
+            .insert(schema.conversationParticipants)
+            .values({
+              id: crypto.randomUUID(),
+              conversationId: existing.id,
+              userId: req.user.id,
+              createdAt: new Date().toISOString(),
+            })
+            .run();
+        }
         return res.json({
           conversationId: existing.id,
           existing: true,
+          section,
         });
       }
 

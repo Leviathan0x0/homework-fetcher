@@ -77,6 +77,15 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface PinnedHomework {
+  id: string;
+  subject: string;
+  date: string;
+  content: string;
+  attachmentUrl?: string | null;
+  type?: string;
+}
+
 export interface Conversation {
   id: string;
   type?: 'dm' | 'section';
@@ -87,6 +96,7 @@ export interface Conversation {
   unreadCount: number;
   muted?: boolean;
   pinnedHomeworkId?: string | null;
+  pinnedHomework?: PinnedHomework | null;
 }
 
 export interface Message {

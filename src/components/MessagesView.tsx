@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
-import { messagingService, authService } from '../services/api';
+import { messagingService, authService, homeworkService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
-import { Conversation, Message } from '../types/homework';
+import { Conversation, Message, HomeworkEntry, PinnedHomework } from '../types/homework';
 import { cn } from '../utils/cn';
 import {
   formatChatDayLabel,
@@ -70,6 +70,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [showPinPicker, setShowPinPicker] = useState(false);
+  const [pinCandidates, setPinCandidates] = useState<HomeworkEntry[]>([]);
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinning, setPinning] = useState(false);
+  const [muting, setMuting] = useState(false);
+  const [askClassBusy, setAskClassBusy] = useState(false);
 
   // State for monitoring notice dialog
   const [showNoticeDialog, setShowNoticeDialog] = useState(false);
@@ -131,7 +137,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       const fp = convs
         .map(
           (c: Conversation) =>
-            `${c.id}:${c.unreadCount || 0}:${c.lastMessageAt || ''}:${c.lastMessagePreview || ''}`
+            `${c.id}:${c.unreadCount || 0}:${c.lastMessageAt || ''}:${c.lastMessagePreview || ''}:${c.muted ? 1 : 0}:${c.pinnedHomeworkId || ''}`
         )
         .join('|');
       if (fp !== conversationsFpRef.current) {
@@ -207,6 +213,32 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   useEffect(() => {
     const handleOpenConv = (e: Event) => {
       const raw = (e as CustomEvent).detail;
+
+      // Notification / deep-link: open an existing conversation by id.
+      const conversationId =
+        typeof raw === 'string'
+          ? null
+          : raw && typeof raw === 'object' && typeof raw.conversationId === 'string'
+            ? raw.conversationId
+            : null;
+      if (conversationId) {
+        setAttachedRequest(null);
+        setActiveConvId(conversationId);
+        clearPendingMessageOpen();
+        return;
+      }
+
+      // Bare string may be either a conversation id or a user/student id.
+      if (typeof raw === 'string' && raw) {
+        const existing = conversationsRef.current.find((c) => c.id === raw);
+        if (existing) {
+          setAttachedRequest(null);
+          setActiveConvId(raw);
+          clearPendingMessageOpen();
+          return;
+        }
+      }
+
       const targetId =
         typeof raw === 'string'
           ? raw
@@ -234,10 +266,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     return () => window.removeEventListener('open_conversation', handleOpenConv);
   }, [applyHelpContext, openHelpTarget]);
 
-  // One-shot sessionStorage handoff from Requests → Messages.
+  // One-shot sessionStorage handoff from Requests → Messages or notification taps.
   useEffect(() => {
     const pending = peekPendingMessageOpen();
     if (!pending) return;
+
+    if (pending.conversationId) {
+      setAttachedRequest(null);
+      setActiveConvId(pending.conversationId);
+      clearPendingMessageOpen();
+      return;
+    }
+
+    if (!pending.targetId) return;
     const key = `${pending.targetId}:${pending.request?.id || pending.prefill || ''}`;
     if (helpProcessedKeyRef.current === key) return;
     helpProcessedKeyRef.current = key;
@@ -247,7 +288,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   // If Help opened the notice dialog before conversations loaded, resolve once they arrive.
   useEffect(() => {
     const pending = peekPendingMessageOpen();
-    if (!pending) return;
+    if (!pending?.targetId) return;
     const resolvedId = resolveConvId(conversations, pending.targetId);
     if (!resolvedId) return;
 
@@ -285,7 +326,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (!silent) setMessagesLoading(true);
     try {
       const msgs = (await messagingService.getMessages(convId)) as Message[];
-      const fp = msgs.map((m: Message) => m.id).join(',');
+      const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
       setMessages((prev) => {
         const map = new Map<string, Message>();
         msgs.forEach((m: Message) => map.set(m.id, m));
@@ -304,7 +345,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         const next = Array.from(map.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
-        const nextFp = next.map((m) => m.id).join(',');
+        const nextFp = next.map((m) => `${m.id}:${(m.readBy || []).length}`).join(',');
         if (silent && nextFp === messagesFpRef.current) return prev;
         messagesFpRef.current = nextFp;
         return next;
@@ -330,7 +371,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     window.dispatchEvent(new CustomEvent('messages_unread_changed'));
 
     const messageInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') fetchMessages(activeConvId, true);
+      if (document.visibilityState === 'visible') {
+        fetchMessages(activeConvId, true);
+        messagingService.markAsRead(activeConvId);
+      }
     }, 5000);
 
     return () => {
@@ -481,6 +525,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   };
 
   const handleDeleteConversation = async (convId: string) => {
+    const target = conversations.find((c) => c.id === convId);
+    if (target?.type === 'section') {
+      alert('Ask Class is shared with your whole section and can’t be deleted. Mute it if you don’t want notifications.');
+      return;
+    }
     if (!confirm('Delete this conversation and all of its messages?')) return;
     setDeletingConvId(convId);
     try {
@@ -512,6 +561,81 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       setFileError(friendlyContentError(err, 'Could not submit the report. Please try again.'));
     } finally {
       setReportingConv(false);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!activeConvId || muting) return;
+    const conv = conversations.find((c) => c.id === activeConvId);
+    if (!conv) return;
+    const nextMuted = !conv.muted;
+    setMuting(true);
+    setConversations((prev) =>
+      prev.map((c) => (c.id === activeConvId ? { ...c, muted: nextMuted } : c))
+    );
+    try {
+      await messagingService.muteConversation(activeConvId, nextMuted);
+    } catch (err: any) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === activeConvId ? { ...c, muted: !nextMuted } : c))
+      );
+      setFileError(friendlyContentError(err, 'Could not update mute.'));
+    } finally {
+      setMuting(false);
+    }
+  };
+
+  const openPinPicker = async () => {
+    if (!activeConvId) return;
+    setShowPinPicker(true);
+    setPinLoading(true);
+    try {
+      const list = await homeworkService.getHomework(currentStudentId);
+      const withFiles = (list || []).filter((h: HomeworkEntry) => Boolean(h.attachment));
+      setPinCandidates(withFiles);
+    } catch {
+      setPinCandidates([]);
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handlePinHomework = async (homeworkId: string | null) => {
+    if (!activeConvId || pinning) return;
+    setPinning(true);
+    try {
+      const result = await messagingService.pinHomework(activeConvId, homeworkId);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConvId
+            ? {
+                ...c,
+                pinnedHomeworkId: result.pinnedHomeworkId,
+                pinnedHomework: result.pinnedHomework as PinnedHomework | null,
+              }
+            : c
+        )
+      );
+      setShowPinPicker(false);
+    } catch (err: any) {
+      setFileError(friendlyContentError(err, 'Could not update pinned homework.'));
+    } finally {
+      setPinning(false);
+    }
+  };
+
+  const handleAskClass = async () => {
+    if (askClassBusy) return;
+    setAskClassBusy(true);
+    try {
+      const result = await messagingService.createSectionConversation();
+      await fetchConversations();
+      setActiveConvId(result.conversationId);
+      setAttachedRequest(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to open Ask Class.');
+    } finally {
+      setAskClassBusy(false);
     }
   };
 
@@ -613,20 +737,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               </span>
             )}
             <button
-              onClick={async () => {
-                try {
-                  const result = await messagingService.createSectionConversation();
-                  await refreshConversations();
-                  setActiveConvId(result.conversationId);
-                } catch (err: any) {
-                  alert(err.message || 'Failed to create section conversation.');
-                }
-              }}
+              onClick={handleAskClass}
+              disabled={askClassBusy}
               title="Ask your class"
               aria-label="Ask your class"
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer disabled:opacity-50"
             >
-              <Users className="w-4 h-4" />
+              {askClassBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
             </button>
           </div>
         </div>
@@ -786,10 +903,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 </button>
                 <button
                   onClick={() => handleDeleteConversation(conv.id)}
-                  disabled={deletingConvId === conv.id}
-                  title="Delete conversation"
+                  disabled={deletingConvId === conv.id || conv.type === 'section'}
+                  title={conv.type === 'section' ? 'Ask Class can’t be deleted' : 'Delete conversation'}
                   aria-label="Delete conversation"
-                  className="px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 opacity-0 group-hover/conv:opacity-100 focus-visible:opacity-100"
+                  className={cn(
+                    'px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 focus-visible:opacity-100',
+                    conv.type === 'section' ? 'hidden' : 'opacity-0 group-hover/conv:opacity-100'
+                  )}
                 >
                   {deletingConvId === conv.id ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -816,7 +936,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 flex items-center justify-center text-[12px] font-semibold shrink-0">
-            {otherName.charAt(0).toUpperCase()}
+            {activeConv?.type === 'section' ? (
+              <Users className="w-4 h-4" />
+            ) : (
+              otherName.charAt(0).toUpperCase()
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-50 truncate leading-tight">
@@ -825,30 +949,50 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             {otherSection && (
               <p className="text-[11px] text-neutral-500 truncate leading-tight mt-0.5">{otherSection}</p>
             )}
+            {activeConv?.type === 'section' && (
+              <p className="text-[11px] text-neutral-500 truncate leading-tight mt-0.5">
+                Everyone in your section · moderated
+              </p>
+            )}
+            {activeConv?.muted && (
+              <p className="text-[11px] text-neutral-400 truncate leading-tight mt-0.5 flex items-center gap-1">
+                <BellOff className="w-3 h-3" /> Muted
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
           <button
-            onClick={async () => {
-              if (!activeConvId) return;
-              const conv = conversations.find((c) => c.id === activeConvId);
-              if (!conv) return;
-              try {
-                await messagingService.muteConversation(activeConvId, !conv.muted);
-                setConversations((prev) =>
-                  prev.map((c) => (c.id === activeConvId ? { ...c, muted: !conv.muted } : c))
-                );
-              } catch (err: any) {
-                alert(err.message || 'Failed to update mute status.');
+            onClick={() => {
+              if (activeConv?.pinnedHomeworkId) {
+                handlePinHomework(null);
+              } else {
+                openPinPicker();
               }
             }}
-            disabled={!activeConvId}
-            title={conversations.find((c) => c.id === activeConvId)?.muted ? 'Unmute' : 'Mute notifications'}
-            aria-label={conversations.find((c) => c.id === activeConvId)?.muted ? 'Unmute' : 'Mute'}
+            disabled={!activeConvId || pinning}
+            title={activeConv?.pinnedHomeworkId ? 'Unpin homework' : 'Pin homework PDF'}
+            aria-label={activeConv?.pinnedHomeworkId ? 'Unpin homework' : 'Pin homework PDF'}
+            className={cn(
+              'p-1.5 rounded-md transition-colors cursor-pointer disabled:opacity-50',
+              activeConv?.pinnedHomeworkId
+                ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+            )}
+          >
+            {pinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pin className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            onClick={handleToggleMute}
+            disabled={!activeConvId || muting}
+            title={activeConv?.muted ? 'Unmute notifications' : 'Mute notifications'}
+            aria-label={activeConv?.muted ? 'Unmute' : 'Mute'}
             className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {conversations.find((c) => c.id === activeConvId)?.muted ? (
+            {muting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : activeConv?.muted ? (
               <BellOff className="w-3.5 h-3.5" />
             ) : (
               <Bell className="w-3.5 h-3.5" />
@@ -865,10 +1009,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </button>
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
-            disabled={!activeConvId || deletingConvId === activeConvId}
-            title="Delete conversation"
+            disabled={!activeConvId || deletingConvId === activeConvId || activeConv?.type === 'section'}
+            title={activeConv?.type === 'section' ? 'Ask Class can’t be deleted' : 'Delete conversation'}
             aria-label="Delete conversation"
-            className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+            className={cn(
+              'p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50',
+              activeConv?.type === 'section' && 'hidden'
+            )}
           >
             {deletingConvId === activeConvId ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -878,6 +1025,49 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </button>
         </div>
       </div>
+
+      {activeConv?.pinnedHomework && (
+        <div className="mx-3 mt-2 mb-0 flex items-start gap-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/30 px-3 py-2.5 shrink-0">
+          <Pin className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold text-amber-950 dark:text-amber-100 truncate">
+              {activeConv.pinnedHomework.subject}
+              {activeConv.pinnedHomework.date ? (
+                <span className="font-normal text-amber-800/70 dark:text-amber-300/70">
+                  {' '}
+                  · {activeConv.pinnedHomework.date}
+                </span>
+              ) : null}
+            </p>
+            {activeConv.pinnedHomework.content && (
+              <p className="text-[11px] text-amber-900/70 dark:text-amber-200/60 line-clamp-2 mt-0.5">
+                {activeConv.pinnedHomework.content}
+              </p>
+            )}
+            {activeConv.pinnedHomework.attachmentUrl && (
+              <a
+                href={activeConv.pinnedHomework.attachmentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300 hover:underline"
+              >
+                <FileText className="w-3 h-3" />
+                Open PDF
+                <Download className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <button
+            onClick={() => handlePinHomework(null)}
+            disabled={pinning}
+            className="p-1 rounded-md text-amber-700/70 dark:text-amber-400/70 hover:text-amber-900 dark:hover:text-amber-200 cursor-pointer shrink-0"
+            title="Unpin"
+            aria-label="Unpin homework"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       <div
         ref={messagesScrollRef}
@@ -960,23 +1150,24 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     >
                       {!isPending && (
                         <>
-                          {!isMine && (
-                            <button
-                              onClick={() => setReplyingTo(m)}
-                              title="Reply to message"
-                              aria-label="Reply to message"
-                              className="absolute -right-9 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                            >
-                              <Reply className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => setReplyingTo(m)}
+                            title="Reply to message"
+                            aria-label="Reply to message"
+                            className={cn(
+                              'absolute top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                              isMine ? '-left-9' : '-right-9'
+                            )}
+                          >
+                            <Reply className="w-3.5 h-3.5" />
+                          </button>
                           {isMine && (
                             <button
                               onClick={() => handleDeleteMessage(m.id)}
                               disabled={deletingMessageId === m.id}
                               title="Delete message"
                               aria-label="Delete message"
-                              className="absolute -left-9 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                              className="absolute -left-[4.25rem] top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                             >
                               {deletingMessageId === m.id ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1309,6 +1500,69 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               <Download className="w-4 h-4" />
               <span>Download File</span>
             </a>
+          </div>
+        </div>
+      )}
+
+      {showPinPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => !pinning && setShowPinPicker(false)}
+        >
+          <div
+            className="w-full sm:max-w-md max-h-[75vh] rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800">
+              <div>
+                <p className="text-[14px] font-semibold text-neutral-900 dark:text-neutral-50">Pin homework</p>
+                <p className="text-[11px] text-neutral-500 mt-0.5">Only items with a PDF or file</p>
+              </div>
+              <button
+                onClick={() => setShowPinPicker(false)}
+                disabled={pinning}
+                className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2">
+              {pinLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                </div>
+              ) : pinCandidates.length === 0 ? (
+                <p className="text-[13px] text-neutral-500 text-center py-10 px-6 leading-relaxed">
+                  No homework with attachments yet. Attachments from your school diary will show up here.
+                </p>
+              ) : (
+                pinCandidates.map((hw) => (
+                  <button
+                    key={hw.id}
+                    disabled={pinning}
+                    onClick={() => hw.id && handlePinHomework(hw.id)}
+                    className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer disabled:opacity-50 flex items-start gap-3"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                        {hw.subject || 'Homework'}
+                      </p>
+                      <p className="text-[11px] text-neutral-500 mt-0.5">
+                        {hw.date}
+                        {hw.attachment ? ' · has file' : ''}
+                      </p>
+                      {hw.homework && (
+                        <p className="text-[11px] text-neutral-400 line-clamp-2 mt-1">{hw.homework}</p>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}

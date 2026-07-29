@@ -27,6 +27,7 @@ import { ErrorBanner } from './ErrorBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { OfflineBanner } from './OfflineBanner';
 import { isTodayDate } from '../utils/dateUtils';
+import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { Loader2 } from 'lucide-react';
 import { ViewType } from '../types/homework';
 
@@ -176,12 +177,19 @@ export const AppShell: React.FC = () => {
 
   const handleNavigate = useCallback((view: string) => {
     if (view.startsWith('messages:')) {
-      const targetConvId = view.slice('messages:'.length);
+      const targetConvId = view.slice('messages:'.length).trim();
+      if (targetConvId) {
+        setPendingMessageOpen({ conversationId: targetConvId });
+      }
       setActiveView('messages');
       if (targetConvId) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
-        }, 50);
+        window.setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent('open_conversation', {
+              detail: { conversationId: targetConvId },
+            })
+          );
+        }, 80);
       }
       return;
     }
@@ -201,7 +209,12 @@ export const AppShell: React.FC = () => {
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchUnreadCount();
     }, 20000);
-    return () => clearInterval(interval);
+    const onUnreadChanged = () => fetchUnreadCount();
+    window.addEventListener('messages_unread_changed', onUnreadChanged);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('messages_unread_changed', onUnreadChanged);
+    };
   }, [isAuthenticated, fetchUnreadCount]);
 
   if (isAuthChecking) {
@@ -312,17 +325,7 @@ export const AppShell: React.FC = () => {
           {activeView === 'requests' && (
             <RequestsView
               userSection={user?.section}
-              onNavigate={(v) => {
-                if (v.startsWith('messages:')) {
-                  const targetConvId = v.slice('messages:'.length);
-                  setActiveView('messages');
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('open_conversation', { detail: targetConvId }));
-                  }, 50);
-                } else {
-                  setActiveView(v as any);
-                }
-              }}
+              onNavigate={(v) => handleNavigate(v)}
             />
           )}
 

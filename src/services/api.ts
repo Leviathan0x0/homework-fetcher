@@ -212,7 +212,17 @@ export const messagingService = {
     const res = await apiFetch("/api/conversations", { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error("Failed to load conversations.");
     const data = await apiJson<any>(res);
-    const conversations = data.conversations || [];
+    const conversations = (data.conversations || []).map((c: any) => ({
+      ...c,
+      pinnedHomework: c.pinnedHomework
+        ? {
+            ...c.pinnedHomework,
+            attachmentUrl: c.pinnedHomework.attachmentUrl
+              ? apiUrl(c.pinnedHomework.attachmentUrl)
+              : c.pinnedHomework.attachmentUrl,
+          }
+        : null,
+    }));
     writeConversationCache(conversations);
     return conversations;
   },
@@ -314,7 +324,17 @@ export const messagingService = {
     });
     const data = await apiJson<any>(res);
     if (!res.ok) throw new Error(data.error || "Failed to pin homework.");
-    return data;
+    return {
+      pinnedHomeworkId: data.pinnedHomeworkId || null,
+      pinnedHomework: data.pinnedHomework
+        ? {
+            ...data.pinnedHomework,
+            attachmentUrl: data.pinnedHomework.attachmentUrl
+              ? apiUrl(data.pinnedHomework.attachmentUrl)
+              : data.pinnedHomework.attachmentUrl,
+          }
+        : null,
+    };
   },
 
   async createSectionConversation() {

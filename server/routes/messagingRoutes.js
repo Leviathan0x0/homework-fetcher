@@ -249,7 +249,8 @@ router.post("/conversations", requireAuth, async (req, res) => {
       .get();
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
-    // Existing DMs never need the monitoring notice again.
+    // Existing 1:1 DMs never need the monitoring notice again.
+    // Do NOT match section "Ask Class" threads — every classmate is a participant there.
     const existing = await db
       .select({ conversationId: schema.conversationParticipants.conversationId })
       .from(schema.conversationParticipants)
@@ -261,10 +262,15 @@ router.post("/conversations", requireAuth, async (req, res) => {
       const match = await db
         .select({ conversationId: schema.conversationParticipants.conversationId })
         .from(schema.conversationParticipants)
+        .innerJoin(
+          schema.conversations,
+          eq(schema.conversations.id, schema.conversationParticipants.conversationId)
+        )
         .where(
           and(
             inArray(schema.conversationParticipants.conversationId, existingConvIds),
-            eq(schema.conversationParticipants.userId, participantId)
+            eq(schema.conversationParticipants.userId, participantId),
+            sql`coalesce(${schema.conversations.type}, 'dm') = 'dm'`
           )
         )
         .get();
@@ -273,6 +279,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
         return res.json({
           conversationId: match.conversationId,
           existing: true,
+          type: "dm",
           otherUser: toPublicUser(otherUser),
         });
       }
@@ -304,7 +311,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
     const now = new Date().toISOString();
 
     await db.insert(schema.conversations)
-      .values({ id: convId, createdAt: now, updatedAt: now })
+      .values({ id: convId, type: "dm", createdAt: now, updatedAt: now })
       .run();
 
     await db.insert(schema.conversationParticipants)
@@ -328,6 +335,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
     return res.status(201).json({
       conversationId: convId,
       existing: false,
+      type: "dm",
       otherUser: toPublicUser(otherUser),
     });
   } catch (err) {

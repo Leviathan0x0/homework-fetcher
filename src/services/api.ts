@@ -1,4 +1,5 @@
 import { apiFetch, apiJson, apiUrl } from "../lib/api";
+import { messagePreviewText, parseMessageRequestRef } from "../utils/pendingMessageOpen";
 
 /**
  * Conversations from the last successful load.
@@ -178,13 +179,17 @@ export const homeworkService = {
 // --- MESSAGING SERVICE ---
 /** Maps an API message payload to the UI message shape. */
 function mapMessage(raw: any) {
+  const content = raw.content || "";
+  const { request, body } = parseMessageRequestRef(content);
   return {
     id: raw.id,
     conversationId: raw.conversationId,
     senderId: raw.senderId,
     senderStudentId: raw.senderStudentId || raw.senderId,
     senderName: raw.senderName || null,
-    content: raw.content || "",
+    content,
+    displayContent: body,
+    requestRef: request,
     attachmentUrl: raw.attachmentUrl ? apiUrl(raw.attachmentUrl) : null,
     originalFilename: raw.originalFilename || null,
     mimeType: raw.mimeType || null,
@@ -217,6 +222,9 @@ export const messagingService = {
     const data = await apiJson<any>(res);
     const conversations = (data.conversations || []).map((c: any) => ({
       ...c,
+      lastMessagePreview: c.lastMessagePreview
+        ? messagePreviewText(String(c.lastMessagePreview), String(c.lastMessagePreview))
+        : c.lastMessagePreview,
       pinnedHomework: c.pinnedHomework
         ? {
             ...c.pinnedHomework,
@@ -315,7 +323,7 @@ export const messagingService = {
       err.needsNotice = !!data.needsNotice;
       throw err;
     }
-    return { conversationId: data.conversationId, otherUser: data.otherUser || null, existing: !!data.existing };
+    return { conversationId: data.conversationId, otherUser: data.otherUser || null, existing: !!data.existing, type: data.type || "dm" };
   },
 
   async markAsRead(convId: string) {

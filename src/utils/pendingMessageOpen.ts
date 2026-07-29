@@ -15,11 +15,15 @@ export type PendingMessageOpen = {
   targetId?: string;
   /** Draft text for the composer */
   prefill?: string;
-  /** Full request so Messages can show a reference card */
+  /** Full request so Messages can show a reply reference */
   request?: PendingRequestContext;
 };
 
 const KEY = 'pending_message_open_v3';
+
+/** Embedded in message content so the request quote survives refresh. */
+const REQUEST_OPEN = '⟦hf-request⟧';
+const REQUEST_CLOSE = '⟦/hf-request⟧';
 
 export function setPendingMessageOpen(payload: PendingMessageOpen) {
   try {
@@ -94,16 +98,75 @@ export function consumePendingMessageOpen(): PendingMessageOpen | null {
   return pending;
 }
 
-/** Build a useful first-message draft that quotes the request. */
+/** Natural first-message draft — request details live in the reply chrome, not the text. */
 export function buildHelpPrefill(request: PendingRequestContext): string {
-  const title = request.title.trim();
-  const body = request.content.trim();
-  const quote =
-    body.length > 280 ? `${body.slice(0, 277).trimEnd()}…` : body;
-  const lines = [`Re: ${title}`];
-  if (quote) {
-    lines.push('', quote);
+  const title = request.title.trim().replace(/\s+/g, ' ');
+  const category = (request.category || '').trim().toLowerCase();
+
+  if (category.includes('note')) {
+    return title
+      ? `Hey! I can help with “${title}” — want me to share notes or walk you through it?`
+      : `Hey! Happy to help with notes — what do you need?`;
   }
-  lines.push('', 'I can help — ');
-  return lines.join('\n');
+  if (category.includes('homework') || category.includes('hw')) {
+    return title
+      ? `Hey! Saw your homework request about “${title}” — I can help. Where are you stuck?`
+      : `Hey! I can help with the homework — where are you stuck?`;
+  }
+  if (title) {
+    return `Hey! Saw your request about “${title}” — happy to help. What do you need?`;
+  }
+  return `Hey! Happy to help with your request — what do you need?`;
+}
+
+export function encodeRequestInMessage(
+  request: PendingRequestContext,
+  body: string
+): string {
+  const payload = JSON.stringify({
+    id: request.id,
+    title: request.title,
+    content: request.content.slice(0, 280),
+    category: request.category || null,
+  });
+  const trimmed = body.trim();
+  return trimmed
+    ? `${REQUEST_OPEN}${payload}${REQUEST_CLOSE}\n${trimmed}`
+    : `${REQUEST_OPEN}${payload}${REQUEST_CLOSE}`;
+}
+
+export function parseMessageRequestRef(content: string): {
+  request: PendingRequestContext | null;
+  body: string;
+} {
+  if (!content || !content.startsWith(REQUEST_OPEN)) {
+    return { request: null, body: content || '' };
+  }
+  const end = content.indexOf(REQUEST_CLOSE);
+  if (end < 0) return { request: null, body: content };
+
+  try {
+    const raw = content.slice(REQUEST_OPEN.length, end);
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.title !== 'string') {
+      return { request: null, body: content };
+    }
+    const request: PendingRequestContext = {
+      id: typeof parsed.id === 'string' ? parsed.id : 'unknown',
+      title: String(parsed.title),
+      content: typeof parsed.content === 'string' ? parsed.content : '',
+      category: typeof parsed.category === 'string' ? parsed.category : null,
+    };
+    const body = content.slice(end + REQUEST_CLOSE.length).replace(/^\n/, '');
+    return { request, body };
+  } catch {
+    return { request: null, body: content };
+  }
+}
+
+/** Preview text without the embedded request marker. */
+export function messagePreviewText(content: string, fallback = ''): string {
+  const { body } = parseMessageRequestRef(content);
+  const trimmed = body.trim();
+  return trimmed || fallback;
 }

@@ -52,13 +52,15 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(mimeType: string, filename: string) {
+function getFileIcon(mimeType: string | null | undefined, filename: string) {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (mimeType.startsWith('image/')) return <ImageIcon className="w-5 h-5 text-indigo-500" />;
+  if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+    return <ImageIcon className="w-5 h-5 text-indigo-500" />;
+  }
   if (mimeType === 'application/pdf' || ext === 'pdf') return <FileText className="w-5 h-5 text-rose-500" />;
-  if (ext === 'doc' || ext === 'docx' || mimeType.includes('word')) return <FileText className="w-5 h-5 text-blue-500" />;
-  if (ext === 'xls' || ext === 'xlsx' || mimeType.includes('sheet') || mimeType.includes('excel')) return <FileSpreadsheet className="w-5 h-5 text-emerald-500" />;
-  if (ext === 'ppt' || ext === 'pptx' || mimeType.includes('presentation') || mimeType.includes('powerpoint')) return <Presentation className="w-5 h-5 text-amber-500" />;
+  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <FileText className="w-5 h-5 text-blue-500" />;
+  if (ext === 'xls' || ext === 'xlsx' || mimeType?.includes('sheet') || mimeType?.includes('excel')) return <FileSpreadsheet className="w-5 h-5 text-emerald-500" />;
+  if (ext === 'ppt' || ext === 'pptx' || mimeType?.includes('presentation') || mimeType?.includes('powerpoint')) return <Presentation className="w-5 h-5 text-amber-500" />;
   if (ext === 'txt') return <FileCode className="w-5 h-5 text-neutral-500" />;
   return <File className="w-5 h-5 text-neutral-400" />;
 }
@@ -350,8 +352,12 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         )}>
           {filteredClasswork.map((item) => {
             const subjInfo: SubjectInfo = detectSubject(item.subject);
-            const isImage = item.mimeType.startsWith('image/');
-            const isPdf = item.mimeType === 'application/pdf';
+            const isImage =
+              Boolean(item.mimeType?.startsWith('image/')) ||
+              Boolean(item.originalFilename?.match(/\.(jpe?g|png|webp|gif)$/i));
+            const isPdf =
+              item.mimeType === 'application/pdf' ||
+              Boolean(item.originalFilename?.match(/\.pdf$/i));
 
             return (
               <div

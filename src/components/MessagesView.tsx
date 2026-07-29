@@ -13,6 +13,7 @@ import {
 } from '../utils/dateUtils';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
+import { AuthenticatedImage } from './AuthenticatedImage';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SearchIcon } from '@/components/ui/search';
 import { AttachFileIcon } from '@/components/ui/attach-file';
@@ -20,6 +21,8 @@ import { MessageSquareIcon } from '@/components/ui/message-square';
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
+  encodeRequestInMessage,
+  messagePreviewText,
   type PendingRequestContext,
 } from '../utils/pendingMessageOpen';
 import {
@@ -171,6 +174,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const helpDialogShownRef = useRef(false);
   const helpProcessedKeyRef = useRef<string | null>(null);
   const noticeConfirmingRef = useRef(false);
+  const pendingHelpRef = useRef<{
+    prefill?: string;
+    request?: PendingRequestContext | null;
+  }>({});
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
 
@@ -204,9 +211,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, []);
 
   const resolveConvId = useCallback((list: Conversation[], targetId: string) => {
-    const byConvId = list.find((c) => c.id === targetId);
+    // Never treat Ask Class / section threads as a DM with a classmate.
+    const dms = list.filter((c) => c.type !== 'section');
+    const byConvId = dms.find((c) => c.id === targetId);
     if (byConvId) return byConvId.id;
-    const byUserId = list.find(
+    const byUserId = dms.find(
       (c) => c.otherUser?.id === targetId || c.otherUser?.studentId === targetId
     );
     if (byUserId) return byUserId.id;
@@ -219,7 +228,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       noticeConfirmingRef.current = false;
       setShowNoticeDialog(false);
       setPendingParticipant(null);
-      applyHelpContext(prefill, request);
+      const help = pendingHelpRef.current;
+      applyHelpContext(prefill ?? help.prefill, request !== undefined ? request : help.request);
+      pendingHelpRef.current = {};
       setActiveConvId(convId);
       clearPendingMessageOpen();
     },
@@ -237,34 +248,37 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const openHelpTarget = useCallback(
     async (targetId: string, prefill?: string, request?: PendingRequestContext | null) => {
       if (noticeConfirmingRef.current) return;
+      pendingHelpRef.current = { prefill, request };
       applyHelpContext(prefill, request);
 
-      let resolvedId = resolveConvId(conversationsRef.current, targetId);
-      if (!resolvedId) {
-        try {
-          await fetchConversations();
-        } catch {
-          // keep going with whatever we have
-        }
-        resolvedId = resolveConvId(conversationsRef.current, targetId);
-      }
-
-      if (resolvedId) {
-        openResolvedChat(resolvedId, prefill, request);
+      const cachedId = resolveConvId(conversationsRef.current, targetId);
+      if (cachedId) {
+        openResolvedChat(cachedId, prefill, request);
         return;
       }
+
+      // Refresh in the background — never block the acknowledgement dialog on network.
+      void fetchConversations().then(() => {
+        if (noticeConfirmingRef.current) return;
+        const id = resolveConvId(conversationsRef.current, targetId);
+        if (id) openResolvedChat(id, prefill, request);
+      });
 
       // Already acknowledged this browser session — create/open without waiting again.
       if (hasMonitorAck()) {
         noticeConfirmingRef.current = true;
         try {
           const data = await messagingService.startConversation(currentStudentId, targetId, null);
+          if (data.type === 'section') {
+            throw new Error('Could not open a direct chat with this student. Try again.');
+          }
           openResolvedChat(data.conversationId, prefill, request);
           setConversations((prev) => {
             if (prev.some((c) => c.id === data.conversationId)) return prev;
             return [
               {
                 id: data.conversationId,
+                type: 'dm',
                 otherUser: data.otherUser,
                 unreadCount: 0,
                 lastMessagePreview: data.existing ? undefined : 'Started a new conversation',
@@ -529,12 +543,30 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const textCopy = inputText;
     const fileCopy = selectedFile;
     const replyToCopy = replyingTo;
+    const requestCopy = attachedRequest;
+    const bodyText = textCopy.trim();
+    const contentForSend = requestCopy
+      ? encodeRequestInMessage(requestCopy, bodyText)
+      : bodyText;
+    const previewText = messagePreviewText(
+      contentForSend,
+      fileCopy ? `[Attachment] ${fileCopy.name}` : ''
+    );
     const tempId = `temp_${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
       conversationId: convId,
       senderId: 'local',
-      content: textCopy.trim(),
+      content: contentForSend,
+      displayContent: bodyText,
+      requestRef: requestCopy
+        ? {
+            id: requestCopy.id,
+            title: requestCopy.title,
+            content: requestCopy.content,
+            category: requestCopy.category,
+          }
+        : null,
       attachmentUrl: fileCopy && fileCopy.type.startsWith('image/')
         ? URL.createObjectURL(fileCopy)
         : null,
@@ -556,6 +588,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     setInputText('');
     setSelectedFile(null);
     setReplyingTo(null);
+    setAttachedRequest(null);
     setFileError(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     stickToBottomRef.current = true;
@@ -570,7 +603,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               ...c,
               lastMessagePreview: fileCopy
                 ? `[Attachment] ${fileCopy.name}`
-                : textCopy.substring(0, 80),
+                : previewText.substring(0, 80),
               lastMessageAt: optimistic.createdAt,
             }
           : c
@@ -581,7 +614,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       const sentMessage = await messagingService.sendMessage(
         convId,
         currentStudentId,
-        textCopy.trim(),
+        contentForSend,
         fileCopy,
         replyToCopy?.id || null
       );
@@ -602,7 +635,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 ...c,
                 lastMessagePreview: fileCopy
                   ? `[Attachment] ${fileCopy.name}`
-                  : textCopy.substring(0, 80),
+                  : messagePreviewText(sentMessage.content || '', previewText).substring(0, 80),
                 lastMessageAt: sentMessage.createdAt,
               }
             : c
@@ -617,6 +650,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         setInputText(textCopy);
         setSelectedFile(fileCopy);
         setReplyingTo(replyToCopy);
+        setAttachedRequest(requestCopy);
         setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
       }
     } finally {
@@ -865,6 +899,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleConfirmNotice = async (noticeToken: string) => {
     if (!pendingParticipant || noticeConfirmingRef.current) return;
     const participantId = pendingParticipant.id;
+    const help = pendingHelpRef.current;
     noticeConfirmingRef.current = true;
     setShowNoticeDialog(false);
 
@@ -875,12 +910,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         participantId,
         noticeToken
       );
-      openResolvedChat(data.conversationId);
+      if (data.type === 'section') {
+        throw new Error('Could not open a direct chat with this student. Try again.');
+      }
+      openResolvedChat(data.conversationId, help.prefill, help.request ?? null);
       setConversations((prev) => {
         if (prev.some((c) => c.id === data.conversationId)) return prev;
         return [
           {
             id: data.conversationId,
+            type: 'dm',
             otherUser: data.otherUser,
             unreadCount: 0,
             lastMessagePreview: data.existing ? undefined : 'Started a new conversation',
@@ -1298,6 +1337,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               const isPending = String(m.id).startsWith('temp_');
               const isImage =
                 m.mimeType?.startsWith('image/') ||
+                Boolean(m.originalFilename?.match(/\.(jpg|jpeg|png|webp|gif)$/i)) ||
                 Boolean(m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i));
               const prev = visibleMessages[idx - 1];
               const next = visibleMessages[idx + 1];
@@ -1380,6 +1420,31 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         </>
                       )}
 
+                      {m.requestRef && (
+                        <div className={cn(
+                          "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 not-italic opacity-90",
+                          isMine
+                            ? "border-white/35 dark:border-black/30"
+                            : "border-neutral-300 dark:border-neutral-700"
+                        )}>
+                          <div className="font-medium flex items-center gap-1">
+                            <Handshake className="w-3 h-3 shrink-0 opacity-80" />
+                            <span>
+                              Request
+                              {m.requestRef.category ? ` · ${m.requestRef.category}` : ''}
+                            </span>
+                          </div>
+                          <div className="font-semibold mt-0.5 leading-snug">
+                            {m.requestRef.title}
+                          </div>
+                          {m.requestRef.content.trim() && (
+                            <div className="line-clamp-2 mt-0.5 opacity-80">
+                              {m.requestRef.content}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {m.replyTo && (
                         <div className={cn(
                           "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 italic opacity-70",
@@ -1405,18 +1470,40 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                               }
                               className="block w-full cursor-pointer"
                             >
-                              <img
-                                src={m.attachmentUrl}
-                                alt={m.originalFilename || 'Attachment'}
-                                className="w-full h-auto object-cover max-h-52 rounded-lg"
-                              />
+                              {m.attachmentUrl.startsWith('blob:') ? (
+                                <img
+                                  src={m.attachmentUrl}
+                                  alt=""
+                                  className="w-full h-auto object-cover max-h-52 rounded-lg"
+                                />
+                              ) : (
+                                <AuthenticatedImage
+                                  src={m.attachmentUrl}
+                                  alt=""
+                                  className="w-full h-auto object-cover max-h-52 rounded-lg"
+                                />
+                              )}
                             </button>
                           ) : (
-                            <a
-                              href={m.attachmentUrl}
-                              download={m.originalFilename || 'file'}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const res = await apiFetch(m.attachmentUrl!);
+                                  if (!res.ok) throw new Error('Download failed');
+                                  const blob = await res.blob();
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = m.originalFilename || 'file';
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                } catch {
+                                  window.open(m.attachmentUrl!, '_blank', 'noopener,noreferrer');
+                                }
+                              }}
                               className={cn(
-                                'flex items-center gap-2 px-2 py-2 rounded-lg text-[12px] font-medium',
+                                'flex items-center gap-2 px-2 py-2 rounded-lg text-[12px] font-medium w-full text-left cursor-pointer',
                                 isMine
                                   ? 'bg-white/10 dark:bg-black/10'
                                   : 'bg-neutral-100 dark:bg-neutral-900'
@@ -1425,15 +1512,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                               <FileText className="w-4 h-4 shrink-0 opacity-70" />
                               <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
                               <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                            </a>
+                            </button>
                           )}
                         </div>
                       )}
 
                       <div className="flex items-end gap-2">
-                        {m.content && (
+                        {(m.displayContent ?? m.content) && (
                           <MarkdownRenderer
-                            content={m.content}
+                            content={m.displayContent ?? m.content}
                             className="break-words leading-relaxed flex-1 text-[13px]"
                           />
                         )}
@@ -1489,33 +1576,30 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         )}
 
         {attachedRequest && (
-          <div className="mb-2 rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] p-2.5 text-[12px]">
-            <div className="flex items-start gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 flex items-center justify-center shrink-0">
-                <Handshake className="w-3.5 h-3.5" />
+          <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
+            <Reply className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-medium text-blue-900 dark:text-blue-300">
+                Replying to request
+                {attachedRequest.category ? ` · ${attachedRequest.category}` : ''}
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-[0.12em] text-neutral-400 font-medium">
-                  Request{attachedRequest.category ? ` · ${attachedRequest.category}` : ''}
-                </p>
-                <p className="font-semibold text-neutral-900 dark:text-neutral-100 mt-0.5 leading-snug">
-                  {attachedRequest.title}
-                </p>
-                {attachedRequest.content.trim() && (
-                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 whitespace-pre-wrap leading-relaxed line-clamp-3">
-                    {attachedRequest.content}
-                  </p>
-                )}
+              <div className="text-[12px] font-semibold text-blue-950 dark:text-blue-100 truncate mt-0.5">
+                {attachedRequest.title}
               </div>
-              <button
-                type="button"
-                onClick={() => setAttachedRequest(null)}
-                className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer shrink-0"
-                aria-label="Dismiss request"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              {attachedRequest.content.trim() && (
+                <div className="text-[11px] text-blue-700 dark:text-blue-400 line-clamp-2 mt-0.5">
+                  {attachedRequest.content}
+                </div>
+              )}
             </div>
+            <button
+              type="button"
+              onClick={() => setAttachedRequest(null)}
+              className="p-0.5 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer shrink-0"
+              aria-label="Cancel request reply"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
 
@@ -1534,7 +1618,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </div>
         )}
 
-        {replyingTo && (
+        {replyingTo && !attachedRequest && (
           <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
             <Reply className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
@@ -1696,15 +1780,44 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <img src={previewMedia.url} alt={previewMedia.name} className="max-h-[70vh] w-auto max-w-full object-contain rounded-2xl shadow-md" />
-            <a
-              href={previewMedia.url}
-              download={previewMedia.name}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs"
+            {previewMedia.url.startsWith('blob:') ? (
+              <img src={previewMedia.url} alt="" className="max-h-[70vh] w-auto max-w-full object-contain rounded-2xl shadow-md" />
+            ) : (
+              <AuthenticatedImage
+                src={previewMedia.url}
+                alt=""
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded-2xl shadow-md"
+              />
+            )}
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  if (previewMedia.url.startsWith('blob:')) {
+                    const a = document.createElement('a');
+                    a.href = previewMedia.url;
+                    a.download = previewMedia.name;
+                    a.click();
+                    return;
+                  }
+                  const res = await apiFetch(previewMedia.url);
+                  if (!res.ok) throw new Error('Download failed');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = previewMedia.name;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  window.open(previewMedia.url, '_blank', 'noopener,noreferrer');
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
             >
               <Download className="w-4 h-4" />
               <span>Download File</span>
-            </a>
+            </button>
           </div>
         </div>
       )}

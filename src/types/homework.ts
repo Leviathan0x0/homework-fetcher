@@ -106,6 +106,15 @@ export interface Message {
   senderStudentId?: string;
   senderName?: string | null;
   content: string;
+  /** Display body with request marker stripped (set by mapMessage). */
+  displayContent?: string;
+  /** Request this message is helping with (embedded in content). */
+  requestRef?: {
+    id: string;
+    title: string;
+    content: string;
+    category?: string | null;
+  } | null;
   attachmentUrl?: string | null;
   originalFilename?: string | null;
   mimeType?: string | null;

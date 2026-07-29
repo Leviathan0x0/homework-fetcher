@@ -45,7 +45,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    let createdUrl: string | null = null;
+    let ownedUrl: string | null = null;
 
     setLoadState({ src, status: 'loading', objectUrl: null });
 
@@ -58,26 +58,30 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         if (blob.type && !blob.type.startsWith('image/') && blob.type !== 'application/octet-stream') {
           throw new Error(`Unexpected type ${blob.type}`);
         }
-        createdUrl = URL.createObjectURL(blob);
+        const objectUrl = URL.createObjectURL(blob);
+        ownedUrl = objectUrl;
 
-        // Decode before mounting the real <img>. Browsers may paint an img's
-        // alt text while its resource is still loading, even when the request
-        // eventually succeeds.
         await new Promise<void>((resolve, reject) => {
           const preload = new Image();
           preload.onload = () => resolve();
           preload.onerror = () => reject(new Error('Image decode failed'));
-          preload.src = createdUrl!;
+          preload.src = objectUrl;
         });
 
-        if (cancelled) return;
-        setLoadState({ src, status: 'ready', objectUrl: createdUrl });
+        if (cancelled) {
+          URL.revokeObjectURL(objectUrl);
+          ownedUrl = null;
+          return;
+        }
+        // Hand ownership to React state — effect cleanup must not revoke this URL.
+        ownedUrl = null;
+        setLoadState({ src, status: 'ready', objectUrl });
       } catch {
+        if (ownedUrl) {
+          URL.revokeObjectURL(ownedUrl);
+          ownedUrl = null;
+        }
         if (!cancelled) {
-          if (createdUrl) {
-            URL.revokeObjectURL(createdUrl);
-            createdUrl = null;
-          }
           setLoadState({ src, status: 'error', objectUrl: null });
           onFailRef.current?.();
         }
@@ -86,9 +90,17 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
 
     return () => {
       cancelled = true;
-      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      if (ownedUrl) URL.revokeObjectURL(ownedUrl);
     };
   }, [src]);
+
+  // Revoke blob URLs that are owned by state when they are replaced or on unmount.
+  useEffect(() => {
+    const url = loadState.objectUrl;
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [loadState.objectUrl]);
 
   const isCurrentSource = loadState.src === src;
 

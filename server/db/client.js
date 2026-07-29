@@ -284,6 +284,12 @@ CREATE TABLE IF NOT EXISTS users (
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS classwork_attachments (
+      classwork_id TEXT PRIMARY KEY REFERENCES classwork_uploads(id) ON DELETE CASCADE,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS message_read_receipts (
       id TEXT PRIMARY KEY,
       message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,

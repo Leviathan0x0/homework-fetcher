@@ -216,6 +216,18 @@ const messageAttachments = sqliteTable(
   }
 );
 
+/** Classwork file bytes when there is no persistent upload volume (serverless). */
+const classworkAttachments = sqliteTable(
+  "classwork_attachments",
+  {
+    classworkId: text("classwork_id")
+      .primaryKey()
+      .references(() => classworkUploads.id, { onDelete: "cascade" }),
+    data: text("data").notNull(),
+    createdAt: text("created_at").notNull(),
+  }
+);
+
 const messageReadReceipts = sqliteTable(
   "message_read_receipts",
   {
@@ -276,6 +288,7 @@ module.exports = {
   homework,
   homeworkUserState,
   classworkUploads,
+  classworkAttachments,
   sectionRequests,
   notifications,
   conversations,

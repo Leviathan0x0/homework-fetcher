@@ -10,3 +10,4 @@ sqlite.db*
 .DS_Store
 *.log
 scratch/
+.env*

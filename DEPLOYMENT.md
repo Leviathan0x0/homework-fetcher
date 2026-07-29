@@ -41,8 +41,9 @@ permanent. No extra npm package is needed — the app talks to libSQL over HTTPS
 
 3. Redeploy. Tables and migrations are created automatically on the first request.
 
-Message attachments are stored in the database as well when a hosted database is configured and
-no persistent upload volume is set, so photos and PDFs survive redeploys too.
+Message and classwork attachments are stored in the database as well when a hosted
+database is configured and no persistent upload volume is set, so photos and PDFs
+survive redeploys too.
 
 ## Alternative: one Node host with a disk
 

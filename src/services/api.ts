@@ -185,6 +185,8 @@ function mapMessage(raw: any) {
     attachmentUrl: raw.attachmentUrl ? apiUrl(raw.attachmentUrl) : null,
     originalFilename: raw.originalFilename || null,
     mimeType: raw.mimeType || null,
+    replyTo: raw.replyTo || null,
+    readBy: raw.readBy || [],
     createdAt: raw.createdAt,
     isMine: !!raw.isMine,
   };
@@ -248,10 +250,17 @@ export const messagingService = {
     return (data.messages || []).map(mapMessage);
   },
 
-  async sendMessage(convId: string, _senderStudentId: string, content: string, file?: File | null) {
+  async sendMessage(
+    convId: string,
+    _senderStudentId: string,
+    content: string,
+    file?: File | null,
+    replyToId?: string | null
+  ) {
     const formData = new FormData();
     if (content) formData.append("content", content);
     if (file) formData.append("file", file);
+    if (replyToId) formData.append("replyToId", replyToId);
 
     const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
       method: "POST",
@@ -280,6 +289,44 @@ export const messagingService = {
 
   async markAsRead(convId: string) {
     await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: "PATCH" }).catch(() => {});
+  },
+
+  async markMessageRead(messageId: string) {
+    await apiFetch(`/api/messages/${encodeURIComponent(messageId)}/read`, { method: "POST" }).catch(() => {});
+  },
+
+  async muteConversation(convId: string, muted: boolean) {
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/mute`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ muted }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to update mute status.");
+    return data;
+  },
+
+  async pinHomework(convId: string, homeworkId: string | null) {
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/pin-homework`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ homeworkId }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to pin homework.");
+    return data;
+  },
+
+  async createSectionConversation() {
+    const res = await apiFetch("/api/conversations/section", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.conversationId) {
+      throw new Error(data.error || "Failed to create section conversation.");
+    }
+    return { conversationId: data.conversationId, section: data.section || null };
   },
 
   /**

@@ -79,10 +79,14 @@ export interface AppNotification {
 
 export interface Conversation {
   id: string;
+  type?: 'dm' | 'section';
   otherUser: { id: string; studentId: string; displayName?: string | null; section: string } | null;
+  section?: string | null;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   unreadCount: number;
+  muted?: boolean;
+  pinnedHomeworkId?: string | null;
 }
 
 export interface Message {
@@ -90,10 +94,19 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderStudentId?: string;
+  senderName?: string | null;
   content: string;
   attachmentUrl?: string | null;
   originalFilename?: string | null;
   mimeType?: string | null;
+  replyTo?: {
+    id: string;
+    senderId: string;
+    senderName?: string | null;
+    content: string;
+    attachmentUrl?: string | null;
+  } | null;
+  readBy?: Array<{ userId: string; readAt: string }>;
   createdAt: string;
   isMine: boolean;
 }

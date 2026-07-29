@@ -242,8 +242,11 @@ CREATE TABLE IF NOT EXISTS users (
 
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT 'dm',
+      section TEXT,
       last_message_preview TEXT,
       last_message_at TEXT,
+      pinned_homework_id TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -253,6 +256,7 @@ CREATE TABLE IF NOT EXISTS users (
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       last_read_at TEXT,
+      muted INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -263,6 +267,7 @@ CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       sender_id TEXT NOT NULL REFERENCES users(id),
+      reply_to_id TEXT REFERENCES messages(id),
       content TEXT NOT NULL DEFAULT '',
       attachment_url TEXT,
       original_filename TEXT,
@@ -272,12 +277,23 @@ CREATE TABLE IF NOT EXISTS users (
     );
 
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id);
 
     CREATE TABLE IF NOT EXISTS message_attachments (
       message_id TEXT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
       data TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS message_read_receipts (
+      id TEXT PRIMARY KEY,
+      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      read_at TEXT NOT NULL
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_mrr_message_user ON message_read_receipts(message_id, user_id);
+    CREATE INDEX IF NOT EXISTS idx_mrr_message_id ON message_read_receipts(message_id);
 
     CREATE TABLE IF NOT EXISTS moderation_strikes (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -332,6 +348,11 @@ async function initDb() {
   await ensureColumn("messages", "original_filename", "TEXT");
   await ensureColumn("messages", "mime_type", "TEXT");
   await ensureColumn("messages", "file_path", "TEXT");
+  await ensureColumn("messages", "reply_to_id", "TEXT REFERENCES messages(id)");
+  await ensureColumn("conversations", "type", "TEXT NOT NULL DEFAULT 'dm'");
+  await ensureColumn("conversations", "section", "TEXT");
+  await ensureColumn("conversations", "pinned_homework_id", "TEXT");
+  await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
 }
 
 /**

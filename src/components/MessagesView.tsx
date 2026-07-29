@@ -33,6 +33,13 @@ import {
   Trash2,
   Flag,
   Handshake,
+  Reply,
+  Check,
+  CheckCheck,
+  BellOff,
+  Bell,
+  Pin,
+  Users,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -62,6 +69,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [reportingConv, setReportingConv] = useState(false);
   const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   // State for monitoring notice dialog
   const [showNoticeDialog, setShowNoticeDialog] = useState(false);
@@ -349,6 +357,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
     const textCopy = inputText;
     const fileCopy = selectedFile;
+    const replyToCopy = replyingTo;
     const tempId = `temp_${Date.now()}`;
     const optimistic: Message = {
       id: tempId,
@@ -360,6 +369,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         : null,
       originalFilename: fileCopy?.name || null,
       mimeType: fileCopy?.type || null,
+      replyTo: replyToCopy ? {
+        id: replyToCopy.id,
+        senderId: replyToCopy.senderId,
+        senderName: replyToCopy.senderName,
+        content: replyToCopy.content.substring(0, 100),
+        attachmentUrl: replyToCopy.attachmentUrl,
+      } : null,
+      readBy: [],
       createdAt: new Date().toISOString(),
       isMine: true,
     };
@@ -367,6 +384,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     setSending(true);
     setInputText('');
     setSelectedFile(null);
+    setReplyingTo(null);
     setFileError(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     stickToBottomRef.current = true;
@@ -390,7 +408,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         activeConvId,
         currentStudentId,
         textCopy.trim(),
-        fileCopy
+        fileCopy,
+        replyToCopy?.id || null
       );
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
@@ -420,6 +439,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setInputText(textCopy);
       setSelectedFile(fileCopy);
+      setReplyingTo(replyToCopy);
       setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
     } finally {
       setSending(false);
@@ -572,21 +592,43 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   };
 
   const activeConv = conversations.find((c) => c.id === activeConvId);
-  const otherName = activeConv ? userLabel(activeConv.otherUser) : 'Conversation';
-  const otherSection = activeConv?.otherUser?.section;
+  const otherName = activeConv
+    ? activeConv.type === 'section'
+      ? `Ask ${activeConv.section || 'Class'}`
+      : userLabel(activeConv.otherUser)
+    : 'Conversation';
+  const otherSection = activeConv?.type === 'section' ? null : activeConv?.otherUser?.section;
 
   const inboxContent = (
     <div className="h-full flex flex-col bg-[#f7f7f8] dark:bg-[#0c0c0e]">
       <div className="px-4 pt-4 pb-3 border-b border-neutral-200/70 dark:border-neutral-800/70 shrink-0 space-y-3">
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Messages
           </h2>
-          {conversations.length > 0 && !searchQuery && (
-            <span className="text-[11px] tabular-nums text-neutral-400">
-              {conversations.length}
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {conversations.length > 0 && !searchQuery && (
+              <span className="text-[11px] tabular-nums text-neutral-400">
+                {conversations.length}
+              </span>
+            )}
+            <button
+              onClick={async () => {
+                try {
+                  const result = await messagingService.createSectionConversation();
+                  await refreshConversations();
+                  setActiveConvId(result.conversationId);
+                } catch (err: any) {
+                  alert(err.message || 'Failed to create section conversation.');
+                }
+              }}
+              title="Ask your class"
+              aria-label="Ask your class"
+              className="p-1.5 rounded-lg text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer"
+            >
+              <Users className="w-4 h-4" />
+            </button>
+          </div>
         </div>
         <div className="relative">
           <SearchIcon
@@ -689,20 +731,29 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
                     )}
                   >
-                    {userLabel(conv.otherUser).charAt(0).toUpperCase()}
+                    {conv.type === 'section' ? (
+                      <Users className="w-5 h-5" />
+                    ) : (
+                      userLabel(conv.otherUser).charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span
-                        className={cn(
-                          'text-[13px] truncate',
-                          unread
-                            ? 'font-semibold text-neutral-900 dark:text-neutral-50'
-                            : 'font-medium text-neutral-800 dark:text-neutral-200'
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span
+                          className={cn(
+                            'text-[13px] truncate',
+                            unread
+                              ? 'font-semibold text-neutral-900 dark:text-neutral-50'
+                              : 'font-medium text-neutral-800 dark:text-neutral-200'
+                          )}
+                        >
+                          {conv.type === 'section' ? `Ask ${conv.section || 'Class'}` : userLabel(conv.otherUser)}
+                        </span>
+                        {conv.muted && (
+                          <BellOff className="w-3 h-3 text-neutral-400 shrink-0" />
                         )}
-                      >
-                        {userLabel(conv.otherUser)}
-                      </span>
+                      </div>
                       {conv.lastMessageAt && (
                         <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
                           {formatChatListTime(conv.lastMessageAt)}
@@ -778,6 +829,31 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={async () => {
+              if (!activeConvId) return;
+              const conv = conversations.find((c) => c.id === activeConvId);
+              if (!conv) return;
+              try {
+                await messagingService.muteConversation(activeConvId, !conv.muted);
+                setConversations((prev) =>
+                  prev.map((c) => (c.id === activeConvId ? { ...c, muted: !conv.muted } : c))
+                );
+              } catch (err: any) {
+                alert(err.message || 'Failed to update mute status.');
+              }
+            }}
+            disabled={!activeConvId}
+            title={conversations.find((c) => c.id === activeConvId)?.muted ? 'Unmute' : 'Mute notifications'}
+            aria-label={conversations.find((c) => c.id === activeConvId)?.muted ? 'Unmute' : 'Mute'}
+            className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            {conversations.find((c) => c.id === activeConvId)?.muted ? (
+              <BellOff className="w-3.5 h-3.5" />
+            ) : (
+              <Bell className="w-3.5 h-3.5" />
+            )}
+          </button>
           <button
             onClick={handleReportConversation}
             disabled={!activeConvId || reportingConv}
@@ -882,20 +958,46 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         isPending && 'opacity-70'
                       )}
                     >
-                      {isMine && !isPending && (
-                        <button
-                          onClick={() => handleDeleteMessage(m.id)}
-                          disabled={deletingMessageId === m.id}
-                          title="Delete message"
-                          aria-label="Delete message"
-                          className="absolute -left-8 top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-opacity cursor-pointer disabled:opacity-50 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
-                        >
-                          {deletingMessageId === m.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
+                      {!isPending && (
+                        <div className="absolute -left-20 top-1/2 -translate-y-1/2 flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100">
+                          {!isMine && (
+                            <button
+                              onClick={() => setReplyingTo(m)}
+                              title="Reply to message"
+                              aria-label="Reply to message"
+                              className="p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
                           )}
-                        </button>
+                          {isMine && (
+                            <button
+                              onClick={() => handleDeleteMessage(m.id)}
+                              disabled={deletingMessageId === m.id}
+                              title="Delete message"
+                              aria-label="Delete message"
+                              className="p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {deletingMessageId === m.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {m.replyTo && (
+                        <div className={cn(
+                          "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 italic opacity-70",
+                          isMine
+                            ? "border-white/30 dark:border-black/30"
+                            : "border-neutral-300 dark:border-neutral-700"
+                        )}>
+                          <div className="font-medium">{m.replyTo.senderName || 'User'}</div>
+                          <div className="line-clamp-2">{m.replyTo.content || '[attachment]'}</div>
+                        </div>
                       )}
 
                       {m.attachmentUrl && (
@@ -946,11 +1048,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         {!clusteredWithNext && (
                           <span
                             className={cn(
-                              'text-[10px] shrink-0 tabular-nums self-end mb-px opacity-50',
+                              'text-[10px] shrink-0 tabular-nums self-end mb-px opacity-50 flex items-center gap-1',
                               isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500'
                             )}
                           >
                             {isPending ? 'Sending' : timeStr}
+                            {isMine && !isPending && m.readBy && m.readBy.length > 0 && (
+                              <CheckCheck className="w-3 h-3" title={`Read by ${m.readBy.length}`} />
+                            )}
+                            {isMine && !isPending && (!m.readBy || m.readBy.length === 0) && (
+                              <Check className="w-3 h-3" title="Sent" />
+                            )}
                           </span>
                         )}
                       </div>
@@ -1024,6 +1132,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             <button
               onClick={() => setSelectedFile(null)}
               className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {replyingTo && (
+          <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
+            <Reply className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-medium text-blue-900 dark:text-blue-300">
+                Replying to {replyingTo.senderName || 'User'}
+              </div>
+              <div className="text-[11px] text-blue-700 dark:text-blue-400 truncate">
+                {replyingTo.content || '[attachment]'}
+              </div>
+            </div>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="p-0.5 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer shrink-0"
+              aria-label="Cancel reply"
             >
               <X className="w-3.5 h-3.5" />
             </button>

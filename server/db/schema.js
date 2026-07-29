@@ -161,8 +161,11 @@ const conversations = sqliteTable(
   "conversations",
   {
     id: text("id").primaryKey(),
+    type: text("type").notNull().default("dm"),
+    section: text("section"),
     lastMessagePreview: text("last_message_preview"),
     lastMessageAt: text("last_message_at"),
+    pinnedHomeworkId: text("pinned_homework_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   }
@@ -175,6 +178,7 @@ const conversationParticipants = sqliteTable(
     conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     lastReadAt: text("last_read_at"),
+    muted: integer("muted").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },
   (t) => [
@@ -189,6 +193,7 @@ const messages = sqliteTable(
     id: text("id").primaryKey(),
     conversationId: text("conversation_id").notNull().references(() => conversations.id, { onDelete: "cascade" }),
     senderId: text("sender_id").notNull().references(() => users.id),
+    replyToId: text("reply_to_id").references(() => messages.id),
     content: text("content").notNull().default(""),
     attachmentUrl: text("attachment_url"),
     originalFilename: text("original_filename"),
@@ -198,6 +203,7 @@ const messages = sqliteTable(
   },
   (t) => [
     index("idx_messages_conversation_created").on(t.conversationId, t.createdAt),
+    index("idx_messages_reply_to").on(t.replyToId),
   ]
 );
 
@@ -208,6 +214,20 @@ const messageAttachments = sqliteTable(
     data: text("data").notNull(),
     createdAt: text("created_at").notNull(),
   }
+);
+
+const messageReadReceipts = sqliteTable(
+  "message_read_receipts",
+  {
+    id: text("id").primaryKey(),
+    messageId: text("message_id").notNull().references(() => messages.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    readAt: text("read_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("idx_mrr_message_user").on(t.messageId, t.userId),
+    index("idx_mrr_message_id").on(t.messageId),
+  ]
 );
 
 /** Running count of blocked vulgar/abuse text attempts per student. */
@@ -262,6 +282,7 @@ module.exports = {
   conversationParticipants,
   messages,
   messageAttachments,
+  messageReadReceipts,
   moderationStrikes,
   adminFlagLog,
 };

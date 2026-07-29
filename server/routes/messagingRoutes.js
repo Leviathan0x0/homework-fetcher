@@ -102,6 +102,8 @@ router.get("/conversations", requireAuth, async (req, res) => {
     if (participations.length === 0) return res.json({ conversations: [] });
 
     const convIds = participations.map((p) => p.conversationId);
+    const participationByConv = {};
+    for (const p of participations) participationByConv[p.conversationId] = p;
 
     // The other participant of each conversation, joined with their account, so
     // the whole user table never has to be transferred.
@@ -150,13 +152,20 @@ router.get("/conversations", requireAuth, async (req, res) => {
       unreadByConv[conversationId] = Number(unread) || 0;
     }
 
-    const result = convs.map((c) => ({
-      id: c.id,
-      otherUser: toPublicUser(otherByConv[c.id]),
-      lastMessagePreview: c.lastMessagePreview || null,
-      lastMessageAt: c.lastMessageAt || c.createdAt,
-      unreadCount: unreadByConv[c.id] || 0,
-    }));
+    const result = convs.map((c) => {
+      const participation = participationByConv[c.id];
+      return {
+        id: c.id,
+        type: c.type || "dm",
+        otherUser: c.type === "section" ? null : toPublicUser(otherByConv[c.id]),
+        section: c.section || null,
+        lastMessagePreview: c.lastMessagePreview || null,
+        lastMessageAt: c.lastMessageAt || c.createdAt,
+        unreadCount: unreadByConv[c.id] || 0,
+        muted: !!participation?.muted,
+        pinnedHomeworkId: c.pinnedHomeworkId || null,
+      };
+    });
 
     result.sort((a, b) => {
       if (!a.lastMessageAt) return 1;
@@ -356,8 +365,37 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
     const senderMap = {};
     for (const sender of senders) senderMap[sender.id] = sender;
 
+    // Fetch read receipts for all messages
+    const messageIds = msgs.map((m) => m.id);
+    const receipts = messageIds.length
+      ? await db
+          .select()
+          .from(schema.messageReadReceipts)
+          .where(inArray(schema.messageReadReceipts.messageId, messageIds))
+          .all()
+      : [];
+
+    const receiptsByMessage = {};
+    for (const receipt of receipts) {
+      if (!receiptsByMessage[receipt.messageId]) receiptsByMessage[receipt.messageId] = [];
+      receiptsByMessage[receipt.messageId].push({
+        userId: receipt.userId,
+        readAt: receipt.readAt,
+      });
+    }
+
+    // Fetch parent messages for replies
+    const replyToIds = msgs.map((m) => m.replyToId).filter(Boolean);
+    const parentMessages = replyToIds.length
+      ? await db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
+      : [];
+    const parentMap = {};
+    for (const parent of parentMessages) parentMap[parent.id] = parent;
+
     const result = msgs.map((m) => {
       const sender = senderMap[m.senderId];
+      const parent = m.replyToId ? parentMap[m.replyToId] : null;
+      const parentSender = parent ? senderMap[parent.senderId] : null;
       return {
         id: m.id,
         conversationId: m.conversationId,
@@ -368,6 +406,16 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
         attachmentUrl: m.attachmentUrl,
         originalFilename: m.originalFilename,
         mimeType: m.mimeType,
+        replyTo: parent
+          ? {
+              id: parent.id,
+              senderId: parent.senderId,
+              senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
+              content: parent.content.substring(0, 100),
+              attachmentUrl: parent.attachmentUrl,
+            }
+          : null,
+        readBy: receiptsByMessage[m.id] || [],
         createdAt: m.createdAt,
         isMine: m.senderId === req.user.id,
       };
@@ -403,6 +451,7 @@ router.post(
       }
 
       const { value: content, tooLong } = limitText((req.body || {}).content, MAX_MESSAGE_CHARS);
+      const replyToId = (req.body || {}).replyToId || null;
       if (!content && !req.file) {
         return res.status(400).json({ error: "Message content or file attachment is required." });
       }
@@ -411,6 +460,19 @@ router.post(
         return res.status(413).json({
           error: `Messages are limited to ${MAX_MESSAGE_CHARS} characters.`,
         });
+      }
+
+      // Validate replyToId if provided
+      if (replyToId) {
+        const parentMsg = await db
+          .select()
+          .from(schema.messages)
+          .where(eq(schema.messages.id, replyToId))
+          .get();
+        if (!parentMsg || parentMsg.conversationId !== convId) {
+          if (req.file?.path) fs.unlink(req.file.path, () => {});
+          return res.status(400).json({ error: "Invalid reply reference." });
+        }
       }
 
       const id = req.messageId || crypto.randomUUID();
@@ -462,6 +524,7 @@ router.post(
           id,
           conversationId: convId,
           senderId: req.user.id,
+          replyToId: replyToId || null,
           content: trimmed,
           attachmentUrl,
           originalFilename,
@@ -510,6 +573,30 @@ router.post(
         );
       }
 
+      // Fetch parent message if replying
+      let replyTo = null;
+      if (replyToId) {
+        const parent = await db
+          .select()
+          .from(schema.messages)
+          .where(eq(schema.messages.id, replyToId))
+          .get();
+        if (parent) {
+          const parentSender = await db
+            .select()
+            .from(schema.users)
+            .where(eq(schema.users.id, parent.senderId))
+            .get();
+          replyTo = {
+            id: parent.id,
+            senderId: parent.senderId,
+            senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
+            content: parent.content.substring(0, 100),
+            attachmentUrl: parent.attachmentUrl,
+          };
+        }
+      }
+
       return res.status(201).json({
         success: true,
         message: {
@@ -522,6 +609,8 @@ router.post(
           attachmentUrl,
           originalFilename,
           mimeType,
+          replyTo,
+          readBy: [],
           createdAt: now,
           isMine: true,
         },
@@ -790,5 +879,203 @@ router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Failed to mark as read." });
   }
 });
+
+router.post(
+  "/messages/:id/read",
+  requireAuth,
+  rateLimit({ name: "mark-message-read", windowMs: 60 * 1000, max: 200 }),
+  async (req, res) => {
+    try {
+      const messageId = req.params.id;
+      const msg = await db
+        .select()
+        .from(schema.messages)
+        .where(eq(schema.messages.id, messageId))
+        .get();
+
+      if (!msg) return res.status(404).json({ error: "Message not found." });
+      if (!await isParticipant(msg.conversationId, req.user.id)) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      const existing = await db
+        .select()
+        .from(schema.messageReadReceipts)
+        .where(
+          and(
+            eq(schema.messageReadReceipts.messageId, messageId),
+            eq(schema.messageReadReceipts.userId, req.user.id)
+          )
+        )
+        .get();
+
+      if (!existing) {
+        await db
+          .insert(schema.messageReadReceipts)
+          .values({
+            id: crypto.randomUUID(),
+            messageId,
+            userId: req.user.id,
+            readAt: new Date().toISOString(),
+          })
+          .run();
+      }
+
+      return res.json({ success: true });
+    } catch (err) {
+      console.error("Mark Message Read Error:", err);
+      return res.status(500).json({ error: "Failed to mark message as read." });
+    }
+  }
+);
+
+router.patch(
+  "/conversations/:id/mute",
+  requireAuth,
+  rateLimit({ name: "mute-conversation", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const convId = req.params.id;
+      const { muted } = req.body || {};
+      if (typeof muted !== "boolean") {
+        return res.status(400).json({ error: "Muted must be true or false." });
+      }
+
+      if (!await isParticipant(convId, req.user.id)) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      await db
+        .update(schema.conversationParticipants)
+        .set({ muted: muted ? 1 : 0 })
+        .where(
+          and(
+            eq(schema.conversationParticipants.conversationId, convId),
+            eq(schema.conversationParticipants.userId, req.user.id)
+          )
+        )
+        .run();
+
+      return res.json({ success: true, muted });
+    } catch (err) {
+      console.error("Mute Conversation Error:", err);
+      return res.status(500).json({ error: "Failed to update mute status." });
+    }
+  }
+);
+
+router.patch(
+  "/conversations/:id/pin-homework",
+  requireAuth,
+  rateLimit({ name: "pin-homework", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const convId = req.params.id;
+      const { homeworkId } = req.body || {};
+
+      if (!await isParticipant(convId, req.user.id)) {
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      if (homeworkId) {
+        const hw = await db
+          .select()
+          .from(schema.homework)
+          .where(eq(schema.homework.id, homeworkId))
+          .get();
+        if (!hw) {
+          return res.status(404).json({ error: "Homework not found." });
+        }
+      }
+
+      await db
+        .update(schema.conversations)
+        .set({ pinnedHomeworkId: homeworkId || null, updatedAt: new Date().toISOString() })
+        .where(eq(schema.conversations.id, convId))
+        .run();
+
+      return res.json({ success: true, pinnedHomeworkId: homeworkId || null });
+    } catch (err) {
+      console.error("Pin Homework Error:", err);
+      return res.status(500).json({ error: "Failed to pin homework." });
+    }
+  }
+);
+
+router.post(
+  "/conversations/section",
+  requireAuth,
+  rateLimit({ name: "create-section-conversation", windowMs: 60 * 1000, max: 5 }),
+  async (req, res) => {
+    try {
+      const section = req.user.section;
+      if (!section) {
+        return res.status(400).json({ error: "Your section is not set." });
+      }
+
+      // Check if a section conversation already exists
+      const existing = await db
+        .select()
+        .from(schema.conversations)
+        .where(
+          and(
+            eq(schema.conversations.type, "section"),
+            eq(schema.conversations.section, section)
+          )
+        )
+        .get();
+
+      if (existing) {
+        return res.json({
+          conversationId: existing.id,
+          existing: true,
+        });
+      }
+
+      // Create new section conversation
+      const convId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      await db
+        .insert(schema.conversations)
+        .values({
+          id: convId,
+          type: "section",
+          section,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      // Add all students in this section as participants
+      const studentsInSection = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.section, section))
+        .all();
+
+      for (const student of studentsInSection) {
+        await db
+          .insert(schema.conversationParticipants)
+          .values({
+            id: crypto.randomUUID(),
+            conversationId: convId,
+            userId: student.id,
+            createdAt: now,
+          })
+          .run();
+      }
+
+      return res.status(201).json({
+        conversationId: convId,
+        existing: false,
+        section,
+      });
+    } catch (err) {
+      console.error("Create Section Conversation Error:", err);
+      return res.status(500).json({ error: "Failed to create section conversation." });
+    }
+  }
+);
 
 module.exports = router;

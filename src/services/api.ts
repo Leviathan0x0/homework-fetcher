@@ -7,6 +7,8 @@ import { apiFetch, apiJson, apiUrl } from "../lib/api";
  * logout so it can only ever belong to the signed-in account.
  */
 const CONVERSATIONS_CACHE_KEY = "cachedConversations";
+let conversationsRequest: Promise<any[]> | null = null;
+let conversationsGeneration = 0;
 
 function readConversationCache(): any[] {
   try {
@@ -26,6 +28,8 @@ function writeConversationCache(conversations: any[]) {
 }
 
 function clearConversationCache() {
+  conversationsGeneration += 1;
+  conversationsRequest = null;
   try {
     localStorage.removeItem(CONVERSATIONS_CACHE_KEY);
   } catch {}
@@ -57,7 +61,8 @@ export const authService = {
     const res = await apiFetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ studentId: studentId.trim(), password: pass })
+      body: JSON.stringify({ studentId: studentId.trim(), password: pass }),
+      timeoutMs: 30000,
     });
 
     const data = await apiJson<any>(res);
@@ -109,6 +114,32 @@ export const authService = {
 };
 
 // --- HOMEWORK SERVICE ---
+function mapHomeworkList(data: any) {
+  const rawList = data.homework || [];
+  const seen = new Set<string>();
+  const deduplicated: any[] = [];
+
+  for (const doc of rawList) {
+    if (!doc) continue;
+    const text = (doc.homework || doc.content || "").trim();
+    const key = `${(doc.date || "").trim()}:${text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduplicated.push({
+      id: doc.id,
+      type: doc.type || "School Diary",
+      date: doc.date || "",
+      subject: doc.subject || "School Diary",
+      homework: text,
+      attachment: doc.attachment || doc.attachmentUrl || null,
+      completed: !!doc.completed,
+      note: doc.note || null,
+      updatedAt: doc.updatedAt,
+    });
+  }
+  return deduplicated;
+}
+
 export const homeworkService = {
   async getHomework(userId: string) {
     try {
@@ -120,33 +151,23 @@ export const homeworkService = {
         throw new Error(errData.message || "Failed to fetch homework.");
       }
       const data = await apiJson<any>(res);
-      const rawList = data.homework || [];
-      const seen = new Set<string>();
-      const deduplicated: any[] = [];
-
-      for (const doc of rawList) {
-        if (!doc) continue;
-        const text = (doc.homework || doc.content || "").trim();
-        const key = `${(doc.date || "").trim()}:${text}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduplicated.push({
-          id: doc.id,
-          type: doc.type || "School Diary",
-          date: doc.date || "",
-          subject: doc.subject || "School Diary",
-          homework: text,
-          attachment: doc.attachment || doc.attachmentUrl || null,
-          completed: !!doc.completed,
-          note: doc.note || null,
-          updatedAt: doc.updatedAt,
-        });
-      }
-      return deduplicated;
+      return mapHomeworkList(data);
     } catch (err: any) {
       console.error("Error loading homework:", err);
       return [];
     }
+  },
+
+  async refreshHomework(userId: string) {
+    const res = await apiFetch("/api/homework/refresh", {
+      method: "POST",
+      headers: { "Accept": "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) {
+      throw new Error(data.message || data.error || "Failed to refresh homework.");
+    }
+    return mapHomeworkList(data);
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {
@@ -169,7 +190,7 @@ export const homeworkService = {
     if (!res.ok) {
       throw new Error("Failed to update note.");
     }
-  }
+  },
 };
 
 // --- MESSAGING SERVICE ---
@@ -209,22 +230,33 @@ export const messagingService = {
   },
 
   async getConversations(_currentStudentId?: string) {
-    const res = await apiFetch("/api/conversations", { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error("Failed to load conversations.");
-    const data = await apiJson<any>(res);
-    const conversations = (data.conversations || []).map((c: any) => ({
-      ...c,
-      pinnedHomework: c.pinnedHomework
-        ? {
-            ...c.pinnedHomework,
-            attachmentUrl: c.pinnedHomework.attachmentUrl
-              ? apiUrl(c.pinnedHomework.attachmentUrl)
-              : c.pinnedHomework.attachmentUrl,
-          }
-        : null,
-    }));
-    writeConversationCache(conversations);
-    return conversations;
+    if (conversationsRequest) return conversationsRequest;
+
+    const requestGeneration = conversationsGeneration;
+    const request = (async () => {
+      const res = await apiFetch("/api/conversations", { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error("Failed to load conversations.");
+      const data = await apiJson<any>(res);
+      const conversations = (data.conversations || []).map((c: any) => ({
+        ...c,
+        pinnedHomework: c.pinnedHomework
+          ? {
+              ...c.pinnedHomework,
+              attachmentUrl: c.pinnedHomework.attachmentUrl
+                ? apiUrl(c.pinnedHomework.attachmentUrl)
+                : c.pinnedHomework.attachmentUrl,
+            }
+          : null,
+      }));
+      if (requestGeneration === conversationsGeneration) {
+        writeConversationCache(conversations);
+      }
+      return conversations;
+    })().finally(() => {
+      if (conversationsRequest === request) conversationsRequest = null;
+    });
+    conversationsRequest = request;
+    return request;
   },
 
   async deleteConversation(convId: string) {
@@ -265,17 +297,20 @@ export const messagingService = {
     _senderStudentId: string,
     content: string,
     file?: File | null,
-    replyToId?: string | null
+    replyToId?: string | null,
+    clientMessageId?: string
   ) {
     const formData = new FormData();
     if (content) formData.append("content", content);
     if (file) formData.append("file", file);
     if (replyToId) formData.append("replyToId", replyToId);
+    if (clientMessageId) formData.append("clientMessageId", clientMessageId);
 
     const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
       method: "POST",
       headers: { Accept: "application/json" },
       body: formData,
+      timeoutMs: file ? 60000 : 20000,
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.message) {
@@ -298,7 +333,10 @@ export const messagingService = {
   },
 
   async markAsRead(convId: string) {
-    await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/read`, { method: "PATCH" }).catch(() => {});
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/read`, {
+      method: "PATCH",
+    });
+    if (!res.ok) throw new Error("Failed to mark conversation as read.");
   },
 
   async markMessageRead(messageId: string) {
@@ -473,6 +511,7 @@ export const classworkService = {
       method: "POST",
       headers: { Accept: "application/json" },
       body: formData,
+      timeoutMs: 60000,
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.classwork) throw new Error(data.error || "Upload failed.");

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and, desc, or } = require("drizzle-orm");
+const { eq, and, sql } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
@@ -99,46 +99,7 @@ function generateHomeworkId(userId, date, content) {
   return crypto.createHash("sha256").update(rawKey).digest("hex");
 }
 
-/**
- * Purges duplicate entries for the same user, date, and content.
- */
-async function cleanDuplicateHomework(userId) {
-  if (!userId) return;
-  try {
-    const all = await db
-      .select()
-      .from(schema.homework)
-      .where(eq(schema.homework.userId, userId))
-      .all();
-
-    const seen = new Map();
-    const toDeleteIds = [];
-
-    for (const r of all) {
-      const normContent = normalizeContentForHashing(r.content);
-      const key = `${(r.date || "").trim()}:${normContent}`;
-      if (seen.has(key)) {
-        const existing = seen.get(key);
-        if (r.subject === "History" && existing.subject !== "History") {
-          toDeleteIds.push(existing.id);
-          seen.set(key, r);
-        } else {
-          toDeleteIds.push(r.id);
-        }
-      } else {
-        seen.set(key, r);
-      }
-    }
-
-    if (toDeleteIds.length > 0) {
-      for (const delId of toDeleteIds) {
-        await db.delete(schema.homework).where(eq(schema.homework.id, delId)).run();
-      }
-    }
-  } catch (err) {
-    console.error("Cleanup Duplicate Homework Error:", err);
-  }
-}
+const inFlightUpdates = new Map();
 
 class HomeworkCacheService {
   /**
@@ -151,8 +112,41 @@ class HomeworkCacheService {
   async upsertHomework(userId, parsedHomework) {
     if (!userId || !Array.isArray(parsedHomework)) return [];
 
-    const now = new Date().toISOString();
+    const previousUpdate = inFlightUpdates.get(userId) || Promise.resolve();
+    const update = previousUpdate
+      .catch(() => {})
+      .then(() => this.persistHomework(userId, parsedHomework));
+    inFlightUpdates.set(userId, update);
+    return update.finally(() => {
+      if (inFlightUpdates.get(userId) === update) {
+        inFlightUpdates.delete(userId);
+      }
+    });
+  }
 
+  async persistHomework(userId, parsedHomework) {
+    const now = new Date().toISOString();
+    const existingRows = await db
+      .select({
+        id: schema.homework.id,
+        date: schema.homework.date,
+        content: schema.homework.content,
+        subject: schema.homework.subject,
+      })
+      .from(schema.homework)
+      .where(eq(schema.homework.userId, userId))
+      .all();
+    const existingByContent = new Map();
+
+    for (const row of existingRows) {
+      const key = `${(row.date || "").trim()}:${normalizeContentForHashing(row.content)}`;
+      const current = existingByContent.get(key);
+      if (!current || (row.subject === "History" && current.subject !== "History")) {
+        existingByContent.set(key, row);
+      }
+    }
+
+    const rowsById = new Map();
     for (const item of parsedHomework) {
       const type = item.type || "Homework";
       const date = (item.date || "").trim();
@@ -161,66 +155,51 @@ class HomeworkCacheService {
 
       const attachmentUrl = item.attachment || null;
       const subject = detectSubjectFromText(content, item.subject || "", type);
-      const homeworkId = generateHomeworkId(userId, date, content);
+      const contentKey = `${date}:${normalizeContentForHashing(content)}`;
+      const homeworkId =
+        existingByContent.get(contentKey)?.id ||
+        generateHomeworkId(userId, date, content);
 
-      const existing = await db
-        .select()
-        .from(schema.homework)
-        .where(
-          and(
-            eq(schema.homework.userId, userId),
-            or(
-              eq(schema.homework.id, homeworkId),
-              and(
-                eq(schema.homework.date, date),
-                eq(schema.homework.content, content)
-              )
-            )
-          )
-        )
-        .get();
-
-      if (existing) {
-        await db.update(schema.homework)
-          .set({
-            id: homeworkId,
-            date,
-            subject,
-            content,
-            attachmentUrl,
-            type,
-            updatedAt: now,
-          })
-          .where(eq(schema.homework.id, existing.id))
-          .run();
-
-        if (existing.id !== homeworkId) {
-          await db.update(schema.homeworkUserState)
-            .set({ homeworkId })
-            .where(and(eq(schema.homeworkUserState.homeworkId, existing.id), eq(schema.homeworkUserState.userId, userId)))
-            .run();
-        }
-      } else {
-        await db.insert(schema.homework)
-          .values({
-            id: homeworkId,
-            userId,
-            sourceIdentifier: "edusecure",
-            date,
-            subject,
-            content,
-            attachmentUrl,
-            type,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
-      }
+      rowsById.set(homeworkId, {
+        id: homeworkId,
+        userId,
+        sourceIdentifier: "edusecure",
+        date,
+        subject,
+        content,
+        attachmentUrl,
+        type,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
-    await cleanDuplicateHomework(userId);
+    const rows = Array.from(rowsById.values());
+    if (rows.length > 0) {
+      await db
+        .insert(schema.homework)
+        .values(rows)
+        .onConflictDoUpdate({
+          target: schema.homework.id,
+          set: {
+            sourceIdentifier: sql`excluded.source_identifier`,
+            date: sql`excluded.date`,
+            subject: sql`excluded.subject`,
+            content: sql`excluded.content`,
+            attachmentUrl: sql`excluded.attachment_url`,
+            type: sql`excluded.type`,
+            updatedAt: sql`excluded.updated_at`,
+          },
+        })
+        .run();
+    }
 
-    return await this.getCachedHomework(userId);
+    return this.getCachedHomework(userId);
+  }
+
+  async waitForPendingUpdate(userId) {
+    const update = inFlightUpdates.get(userId);
+    return update ? await update : null;
   }
 
   /**
@@ -231,8 +210,6 @@ class HomeworkCacheService {
    */
   async getCachedHomework(userId) {
     if (!userId) return [];
-
-    await cleanDuplicateHomework(userId);
 
     // Query homework left joining homework_user_state for completion status & personal notes
     const rows = await db
@@ -296,20 +273,16 @@ class HomeworkCacheService {
   async isCacheStale(userId, maxAgeMinutes = DEFAULT_CACHE_MAX_AGE_MINUTES) {
     if (!userId) return true;
 
-    const items = await this.getCachedHomework(userId);
-    if (!items || items.length === 0) return true;
+    const row = await db.get(sql`
+      SELECT MAX(updated_at) AS latest
+      FROM homework
+      WHERE user_id = ${userId}
+    `);
+    const latest = row?.latest ?? row?.[0] ?? null;
+    if (!latest) return true;
 
-    // Find the latest updatedAt timestamp among cached homework items
-    let latestMs = 0;
-    for (const item of items) {
-      if (item.updatedAt) {
-        const ms = new Date(item.updatedAt).getTime();
-        if (ms > latestMs) latestMs = ms;
-      }
-    }
-
-    if (latestMs === 0) return true;
-
+    const latestMs = new Date(latest).getTime();
+    if (!Number.isFinite(latestMs)) return true;
     const ageMinutes = (Date.now() - latestMs) / (1000 * 60);
     return ageMinutes >= maxAgeMinutes;
   }

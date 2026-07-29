@@ -1,7 +1,12 @@
 const { parseHomeworkHtml } = require("./htmlParser");
+const { fetchWithTimeout, resolveTimeout } = require("../http/fetchWithTimeout");
 
 const HOMEWORK_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework";
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const HOMEWORK_REQUEST_TIMEOUT_MS = resolveTimeout(
+  process.env.EDUSECURE_REQUEST_TIMEOUT_MS,
+  8000
+);
 
 class SchoolSessionExpiredError extends Error {
   constructor(message = "Your school session has expired.") {
@@ -23,14 +28,14 @@ async function fetchHomeworkForSession(sessionCookies) {
   }
 
   try {
-    const response = await fetch(HOMEWORK_URL, {
+    const response = await fetchWithTimeout(HOMEWORK_URL, {
       headers: {
         "Cookie": sessionCookies,
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
       },
       redirect: "manual"
-    });
+    }, HOMEWORK_REQUEST_TIMEOUT_MS);
 
     // Handle ASP.NET redirect to Login.aspx
     if (response.status === 302 || response.status === 301) {

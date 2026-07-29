@@ -1,7 +1,16 @@
 const cheerio = require("cheerio");
+const { fetchWithTimeout, resolveTimeout } = require("../http/fetchWithTimeout");
 
 const LOGIN_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/Login.aspx";
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const PORTAL_REQUEST_TIMEOUT_MS = resolveTimeout(
+  process.env.EDUSECURE_REQUEST_TIMEOUT_MS,
+  8000
+);
+const LOGIN_TIMEOUT_MS = resolveTimeout(
+  process.env.EDUSECURE_LOGIN_TIMEOUT_MS,
+  18000
+);
 
 /**
  * Authentication error carrying a machine-readable cause so callers can tell
@@ -25,7 +34,7 @@ const invalidCredentialsError = () =>
  */
 async function portalFetch(url, options, step) {
   try {
-    return await fetch(url, options);
+    return await fetchWithTimeout(url, options, PORTAL_REQUEST_TIMEOUT_MS);
   } catch (err) {
     throw new EduSecureAuthError(
       `Could not reach the school portal while ${step} (${err.message}). The server hosting this app may not be allowed to make outbound requests to edusecure.in.`,
@@ -92,9 +101,11 @@ async function loginToEduSecure(studentId, password) {
   }
 
   const cookieMap = new Map();
+  const loginSignal = AbortSignal.timeout(LOGIN_TIMEOUT_MS);
 
   // Step 1: Initial GET to fetch ASP.NET viewstate and session tokens
   const getRes = await portalFetch(LOGIN_URL, {
+    signal: loginSignal,
     headers: {
       "User-Agent": USER_AGENT,
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
@@ -152,6 +163,7 @@ async function loginToEduSecure(studentId, password) {
 
       const postRes = await portalFetch(LOGIN_URL, {
         method: "POST",
+        signal: loginSignal,
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Cookie": postCookieHeader,
@@ -180,6 +192,7 @@ async function loginToEduSecure(studentId, password) {
 
       // Verify authentication by fetching Announcement.aspx
       const verifyRes = await portalFetch("https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework", {
+        signal: loginSignal,
         headers: {
           "Cookie": finalCookieString,
           "User-Agent": USER_AGENT
@@ -219,5 +232,6 @@ async function loginToEduSecure(studentId, password) {
 
 module.exports = {
   loginToEduSecure,
-  EduSecureAuthError
+  EduSecureAuthError,
+  portalFetch,
 };

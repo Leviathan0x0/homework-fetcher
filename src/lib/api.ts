@@ -16,6 +16,7 @@ export const API_BASE_URL = RAW_API_BASE_URL.replace(/\/+$/, "");
  * before the request reaches the server, so the browser must enforce it too.
  */
 export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+const DEFAULT_API_TIMEOUT_MS = 20000;
 
 /** Resolves an API/served-file path against the configured API origin. */
 export function apiUrl(path: string): string {
@@ -37,9 +38,67 @@ export class ApiUnreachableError extends Error {
   }
 }
 
+type ApiRequestInit = RequestInit & { timeoutMs?: number };
+
+function withBodyDeadline(
+  response: Response,
+  cleanup: () => void,
+  didTimeOut: () => boolean
+): Response {
+  const bodyMethods = new Set<PropertyKey>(["arrayBuffer", "blob", "formData", "json", "text"]);
+  return new Proxy(response, {
+    get(target, property) {
+      const value = Reflect.get(target, property, target);
+      if (!bodyMethods.has(property) || typeof value !== "function") {
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+      return async (...args: unknown[]) => {
+        try {
+          return await value.apply(target, args);
+        } catch (err) {
+          if (didTimeOut()) {
+            throw new Error("The server took too long to respond. Please try again.");
+          }
+          throw err;
+        } finally {
+          cleanup();
+        }
+      };
+    },
+  });
+}
+
 /** fetch() wrapper that targets the API origin and always sends session cookies. */
-export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  return fetch(apiUrl(path), { credentials: "include", ...init }).catch((err: unknown) => {
+export async function apiFetch(path: string, init: ApiRequestInit = {}): Promise<Response> {
+  const { timeoutMs = DEFAULT_API_TIMEOUT_MS, signal, ...requestInit } = init;
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+    signal?.removeEventListener("abort", abortFromCaller);
+  }, timeoutMs);
+  const cleanup = () => {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abortFromCaller);
+  };
+
+  try {
+    const response = await fetch(apiUrl(path), {
+      credentials: "include",
+      ...requestInit,
+      signal: controller.signal,
+    });
+    return withBodyDeadline(response, cleanup, () => timedOut);
+  } catch (err: unknown) {
+    cleanup();
+    if (timedOut) {
+      throw new Error("The server took too long to respond. Please try again.");
+    }
     const reason = err instanceof Error ? err.message : String(err);
     // Browser TypeError is usually just "Failed to fetch" — make it actionable.
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(reason)) {
@@ -50,7 +109,7 @@ export function apiFetch(path: string, init: RequestInit = {}): Promise<Response
       );
     }
     throw err instanceof Error ? err : new Error(reason);
-  });
+  }
 }
 
 /**

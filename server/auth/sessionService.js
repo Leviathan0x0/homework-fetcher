@@ -1,10 +1,15 @@
 const crypto = require("crypto");
-const { eq, and, gt } = require("drizzle-orm");
+const { eq, and } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 const { deriveKey } = require("./secrets");
+const { fetchWithTimeout, resolveTimeout } = require("../http/fetchWithTimeout");
 
 const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
+const PROFILE_REQUEST_TIMEOUT_MS = resolveTimeout(
+  process.env.EDUSECURE_PROFILE_TIMEOUT_MS,
+  5000
+);
 
 /**
  * Converts a class-section string from EduSecure (e.g. "IX - F") to a normalized form (e.g. "9-F").
@@ -32,14 +37,14 @@ async function fetchProfileFromEduSecure(sessionCookies) {
   try {
     const cheerio = require("cheerio");
     const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       headers: {
         Cookie: sessionCookies,
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
       redirect: "manual",
-    });
+    }, PROFILE_REQUEST_TIMEOUT_MS);
     if (res.status === 302) {
       console.error("Profile fetch redirected (session likely expired)");
       return empty;
@@ -274,31 +279,23 @@ class SessionService {
     memEduSessions.set(userId, { userId, sessionCookies, updatedAt: now });
 
     try {
-      const existing = await db
-        .select()
-        .from(schema.edusecureSessions)
-        .where(eq(schema.edusecureSessions.userId, userId))
-        .get();
-
-      if (existing) {
-        await db.update(schema.edusecureSessions)
-          .set({
+      await db
+        .insert(schema.edusecureSessions)
+        .values({
+          id: crypto.randomUUID(),
+          userId,
+          encryptedSessionData: encryptedData,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: schema.edusecureSessions.userId,
+          set: {
             encryptedSessionData: encryptedData,
             updatedAt: now,
-          })
-          .where(eq(schema.edusecureSessions.userId, userId))
-          .run();
-      } else {
-        await db.insert(schema.edusecureSessions)
-          .values({
-            id: crypto.randomUUID(),
-            userId,
-            encryptedSessionData: encryptedData,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
-      }
+          },
+        })
+        .run();
     } catch (err) {
       console.error("SQLite saveEduSecureSession failed, saved to memory store:", err.message);
     }
@@ -341,12 +338,12 @@ class SessionService {
     } catch {}
   }
 
-  async createAppSession(userId) {
+  async createAppSession(userId, knownUser = null) {
     const expiresAt = Date.now() + SESSION_TTL_MS;
     const createdAt = new Date().toISOString();
     const jti = crypto.randomUUID();
 
-    const user = await this.getUserById(userId);
+    const user = knownUser || await this.getUserById(userId);
     const token = signSessionToken({
       jti,
       uid: userId,
@@ -382,16 +379,46 @@ class SessionService {
   async findLiveSession(jti) {
     let record = null;
     try {
-      record = await db
-        .select()
+      const joined = await db
+        .select({
+          token: schema.appSessions.token,
+          userId: schema.appSessions.userId,
+          expiresAt: schema.appSessions.expiresAt,
+          createdAt: schema.appSessions.createdAt,
+          accountId: schema.users.id,
+          studentId: schema.users.studentId,
+          displayName: schema.users.displayName,
+          section: schema.users.section,
+          userCreatedAt: schema.users.createdAt,
+        })
         .from(schema.appSessions)
+        .innerJoin(schema.users, eq(schema.users.id, schema.appSessions.userId))
         .where(eq(schema.appSessions.token, jti))
         .get();
+      if (joined) {
+        record = {
+          token: joined.token,
+          userId: joined.userId,
+          expiresAt: joined.expiresAt,
+          createdAt: joined.createdAt,
+          user: {
+            id: joined.accountId,
+            studentId: joined.studentId,
+            displayName: joined.displayName || null,
+            section: joined.section,
+            createdAt: joined.userCreatedAt,
+          },
+        };
+      }
     } catch (err) {
       // A database hiccup must not hand out access on its own, so fall back to
       // this instance's own record of the session rather than to "allow".
       console.error("getAppSession revocation lookup failed:", err.message);
-      record = memAppSessions.get(jti) || null;
+      const memoryRecord = memAppSessions.get(jti) || null;
+      if (memoryRecord) {
+        const user = await this.getUserById(memoryRecord.userId);
+        if (user) record = { ...memoryRecord, user };
+      }
     }
 
     if (!record) return null;
@@ -422,10 +449,9 @@ class SessionService {
       // A signature only proves the token was issued here. An account that no
       // longer exists must not be recreated from its own cookie, otherwise a
       // deleted or banned student simply comes back on the next request.
-      const user = await this.getUserById(payload.uid);
-      if (!user) return null;
+      if (record.userId !== payload.uid || !record.user) return null;
 
-      return { token, user };
+      return { token, user: record.user };
     }
 
     // Legacy opaque tokens issued before signed cookies existed.

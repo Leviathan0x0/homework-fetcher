@@ -5,6 +5,27 @@ const { fetchHomeworkForSession, SchoolSessionExpiredError } = require("../eduse
 const homeworkCacheService = require("../homework/homeworkCacheService");
 
 const router = express.Router();
+const inFlightRefreshes = new Map();
+
+function refreshHomework(userId) {
+  const existing = inFlightRefreshes.get(userId);
+  if (existing) return existing;
+
+  const refresh = (async () => {
+    const eduSession = await sessionService.getEduSecureSession(userId);
+    if (!eduSession?.sessionCookies) {
+      throw new SchoolSessionExpiredError();
+    }
+    const data = await fetchHomeworkForSession(eduSession.sessionCookies);
+    return homeworkCacheService.upsertHomework(userId, data.homework);
+  })().finally(() => {
+    if (inFlightRefreshes.get(userId) === refresh) {
+      inFlightRefreshes.delete(userId);
+    }
+  });
+  inFlightRefreshes.set(userId, refresh);
+  return refresh;
+}
 
 /**
  * Middleware to authenticate requests via HTTP-only app_session cookie.
@@ -12,27 +33,22 @@ const router = express.Router();
  */
 
 // GET /api/homework
-// GET /api/homework
-// Returns cached homework immediately from SQLite (<10ms). If cache is stale, triggers background EduSecure refresh.
+// Returns cached homework immediately. If cache is stale, triggers background EduSecure refresh.
 router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
   // 1. Retrieve cached homework from SQLite
-  let cachedHomework = await homeworkCacheService.getCachedHomework(userId);
+  const cachedHomework = await homeworkCacheService.getCachedHomework(userId);
 
   // 2. If cached data exists (even if stale), return immediately for instant render (<15ms)
   if (cachedHomework.length > 0) {
     // If cache is stale, trigger background refresh asynchronously without freezing the user
     homeworkCacheService.isCacheStale(userId).then(async (isStale) => {
       if (isStale) {
-        const eduSession = await sessionService.getEduSecureSession(userId);
-        if (eduSession && eduSession.sessionCookies) {
-          try {
-            const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-            await homeworkCacheService.upsertHomework(userId, data.homework);
-          } catch (err) {
-            console.error("Background homework refresh error:", err.message);
-          }
+        try {
+          await refreshHomework(userId);
+        } catch (err) {
+          console.error("Background homework refresh error:", err.message);
         }
       }
     }).catch(() => {});
@@ -46,17 +62,17 @@ router.get("/homework", requireAuth, async (req, res) => {
   }
 
   // 3. Cache is completely empty -> Attempt inline fetch
-  const eduSession = await sessionService.getEduSecureSession(userId);
-  if (!eduSession || !eduSession.sessionCookies) {
-    return res.status(401).json({
-      code: "SCHOOL_SESSION_EXPIRED",
-      message: "Your school session has expired. Please sign in again."
-    });
-  }
-
   try {
-    const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
+    const pendingHomework = await homeworkCacheService
+      .waitForPendingUpdate(userId)
+      .catch((err) => {
+        console.error("Pending homework cache update failed:", err.message);
+        return null;
+      });
+    const updatedHomework =
+      pendingHomework?.length > 0
+        ? pendingHomework
+        : await refreshHomework(userId);
 
     return res.json({
       count: updatedHomework.length,
@@ -97,8 +113,11 @@ router.get("/homework", requireAuth, async (req, res) => {
       });
     }
 
-    return res.status(500).json({
-      error: "Failed to fetch homework."
+    return res.status(err.code === "REQUEST_TIMEOUT" ? 504 : 500).json({
+      error:
+        err.code === "REQUEST_TIMEOUT"
+          ? "The school portal took too long to respond. Please try again."
+          : "Failed to fetch homework."
     });
   }
 });
@@ -107,18 +126,9 @@ router.get("/homework", requireAuth, async (req, res) => {
 // Explicitly forces a fresh fetch from EduSecure, upserts to SQLite, and returns updated list.
 router.post("/homework/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
-  const eduSession = await sessionService.getEduSecureSession(userId);
-
-  if (!eduSession || !eduSession.sessionCookies) {
-    return res.status(401).json({
-      code: "SCHOOL_SESSION_EXPIRED",
-      message: "Your school session has expired. Please sign in again."
-    });
-  }
 
   try {
-    const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
+    const updatedHomework = await refreshHomework(userId);
 
     return res.json({
       count: updatedHomework.length,
@@ -135,8 +145,11 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
     }
 
     console.error("Homework Refresh Error:", err);
-    return res.status(500).json({
-      error: "Failed to refresh homework from school server."
+    return res.status(err.code === "REQUEST_TIMEOUT" ? 504 : 500).json({
+      error:
+        err.code === "REQUEST_TIMEOUT"
+          ? "The school portal took too long to respond. Please try again."
+          : "Failed to refresh homework from school server."
     });
   }
 });

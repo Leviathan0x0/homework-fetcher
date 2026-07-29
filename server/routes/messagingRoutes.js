@@ -1,6 +1,19 @@
 const express = require("express");
 const crypto = require("crypto");
-const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
+const {
+  eq,
+  desc,
+  asc,
+  and,
+  or,
+  sql,
+  lt,
+  lte,
+  gt,
+  ne,
+  inArray,
+  isNull,
+} = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema, isRemote } = require("../db/client");
@@ -21,6 +34,7 @@ const {
 } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
 const { recordProfanityStrike, reportConversation, withStrikeWarning } = require("../moderation/flagLogService");
+const { createMissingReadReceipts } = require("../messages/readReceiptService");
 
 const router = express.Router();
 
@@ -120,43 +134,42 @@ router.get("/conversations", requireAuth, async (req, res) => {
 
     // The other participant of each conversation, joined with their account, so
     // the whole user table never has to be transferred.
-    const others = await db
-      .select({
-        conversationId: schema.conversationParticipants.conversationId,
-        id: schema.users.id,
-        studentId: schema.users.studentId,
-        displayName: schema.users.displayName,
-        section: schema.users.section,
-      })
-      .from(schema.conversationParticipants)
-      .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
-      .where(
-        and(
-          inArray(schema.conversationParticipants.conversationId, convIds),
-          ne(schema.conversationParticipants.userId, userId)
+    const [others, convs, unreadRows] = await Promise.all([
+      db
+        .select({
+          conversationId: schema.conversationParticipants.conversationId,
+          id: schema.users.id,
+          studentId: schema.users.studentId,
+          displayName: schema.users.displayName,
+          section: schema.users.section,
+        })
+        .from(schema.conversationParticipants)
+        .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
+        .where(
+          and(
+            inArray(schema.conversationParticipants.conversationId, convIds),
+            ne(schema.conversationParticipants.userId, userId)
+          )
         )
-      )
-      .all();
+        .all(),
+      db
+        .select()
+        .from(schema.conversations)
+        .where(inArray(schema.conversations.id, convIds))
+        .all(),
+      db.all(sql`
+        SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
+        FROM messages m
+        JOIN conversation_participants p
+          ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
+        WHERE m.sender_id <> ${userId}
+          AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+        GROUP BY m.conversation_id
+      `),
+    ]);
 
     const otherByConv = {};
     for (const row of others) otherByConv[row.conversationId] = row;
-
-    const convs = await db
-      .select()
-      .from(schema.conversations)
-      .where(inArray(schema.conversations.id, convIds))
-      .all();
-
-    // Unread counts for every conversation in a single aggregate query.
-    const unreadRows = await db.all(sql`
-      SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
-      FROM messages m
-      JOIN conversation_participants p
-        ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
-      WHERE m.sender_id <> ${userId}
-        AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
-      GROUP BY m.conversation_id
-    `);
 
     const unreadByConv = {};
     for (const row of unreadRows || []) {
@@ -380,21 +393,25 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       .all();
 
     const senderIds = [...new Set(msgs.map((m) => m.senderId))];
-    const senders = senderIds.length
-      ? await db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
-      : [];
+    const messageIds = msgs.map((m) => m.id);
+    const replyToIds = msgs.map((m) => m.replyToId).filter(Boolean);
+    const [senders, receipts, parentMessages] = await Promise.all([
+      senderIds.length
+        ? db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
+        : [],
+      messageIds.length
+        ? db
+            .select()
+            .from(schema.messageReadReceipts)
+            .where(inArray(schema.messageReadReceipts.messageId, messageIds))
+            .all()
+        : [],
+      replyToIds.length
+        ? db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
+        : [],
+    ]);
     const senderMap = {};
     for (const sender of senders) senderMap[sender.id] = sender;
-
-    // Fetch read receipts for all messages
-    const messageIds = msgs.map((m) => m.id);
-    const receipts = messageIds.length
-      ? await db
-          .select()
-          .from(schema.messageReadReceipts)
-          .where(inArray(schema.messageReadReceipts.messageId, messageIds))
-          .all()
-      : [];
 
     const receiptsByMessage = {};
     for (const receipt of receipts) {
@@ -405,11 +422,6 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       });
     }
 
-    // Fetch parent messages for replies
-    const replyToIds = msgs.map((m) => m.replyToId).filter(Boolean);
-    const parentMessages = replyToIds.length
-      ? await db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
-      : [];
     const parentMap = {};
     for (const parent of parentMessages) parentMap[parent.id] = parent;
 
@@ -473,6 +485,8 @@ router.post(
 
       const { value: content, tooLong } = limitText((req.body || {}).content, MAX_MESSAGE_CHARS);
       const replyToId = (req.body || {}).replyToId || null;
+      const clientMessageId = String((req.body || {}).clientMessageId || "").trim();
+      let parentMsg = null;
       if (!content && !req.file) {
         return res.status(400).json({ error: "Message content or file attachment is required." });
       }
@@ -482,10 +496,17 @@ router.post(
           error: `Messages are limited to ${MAX_MESSAGE_CHARS} characters.`,
         });
       }
+      if (
+        clientMessageId &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientMessageId)
+      ) {
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        return res.status(400).json({ error: "Invalid message request ID." });
+      }
 
       // Validate replyToId if provided
       if (replyToId) {
-        const parentMsg = await db
+        parentMsg = await db
           .select()
           .from(schema.messages)
           .where(eq(schema.messages.id, replyToId))
@@ -496,7 +517,12 @@ router.post(
         }
       }
 
-      const id = req.messageId || crypto.randomUUID();
+      const id = clientMessageId
+        ? crypto
+            .createHash("sha256")
+            .update(`${req.user.id}:${clientMessageId}`)
+            .digest("hex")
+        : req.messageId || crypto.randomUUID();
       const now = new Date().toISOString();
       const trimmed = content;
 
@@ -540,7 +566,9 @@ router.post(
         return res.status(400).json({ error: safety.reason });
       }
 
-      await db.insert(schema.messages)
+      const previewText = req.file ? `[Attachment] ${originalFilename}` : trimmed.substring(0, 80);
+      const insertResult = await db
+        .insert(schema.messages)
         .values({
           id,
           conversationId: convId,
@@ -553,31 +581,132 @@ router.post(
           filePath,
           createdAt: now,
         })
+        .onConflictDoNothing({ target: schema.messages.id })
         .run();
-
-      if (req.file && STORE_ATTACHMENTS_IN_DB) {
-        await db
-          .insert(schema.messageAttachments)
-          .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
-          .run();
+      const inserted =
+        Number(insertResult?.rowsAffected ?? insertResult?.changes ?? 0) > 0;
+      let persistedMessage = null;
+      if (!inserted) {
+        persistedMessage = await db
+          .select()
+          .from(schema.messages)
+          .where(eq(schema.messages.id, id))
+          .get();
+        const matchesRetry =
+          persistedMessage &&
+          persistedMessage.conversationId === convId &&
+          persistedMessage.senderId === req.user.id &&
+          persistedMessage.content === trimmed &&
+          (persistedMessage.replyToId || null) === (replyToId || null) &&
+          (persistedMessage.originalFilename || null) === originalFilename &&
+          (persistedMessage.mimeType || null) === mimeType;
+        if (!matchesRetry) {
+          if (req.file?.path) fs.unlink(req.file.path, () => {});
+          return res.status(409).json({
+            error: "This message request conflicts with an earlier send.",
+          });
+        }
+        if (
+          req.file?.path &&
+          req.file.path !== persistedMessage.filePath
+        ) {
+          fs.unlink(req.file.path, () => {});
+        }
       }
 
-      const previewText = req.file ? `[Attachment] ${originalFilename}` : trimmed.substring(0, 80);
+      const messageWrites = [];
+      if (req.file && STORE_ATTACHMENTS_IN_DB) {
+        messageWrites.push(
+          db
+            .insert(schema.messageAttachments)
+            .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
+            .onConflictDoNothing({ target: schema.messageAttachments.messageId })
+        );
+      }
+      messageWrites.push(
+        db.update(schema.conversations)
+          .set({
+            lastMessagePreview: previewText,
+            lastMessageAt: persistedMessage?.createdAt || now,
+            updatedAt: persistedMessage?.createdAt || now,
+          })
+          .where(
+            and(
+              eq(schema.conversations.id, convId),
+              or(
+                isNull(schema.conversations.lastMessageAt),
+                lte(
+                  schema.conversations.lastMessageAt,
+                  persistedMessage?.createdAt || now
+                )
+              )
+            )
+          )
+      );
 
-      await db.update(schema.conversations)
-        .set({
-          lastMessagePreview: previewText,
-          lastMessageAt: now,
-          updatedAt: now,
-        })
-        .where(eq(schema.conversations.id, convId))
-        .run();
+      if (isRemote) {
+        await db.batch(messageWrites);
+      } else {
+        for (const write of messageWrites) await write.run();
+      }
 
-      const participants = await db
-        .select()
-        .from(schema.conversationParticipants)
-        .where(eq(schema.conversationParticipants.conversationId, convId))
-        .all();
+      if (!inserted) {
+        let retryReplyTo = null;
+        if (parentMsg) {
+          const parentSender = await db
+            .select()
+            .from(schema.users)
+            .where(eq(schema.users.id, parentMsg.senderId))
+            .get();
+          retryReplyTo = {
+            id: parentMsg.id,
+            senderId: parentMsg.senderId,
+            senderName: parentSender
+              ? parentSender.displayName || parentSender.studentId
+              : null,
+            content: parentMsg.content.substring(0, 100),
+            attachmentUrl: parentMsg.attachmentUrl,
+          };
+        }
+        return res.json({
+          success: true,
+          message: {
+            id: persistedMessage.id,
+            conversationId: persistedMessage.conversationId,
+            senderId: persistedMessage.senderId,
+            senderStudentId: req.user.studentId,
+            senderName: req.user.displayName || req.user.studentId,
+            content: persistedMessage.content,
+            attachmentUrl: persistedMessage.attachmentUrl,
+            originalFilename: persistedMessage.originalFilename,
+            mimeType: persistedMessage.mimeType,
+            replyTo: retryReplyTo,
+            readBy: [],
+            createdAt: persistedMessage.createdAt,
+            isMine: true,
+          },
+        });
+      }
+
+      const [participants, convMeta, parentSender] = await Promise.all([
+        db
+          .select()
+          .from(schema.conversationParticipants)
+          .where(eq(schema.conversationParticipants.conversationId, convId))
+          .all(),
+        db
+          .select()
+          .from(schema.conversations)
+          .where(eq(schema.conversations.id, convId))
+          .get(),
+        parentMsg
+          ? db
+              .select()
+              .from(schema.users)
+              .where(eq(schema.users.id, parentMsg.senderId))
+              .get()
+          : null,
+      ]);
 
       // Skip muted recipients — mute means no notification, unread still updates in inbox.
       const otherUserIds = participants
@@ -585,11 +714,6 @@ router.post(
         .map((p) => p.userId);
 
       if (otherUserIds.length > 0) {
-        const convMeta = await db
-          .select()
-          .from(schema.conversations)
-          .where(eq(schema.conversations.id, convId))
-          .get();
         const fromName = req.user.displayName || req.user.studentId;
         const isSection = convMeta?.type === "section";
         const title = isSection
@@ -610,26 +734,14 @@ router.post(
 
       // Fetch parent message if replying
       let replyTo = null;
-      if (replyToId) {
-        const parent = await db
-          .select()
-          .from(schema.messages)
-          .where(eq(schema.messages.id, replyToId))
-          .get();
-        if (parent) {
-          const parentSender = await db
-            .select()
-            .from(schema.users)
-            .where(eq(schema.users.id, parent.senderId))
-            .get();
-          replyTo = {
-            id: parent.id,
-            senderId: parent.senderId,
-            senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
-            content: parent.content.substring(0, 100),
-            attachmentUrl: parent.attachmentUrl,
-          };
-        }
+      if (parentMsg) {
+        replyTo = {
+          id: parentMsg.id,
+          senderId: parentMsg.senderId,
+          senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
+          content: parentMsg.content.substring(0, 100),
+          attachmentUrl: parentMsg.attachmentUrl,
+        };
       }
 
       return res.status(201).json({
@@ -917,41 +1029,7 @@ router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
       )
       .run();
 
-    // Write per-message read receipts so senders see “seen”.
-    const othersMsgs = await db
-      .select({ id: schema.messages.id })
-      .from(schema.messages)
-      .where(
-        and(
-          eq(schema.messages.conversationId, convId),
-          ne(schema.messages.senderId, req.user.id)
-        )
-      )
-      .all();
-
-    for (const msg of othersMsgs) {
-      const existing = await db
-        .select()
-        .from(schema.messageReadReceipts)
-        .where(
-          and(
-            eq(schema.messageReadReceipts.messageId, msg.id),
-            eq(schema.messageReadReceipts.userId, req.user.id)
-          )
-        )
-        .get();
-      if (!existing) {
-        await db
-          .insert(schema.messageReadReceipts)
-          .values({
-            id: crypto.randomUUID(),
-            messageId: msg.id,
-            userId: req.user.id,
-            readAt: now,
-          })
-          .run();
-      }
-    }
+    await createMissingReadReceipts(convId, req.user.id, now);
 
     return res.json({ success: true });
   } catch (err) {
@@ -978,28 +1056,21 @@ router.post(
         return res.status(403).json({ error: "Access denied." });
       }
 
-      const existing = await db
-        .select()
-        .from(schema.messageReadReceipts)
-        .where(
-          and(
-            eq(schema.messageReadReceipts.messageId, messageId),
-            eq(schema.messageReadReceipts.userId, req.user.id)
-          )
-        )
-        .get();
-
-      if (!existing) {
-        await db
-          .insert(schema.messageReadReceipts)
-          .values({
-            id: crypto.randomUUID(),
-            messageId,
-            userId: req.user.id,
-            readAt: new Date().toISOString(),
-          })
-          .run();
-      }
+      await db
+        .insert(schema.messageReadReceipts)
+        .values({
+          id: crypto.randomUUID(),
+          messageId,
+          userId: req.user.id,
+          readAt: new Date().toISOString(),
+        })
+        .onConflictDoNothing({
+          target: [
+            schema.messageReadReceipts.messageId,
+            schema.messageReadReceipts.userId,
+          ],
+        })
+        .run();
 
       return res.json({ success: true });
     } catch (err) {

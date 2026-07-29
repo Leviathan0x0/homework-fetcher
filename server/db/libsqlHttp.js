@@ -12,6 +12,8 @@
  * is required.
  */
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
+
 /** Converts a libSQL "libsql://" URL into its HTTPS endpoint. */
 function toHttpUrl(rawUrl) {
   const trimmed = rawUrl.trim().replace(/\/+$/, "");
@@ -58,9 +60,18 @@ function decodeValue(cell) {
  * Creates a libSQL HTTP client.
  * @param {string} url libsql:// or https:// database URL
  * @param {string} [authToken]
+ * @param {{timeoutMs?: number, fetchImpl?: typeof fetch}} [options]
  */
-function createLibsqlClient(url, authToken) {
+function createLibsqlClient(url, authToken, options = {}) {
   const endpoint = `${toHttpUrl(url)}/v2/pipeline`;
+  const configuredTimeout = Number(
+    options.timeoutMs ?? process.env.DATABASE_REQUEST_TIMEOUT_MS ?? DEFAULT_REQUEST_TIMEOUT_MS
+  );
+  const timeoutMs =
+    Number.isFinite(configuredTimeout) && configuredTimeout > 0
+      ? configuredTimeout
+      : DEFAULT_REQUEST_TIMEOUT_MS;
+  const fetchImpl = options.fetchImpl || fetch;
 
   /**
    * Executes one or more statements in a single round trip.
@@ -77,21 +88,37 @@ function createLibsqlClient(url, authToken) {
     }));
     requests.push({ type: "close" });
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-      },
-      body: JSON.stringify({ requests }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    timeout.unref?.();
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
+    let payload;
+    try {
+      const res = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ requests }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
+      }
+      payload = await res.json();
+    } catch (err) {
+      if (controller.signal.aborted) {
+        const timeoutError = new Error(`libSQL request timed out after ${timeoutMs}ms`);
+        timeoutError.code = "DATABASE_TIMEOUT";
+        throw timeoutError;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
     }
 
-    const payload = await res.json();
     const results = [];
     for (const entry of payload.results || []) {
       if (entry.type === "error") {
@@ -118,7 +145,7 @@ function createLibsqlClient(url, authToken) {
     return result || { columns: [], rows: [], rowsAffected: 0 };
   }
 
-  return { execute, executeBatch, endpoint };
+  return { execute, executeBatch, endpoint, timeoutMs };
 }
 
-module.exports = { createLibsqlClient, toHttpUrl };
+module.exports = { createLibsqlClient, toHttpUrl, DEFAULT_REQUEST_TIMEOUT_MS };

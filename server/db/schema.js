@@ -12,6 +12,7 @@ const users = sqliteTable(
   },
   (table) => [
     index("idx_users_student_id").on(table.studentId),
+    index("idx_users_section").on(table.section),
   ]
 );
 
@@ -154,6 +155,13 @@ const notifications = sqliteTable(
   (t) => [
     index("idx_notifications_user_unread").on(t.userId, t.isRead),
     index("idx_notifications_created").on(t.createdAt),
+    index("idx_notifications_user_reference_unread").on(
+      t.userId,
+      t.type,
+      t.referenceId,
+      t.isRead
+    ),
+    index("idx_notifications_user_created").on(t.userId, t.createdAt),
   ]
 );
 
@@ -168,7 +176,10 @@ const conversations = sqliteTable(
     pinnedHomeworkId: text("pinned_homework_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-  }
+  },
+  (t) => [
+    index("idx_conversations_type_section").on(t.type, t.section),
+  ]
 );
 
 const conversationParticipants = sqliteTable(

@@ -68,6 +68,8 @@ export const AppShell: React.FC = () => {
   const [openRequestsCount, setOpenRequestsCount] = useState(0);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const viewBeforeSettings = useRef<typeof activeView>('today');
+  const glanceCountsInFlight = useRef(false);
+  const unreadCountInFlight = useRef(false);
 
   useEffect(() => {
     const handleActiveConv = (e: Event) => {
@@ -79,7 +81,8 @@ export const AppShell: React.FC = () => {
   }, []);
 
   const refreshGlanceCounts = useCallback(async () => {
-    if (!user) return;
+    if (!user || glanceCountsInFlight.current) return;
+    glanceCountsInFlight.current = true;
     try {
       const [convs, reqs] = await Promise.all([
         messagingService.getConversations(user.studentId),
@@ -93,6 +96,8 @@ export const AppShell: React.FC = () => {
       setOpenRequestsCount((reqs || []).filter((r: { status?: string }) => r.status === 'open').length);
     } catch {
       // Glance counts are best-effort.
+    } finally {
+      glanceCountsInFlight.current = false;
     }
   }, [user]);
 
@@ -108,7 +113,7 @@ export const AppShell: React.FC = () => {
       window.clearInterval(id);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
     };
-  }, [isAuthenticated, user, activeView, refreshGlanceCounts]);
+  }, [isAuthenticated, user, refreshGlanceCounts]);
 
   const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
 
@@ -197,10 +202,15 @@ export const AppShell: React.FC = () => {
   }, [setActiveView]);
 
   const fetchUnreadCount = useCallback(async () => {
+    if (unreadCountInFlight.current) return;
+    unreadCountInFlight.current = true;
     try {
       if (!user) return;
       setUnreadCount(await notificationService.getUnreadCount());
-    } catch {}
+    } catch {
+    } finally {
+      unreadCountInFlight.current = false;
+    }
   }, [user]);
 
   useEffect(() => {
@@ -331,7 +341,7 @@ export const AppShell: React.FC = () => {
 
           {activeView === 'messages' && (
             <div className="flex-1 min-h-0">
-              <MessagesView userSection={user?.section} />
+              <MessagesView userSection={user?.section} studentId={user?.studentId} />
             </div>
           )}
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homework-pwa-v3';
+const CACHE_NAME = 'homework-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -37,6 +37,7 @@ self.addEventListener('fetch', (event) => {
 
   // Ignore chrome extensions or non-http requests
   if (!url.protocol.startsWith('http')) return;
+  if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
     fetch(event.request)

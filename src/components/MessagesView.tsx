@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
-import { messagingService, authService, homeworkService } from '../services/api';
+import { messagingService, homeworkService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
@@ -44,9 +44,10 @@ import {
 
 interface MessagesViewProps {
   userSection?: string;
+  studentId?: string;
 }
 
-export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
+export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, studentId }) => {
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   // Seeded from the last load so the inbox paints immediately instead of
   // showing an empty list until the first request comes back.
@@ -67,7 +68,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [reportingConv, setReportingConv] = useState(false);
-  const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
+  const currentStudentId = studentId || sessionStorage.getItem('activeStudentId') || 'Student';
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showPinPicker, setShowPinPicker] = useState(false);
@@ -80,14 +81,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   // State for monitoring notice dialog
   const [showNoticeDialog, setShowNoticeDialog] = useState(false);
   const [pendingParticipant, setPendingParticipant] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    authService.getCurrentUser().then(u => {
-      if (u && u.studentId) {
-        setCurrentStudentId(u.studentId);
-      }
-    });
-  }, []);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('active_conv_changed', { detail: activeConvId }));
@@ -110,6 +103,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const searchTimerRef = useRef<number | null>(null);
   const messagesFpRef = useRef('');
   const conversationsFpRef = useRef('');
+  const conversationsInFlightRef = useRef(false);
+  const messagesInFlightRef = useRef(new Set<string>());
+  const activeConvIdRef = useRef(activeConvId);
+  const lastReadMessageRef = useRef(new Map<string, string>());
+  const markingReadRef = useRef(new Set<string>());
+  const failedSendRef = useRef<{ id: string; fingerprint: string } | null>(null);
+  activeConvIdRef.current = activeConvId;
 
   const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
     u?.displayName || u?.studentId || 'Unknown';
@@ -132,6 +132,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   };
 
   const fetchConversations = useCallback(async () => {
+    if (conversationsInFlightRef.current) return;
+    conversationsInFlightRef.current = true;
     try {
       const convs = (await messagingService.getConversations()) as Conversation[];
       const fp = convs
@@ -148,6 +150,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     } catch {
       setLoadError('Conversations could not be loaded. Retrying…');
     } finally {
+      conversationsInFlightRef.current = false;
       setIsLoading(false);
     }
   }, []);
@@ -323,9 +326,30 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, [activeConvId]);
 
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
+    if (messagesInFlightRef.current.has(convId)) return;
+    messagesInFlightRef.current.add(convId);
     if (!silent) setMessagesLoading(true);
     try {
       const msgs = (await messagingService.getMessages(convId)) as Message[];
+      if (activeConvIdRef.current !== convId) return;
+      const latestIncoming = [...msgs].reverse().find((message) => !message.isMine);
+      if (
+        latestIncoming &&
+        lastReadMessageRef.current.get(convId) !== latestIncoming.id &&
+        !markingReadRef.current.has(convId)
+      ) {
+        markingReadRef.current.add(convId);
+        void messagingService
+          .markAsRead(convId)
+          .then(() => {
+            lastReadMessageRef.current.set(convId, latestIncoming.id);
+            window.dispatchEvent(new CustomEvent('messages_unread_changed'));
+          })
+          .catch(() => {})
+          .finally(() => {
+            markingReadRef.current.delete(convId);
+          });
+      }
       const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
       setMessages((prev) => {
         const map = new Map<string, Message>();
@@ -353,6 +377,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     } catch {
       // keep showing whatever we already have
     } finally {
+      messagesInFlightRef.current.delete(convId);
       if (!silent) setMessagesLoading(false);
     }
   }, []);
@@ -364,16 +389,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     messagesFpRef.current = '';
     setMessagesLoading(true);
     fetchMessages(activeConvId);
-    messagingService.markAsRead(activeConvId);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
-    window.dispatchEvent(new CustomEvent('messages_unread_changed'));
 
     const messageInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchMessages(activeConvId, true);
-        messagingService.markAsRead(activeConvId);
       }
     }, 5000);
 
@@ -402,7 +424,21 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const textCopy = inputText;
     const fileCopy = selectedFile;
     const replyToCopy = replyingTo;
-    const tempId = `temp_${Date.now()}`;
+    const sendFingerprint = [
+      activeConvId,
+      textCopy.trim(),
+      fileCopy ? `${fileCopy.name}:${fileCopy.size}:${fileCopy.lastModified}` : '',
+      replyToCopy?.id || '',
+    ].join('\u0000');
+    const failedSend = failedSendRef.current;
+    const clientMessageId =
+      failedSend?.fingerprint === sendFingerprint
+        ? failedSend.id
+        : crypto.randomUUID();
+    if (failedSend?.id !== clientMessageId) {
+      failedSendRef.current = null;
+    }
+    const tempId = `temp_${clientMessageId}`;
     const optimistic: Message = {
       id: tempId,
       conversationId: activeConvId,
@@ -453,8 +489,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         currentStudentId,
         textCopy.trim(),
         fileCopy,
-        replyToCopy?.id || null
+        replyToCopy?.id || null,
+        clientMessageId
       );
+      failedSendRef.current = null;
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
       }
@@ -477,6 +515,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         )
       );
     } catch (err: any) {
+      failedSendRef.current = { id: clientMessageId, fingerprint: sendFingerprint };
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
       }

@@ -7,11 +7,16 @@
  */
 
 const fs = require("fs");
+const { fetchWithTimeout, resolveTimeout } = require("../http/fetchWithTimeout");
 const { GUIDELINE_MESSAGE } = require("./badWords");
 const { matchesMagicBytes } = require("../files/fileTypes");
 
 const MODEL = "omni-moderation-latest";
 const ENDPOINT = "https://api.openai.com/v1/moderations";
+const MODERATION_REQUEST_TIMEOUT_MS = resolveTimeout(
+  process.env.MODERATION_REQUEST_TIMEOUT_MS,
+  8000
+);
 
 const VERIFY_FAILED_MESSAGE =
   "We couldn’t check that photo right now. Please try again in a moment.";
@@ -121,14 +126,14 @@ async function callModeration(input, options = {}) {
 
   let res;
   try {
-    res = await fetch(ENDPOINT, {
+    res = await fetchWithTimeout(ENDPOINT, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ model: MODEL, input }),
-    });
+    }, MODERATION_REQUEST_TIMEOUT_MS);
   } catch (err) {
     console.error("[moderation] OpenAI Moderations network error:", err.message);
     return {

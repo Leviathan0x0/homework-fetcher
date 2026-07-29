@@ -71,7 +71,9 @@ export function useHomework() {
     setErrorMessage(null);
 
     try {
-      const list = await homeworkService.getHomework(user.id);
+      const list = forceRefresh
+        ? await homeworkService.refreshHomework(user.id)
+        : await homeworkService.getHomework(user.id);
       const sortedList = sortHomeworkNewestFirst(list);
       setHomework(sortedList);
 

@@ -40,7 +40,9 @@ if (isRemote) {
     async (sql, params, method) => {
       const result = await remoteClient.execute(sql, params);
       if (method === "get") return { rows: result.rows[0] };
-      if (method === "run") return { rows: [] };
+      if (method === "run") {
+        return { rows: [], rowsAffected: result.rowsAffected };
+      }
       return { rows: result.rows };
     },
     async (queries) => {
@@ -50,7 +52,9 @@ if (isRemote) {
       return results.map((result, index) => {
         const method = queries[index].method;
         if (method === "get") return { rows: result.rows[0] };
-        if (method === "run") return { rows: [] };
+        if (method === "run") {
+          return { rows: [], rowsAffected: result.rowsAffected };
+        }
         return { rows: result.rows };
       });
     },
@@ -325,6 +329,72 @@ function schemaStatements() {
     .filter(Boolean);
 }
 
+const COLUMN_MIGRATIONS = [
+  ["users", "display_name", "TEXT"],
+  ["users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'"],
+  ["messages", "attachment_url", "TEXT"],
+  ["messages", "original_filename", "TEXT"],
+  ["messages", "mime_type", "TEXT"],
+  ["messages", "file_path", "TEXT"],
+  ["messages", "reply_to_id", "TEXT"],
+  ["conversations", "type", "TEXT NOT NULL DEFAULT 'dm'"],
+  ["conversations", "section", "TEXT"],
+  ["conversations", "pinned_homework_id", "TEXT"],
+  ["conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0"],
+];
+
+const POST_MIGRATION_INDEXES = [
+  "CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)",
+  "CREATE INDEX IF NOT EXISTS idx_users_section ON users(section)",
+  "CREATE INDEX IF NOT EXISTS idx_notifications_user_reference_unread ON notifications(user_id, type, reference_id, is_read)",
+  "CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_conversations_type_section ON conversations(type, section)",
+];
+
+async function initRemoteDb() {
+  await remoteClient.executeBatch(
+    schemaStatements().map((statement) => ({ sql: statement }))
+  );
+
+  const tables = [...new Set(COLUMN_MIGRATIONS.map(([table]) => table))];
+  const tableResults = await remoteClient.executeBatch(
+    tables.map((table) => ({
+      sql: `SELECT name FROM pragma_table_info('${table}')`,
+    }))
+  );
+  const columnsByTable = new Map(
+    tables.map((table, index) => [
+      table,
+      new Set((tableResults[index]?.rows || []).map((row) => row[0])),
+    ])
+  );
+
+  const pendingStatements = COLUMN_MIGRATIONS
+    .filter(([table, column]) => !columnsByTable.get(table)?.has(column))
+    .map(([table, column, definition]) => ({
+      sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+    }));
+  pendingStatements.push(...POST_MIGRATION_INDEXES.map((sql) => ({ sql })));
+
+  try {
+    await remoteClient.executeBatch(pendingStatements);
+  } catch (err) {
+    // Concurrent cold starts can discover the same missing column. Rechecking
+    // individually keeps that harmless migration race from blocking the API.
+    console.warn("Batched database migration retry:", err.message);
+    for (const [table, column, definition] of COLUMN_MIGRATIONS) {
+      await ensureColumn(table, column, definition);
+    }
+    for (const statement of POST_MIGRATION_INDEXES) {
+      try {
+        await exec(statement);
+      } catch (indexErr) {
+        console.error("Index creation:", indexErr.message);
+      }
+    }
+  }
+}
+
 /**
  * Ensures all required tables, indices and columns exist.
  * Safe to call on startup: it never drops or overwrites existing data.
@@ -333,31 +403,23 @@ async function initDb() {
   if (startupError) throw startupError;
 
   if (isRemote) {
-    for (const statement of schemaStatements()) {
-      await remoteClient.execute(statement);
-    }
-  } else {
-    sqlite.exec(SCHEMA_SQL);
+    await initRemoteDb();
+    return;
   }
 
+  sqlite.exec(SCHEMA_SQL);
+
   // Lightweight migrations so databases created by older versions keep working.
-  await ensureColumn("users", "display_name", "TEXT");
-  await ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
-  await ensureColumn("messages", "attachment_url", "TEXT");
-  await ensureColumn("messages", "original_filename", "TEXT");
-  await ensureColumn("messages", "mime_type", "TEXT");
-  await ensureColumn("messages", "file_path", "TEXT");
-  await ensureColumn("messages", "reply_to_id", "TEXT");
-  await ensureColumn("conversations", "type", "TEXT NOT NULL DEFAULT 'dm'");
-  await ensureColumn("conversations", "section", "TEXT");
-  await ensureColumn("conversations", "pinned_homework_id", "TEXT");
-  await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
-  
-  // Create indexes for new columns after they exist
-  try {
-    await exec("CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)");
-  } catch (err) {
-    console.error("Index creation (reply_to_id):", err.message);
+  for (const [table, column, definition] of COLUMN_MIGRATIONS) {
+    await ensureColumn(table, column, definition);
+  }
+
+  for (const statement of POST_MIGRATION_INDEXES) {
+    try {
+      await exec(statement);
+    } catch (err) {
+      console.error("Index creation:", err.message);
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 const crypto = require("crypto");
-const { eq, and, lt, sql } = require("drizzle-orm");
-const { db, schema } = require("../db/client");
+const { eq, and, lt, inArray } = require("drizzle-orm");
+const { db, schema, isRemote } = require("../db/client");
 
 // Notifications are a rolling feed: without pruning the table keeps growing for
 // every student forever. Old read notifications are removed opportunistically
@@ -28,32 +28,34 @@ async function createNotifications(userIds, type, title, body, link, referenceId
   const consolidate = options.consolidate ?? type === "new_message";
   const now = new Date().toISOString();
   const pending = [];
+  const recipients = [...new Set(userIds)];
+  let existingIds = [];
+  const existingUserIds = new Set();
 
-  for (const userId of userIds) {
-    if (consolidate && referenceId) {
-      const existing = await db
-        .select()
-        .from(schema.notifications)
-        .where(
-          and(
-            eq(schema.notifications.userId, userId),
-            eq(schema.notifications.type, type),
-            eq(schema.notifications.referenceId, referenceId),
-            eq(schema.notifications.isRead, 0)
-          )
+  if (consolidate && referenceId) {
+    const existing = await db
+      .select({
+        id: schema.notifications.id,
+        userId: schema.notifications.userId,
+      })
+      .from(schema.notifications)
+      .where(
+        and(
+          inArray(schema.notifications.userId, recipients),
+          eq(schema.notifications.type, type),
+          eq(schema.notifications.referenceId, referenceId),
+          eq(schema.notifications.isRead, 0)
         )
-        .get();
-
-      if (existing) {
-        await db
-          .update(schema.notifications)
-          .set({ title, body: body || null, createdAt: now })
-          .where(eq(schema.notifications.id, existing.id))
-          .run();
-        continue;
-      }
+      )
+      .all();
+    existingIds = existing.map((notification) => notification.id);
+    for (const notification of existing) {
+      existingUserIds.add(notification.userId);
     }
+  }
 
+  for (const userId of recipients) {
+    if (existingUserIds.has(userId)) continue;
     pending.push({
       id: crypto.randomUUID(),
       userId,
@@ -67,10 +69,22 @@ async function createNotifications(userIds, type, title, body, link, referenceId
     });
   }
 
-  // A single multi-row insert instead of one round trip per recipient, which
-  // matters for section-wide announcements.
+  const writes = [];
+  if (existingIds.length > 0) {
+    writes.push(
+      db
+        .update(schema.notifications)
+        .set({ title, body: body || null, createdAt: now })
+        .where(inArray(schema.notifications.id, existingIds))
+    );
+  }
   if (pending.length > 0) {
-    await db.insert(schema.notifications).values(pending).run();
+    writes.push(db.insert(schema.notifications).values(pending));
+  }
+  if (isRemote && writes.length > 0) {
+    await db.batch(writes);
+  } else {
+    for (const write of writes) await write.run();
   }
 
   if (Math.random() < PRUNE_PROBABILITY) {

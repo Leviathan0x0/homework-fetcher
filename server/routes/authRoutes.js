@@ -62,7 +62,10 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await sessionService.findOrCreateUser(cleanStudentId);
-    await sessionService.saveEduSecureSession(user.id, sessionCookies);
+    const [, appToken] = await Promise.all([
+      sessionService.saveEduSecureSession(user.id, sessionCookies),
+      sessionService.createAppSession(user.id, user),
+    ]);
 
     // Immediately cache homework parsed during login verification
     if (initialHomework && initialHomework.length > 0) {
@@ -70,8 +73,6 @@ router.post("/login", async (req, res) => {
         console.error("Failed to upsert initial homework cache:", err.message);
       });
     }
-
-    const appToken = await sessionService.createAppSession(user.id);
 
     res.cookie("app_session", appToken, sessionCookieOptions({
       maxAge: sessionService.SESSION_TTL_MS

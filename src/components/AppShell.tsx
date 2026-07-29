@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { notificationService } from '../services/api';
+import { notificationService, messagingService, requestService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
@@ -25,8 +25,10 @@ import { SettingsView } from './SettingsView';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
+import { OfflineBanner } from './OfflineBanner';
 import { isTodayDate } from '../utils/dateUtils';
 import { Loader2 } from 'lucide-react';
+import { ViewType } from '../types/homework';
 
 export const AppShell: React.FC = () => {
   const {
@@ -61,6 +63,8 @@ export const AppShell: React.FC = () => {
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [messagesUnread, setMessagesUnread] = useState(0);
+  const [openRequestsCount, setOpenRequestsCount] = useState(0);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const viewBeforeSettings = useRef<typeof activeView>('today');
 
@@ -72,6 +76,38 @@ export const AppShell: React.FC = () => {
     window.addEventListener('active_conv_changed', handleActiveConv);
     return () => window.removeEventListener('active_conv_changed', handleActiveConv);
   }, []);
+
+  const refreshGlanceCounts = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [convs, reqs] = await Promise.all([
+        messagingService.getConversations(user.studentId),
+        requestService.getRequests(user.section),
+      ]);
+      // Count conversations with unread mail, not total unread messages.
+      const unreadChats = (convs || []).filter(
+        (c: { unreadCount?: number }) => (c.unreadCount || 0) > 0
+      ).length;
+      setMessagesUnread(unreadChats);
+      setOpenRequestsCount((reqs || []).filter((r: { status?: string }) => r.status === 'open').length);
+    } catch {
+      // Glance counts are best-effort.
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    refreshGlanceCounts();
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshGlanceCounts();
+    }, 20000);
+    const onUnreadChanged = () => refreshGlanceCounts();
+    window.addEventListener('messages_unread_changed', onUnreadChanged);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener('messages_unread_changed', onUnreadChanged);
+    };
+  }, [isAuthenticated, user, activeView, refreshGlanceCounts]);
 
   const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
 
@@ -224,7 +260,7 @@ export const AppShell: React.FC = () => {
         <div className={cn(
           "flex-1 w-full mx-auto min-h-0",
           activeView === 'messages'
-            ? "h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
+            ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
             : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
         )}>
           {errorMessage && (
@@ -235,7 +271,18 @@ export const AppShell: React.FC = () => {
             />
           )}
 
-          <PWAInstallPrompt variant="banner" />
+          {activeView !== 'messages' && <OfflineBanner />}
+          {/* Keep a hidden instance on Messages so the 12s delay survives tab switches. */}
+          {activeView === 'messages' ? (
+            <div className="hidden" aria-hidden>
+              <PWAInstallPrompt variant="banner" />
+            </div>
+          ) : (
+            <PWAInstallPrompt variant="banner" />
+          )}
+          {activeView === 'messages' && (
+            <OfflineBanner className="mx-3 mt-2 shrink-0" />
+          )}
 
           {activeView === 'today' && (
             <TodayView
@@ -250,6 +297,9 @@ export const AppShell: React.FC = () => {
               onOpenPreview={handleOpenPreview}
               displayName={user?.displayName}
               studentId={user?.studentId}
+              unreadMessages={messagesUnread}
+              openRequests={openRequestsCount}
+              onNavigate={(view: ViewType) => handleViewChange(view)}
             />
           )}
           {activeView === 'classwork' && (
@@ -277,7 +327,9 @@ export const AppShell: React.FC = () => {
           )}
 
           {activeView === 'messages' && (
-            <MessagesView userSection={user?.section} />
+            <div className="flex-1 min-h-0">
+              <MessagesView userSection={user?.section} />
+            </div>
           )}
 
           {activeView === 'calendar' && (
@@ -329,6 +381,8 @@ export const AppShell: React.FC = () => {
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}
               onOpenPreview={handleOpenPreview}
+              userSection={user?.section}
+              onNavigate={handleNavigate}
             />
           )}
 
@@ -373,6 +427,8 @@ export const AppShell: React.FC = () => {
           <MobileNavigation
             activeView={activeView}
             onViewChange={handleViewChange}
+            messagesUnread={messagesUnread}
+            openRequests={openRequestsCount}
           />
         )}
 

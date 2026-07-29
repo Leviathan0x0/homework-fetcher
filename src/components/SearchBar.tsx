@@ -27,7 +27,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, inputRef 
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setIsHoveredOrFocused(true)}
         onBlur={() => setIsHoveredOrFocused(false)}
-        placeholder="Search text, subject, date..."
+        placeholder="Search homework, classwork, requests…"
         className="w-full h-11 sm:h-10 pl-11 pr-10 bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800 rounded-full text-sm sm:text-xs text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20 dark:focus:ring-neutral-600/20 transition-all duration-200 shadow-2xs"
       />
       {value ? (

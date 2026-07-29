@@ -4,6 +4,7 @@ import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
 import { friendlyContentError } from '../utils/friendlyErrors';
+import { buildHelpPrefill, setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import {
   Handshake,
   Plus,
@@ -123,10 +124,36 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
   const [helpingId, setHelpingId] = useState<string | null>(null);
 
-  const handleHelp = async (creatorUserId: string, requestId: string) => {
-    setHelpingId(requestId);
+  const handleHelp = (item: SectionRequest) => {
+    if (!item.creatorUserId) return;
+    setHelpingId(item.id);
     try {
-      onNavigate?.(`messages:${creatorUserId}`);
+      const request = {
+        id: item.id,
+        title: item.title,
+        content: item.content,
+        category: item.category,
+        studentId: item.studentId,
+      };
+      const prefill = buildHelpPrefill(request);
+      setPendingMessageOpen({
+        targetId: item.creatorUserId,
+        prefill,
+        request,
+      });
+      onNavigate?.('messages');
+      // Backup if Messages is already mounted.
+      window.setTimeout(() => {
+        window.dispatchEvent(
+          new CustomEvent('open_conversation', {
+            detail: {
+              targetId: item.creatorUserId,
+              prefill,
+              request,
+            },
+          })
+        );
+      }, 80);
     } catch (err: any) {
       alert(err.message || 'Could not start conversation with requester.');
     } finally {
@@ -296,9 +323,9 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                     </button>
                   )}
                   {!item.isOwner && item.status === 'open' && item.creatorUserId && (
-                    <button onClick={() => handleHelp(item.creatorUserId!, item.id)} disabled={helpingId === item.id}
+                    <button onClick={() => handleHelp(item)} disabled={helpingId === item.id}
                       className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                      title="Message the requester">
+                      title="Message the requester with this request attached">
                       {helpingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <MessageSquare className="w-3 h-3" />}
                       <span>Help</span>
                     </button>

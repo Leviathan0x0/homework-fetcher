@@ -20,7 +20,7 @@ import { HeartHandshakeIcon } from "@/components/ui/heart-handshake"
 import { MessageSquareIcon } from "@/components/ui/message-square"
 import { GraduationCapIcon } from "@/components/ui/graduation-cap"
 import { ClockIcon } from "@/components/ui/clock"
-import { LayersIcon } from "@/components/ui/layers"
+import { SearchIcon } from "@/components/ui/search"
 import { AttachFileIcon } from "@/components/ui/attach-file"
 import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
@@ -75,7 +75,7 @@ export function AppSidebar({
       label: "Library",
       items: [
         { id: "recent" as ViewType, title: "Recent", IconComponent: ClockIcon },
-        { id: "all" as ViewType, title: "All homework", IconComponent: LayersIcon },
+        { id: "all" as ViewType, title: "Search", IconComponent: SearchIcon },
         { id: "attachments" as ViewType, title: "Attachments", IconComponent: AttachFileIcon },
         { id: "completed" as ViewType, title: "Completed", IconComponent: CircleCheckIcon },
       ],

@@ -7,22 +7,34 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_KEY = 'pwa_prompt_dismissed_v5';
+const DISMISS_KEY = 'pwa_prompt_dismissed_at_v6';
 const INSTALLED_KEY = 'pwa_installed_v5';
+const DELAY_START_KEY = 'pwa_banner_delay_started_at_v1';
+/** Soft-dismiss: show again after 3 days. */
+const DISMISS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+/** Don’t interrupt the first glance — wait a bit after load. */
+const BANNER_DELAY_MS = 12_000;
+
+function wasDismissedRecently(): boolean {
+  const raw = localStorage.getItem(DISMISS_KEY);
+  if (!raw) return false;
+  const at = Number(raw);
+  if (!Number.isFinite(at)) return true;
+  return Date.now() - at < DISMISS_TTL_MS;
+}
 
 export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ variant = 'banner' }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [delayReady, setDelayReady] = useState(variant === 'button');
 
   useEffect(() => {
-    // Check if user previously installed or dismissed
-    if (localStorage.getItem(INSTALLED_KEY) === 'true' || localStorage.getItem(DISMISS_KEY) === 'true') {
+    if (localStorage.getItem(INSTALLED_KEY) === 'true' || wasDismissedRecently()) {
       setIsDismissed(true);
     }
 
-    // Detect if running in standalone PWA window
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true ||
@@ -43,7 +55,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
       setIsInstalled(true);
       setIsDismissed(true);
       localStorage.setItem(INSTALLED_KEY, 'true');
-      localStorage.setItem(DISMISS_KEY, 'true');
+      localStorage.setItem(DISMISS_KEY, String(Date.now()));
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -55,17 +67,36 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     };
   }, []);
 
+  useEffect(() => {
+    if (variant !== 'banner') return;
+    let started = Number(sessionStorage.getItem(DELAY_START_KEY));
+    if (!Number.isFinite(started) || started <= 0) {
+      started = Date.now();
+      try {
+        sessionStorage.setItem(DELAY_START_KEY, String(started));
+      } catch {
+        // ignore
+      }
+    }
+    const remaining = Math.max(0, BANNER_DELAY_MS - (Date.now() - started));
+    if (remaining === 0) {
+      setDelayReady(true);
+      return;
+    }
+    const t = window.setTimeout(() => setDelayReady(true), remaining);
+    return () => window.clearTimeout(t);
+  }, [variant]);
+
   const handleDismiss = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setIsDismissed(true);
-    localStorage.setItem(DISMISS_KEY, 'true');
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
   };
 
   const handleCloseModal = () => {
     setShowHelpModal(false);
-    // Dismiss promotion permanently when user closes or completes modal instructions
     setIsDismissed(true);
-    localStorage.setItem(DISMISS_KEY, 'true');
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
   };
 
   const handleInstallClick = async () => {
@@ -77,7 +108,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
           setIsInstalled(true);
           setIsDismissed(true);
           localStorage.setItem(INSTALLED_KEY, 'true');
-          localStorage.setItem(DISMISS_KEY, 'true');
+          localStorage.setItem(DISMISS_KEY, String(Date.now()));
         }
         setDeferredPrompt(null);
       } catch {
@@ -88,14 +119,13 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
     }
   };
 
-  // Completely disappear when installed or dismissed
   if (isInstalled || isDismissed) return null;
+  if (variant === 'banner' && !delayReady) return null;
 
   const ModalContent = showHelpModal
     ? createPortal(
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-[#141417] text-neutral-900 dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-xl relative animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
@@ -114,17 +144,14 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
               </button>
             </div>
 
-            {/* Content Body */}
             <div className="space-y-4 text-xs text-neutral-700 dark:text-neutral-300">
-              {/* Option 1 */}
               <div className="space-y-1">
                 <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 1: Address Bar</div>
                 <p className="text-neutral-600 dark:text-neutral-400 leading-relaxed">
-                  Click the <strong>Install</strong> icon in the right corner of your browser's address bar.
+                  Click the <strong>Install</strong> icon in the right corner of your browser&apos;s address bar.
                 </p>
               </div>
 
-              {/* Option 2 */}
               <div className="space-y-1.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
                 <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 2: Desktop Menu</div>
                 <ol className="list-decimal list-inside space-y-1 text-neutral-600 dark:text-neutral-400">
@@ -134,24 +161,24 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                 </ol>
               </div>
 
-              {/* Option 3: Mobile */}
               <div className="space-y-1.5 pt-2.5 border-t border-neutral-100 dark:border-neutral-800">
-                <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 3: Mobile (Android & iOS)</div>
+                <div className="font-semibold text-neutral-900 dark:text-neutral-100">Option 3: Mobile (Android &amp; iOS)</div>
                 <ul className="space-y-1.5 text-neutral-600 dark:text-neutral-400">
                   <li>
-                    <strong>Android:</strong> Tap <strong>3-dots menu (⋮)</strong> → select <strong>Add to Home screen</strong> or <strong>Install app</strong>.
+                    <strong>Android:</strong> Tap <strong>3-dots menu (⋮)</strong> → select <strong>Add to Home screen</strong> or{' '}
+                    <strong>Install app</strong>.
                   </li>
                   <li>
-                    <strong>iOS (iPhone/iPad):</strong> Tap <strong>Share</strong> icon in Safari → tap <strong>View More</strong> → select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
+                    <strong>iOS (iPhone/iPad):</strong> Tap <strong>Share</strong> icon in Safari → tap <strong>View More</strong> →
+                    select <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.
                   </li>
                 </ul>
               </div>
             </div>
 
-            {/* Action Button */}
             <button
               onClick={handleCloseModal}
-              className="w-full py-2.5 rounded-xl bg-indigo-600 text-white font-medium text-xs hover:bg-indigo-700 transition-colors cursor-pointer"
+              className="w-full py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-medium text-xs hover:opacity-90 transition-opacity cursor-pointer"
             >
               Got it
             </button>
@@ -164,10 +191,10 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   if (variant === 'button') {
     return (
       <>
-        <div className="inline-flex items-center rounded-xl bg-indigo-600 text-white shadow-2xs border border-indigo-500/40 overflow-hidden text-xs font-semibold shrink-0 whitespace-nowrap">
+        <div className="inline-flex items-center rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-2xs border border-neutral-800 dark:border-neutral-200 overflow-hidden text-xs font-semibold shrink-0 whitespace-nowrap">
           <button
             onClick={handleInstallClick}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 transition-colors cursor-pointer touch-manipulation whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 hover:opacity-90 active:opacity-80 transition-opacity cursor-pointer touch-manipulation whitespace-nowrap shrink-0"
             title="Install MMSS Mohali App"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
@@ -175,7 +202,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
           </button>
           <button
             onClick={handleDismiss}
-            className="px-2 py-1.5 hover:bg-indigo-700 active:bg-indigo-800 text-indigo-200 hover:text-white border-l border-indigo-500/40 transition-colors cursor-pointer touch-manipulation shrink-0"
+            className="px-2 py-1.5 hover:opacity-90 active:opacity-80 text-white/70 dark:text-neutral-500 hover:text-white dark:hover:text-neutral-900 border-l border-white/20 dark:border-neutral-300 transition-opacity cursor-pointer touch-manipulation shrink-0"
             title="Dismiss install button"
             aria-label="Dismiss install button"
           >
@@ -189,27 +216,28 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/60 text-xs text-neutral-900 dark:text-neutral-100">
-        <div className="flex items-center gap-3">
-          <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-          <div>
-            <span className="font-semibold block text-indigo-950 dark:text-indigo-200">Install MMSS Mohali App</span>
-            <span className="text-indigo-700/80 dark:text-indigo-300/80">Install to your home screen or desktop for fast offline access.</span>
-          </div>
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-50/80 dark:bg-neutral-900/40 text-xs text-neutral-700 dark:text-neutral-300 animate-in fade-in-0 duration-500">
+        <Smartphone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+        <div className="min-w-0 flex-1 leading-snug">
+          <span className="font-medium text-neutral-800 dark:text-neutral-200">Install the app</span>
+          <span className="text-neutral-500 dark:text-neutral-500">
+            {' '}
+            — faster access, works offline.
+          </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={handleInstallClick}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white font-semibold text-xs hover:bg-indigo-700 transition-colors cursor-pointer shadow-xs"
+            className="px-2.5 py-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white/80 dark:bg-neutral-900/80 text-neutral-800 dark:text-neutral-200 font-medium text-[11px] hover:bg-white dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             Install
           </button>
           <button
             onClick={handleDismiss}
-            className="p-1.5 text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-200 cursor-pointer"
+            className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 cursor-pointer"
             aria-label="Dismiss banner"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

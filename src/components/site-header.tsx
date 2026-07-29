@@ -55,7 +55,7 @@ export function SiteHeader({
       case "recent":
         return "Recent homework";
       case "all":
-        return "All homework";
+        return "Search";
       case "attachments":
         return "Attachments";
       case "completed":

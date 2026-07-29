@@ -6,13 +6,15 @@ import { CalendarCheckIcon } from '@/components/ui/calendar-check';
 import { UploadIcon } from '@/components/ui/upload';
 import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
 import { MessageSquareIcon } from '@/components/ui/message-square';
-import { LayersIcon } from '@/components/ui/layers';
+import { SearchIcon } from '@/components/ui/search';
 import { SettingsIcon } from '@/components/ui/settings';
 import { cn } from '../utils/cn';
 
 interface MobileNavigationProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
+  messagesUnread?: number;
+  openRequests?: number;
 }
 
 /**
@@ -56,6 +58,8 @@ const pressSpring = { type: 'spring' as const, stiffness: 700, damping: 30 };
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeView,
   onViewChange,
+  messagesUnread = 0,
+  openRequests = 0,
 }) => {
   const viewportBottomOffset = useVisualViewportBottomOffset();
   const [mounted, setMounted] = useState(false);
@@ -76,12 +80,13 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     id: ViewType;
     label: string;
     IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>;
+    badge?: number;
   }[] = [
     { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon },
     { id: 'classwork', label: 'Classwork', IconComponent: UploadIcon },
-    { id: 'requests', label: 'Requests', IconComponent: HeartHandshakeIcon },
-    { id: 'messages', label: 'Messages', IconComponent: MessageSquareIcon },
-    { id: 'all', label: 'All', IconComponent: LayersIcon },
+    { id: 'requests', label: 'Requests', IconComponent: HeartHandshakeIcon, badge: openRequests > 0 ? openRequests : undefined },
+    { id: 'messages', label: 'Messages', IconComponent: MessageSquareIcon, badge: messagesUnread > 0 ? messagesUnread : undefined },
+    { id: 'all', label: 'Search', IconComponent: SearchIcon },
     { id: 'settings', label: 'Settings', IconComponent: SettingsIcon },
   ];
 
@@ -148,6 +153,18 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                   )}
                 >
                   <IconComp size={19} isAnimated={isActive} className="shrink-0" />
+                  {item.badge !== undefined && (
+                    <span
+                      className={cn(
+                        'absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none',
+                        isActive
+                          ? 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white'
+                          : 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                      )}
+                    >
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </motion.span>
 
                 <span

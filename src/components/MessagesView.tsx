@@ -13,6 +13,11 @@ import { AttachFileIcon } from '@/components/ui/attach-file';
 import { LogoutIcon } from '@/components/ui/logout';
 import { MessageSquareIcon } from '@/components/ui/message-square';
 import {
+  clearPendingMessageOpen,
+  peekPendingMessageOpen,
+  type PendingRequestContext,
+} from '../utils/pendingMessageOpen';
+import {
   Plus,
   X,
   Loader2,
@@ -26,6 +31,7 @@ import {
   ExternalLink,
   Trash2,
   Flag,
+  Handshake,
 } from 'lucide-react';
 
 interface MessagesViewProps {
@@ -48,6 +54,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [attachedRequest, setAttachedRequest] = useState<PendingRequestContext | null>(null);
+  const pendingPrefillRef = useRef<string | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [reportingConv, setReportingConv] = useState(false);
@@ -125,36 +133,131 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
-  useEffect(() => {
-    const handleOpenConv = (e: any) => {
-      const targetId = e.detail;
-      if (!targetId) return;
+  const helpDialogShownRef = useRef(false);
+  const helpProcessedKeyRef = useRef<string | null>(null);
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
 
-      const resolveConv = (list: Conversation[]) => {
-        const byConvId = list.find((c) => c.id === targetId);
-        if (byConvId) return byConvId.id;
-        const byUserId = list.find(
-          (c) => c.otherUser?.id === targetId || c.otherUser?.studentId === targetId
-        );
-        if (byUserId) return byUserId.id;
-        return null;
-      };
+  const applyHelpContext = useCallback((prefill?: string, request?: PendingRequestContext | null) => {
+    if (request && request.id && request.title) {
+      setAttachedRequest(request);
+    }
+    const text = prefill?.trim();
+    if (text) {
+      pendingPrefillRef.current = text;
+      setInputText(text);
+    }
+  }, []);
 
-      const resolvedId = resolveConv(conversations);
+  const resolveConvId = useCallback((list: Conversation[], targetId: string) => {
+    const byConvId = list.find((c) => c.id === targetId);
+    if (byConvId) return byConvId.id;
+    const byUserId = list.find(
+      (c) => c.otherUser?.id === targetId || c.otherUser?.studentId === targetId
+    );
+    if (byUserId) return byUserId.id;
+    return null;
+  }, []);
+
+  const openHelpTarget = useCallback(
+    (targetId: string, prefill?: string, request?: PendingRequestContext | null) => {
+      applyHelpContext(prefill, request);
+
+      const resolvedId = resolveConvId(conversationsRef.current, targetId);
       if (resolvedId) {
+        helpDialogShownRef.current = false;
+        setShowNoticeDialog(false);
+        setPendingParticipant(null);
         setActiveConvId(resolvedId);
         return;
       }
 
-      // If targetId is a user ID and no conversation exists yet, initiate a new conversation immediately
+      if (helpDialogShownRef.current) return;
+      helpDialogShownRef.current = true;
       const name = targetId.startsWith('usr_') ? 'Student' : targetId;
       setPendingParticipant({ id: targetId, name });
       setShowNoticeDialog(true);
+    },
+    [applyHelpContext, resolveConvId]
+  );
+
+  // Stable listener for Help / notification deep-links (uses conversationsRef).
+  useEffect(() => {
+    const handleOpenConv = (e: Event) => {
+      const raw = (e as CustomEvent).detail;
+      const targetId =
+        typeof raw === 'string'
+          ? raw
+          : raw && typeof raw === 'object'
+            ? String(raw.targetId || raw.id || '')
+            : '';
+      const prefill =
+        raw && typeof raw === 'object' && typeof raw.prefill === 'string'
+          ? raw.prefill.trim()
+          : '';
+      const request =
+        raw && typeof raw === 'object' && raw.request && typeof raw.request === 'object'
+          ? (raw.request as PendingRequestContext)
+          : null;
+      if (!targetId) {
+        applyHelpContext(prefill || undefined, request);
+        return;
+      }
+      const key = `${targetId}:${request?.id || prefill || ''}`;
+      helpProcessedKeyRef.current = key;
+      openHelpTarget(targetId, prefill || undefined, request);
     };
 
     window.addEventListener('open_conversation', handleOpenConv);
     return () => window.removeEventListener('open_conversation', handleOpenConv);
-  }, [conversations]);
+  }, [applyHelpContext, openHelpTarget]);
+
+  // One-shot sessionStorage handoff from Requests → Messages.
+  useEffect(() => {
+    const pending = peekPendingMessageOpen();
+    if (!pending) return;
+    const key = `${pending.targetId}:${pending.request?.id || pending.prefill || ''}`;
+    if (helpProcessedKeyRef.current === key) return;
+    helpProcessedKeyRef.current = key;
+    openHelpTarget(pending.targetId, pending.prefill, pending.request ?? null);
+  }, [openHelpTarget]);
+
+  // If Help opened the notice dialog before conversations loaded, resolve once they arrive.
+  useEffect(() => {
+    const pending = peekPendingMessageOpen();
+    if (!pending) return;
+    const resolvedId = resolveConvId(conversations, pending.targetId);
+    if (!resolvedId) return;
+
+    helpDialogShownRef.current = false;
+    setShowNoticeDialog(false);
+    setPendingParticipant(null);
+    applyHelpContext(pending.prefill, pending.request ?? null);
+
+    if (activeConvId !== resolvedId) {
+      setActiveConvId(resolvedId);
+    } else {
+      clearPendingMessageOpen();
+    }
+  }, [conversations, activeConvId, resolveConvId, applyHelpContext]);
+
+  useEffect(() => {
+    if (!activeConvId) return;
+    if (pendingPrefillRef.current) {
+      const text = pendingPrefillRef.current;
+      pendingPrefillRef.current = null;
+      setInputText(text);
+      requestAnimationFrame(() => {
+        const el = textareaRef.current;
+        if (el) {
+          el.style.height = 'auto';
+          el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+          el.focus();
+        }
+      });
+    }
+    if (peekPendingMessageOpen()) clearPendingMessageOpen();
+  }, [activeConvId]);
 
   const fetchMessages = useCallback(async (convId: string, silent: boolean = false) => {
     if (!silent) setMessagesLoading(true);
@@ -190,6 +293,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
+    window.dispatchEvent(new CustomEvent('messages_unread_changed'));
 
     const messageInterval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchMessages(activeConvId, true);
@@ -353,6 +457,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleConfirmNotice = async (noticeToken: string) => {
     if (!pendingParticipant) return;
     const participantId = pendingParticipant.id;
+    helpDialogShownRef.current = false;
     setShowNoticeDialog(false);
     setPendingParticipant(null);
 
@@ -484,7 +589,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               )}
             >
               <button
-                onClick={() => setActiveConvId(conv.id)}
+                onClick={() => {
+                  setAttachedRequest(null);
+                  setActiveConvId(conv.id);
+                }}
                 className="flex-1 min-w-0 text-left pl-3.5 pr-1 py-3 flex items-center gap-3 cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-xl bg-neutral-300 dark:bg-neutral-700 text-neutral-900 dark:text-neutral-100 flex items-center justify-center text-xs font-bold shrink-0">
@@ -730,6 +838,50 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           </div>
         )}
 
+        {attachedRequest && (
+          <div className="mb-2 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/80 dark:bg-amber-950/30 p-2.5 text-xs">
+            <div className="flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <Handshake className="w-3.5 h-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-700/80 dark:text-amber-400/80">
+                    Request
+                  </span>
+                  {attachedRequest.category && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-amber-100/80 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200">
+                      {attachedRequest.category}
+                    </span>
+                  )}
+                </div>
+                <p className="font-semibold text-neutral-900 dark:text-neutral-100 mt-0.5 leading-snug">
+                  {attachedRequest.title}
+                </p>
+                {attachedRequest.content.trim() && (
+                  <p className="text-[11px] text-neutral-600 dark:text-neutral-400 mt-1 whitespace-pre-wrap leading-relaxed line-clamp-4">
+                    {attachedRequest.content}
+                  </p>
+                )}
+                {attachedRequest.studentId && (
+                  <p className="text-[10px] text-neutral-400 mt-1.5">
+                    from {attachedRequest.studentId}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAttachedRequest(null)}
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer shrink-0"
+                aria-label="Dismiss request"
+                title="Dismiss request"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
         {selectedFile && (
           <div className="mb-2 p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2 min-w-0">
@@ -822,7 +974,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               </button>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-400" />
+              <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
               <input type="text" value={searchQuery} onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Search by name or student ID across any section..."
                 className="w-full text-xs h-9 pl-8 pr-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400" />
@@ -894,8 +1046,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         participantName={pendingParticipant?.name}
         onConfirm={handleConfirmNotice}
         onCancel={() => {
+          helpDialogShownRef.current = false;
+          helpProcessedKeyRef.current = null;
           setShowNoticeDialog(false);
           setPendingParticipant(null);
+          setAttachedRequest(null);
+          pendingPrefillRef.current = null;
+          clearPendingMessageOpen();
         }}
       />
     </div>

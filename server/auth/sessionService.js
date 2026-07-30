@@ -6,6 +6,20 @@ const { deriveKey } = require("./secrets");
 
 const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
 
+/** Legacy placeholder written before section was known from EduSecure. */
+const UNKNOWN_SECTION_SENTINEL = "Section 10-A";
+
+/**
+ * True when section was never resolved from EduSecure.
+ * Real Class X-A normalizes to "10-A", which is NOT unknown.
+ */
+function isUnknownSection(section) {
+  if (section == null) return true;
+  const cleaned = String(section).trim();
+  if (!cleaned) return true;
+  return cleaned.toLowerCase() === UNKNOWN_SECTION_SENTINEL.toLowerCase();
+}
+
 /**
  * Converts a class-section string from EduSecure (e.g. "IX - F") to a normalized form (e.g. "9-F").
  */
@@ -196,7 +210,9 @@ class SessionService {
         id: crypto.randomUUID(),
         studentId: rawId,
         displayName: null,
-        section: "Section 10-A",
+        // Unknown until EduSecure profile is fetched on their first login.
+        // Never invent "Section 10-A" — that incorrectly labeled every provisional chat.
+        section: "",
         createdAt: now,
         updatedAt: now,
       };
@@ -221,7 +237,7 @@ class SessionService {
         id: crypto.randomUUID(),
         studentId: rawId,
         displayName: null,
-        section: "Section 10-A",
+        section: "",
         createdAt: now,
       };
       memUsers.set(newUser.id, newUser);
@@ -524,3 +540,6 @@ module.exports = sessionService;
 module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
 module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;
+module.exports.isUnknownSection = isUnknownSection;
+module.exports.UNKNOWN_SECTION_SENTINEL = UNKNOWN_SECTION_SENTINEL;
+module.exports.normalizeClassSection = normalizeClassSection;

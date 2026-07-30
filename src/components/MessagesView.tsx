@@ -51,6 +51,23 @@ interface MessagesViewProps {
   userSection?: string;
 }
 
+/** Turns stored section codes into a clear class-group title, e.g. "9-C" → "Class 9-C". */
+function classGroupLabel(section?: string | null) {
+  if (!section || isUnknownSection(section)) return 'Class group';
+  const cleaned = section.replace(/^Section\s+/i, '').trim();
+  if (!cleaned) return 'Class group';
+  if (/^class\b/i.test(cleaned)) return cleaned;
+  return `Class ${cleaned}`;
+}
+
+/** Fake placeholder used before EduSecure section is known — never show it. */
+function isUnknownSection(section?: string | null) {
+  if (!section) return true;
+  const cleaned = String(section).trim();
+  if (!cleaned) return true;
+  return cleaned.toLowerCase() === 'section 10-a';
+}
+
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   // Seeded from the last load so the inbox paints immediately instead of
@@ -82,6 +99,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [pinning, setPinning] = useState(false);
   const [muting, setMuting] = useState(false);
   const [askClassBusy, setAskClassBusy] = useState(false);
+  const [showMembers, setShowMembers] = useState(false);
+  const [sectionMembers, setSectionMembers] = useState<
+    Array<{ id: string; studentId: string; displayName?: string | null; section?: string | null }>
+  >([]);
+  const [membersLoading, setMembersLoading] = useState(false);
 
   // State for monitoring notice dialog
   const [showNoticeDialog, setShowNoticeDialog] = useState(false);
@@ -104,7 +126,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<
-    { id: string; studentId: string; displayName?: string | null; name?: string; section?: string }[]
+    {
+      id: string | null;
+      studentId: string;
+      displayName?: string | null;
+      name?: string;
+      section?: string | null;
+      provisional?: boolean;
+    }[]
   >([]);
   const [searching, setSearching] = useState(false);
 
@@ -211,7 +240,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   }, []);
 
   const resolveConvId = useCallback((list: Conversation[], targetId: string) => {
-    // Never treat Ask Class / section threads as a DM with a classmate.
+    // Never treat class-group / section threads as a DM with a classmate.
     const dms = list.filter((c) => c.type !== 'section');
     const byConvId = dms.find((c) => c.id === targetId);
     if (byConvId) return byConvId.id;
@@ -695,9 +724,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const handleDeleteConversation = async (convId: string) => {
     const target = conversations.find((c) => c.id === convId);
     if (target?.type === 'section') {
-      const label = `Ask ${target.section || 'Class'}`;
+      const label = classGroupLabel(target.section);
       if (!confirm(
-        `Remove ${label} from your chat list?\n\nThe group and its messages will remain available to your section. You can rejoin with “Ask your class”.`
+        `Leave ${label}?\n\nThe group stays for your classmates. You’ll rejoin automatically next time you open Messages.`
       )) return;
       setDeletingConvId(convId);
       try {
@@ -709,9 +738,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           loadedMessagesConvIdRef.current = null;
           setMessagesConvId(null);
         }
-        alert(`${label} was removed from your chat list.`);
       } catch (err: any) {
-        setLoadError(typeof err?.message === 'string' ? err.message : 'Group could not be removed.');
+        alert(err.message || 'Could not leave class group.');
       } finally {
         setDeletingConvId(null);
       }
@@ -815,6 +843,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   const handleAskClass = async () => {
     if (askClassBusy) return;
+    const existing = conversations.find((c) => c.type === 'section');
+    if (existing) {
+      setActiveConvId(existing.id);
+      setAttachedRequest(null);
+      return;
+    }
     setAskClassBusy(true);
     try {
       const result = await messagingService.createSectionConversation();
@@ -822,9 +856,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       setActiveConvId(result.conversationId);
       setAttachedRequest(null);
     } catch (err: any) {
-      alert(err.message || 'Failed to open Ask Class.');
+      alert(err.message || 'Failed to open class group.');
     } finally {
       setAskClassBusy(false);
+    }
+  };
+
+  const openMembersPanel = async () => {
+    setShowMembers(true);
+    setMembersLoading(true);
+    try {
+      const data = await messagingService.getSectionMembers();
+      setSectionMembers(data.members);
+    } catch {
+      setSectionMembers([]);
+    } finally {
+      setMembersLoading(false);
     }
   };
 
@@ -849,9 +896,39 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     }, 280);
   };
 
-  const handleInitiateChat = async (u: { id: string; studentId: string; displayName?: string | null }) => {
-    const name = u.displayName || u.studentId;
-    const existing = conversations.find((c) => c.otherUser?.id === u.id);
+  const handleInitiateChat = async (u: {
+    id: string | null;
+    studentId: string;
+    displayName?: string | null;
+    provisional?: boolean;
+  }) => {
+    let target: {
+      id: string;
+      studentId: string;
+      displayName?: string | null;
+      section?: string | null;
+    };
+
+    if (u.provisional || !u.id) {
+      try {
+        setSearching(true);
+        target = await messagingService.resolveUser(u.studentId);
+      } catch (err: any) {
+        alert(err.message || 'Could not look up that student ID.');
+        return;
+      } finally {
+        setSearching(false);
+      }
+    } else {
+      target = {
+        id: u.id,
+        studentId: u.studentId,
+        displayName: u.displayName,
+      };
+    }
+
+    const name = target.displayName || target.studentId;
+    const existing = conversations.find((c) => c.otherUser?.id === target.id);
     if (existing) {
       setShowNewModal(false);
       setSearchQuery('');
@@ -867,7 +944,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     if (hasMonitorAck()) {
       noticeConfirmingRef.current = true;
       try {
-        const data = await messagingService.startConversation(currentStudentId, u.id, null);
+        const data = await messagingService.startConversation(currentStudentId, target.id, null);
         openResolvedChat(data.conversationId);
         setConversations((prev) => {
           if (prev.some((c) => c.id === data.conversationId)) return prev;
@@ -885,7 +962,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       } catch (err: any) {
         noticeConfirmingRef.current = false;
         if (err?.needsNotice) {
-          showMonitorNotice({ id: u.id, name });
+          showMonitorNotice({ id: target.id, name });
           return;
         }
         alert(err.message || 'Failed to start conversation.');
@@ -893,7 +970,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
       return;
     }
 
-    showMonitorNotice({ id: u.id, name });
+    showMonitorNotice({ id: target.id, name });
   };
 
   const handleConfirmNotice = async (noticeToken: string) => {
@@ -940,10 +1017,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const activeConv = conversations.find((c) => c.id === activeConvId);
   const otherName = activeConv
     ? activeConv.type === 'section'
-      ? `Ask ${activeConv.section || 'Class'}`
+      ? classGroupLabel(activeConv.section)
       : userLabel(activeConv.otherUser)
     : 'Conversation';
-  const otherSection = activeConv?.type === 'section' ? null : activeConv?.otherUser?.section;
+  const otherSection =
+    activeConv?.type === 'section'
+      ? null
+      : isUnknownSection(activeConv?.otherUser?.section)
+        ? null
+        : activeConv?.otherUser?.section;
+  const sectionConv = conversations.find((c) => c.type === 'section');
+  const classButtonLabel = classGroupLabel(sectionConv?.section || userSection);
   // Never render a thread's messages under another thread's title, even for
   // the render before the selection effect clears local state.
   const visibleMessages = messagesConvId === activeConvId ? messages : [];
@@ -958,22 +1042,24 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <h2 className="text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
             Messages
           </h2>
-          <div className="flex items-center gap-2">
-            {conversations.length > 0 && !searchQuery && (
-              <span className="text-[11px] tabular-nums text-neutral-400">
-                {conversations.length}
-              </span>
+          <button
+            type="button"
+            onClick={handleAskClass}
+            disabled={askClassBusy}
+            title={sectionConv ? `Open ${classButtonLabel}` : `Join ${classButtonLabel}`}
+            aria-label={sectionConv ? `Open ${classButtonLabel}` : `Join ${classButtonLabel}`}
+            className="inline-flex items-center gap-1.5 h-8 max-w-[11rem] px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] text-[11px] font-medium text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+          >
+            {askClassBusy ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            ) : (
+              <Users className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
             )}
-            <button
-              onClick={handleAskClass}
-              disabled={askClassBusy}
-              title="Ask your class"
-              aria-label="Ask your class"
-              className="p-1.5 rounded-lg text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              {askClassBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-            </button>
-          </div>
+            <span className="truncate">{classButtonLabel}</span>
+            {sectionConv?.memberCount ? (
+              <span className="tabular-nums text-neutral-400 shrink-0">{sectionConv.memberCount}</span>
+            ) : null}
+          </button>
         </div>
         <div className="relative">
           <SearchIcon
@@ -1010,7 +1096,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           searchResults.length > 0 ? (
             searchResults.map((u) => (
               <button
-                key={u.id}
+                key={u.id || `prov-${u.studentId}`}
                 onClick={() => handleInitiateChat(u)}
                 className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-200/50 dark:hover:bg-white/[0.03] transition-colors"
               >
@@ -1022,14 +1108,20 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     {u.displayName || u.studentId}
                   </p>
                   <p className="text-[11px] text-neutral-500 truncate mt-0.5">
-                    {u.displayName ? u.studentId : 'Start a conversation'}
-                    {u.section ? ` · ${u.section}` : ''}
+                    {u.provisional
+                      ? 'Not on the app yet — message by student ID'
+                      : u.displayName
+                        ? u.studentId
+                        : 'Start a conversation'}
+                    {!u.provisional && u.section ? ` · ${u.section}` : ''}
                   </p>
                 </div>
               </button>
             ))
           ) : (
-            <p className="px-4 py-10 text-center text-[12px] text-neutral-400">No students matched.</p>
+            <p className="px-4 py-10 text-center text-[12px] text-neutral-400">
+              No match — type their full student ID to message them anyway.
+            </p>
           )
         ) : conversations.length === 0 ? (
           isLoading ? (
@@ -1043,7 +1135,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 {loadError ? 'Couldn’t load chats' : 'No conversations yet'}
               </p>
               <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[18rem] leading-relaxed">
-                {loadError || 'Search a classmate’s student ID above to message them.'}
+                {loadError || 'Type a classmate’s student ID above to message them — they don’t need an account yet.'}
               </p>
             </div>
           )
@@ -1093,7 +1185,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                               : 'font-medium text-neutral-800 dark:text-neutral-200'
                           )}
                         >
-                          {conv.type === 'section' ? `Ask ${conv.section || 'Class'}` : userLabel(conv.otherUser)}
+                          {conv.type === 'section' ? classGroupLabel(conv.section) : userLabel(conv.otherUser)}
                         </span>
                         {conv.muted && (
                           <BellOff className="w-3 h-3 text-neutral-400 shrink-0" />
@@ -1114,9 +1206,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                             : 'text-neutral-500 dark:text-neutral-500'
                         )}
                       >
-                        {conv.lastMessagePreview || 'No messages yet'}
+                        {conv.type === 'section'
+                          ? (conv.lastMessagePreview || `${conv.memberCount || 0} classmates`)
+                          : (conv.lastMessagePreview || 'No messages yet')}
                       </p>
-                      {conv.otherUser?.section && (
+                      {conv.type === 'section' && conv.memberCount ? (
+                        <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
+                          {conv.memberCount}
+                        </span>
+                      ) : null}
+                      {!isUnknownSection(conv.otherUser?.section) && conv.otherUser?.section && (
                         <span className="text-[10px] text-neutral-400 shrink-0">
                           {conv.otherUser.section}
                         </span>
@@ -1132,8 +1231,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 <button
                   onClick={() => handleDeleteConversation(conv.id)}
                   disabled={deletingConvId === conv.id}
-                  title={conv.type === 'section' ? `Remove Ask ${conv.section || 'Class'} from my chat list` : 'Delete conversation'}
-                  aria-label={conv.type === 'section' ? `Remove Ask ${conv.section || 'Class'} from my chat list` : 'Delete conversation'}
+                  title={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
+                  aria-label={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
                   className="px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 opacity-0 group-hover/conv:opacity-100 focus-visible:opacity-100"
                 >
                   {deletingConvId === conv.id ? (
@@ -1177,9 +1276,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               <p className="text-[11px] text-neutral-500 truncate leading-tight mt-0.5">{otherSection}</p>
             )}
             {activeConv?.type === 'section' && (
-              <p className="text-[11px] text-neutral-500 truncate leading-tight mt-0.5">
-                Everyone in your section · moderated
-              </p>
+              <button
+                type="button"
+                onClick={openMembersPanel}
+                className="text-[11px] text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 truncate leading-tight mt-0.5 cursor-pointer"
+              >
+                {(activeConv.memberCount || sectionMembers.length || 0) > 0
+                  ? `${activeConv.memberCount || sectionMembers.length} classmates · view names`
+                  : 'View classmates'}
+              </button>
             )}
             {activeConv?.muted && (
               <p className="text-[11px] text-neutral-400 truncate leading-tight mt-0.5 flex items-center gap-1">
@@ -1246,8 +1351,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
             disabled={!activeConvId || deletingConvId === activeConvId}
-            title={activeConv?.type === 'section' ? `Remove ${otherName} from my chat list` : 'Delete conversation'}
-            aria-label={activeConv?.type === 'section' ? `Remove ${otherName} from my chat list` : 'Delete conversation'}
+            title={activeConv?.type === 'section' ? `Leave ${otherName}` : 'Delete conversation'}
+            aria-label={activeConv?.type === 'section' ? `Leave ${otherName}` : 'Delete conversation'}
             className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
             {deletingConvId === activeConvId ? (
@@ -1726,11 +1831,74 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               Pick a conversation
             </p>
             <p className="text-[12px] text-neutral-400 max-w-[16rem] leading-relaxed">
-              Or search a student ID in the sidebar to start one.
+              Search a student ID in the sidebar — they don’t need to have logged in yet.
             </p>
           </div>
         )}
       </div>
+
+      {showMembers && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
+                  {classGroupLabel(activeConv?.section || userSection)}
+                </h3>
+                <p className="text-[11px] text-neutral-400 mt-0.5">
+                  Classmates on the app · name and student ID
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMembers(false)}
+                className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {membersLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                </div>
+              ) : sectionMembers.length === 0 ? (
+                <p className="text-xs text-neutral-400 text-center py-10 px-4">
+                  No classmates have joined yet. When they log in, they’ll appear here automatically.
+                </p>
+              ) : (
+                <ul className="space-y-0.5">
+                  {sectionMembers.map((m) => (
+                    <li key={m.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMembers(false);
+                          if (m.id) handleInitiateChat(m);
+                        }}
+                        className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                      >
+                        <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-[12px] font-semibold text-neutral-700 dark:text-neutral-200 shrink-0">
+                          {(m.displayName || m.studentId).charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
+                            {m.displayName || m.studentId}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 truncate mt-0.5">
+                            {m.displayName ? m.studentId : 'Student ID'}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-medium text-neutral-400 shrink-0">Message</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -1753,7 +1921,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
               ) : searchResults.length > 0 ? (
                 searchResults.map((u) => (
-                  <button key={u.id} onClick={() => handleInitiateChat(u)}
+                  <button key={u.id || `prov-${u.studentId}`} onClick={() => handleInitiateChat(u)}
                     className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
@@ -1761,22 +1929,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{userLabel(u)}</span>
-                        {u.displayName && (
-                          <span className="text-[10px] text-neutral-400 truncate">{u.studentId}</span>
-                        )}
+                        <span className="text-[10px] text-neutral-400 truncate">
+                          {u.provisional
+                            ? 'Not on the app yet — tap to message'
+                            : u.displayName
+                              ? u.studentId
+                              : 'Start a conversation'}
+                        </span>
                       </div>
                     </div>
-                    {u.section && (
+                    {u.provisional ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+                        Message
+                      </span>
+                    ) : u.section ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 border border-neutral-200/60 dark:border-neutral-700/60">
                         {u.section}
                       </span>
-                    )}
+                    ) : null}
                   </button>
                 ))
               ) : searchQuery.trim() ? (
-                <p className="text-xs text-neutral-400 text-center py-3">No users found</p>
+                <p className="text-xs text-neutral-400 text-center py-3">
+                  No match — type their full student ID to message them anyway.
+                </p>
               ) : (
-                <p className="text-xs text-neutral-400 text-center py-3">Search any student ID to start chatting</p>
+                <p className="text-xs text-neutral-400 text-center py-3">
+                  Type a name or student ID — they don’t need to be on the app yet.
+                </p>
               )}
             </div>
           </div>

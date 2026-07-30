@@ -1,15 +1,22 @@
 const express = require("express");
 const sessionService = require("../auth/sessionService");
-const { fetchProfileFromEduSecure } = require("../auth/sessionService");
+const { fetchProfileFromEduSecure, isUnknownSection } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
 const homeworkCacheService = require("../homework/homeworkCacheService");
-
-const FALLBACK_SECTION = "Section 10-A";
-const needsRefresh = (s) => !s || s === FALLBACK_SECTION;
+const { ensureSectionConversation } = require("../messaging/sectionConversation");
 
 const router = express.Router();
+
+async function joinClassGroupInBackground(user) {
+  if (!user?.id || isUnknownSection(user.section)) return;
+  try {
+    await ensureSectionConversation(user);
+  } catch (err) {
+    console.error("Auto-join class group failed:", err.message);
+  }
+}
 
 // POST /api/auth/login
 router.post("/login", async (req, res) => {
@@ -80,19 +87,22 @@ router.post("/login", async (req, res) => {
     let section = user.section;
     let displayName = user.displayName;
 
-    // Fetch profile in non-blocking background task so response returns immediately
-    if (needsRefresh(section) || !displayName) {
-      fetchProfileFromEduSecure(sessionCookies).then(async (profile) => {
-        if (profile.section && needsRefresh(section)) {
-          await sessionService.updateSection(user.id, profile.section);
-        }
-        if (profile.displayName && !displayName) {
-          await sessionService.updateDisplayName(user.id, profile.displayName);
-        }
-      }).catch((err) => {
-        console.error("Background profile fetch failed:", err.message);
-      });
-    }
+    // Always refresh section from EduSecure on login so we never keep the
+    // old placeholder "Section 10-A" (or a stale class) after they sign in.
+    fetchProfileFromEduSecure(sessionCookies).then(async (profile) => {
+      let nextSection = section;
+      if (profile.section) {
+        await sessionService.updateSection(user.id, profile.section);
+        nextSection = profile.section;
+      }
+      if (profile.displayName && !displayName) {
+        await sessionService.updateDisplayName(user.id, profile.displayName);
+      }
+      await joinClassGroupInBackground({ id: user.id, section: nextSection });
+    }).catch((err) => {
+      console.error("Background profile fetch failed:", err.message);
+      joinClassGroupInBackground({ id: user.id, section });
+    });
 
     return res.json({
       authenticated: true,
@@ -103,7 +113,7 @@ router.post("/login", async (req, res) => {
         id: user.id,
         studentId: user.studentId,
         displayName: displayName || null,
-        section,
+        section: isUnknownSection(section) ? null : section,
       }
     });
 
@@ -129,14 +139,14 @@ router.get("/me", async (req, res) => {
 
   let section = activeSession.user.section;
   let displayName = activeSession.user.displayName;
-  // Only the section is worth re-fetching here; the display name is set by the
-  // student, so scraping the portal on every /me call would only add latency.
-  if (needsRefresh(section)) {
+
+  // Refresh section whenever it is still unknown, or we can cheaply confirm it.
+  if (isUnknownSection(section)) {
     try {
       const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
         const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
-        if (profile.section && needsRefresh(section)) {
+        if (profile.section) {
           await sessionService.updateSection(activeSession.user.id, profile.section);
           section = profile.section;
         }
@@ -150,13 +160,15 @@ router.get("/me", async (req, res) => {
     }
   }
 
+  joinClassGroupInBackground({ id: activeSession.user.id, section });
+
   return res.json({
     authenticated: true,
     user: {
       id: activeSession.user.id,
       studentId: activeSession.user.studentId,
       displayName: displayName || null,
-      section,
+      section: isUnknownSection(section) ? null : section,
     }
   });
 });
@@ -188,7 +200,7 @@ router.patch("/profile", async (req, res) => {
       id: activeSession.user.id,
       studentId: activeSession.user.studentId,
       displayName: cleaned,
-      section: activeSession.user.section,
+      section: isUnknownSection(activeSession.user.section) ? null : activeSession.user.section,
     },
   });
 });

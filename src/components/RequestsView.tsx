@@ -80,7 +80,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
       const newReq = await requestService.createRequest(
         user?.id || 'anon',
         user?.studentId || 'Student',
-        userSection || 'Section 10-A',
+        userSection || '',
         formTitle.trim(),
         formContent.trim(),
         formCategory

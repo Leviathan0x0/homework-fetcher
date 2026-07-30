@@ -32,6 +32,20 @@ function clearConversationCache() {
   } catch {}
 }
 
+function mapAuthUser(user: any) {
+  const section = user?.section;
+  const unknown =
+    !section ||
+    String(section).trim() === "" ||
+    String(section).trim().toLowerCase() === "section 10-a";
+  return {
+    id: user.id,
+    studentId: user.studentId,
+    displayName: user.displayName || null,
+    section: unknown ? null : section,
+  };
+}
+
 // --- AUTH SERVICE ---
 export const authService = {
   async getCurrentUser() {
@@ -42,12 +56,7 @@ export const authService = {
       if (!res.ok) return null;
       const data = await apiJson<any>(res);
       if (!data.authenticated || !data.user) return null;
-      return {
-        id: data.user.id,
-        studentId: data.user.studentId,
-        displayName: data.user.displayName || null,
-        section: data.user.section || "Section 10-A",
-      };
+      return mapAuthUser(data.user);
     } catch (err) {
       console.error("getCurrentUser error:", err);
       return null;
@@ -73,12 +82,7 @@ export const authService = {
     // A new session must never read the previous account's cached conversations.
     clearConversationCache();
 
-    return {
-      id: data.user.id,
-      studentId: data.user.studentId,
-      displayName: data.user.displayName || null,
-      section: data.user.section || "Section 10-A",
-    };
+    return mapAuthUser(data.user);
   },
 
   /** Saves the name other students see instead of the raw student ID. */
@@ -90,12 +94,7 @@ export const authService = {
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.user) throw new Error(data.error || "Failed to save your name.");
-    return {
-      id: data.user.id,
-      studentId: data.user.studentId,
-      displayName: data.user.displayName || null,
-      section: data.user.section || "Section 10-A",
-    };
+    return mapAuthUser(data.user);
   },
 
   async logout() {
@@ -244,6 +243,26 @@ export const messagingService = {
     if (!res.ok) return [];
     const data = await apiJson<any>(res);
     return data.users || [];
+  },
+
+  /** Ensures a student ID has an app account so a DM can start before they log in. */
+  async resolveUser(studentId: string) {
+    const res = await apiFetch("/api/users/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.user) {
+      throw new Error(data.error || "Could not look up that student ID.");
+    }
+    return data.user as {
+      id: string;
+      studentId: string;
+      displayName?: string | null;
+      name?: string;
+      section?: string;
+    };
   },
 
   /** Conversations stored by the previous load, available synchronously. */
@@ -408,9 +427,25 @@ export const messagingService = {
     });
     const data = await apiJson<any>(res);
     if (!res.ok || !data.conversationId) {
-      throw new Error(data.error || "Failed to create section conversation.");
+      throw new Error(data.error || "Failed to open class group.");
     }
     return { conversationId: data.conversationId, section: data.section || null };
+  },
+
+  /** Classmates in the signed-in student's section (name + student ID). */
+  async getSectionMembers() {
+    const res = await apiFetch("/api/section/members", { headers: { Accept: "application/json" } });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to load classmates.");
+    return {
+      section: (data.section as string | null) || null,
+      members: (Array.isArray(data.members) ? data.members : []) as Array<{
+        id: string;
+        studentId: string;
+        displayName?: string | null;
+        section?: string | null;
+      }>,
+    };
   },
 
   /**

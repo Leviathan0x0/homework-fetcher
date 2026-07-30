@@ -105,6 +105,7 @@ export interface Conversation {
   type?: 'dm' | 'section';
   otherUser: { id: string; studentId: string; displayName?: string | null; section: string } | null;
   section?: string | null;
+  memberCount?: number;
   lastMessagePreview?: string;
   lastMessageAt?: string;
   unreadCount: number;

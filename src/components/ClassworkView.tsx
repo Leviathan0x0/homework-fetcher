@@ -66,7 +66,7 @@ function getFileIcon(mimeType: string | null | undefined, filename: string) {
 }
 
 export const ClassworkView: React.FC<ClassworkViewProps> = ({
-  userSection = 'Section 10-A',
+  userSection = '',
   onOpenPreview
 }) => {
   const [classwork, setClasswork] = useState<ClassworkEntry[]>([]);

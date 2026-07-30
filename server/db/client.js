@@ -376,6 +376,14 @@ async function initDb() {
   await ensureColumn("conversations", "section", "TEXT");
   await ensureColumn("conversations", "pinned_homework_id", "TEXT");
   await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
+
+  // Clear the fake default section. Real EduSecure values look like "9-C" / "10-A",
+  // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
+  try {
+    await exec(`UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'`);
+  } catch (err) {
+    console.error("Clear fake Section 10-A migration:", err.message);
+  }
   
   // Create indexes for new columns after they exist
   try {

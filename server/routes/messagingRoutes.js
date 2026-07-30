@@ -21,6 +21,8 @@ const {
 } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
 const { recordProfanityStrike, reportConversation, withStrikeWarning } = require("../moderation/flagLogService");
+const { ensureSectionConversation } = require("../messaging/sectionConversation");
+const { isUnknownSection } = require("../auth/sessionService");
 
 const router = express.Router();
 
@@ -56,14 +58,29 @@ function normalizeSearchValue(value) {
   return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-function toPublicUser(user) {
+function cleanStudentId(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/@manavmangalschool\.com$/gi, "")
+    .replace(/\s+/g, "");
+}
+
+/** School portal usernames are alphanumeric (often name + digits). */
+function isPlausibleStudentId(raw) {
+  const id = cleanStudentId(raw);
+  if (id.length < 3 || id.length > 64) return false;
+  return /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
+}
+
+function toPublicUser(user, extra = {}) {
   if (!user) return null;
   return {
     id: user.id,
     studentId: user.studentId,
     displayName: user.displayName || null,
     name: user.displayName || user.studentId,
-    section: user.section,
+    section: isUnknownSection(user.section) ? null : user.section,
+    ...extra,
   };
 }
 
@@ -94,7 +111,34 @@ router.get(
         .limit(20)
         .all();
 
-      return res.json({ users: matched.map(toPublicUser) });
+      const users = matched.map((u) => toPublicUser(u));
+
+      // Allow messaging by student ID even if they have never opened the app.
+      const typedId = cleanStudentId(q);
+      const selfId = cleanStudentId(req.user.studentId).toLowerCase();
+      if (
+        isPlausibleStudentId(typedId) &&
+        typedId.toLowerCase() !== selfId
+      ) {
+        const exactInResults = users.some(
+          (u) => cleanStudentId(u.studentId).toLowerCase() === typedId.toLowerCase()
+        );
+        if (!exactInResults) {
+          users.unshift(
+            toPublicUser(
+              {
+                id: null,
+                studentId: typedId,
+                displayName: null,
+                section: null,
+              },
+              { provisional: true }
+            )
+          );
+        }
+      }
+
+      return res.json({ users });
     } catch (err) {
       console.error("User Search Error:", err);
       return res.status(500).json({ error: "Search failed." });
@@ -102,9 +146,46 @@ router.get(
   }
 );
 
+/**
+ * Creates a placeholder account for a student ID that has never logged in,
+ * so a DM can be opened immediately. When they later sign in with the same
+ * EduSecure ID they inherit this row (and any waiting messages).
+ */
+router.post(
+  "/users/resolve",
+  requireAuth,
+  rateLimit({ name: "user-resolve", windowMs: 60 * 1000, max: 60 }),
+  async (req, res) => {
+    try {
+      const typedId = cleanStudentId(req.body?.studentId);
+      if (!isPlausibleStudentId(typedId)) {
+        return res.status(400).json({
+          error: "Enter a valid student ID (for example kiaan1240).",
+        });
+      }
+      if (typedId.toLowerCase() === cleanStudentId(req.user.studentId).toLowerCase()) {
+        return res.status(400).json({ error: "You cannot message yourself." });
+      }
+
+      const user = await sessionService.findOrCreateUser(typedId);
+      return res.json({ user: toPublicUser(user) });
+    } catch (err) {
+      console.error("User Resolve Error:", err);
+      return res.status(500).json({ error: "Could not look up that student ID." });
+    }
+  }
+);
+
 router.get("/conversations", requireAuth, async (req, res) => {
   try {
     const userId = req.user.id;
+
+    // Auto-join the class group so new students do not have to hunt for a join button.
+    try {
+      await ensureSectionConversation(req.user);
+    } catch (err) {
+      console.error("Auto-join class group failed:", err.message);
+    }
 
     const participations = await db
       .select()
@@ -140,6 +221,19 @@ router.get("/conversations", requireAuth, async (req, res) => {
 
     const otherByConv = {};
     for (const row of others) otherByConv[row.conversationId] = row;
+
+    const allParticipants = await db
+      .select({
+        conversationId: schema.conversationParticipants.conversationId,
+      })
+      .from(schema.conversationParticipants)
+      .where(inArray(schema.conversationParticipants.conversationId, convIds))
+      .all();
+    const memberCountByConv = {};
+    for (const row of allParticipants) {
+      memberCountByConv[row.conversationId] =
+        (memberCountByConv[row.conversationId] || 0) + 1;
+    }
 
     const convs = await db
       .select()
@@ -179,6 +273,7 @@ router.get("/conversations", requireAuth, async (req, res) => {
         type: c.type || "dm",
         otherUser: c.type === "section" ? null : toPublicUser(otherByConv[c.id]),
         section: c.section || null,
+        memberCount: memberCountByConv[c.id] || 0,
         lastMessagePreview: c.lastMessagePreview || null,
         lastMessageAt: c.lastMessageAt || c.createdAt,
         unreadCount: unreadByConv[c.id] || 0,
@@ -213,7 +308,17 @@ setInterval(() => {
 
 router.post("/conversations/notice-token", requireAuth, async (req, res) => {
   try {
-    const { participantId } = req.body || {};
+    let { participantId, studentId } = req.body || {};
+
+    if ((!participantId || typeof participantId !== "string") && studentId) {
+      const typedId = cleanStudentId(studentId);
+      if (!isPlausibleStudentId(typedId)) {
+        return res.status(400).json({ error: "Enter a valid student ID." });
+      }
+      const resolved = await sessionService.findOrCreateUser(typedId);
+      participantId = resolved.id;
+    }
+
     if (!participantId || typeof participantId !== "string") {
       return res.status(400).json({ error: "Participant ID is required." });
     }
@@ -225,7 +330,7 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
       validAfter: now + 3000,
       expiresAt: now + 5 * 60 * 1000,
     });
-    return res.json({ noticeToken: token, validAfter: now + 3000 });
+    return res.json({ noticeToken: token, validAfter: now + 3000, participantId });
   } catch (err) {
     console.error("Notice Token Error:", err);
     return res.status(500).json({ error: "Failed to generate notice token." });
@@ -234,7 +339,21 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
 
 router.post("/conversations", requireAuth, async (req, res) => {
   try {
-    const { participantId, noticeToken } = req.body || {};
+    let { participantId, studentId, noticeToken } = req.body || {};
+
+    // Allow starting a DM by EduSecure student ID when the peer has never logged in.
+    if ((!participantId || typeof participantId !== "string") && studentId) {
+      const typedId = cleanStudentId(studentId);
+      if (!isPlausibleStudentId(typedId)) {
+        return res.status(400).json({ error: "Enter a valid student ID." });
+      }
+      if (typedId.toLowerCase() === cleanStudentId(req.user.studentId).toLowerCase()) {
+        return res.status(400).json({ error: "Cannot start a conversation with yourself." });
+      }
+      const resolved = await sessionService.findOrCreateUser(typedId);
+      participantId = resolved.id;
+    }
+
     if (!participantId || typeof participantId !== "string") {
       return res.status(400).json({ error: "Participant ID is required." });
     }
@@ -250,7 +369,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
     // Existing 1:1 DMs never need the monitoring notice again.
-    // Do NOT match section "Ask Class" threads — every classmate is a participant there.
+    // Do NOT match section class-group threads — every classmate is a participant there.
     const existing = await db
       .select({ conversationId: schema.conversationParticipants.conversationId })
       .from(schema.conversationParticipants)
@@ -607,7 +726,7 @@ router.post(
         const fromName = req.user.displayName || req.user.studentId;
         const isSection = convMeta?.type === "section";
         const title = isSection
-          ? `Ask ${convMeta.section || "Class"}`
+          ? `Class ${convMeta.section || "group"}`
           : fromName;
         const body = isSection
           ? `${fromName}: ${previewText}`
@@ -918,7 +1037,7 @@ router.delete(
       }
       if (conversation.type === "section") {
         return res.status(403).json({
-          error: "Ask Class is shared with your section and cannot be deleted. Mute it instead.",
+          error: "Class group is shared with your section and cannot be deleted. Mute it instead.",
         });
       }
 
@@ -1174,83 +1293,49 @@ router.post(
         return res.status(400).json({ error: "Your section is not set." });
       }
 
-      // Check if a section conversation already exists
-      const existing = await db
-        .select()
-        .from(schema.conversations)
-        .where(
-          and(
-            eq(schema.conversations.type, "section"),
-            eq(schema.conversations.section, section)
-          )
-        )
-        .get();
-
-      if (existing) {
-        // Late joiners (new accounts / first open) still get into the section thread.
-        const alreadyIn = await isParticipant(existing.id, req.user.id);
-        if (!alreadyIn) {
-          await db
-            .insert(schema.conversationParticipants)
-            .values({
-              id: crypto.randomUUID(),
-              conversationId: existing.id,
-              userId: req.user.id,
-              createdAt: new Date().toISOString(),
-            })
-            .run();
-        }
-        return res.json({
-          conversationId: existing.id,
-          existing: true,
-          section,
-        });
+      const result = await ensureSectionConversation(req.user);
+      if (!result) {
+        return res.status(400).json({ error: "Could not open your class group." });
       }
 
-      // Create new section conversation
-      const convId = crypto.randomUUID();
-      const now = new Date().toISOString();
-
-      await db
-        .insert(schema.conversations)
-        .values({
-          id: convId,
-          type: "section",
-          section,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .run();
-
-      // Add all students in this section as participants
-      const studentsInSection = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.section, section))
-        .all();
-
-      for (const student of studentsInSection) {
-        await db
-          .insert(schema.conversationParticipants)
-          .values({
-            id: crypto.randomUUID(),
-            conversationId: convId,
-            userId: student.id,
-            createdAt: now,
-          })
-          .run();
-      }
-
-      return res.status(201).json({
-        conversationId: convId,
-        existing: false,
-        section,
+      return res.status(result.existing ? 200 : 201).json({
+        conversationId: result.conversationId,
+        existing: result.existing,
+        section: result.section,
       });
     } catch (err) {
       console.error("Create Section Conversation Error:", err);
-      return res.status(500).json({ error: "Failed to create section conversation." });
+      return res.status(500).json({ error: "Failed to open class group." });
     }
   }
 );
+
+/** Classmates in the current user's section (name + student ID). */
+router.get("/section/members", requireAuth, async (req, res) => {
+  try {
+    const section = req.user.section;
+    if (!section) return res.json({ section: null, members: [] });
+
+    const rows = await db
+      .select({
+        id: schema.users.id,
+        studentId: schema.users.studentId,
+        displayName: schema.users.displayName,
+        section: schema.users.section,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.section, section))
+      .orderBy(asc(schema.users.displayName), asc(schema.users.studentId))
+      .all();
+
+    return res.json({
+      section,
+      members: rows.map((u) => toPublicUser(u)),
+    });
+  } catch (err) {
+    console.error("Section Members Error:", err);
+    return res.status(500).json({ error: "Failed to load classmates." });
+  }
+});
 
 module.exports = router;

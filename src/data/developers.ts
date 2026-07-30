@@ -40,6 +40,8 @@ export const DEVELOPERS: Developer[] = [
     initials: 'GB',
     accentClass: 'from-emerald-500/15 to-transparent dark:from-emerald-400/10',
     links: [
+      { kind: 'website', label: 'Website', href: 'https://guranshbir.dev' },
+      { kind: 'x', label: 'X', href: 'https://x.com/gsbrar_' },
       { kind: 'github', label: 'GitHub', href: 'https://github.com/Leviathan0x0' },
       { kind: 'devto', label: 'DEV', href: 'https://dev.to/leviathan0x0' },
     ],

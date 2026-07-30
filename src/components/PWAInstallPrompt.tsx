@@ -120,7 +120,8 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   };
 
   if (isInstalled || isDismissed) return null;
-  if (variant === 'banner' && !delayReady) return null;
+  if (variant === 'banner') return null;
+  if (variant === 'button' && !delayReady) return null;
 
   const ModalContent = showHelpModal
     ? createPortal(

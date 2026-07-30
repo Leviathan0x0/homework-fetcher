@@ -25,7 +25,6 @@ import { SettingsView } from './SettingsView';
 import { DevelopersView } from './DevelopersView';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
-import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { OfflineBanner } from './OfflineBanner';
 import { isTodayDate } from '../utils/dateUtils';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
@@ -286,14 +285,6 @@ export const AppShell: React.FC = () => {
           )}
 
           {activeView !== 'messages' && <OfflineBanner />}
-          {/* Keep a hidden instance on Messages so the 12s delay survives tab switches. */}
-          {activeView === 'messages' ? (
-            <div className="hidden" aria-hidden>
-              <PWAInstallPrompt variant="banner" />
-            </div>
-          ) : (
-            <PWAInstallPrompt variant="banner" />
-          )}
           {activeView === 'messages' && (
             <OfflineBanner className="mx-3 mt-2 shrink-0" />
           )}

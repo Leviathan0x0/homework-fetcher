@@ -40,6 +40,20 @@ export interface ClassworkEntry {
   isOwner?: boolean;
 }
 
+/** Holiday / event from EduSecure CurrentSchoolCalendar.aspx */
+export interface SchoolCalendarEvent {
+  id: string;
+  sourceId?: string | null;
+  title: string;
+  type: string;
+  date: string;
+  dateRaw?: string;
+  monthLabel?: string | null;
+  url?: string | null;
+  selected?: boolean;
+  updatedAt?: string;
+}
+
 export type ViewType = 'today' | 'recent' | 'all' | 'calendar' | 'exams' | 'attachments' | 'completed' | 'classwork' | 'requests' | 'messages' | 'settings';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type SessionStatus = 'connected' | 'expired' | 'disconnected';

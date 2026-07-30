@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { HomeworkEntry, ViewType } from '../types/homework';
-import { isTodayDate, formatContextualDate, getTimeGreeting } from '../utils/dateUtils';
+import { isTodayDate, formatContextualDate, getTimeGreeting, formatYmd } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
+import { HolidayCard } from './HolidayCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { RefreshButton } from './RefreshButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
+import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { cn } from '../utils/cn';
 import { BookOpen, MessageSquare, Handshake } from 'lucide-react';
 
@@ -60,6 +62,30 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onNavigate,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
+  const { events: calendarEvents, isLoading: holidaysLoading, reload: reloadHolidays } =
+    useSchoolCalendar();
+
+  const todayYmd = useMemo(() => formatYmd(new Date()), []);
+  const todayHolidays = useMemo(
+    () => calendarEvents.filter((e) => e.date === todayYmd && e.selected !== false),
+    [calendarEvents, todayYmd]
+  );
+  const hasHolidayToday = todayHolidays.length > 0;
+
+  const upcomingHoliday = useMemo(() => {
+    if (hasHolidayToday) return null;
+    const upcoming = calendarEvents
+      .filter((e) => e.selected !== false && e.date > todayYmd)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!upcoming.length) return null;
+    const next = upcoming[0];
+    const [y, m, d] = next.date.split('-').map(Number);
+    const daysAway = Math.round(
+      (new Date(y, m - 1, d).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000
+    );
+    if (daysAway > 7) return null;
+    return { event: next, daysAway };
+  }, [calendarEvents, todayYmd, hasHolidayToday]);
 
   const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
   const todayAllEntries = validHomework.filter((item) => isTodayDate(item?.date));
@@ -95,6 +121,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const pendingCount = Math.max(totalCount - doneCount, 0);
   const allDone = !isLoading && totalCount > 0 && doneCount >= totalCount;
 
+  const subtitle = isLoading
+    ? 'Loading today’s homework…'
+    : hasHolidayToday && totalCount === 0
+      ? 'School holiday today — no homework expected.'
+      : hasHolidayToday && totalCount > 0
+        ? `Holiday today — still ${pendingCount} task${pendingCount === 1 ? '' : 's'} left.`
+        : totalCount === 0
+          ? 'No homework assigned for today.'
+          : allDone
+            ? `You finished all ${totalCount} homework task${totalCount === 1 ? '' : 's'} for today.`
+            : `You have ${pendingCount} homework task${pendingCount === 1 ? '' : 's'} left today.`;
+
   const glance = [
     {
       key: 'homework',
@@ -119,6 +157,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
     },
   ];
 
+  const handleRefresh = () => {
+    onRefresh(true);
+    reloadHolidays(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 pb-5 border-b border-neutral-200/70 dark:border-neutral-800/70 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
@@ -129,19 +172,47 @@ export const TodayView: React.FC<TodayViewProps> = ({
             {greeting}, {name}
           </h1>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
-            {isLoading
-              ? 'Loading today’s homework…'
-              : totalCount === 0
-                ? 'No homework assigned for today.'
-                : allDone
-                  ? `You finished all ${totalCount} homework task${totalCount === 1 ? '' : 's'} for today.`
-                  : `You have ${pendingCount} homework task${pendingCount === 1 ? '' : 's'} left today.`}
+            {subtitle}
           </p>
         </div>
         <div className="shrink-0 sm:pt-0.5">
-          <RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />
+          <RefreshButton
+            onRefresh={handleRefresh}
+            isRefreshing={isLoading || isRefreshing || holidaysLoading}
+          />
         </div>
       </div>
+
+      {todayHolidays.map((event) => (
+        <HolidayCard key={event.id} event={event} variant="hero" />
+      ))}
+
+      {!hasHolidayToday && upcomingHoliday && (
+        <button
+          type="button"
+          onClick={() => onNavigate?.('calendar')}
+          className="w-full text-left rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-rose-300 dark:hover:border-rose-800 transition-colors active:scale-[0.99] shadow-2xs"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
+            <span className="text-xs font-bold tabular-nums">
+              {Number(upcomingHoliday.event.date.slice(8))}
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600/80 dark:text-rose-400">
+              {upcomingHoliday.daysAway === 1
+                ? 'Holiday tomorrow'
+                : `Holiday in ${upcomingHoliday.daysAway} days`}
+            </p>
+            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mt-0.5">
+              {upcomingHoliday.event.title}
+            </p>
+          </div>
+          <span className="text-[11px] text-rose-600 dark:text-rose-400 shrink-0 font-medium">
+            View
+          </span>
+        </button>
+      )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {glance.map((item) => {
@@ -206,16 +277,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
         </section>
       )}
 
-      <SubjectFilterPills
-        subjects={availableSubjects}
-        selectedSubject={selectedSubject}
-        onSelectSubject={setSelectedSubject}
-      />
+      {(availableSubjects.length > 0 || todayEntries.length > 0) && (
+        <SubjectFilterPills
+          subjects={availableSubjects}
+          selectedSubject={selectedSubject}
+          onSelectSubject={setSelectedSubject}
+        />
+      )}
 
       {isLoading ? (
         <LoadingSkeleton />
       ) : todayEntries.length === 0 ? (
-        <EmptyState type="today" />
+        hasHolidayToday ? null : <EmptyState type="today" />
       ) : (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {todayEntries.map((item, index) => {

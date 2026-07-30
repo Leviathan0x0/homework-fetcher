@@ -1,21 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useRef, memo, startTransition } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { HomeworkCard } from './HomeworkCard';
+import { HolidayCard } from './HolidayCard';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import {
   getHomeworkDateYmd,
   getCalendarDaysForMonth,
   formatYmd,
-  isSameDay,
 } from '../utils/dateUtils';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Calendar as CalendarIcon,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface CalendarViewProps {
@@ -28,7 +25,94 @@ interface CalendarViewProps {
   onOpenPreview: (url: string) => void;
 }
 
-const WEEKDAY_NAMES = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+interface DayMeta {
+  hwCount: number;
+  allDone: boolean;
+  holidayCount: number;
+}
+
+interface DayCellProps {
+  ymd: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  meta: DayMeta | undefined;
+  onSelect: (ymd: string) => void;
+}
+
+const DayCell = memo(function DayCell({
+  ymd,
+  dayNumber,
+  isCurrentMonth,
+  isToday,
+  isSelected,
+  meta,
+  onSelect,
+}: DayCellProps) {
+  const hwCount = meta?.hwCount ?? 0;
+  const hasHoliday = (meta?.holidayCount ?? 0) > 0;
+  const allDone = meta?.allDone ?? false;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(ymd)}
+      aria-label={`${dayNumber}${hasHoliday ? ', holiday' : ''}${hwCount ? `, ${hwCount} homework` : ''}`}
+      aria-pressed={isSelected}
+      className={cn(
+        'relative flex flex-col items-center justify-center h-10 sm:h-11 rounded-lg text-[13px] tabular-nums select-none touch-manipulation',
+        'transition-colors duration-100',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
+        !isCurrentMonth && 'text-neutral-300 dark:text-neutral-700',
+        isCurrentMonth && !isSelected && !hasHoliday && 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80',
+        isCurrentMonth && !isSelected && hasHoliday && 'text-rose-700 dark:text-rose-300 bg-rose-50/80 dark:bg-rose-950/25 hover:bg-rose-100/80 dark:hover:bg-rose-950/40',
+        isToday && !isSelected && 'font-semibold',
+        isSelected && !hasHoliday && 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold',
+        isSelected && hasHoliday && 'bg-rose-600 text-white dark:bg-rose-500 font-semibold',
+        !isSelected && 'cursor-pointer active:scale-[0.96]'
+      )}
+    >
+      <span
+        className={cn(
+          'flex h-7 w-7 items-center justify-center rounded-full leading-none',
+          isToday && !isSelected && !hasHoliday && 'ring-1 ring-neutral-900/20 dark:ring-white/25',
+          isToday && !isSelected && hasHoliday && 'ring-1 ring-rose-400/50'
+        )}
+      >
+        {dayNumber}
+      </span>
+      {(hwCount > 0 || hasHoliday) && (
+        <span className="absolute bottom-1 flex items-center gap-0.5">
+          {hasHoliday && (
+            <span
+              className={cn(
+                'w-1.5 h-1.5 rounded-full',
+                isSelected ? 'bg-white' : 'bg-rose-500'
+              )}
+            />
+          )}
+          {hwCount > 0 && (
+            <span
+              className={cn(
+                'w-1 h-1 rounded-full',
+                isSelected
+                  ? allDone
+                    ? 'bg-emerald-200'
+                    : 'bg-white/70'
+                  : allDone
+                    ? 'bg-emerald-500'
+                    : 'bg-neutral-400 dark:bg-neutral-500'
+              )}
+            />
+          )}
+        </span>
+      )}
+    </button>
+  );
+});
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
   homework,
@@ -39,232 +123,304 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onUpdateNote,
   onOpenPreview,
 }) => {
-  const today = useMemo(() => new Date(), []);
-  const [currentDate, setCurrentDate] = useState<Date>(today);
-  const [selectedYmd, setSelectedYmd] = useState<string>(formatYmd(today));
+  const todayYmd = useMemo(() => formatYmd(new Date()), []);
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [selectedYmd, setSelectedYmd] = useState(todayYmd);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const { events, isLoading: eventsLoading, error: eventsError, reload, setSelected } =
+    useSchoolCalendar();
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
+  const monthPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
 
-  // Map YMD strings to homework entries
   const homeworkByDate = useMemo(() => {
     const map: Record<string, HomeworkEntry[]> = {};
-    const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
-    validHomework.forEach((item) => {
-      const ymd = getHomeworkDateYmd(item?.date);
-      if (ymd) {
-        if (!map[ymd]) {
-          map[ymd] = [];
-        }
-        map[ymd].push(item);
-      }
-    });
+    const list = Array.isArray(homework) ? homework : [];
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item) continue;
+      const ymd = getHomeworkDateYmd(item.date);
+      if (!ymd) continue;
+      (map[ymd] ??= []).push(item);
+    }
     return map;
   }, [homework]);
 
-  // Calendar grid days
-  const calendarDays = useMemo(() => {
-    return getCalendarDaysForMonth(currentYear, currentMonth);
-  }, [currentYear, currentMonth]);
+  const holidaysByDate = useMemo(() => {
+    const map: Record<string, typeof events> = {};
+    for (const event of events) {
+      if (!event?.date || event.selected === false) continue;
+      (map[event.date] ??= []).push(event);
+    }
+    return map;
+  }, [events]);
 
-  // Month navigation handlers
-  const handlePrevMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-  };
+  const dayMeta = useMemo(() => {
+    const meta: Record<string, DayMeta> = {};
+    const dates = new Set([...Object.keys(homeworkByDate), ...Object.keys(holidaysByDate)]);
+    for (const ymd of dates) {
+      const entries = homeworkByDate[ymd] || [];
+      let completed = 0;
+      for (let i = 0; i < entries.length; i++) {
+        const e = entries[i];
+        if (completedMap[e.id || ''] ?? e.completed) completed++;
+      }
+      meta[ymd] = {
+        hwCount: entries.length,
+        allDone: entries.length > 0 && completed === entries.length,
+        holidayCount: (holidaysByDate[ymd] || []).length,
+      };
+    }
+    return meta;
+  }, [homeworkByDate, holidaysByDate, completedMap]);
 
-  const handleNextMonth = () => {
-    setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-  };
+  const calendarDays = useMemo(
+    () => getCalendarDaysForMonth(currentYear, currentMonth),
+    [currentYear, currentMonth]
+  );
 
-  const handleJumpToToday = () => {
+  const monthTitle = useMemo(
+    () => currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    [currentDate]
+  );
+
+  const monthHolidays = useMemo(
+    () =>
+      events
+        .filter((e) => e.date.startsWith(monthPrefix))
+        .sort((a, b) => a.date.localeCompare(b.date) || Number(b.selected !== false) - Number(a.selected !== false)),
+    [events, monthPrefix]
+  );
+
+  const selectedDateLabel = useMemo(() => {
+    const [y, m, d] = selectedYmd.split('-').map(Number);
+    if (!y || !m || !d) return selectedYmd;
+    const date = new Date(y, m - 1, d);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const rest = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return selectedYmd === todayYmd ? `Today · ${rest}` : `${weekday} · ${rest}`;
+  }, [selectedYmd, todayYmd]);
+
+  const selectedEntries = homeworkByDate[selectedYmd] || [];
+  const selectedHolidays = holidaysByDate[selectedYmd] || [];
+
+  const handleSelect = useCallback((ymd: string) => {
+    setSelectedYmd(ymd);
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+      requestAnimationFrame(() => {
+        detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }, []);
+
+  const handlePrevMonth = useCallback(() => {
+    startTransition(() => {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    });
+  }, []);
+
+  const handleNextMonth = useCallback(() => {
+    startTransition(() => {
+      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    });
+  }, []);
+
+  const handleJumpToToday = useCallback(() => {
     const now = new Date();
-    setCurrentDate(now);
-    setSelectedYmd(formatYmd(now));
-  };
+    startTransition(() => {
+      setCurrentDate(now);
+      setSelectedYmd(formatYmd(now));
+    });
+  }, []);
 
-  // Selected date homework items
-  const selectedDateEntries = useMemo(() => {
-    return homeworkByDate[selectedYmd] || [];
-  }, [homeworkByDate, selectedYmd]);
-
-  // Format header string for current month (e.g. "July 2026")
-  const monthTitle = useMemo(() => {
-    return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }, [currentDate]);
-
-  // Selected Date Display String (e.g. "Thursday, July 23, 2026")
-  const selectedDateFormatted = useMemo(() => {
-    const [yearStr, monthStr, dayStr] = selectedYmd.split('-').map(Number);
-    if (!yearStr || !monthStr || !dayStr) return selectedYmd;
-    const d = new Date(yearStr, monthStr - 1, dayStr);
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  }, [selectedYmd]);
-
-  const todayYmd = formatYmd(today);
+  const handleRefreshAll = useCallback(() => {
+    onRefresh(true);
+    reload(true);
+  }, [onRefresh, reload]);
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="space-y-5">
       <PageHeader
         title="Calendar"
-        description="Click any date to view and manage assignments."
-        badge={
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300">
-            {monthTitle}
-          </span>
-        }
+        description="Homework and school holidays from EduSecure."
         actions={
           <>
             <button
               type="button"
               onClick={handleJumpToToday}
-              className="h-9 px-3.5 text-xs font-medium rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors duration-150 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
+              className="h-9 px-3.5 text-xs font-medium rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] text-neutral-700 dark:text-neutral-300 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors cursor-pointer active:scale-[0.98] shadow-2xs"
             >
               Today
             </button>
-            <RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} compact />
+            <RefreshButton
+              onRefresh={handleRefreshAll}
+              isRefreshing={isLoading || eventsLoading}
+              compact
+            />
           </>
         }
       />
 
-      {/* Main Grid & Detail Panel Container */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Calendar Card (Month View - Balanced) */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-3xl p-4 sm:p-5 shadow-2xs">
-          {/* Month Controls Header */}
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-              {monthTitle}
-            </h2>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className="lg:col-span-5 lg:sticky lg:top-4 space-y-3">
+          <div className="bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-2xl p-3 sm:p-4 shadow-2xs">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <h2 className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+                {monthTitle}
+              </h2>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 cursor-pointer"
+                  aria-label="Previous month"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 cursor-pointer"
+                  aria-label="Next month"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-            <div className="flex items-center gap-1">
-              <button
-                onClick={handlePrevMonth}
-                className="p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 transition-colors cursor-pointer active:scale-90"
-                title="Previous month"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleNextMonth}
-                className="p-1.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 transition-colors cursor-pointer active:scale-90"
-                title="Next month"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+            <div className="grid grid-cols-7 mb-0.5">
+              {WEEKDAYS.map((name) => (
+                <div
+                  key={name}
+                  className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 text-center py-1"
+                >
+                  {name}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-px">
+              {calendarDays.map((dayItem) => (
+                <DayCell
+                  key={dayItem.ymd}
+                  ymd={dayItem.ymd}
+                  dayNumber={dayItem.date.getDate()}
+                  isCurrentMonth={dayItem.isCurrentMonth}
+                  isToday={dayItem.ymd === todayYmd}
+                  isSelected={dayItem.ymd === selectedYmd}
+                  meta={dayMeta[dayItem.ymd]}
+                  onSelect={handleSelect}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 px-1 text-[11px] text-neutral-400">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Holiday
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" /> Homework
+              </span>
             </div>
           </div>
 
-          {/* Weekday Labels Grid */}
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {WEEKDAY_NAMES.map((dayName, idx) => (
-              <div
-                key={idx}
-                className="text-[11px] font-bold text-neutral-400 dark:text-neutral-500 py-1"
-              >
-                {dayName}
-              </div>
-            ))}
-          </div>
-
-          {/* Days Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((dayItem) => {
-              const entries = homeworkByDate[dayItem.ymd] || [];
-              const hasHomework = entries.length > 0;
-              const completedCount = entries.filter((e) => completedMap[e.id || ''] ?? e.completed).length;
-              const allDone = hasHomework && completedCount === entries.length;
-              const isToday = dayItem.ymd === todayYmd;
-              const isSelected = dayItem.ymd === selectedYmd;
-
-              return (
+          <div className="bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-2xl p-3.5 sm:p-4 shadow-2xs">
+            <div className="flex items-center justify-between gap-2 mb-2 px-0.5">
+              <h3 className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">
+                Holidays · {monthTitle.split(' ')[0]}
+              </h3>
+              {eventsError && (
                 <button
-                  key={dayItem.ymd}
-                  onClick={() => setSelectedYmd(dayItem.ymd)}
-                  className={cn(
-                    'relative aspect-square sm:h-11 rounded-2xl flex flex-col items-center justify-center text-xs font-medium transition-all duration-150 cursor-pointer select-none group touch-manipulation',
-                    !dayItem.isCurrentMonth && 'text-neutral-300 dark:text-neutral-700 opacity-40',
-                    dayItem.isCurrentMonth && 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/80',
-                    // Today Styling
-                    isToday && 'font-bold ring-2 ring-neutral-900 dark:ring-neutral-100 text-neutral-900 dark:text-white',
-                    // Selected Styling
-                    isSelected && 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-semibold shadow-xs hover:bg-neutral-900 dark:hover:bg-white',
-                    isSelected && isToday && 'ring-offset-2 ring-offset-background'
-                  )}
+                  type="button"
+                  onClick={() => reload(true)}
+                  className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
                 >
-                  <span>{dayItem.date.getDate()}</span>
-
-                  {/* Homework Indicator Dots */}
-                  {hasHomework && (
-                    <div className="absolute bottom-1.5 flex items-center justify-center gap-0.5">
-                      {allDone ? (
-                        <div
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400',
-                            isSelected && 'bg-emerald-300 dark:bg-emerald-600'
-                          )}
-                          title={`${entries.length} completed`}
-                        />
-                      ) : (
-                        <div
-                          className={cn(
-                            'w-1.5 h-1.5 rounded-full bg-indigo-500 dark:bg-indigo-400',
-                            isSelected && 'bg-white dark:bg-neutral-900'
-                          )}
-                          title={`${entries.length} assignments`}
-                        />
-                      )}
-                    </div>
-                  )}
+                  Retry
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {eventsLoading && events.length === 0 ? (
+              <p className="text-xs text-neutral-400 py-3 px-0.5">Loading from EduSecure…</p>
+            ) : monthHolidays.length === 0 ? (
+              <p className="text-xs text-neutral-400 py-3 px-0.5">
+                {eventsError || 'No school holidays listed for this month.'}
+              </p>
+            ) : (
+              <ul className="space-y-0.5">
+                {monthHolidays.map((event) => (
+                  <li key={event.id}>
+                    <HolidayCard
+                      event={event}
+                      variant="compact"
+                      active={selectedYmd === event.date}
+                      onSelect={() => handleSelect(event.date)}
+                      onToggleVisible={() =>
+                        setSelected(event, !(event.selected !== false))
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
-        {/* Selected Date Detail Panel */}
-        <div className="lg:col-span-7 space-y-4">
-          <div className="bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-3xl p-5 sm:p-6 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800/80 pb-3">
-              <div>
-                <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider">
-                  Selected Date
-                </span>
-                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-                  {selectedDateFormatted}
-                </h3>
-              </div>
-
-              <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300">
-                {selectedDateEntries.length} {selectedDateEntries.length === 1 ? 'item' : 'items'}
+        <div ref={detailRef} className="lg:col-span-7 space-y-3 scroll-mt-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
+              {selectedDateLabel}
+            </h3>
+            {(selectedEntries.length > 0 || selectedHolidays.length > 0) && (
+              <span className="text-[11px] tabular-nums text-neutral-400">
+                {[
+                  selectedHolidays.length
+                    ? `${selectedHolidays.length} holiday${selectedHolidays.length === 1 ? '' : 's'}`
+                    : null,
+                  selectedEntries.length
+                    ? `${selectedEntries.length} task${selectedEntries.length === 1 ? '' : 's'}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
-            </div>
-
-            {/* List of Homework Cards for Selected Date */}
-            {isLoading ? (
-              <LoadingSkeleton count={2} />
-            ) : selectedDateEntries.length > 0 ? (
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
-                {selectedDateEntries.map((item, idx) => (
-                  <HomeworkCard
-                    key={item.id || `cal-${idx}`}
-                    item={item}
-                    isCompleted={completedMap[item.id || ''] ?? item.completed}
-                    onToggleCompleted={
-                      item.id ? () => onToggleCompleted(item.id!) : undefined
-                    }
-                    onUpdateNote={onUpdateNote}
-                    onOpenPreview={onOpenPreview}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                icon={CalendarIcon}
-                title="No homework on this date"
-                description="Enjoy your day off or select another date on the calendar."
-              />
             )}
           </div>
+
+          {selectedHolidays.map((event) => (
+            <HolidayCard
+              key={event.id}
+              event={event}
+              variant="detail"
+              onToggleVisible={() => setSelected(event, false)}
+            />
+          ))}
+
+          {isLoading ? (
+            <LoadingSkeleton count={2} />
+          ) : selectedEntries.length > 0 ? (
+            <div className="space-y-3">
+              {selectedEntries.map((item, idx) => (
+                <HomeworkCard
+                  key={item.id || `cal-${idx}`}
+                  item={item}
+                  isCompleted={completedMap[item.id || ''] ?? item.completed}
+                  onToggleCompleted={
+                    item.id ? () => onToggleCompleted(item.id!) : undefined
+                  }
+                  onUpdateNote={onUpdateNote}
+                  onOpenPreview={onOpenPreview}
+                />
+              ))}
+            </div>
+          ) : selectedHolidays.length === 0 ? (
+            <EmptyState
+              icon={CalendarIcon}
+              title="Nothing on this day"
+              description="No homework or holidays selected."
+            />
+          ) : null}
         </div>
       </div>
     </div>

@@ -281,6 +281,34 @@ const adminFlagLog = sqliteTable(
   ]
 );
 
+/**
+ * Holidays / school events pulled from EduSecure CurrentSchoolCalendar.aspx.
+ * `selected` lets the student pin which ones to highlight on their calendar.
+ */
+const schoolCalendarEvents = sqliteTable(
+  "school_calendar_events",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceId: text("source_id"),
+    title: text("title").notNull(),
+    type: text("type").notNull().default("Event"),
+    date: text("date").notNull(),
+    dateRaw: text("date_raw"),
+    monthLabel: text("month_label"),
+    url: text("url"),
+    selected: integer("selected").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (table) => [
+    index("idx_school_cal_user").on(table.userId),
+    index("idx_school_cal_user_date").on(table.userId, table.date),
+  ]
+);
+
 module.exports = {
   users,
   edusecureSessions,
@@ -298,4 +326,5 @@ module.exports = {
   messageReadReceipts,
   moderationStrikes,
   adminFlagLog,
+  schoolCalendarEvents,
 };

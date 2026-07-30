@@ -322,6 +322,24 @@ CREATE TABLE IF NOT EXISTS users (
     CREATE INDEX IF NOT EXISTS idx_admin_flag_created ON admin_flag_log(created_at);
     CREATE INDEX IF NOT EXISTS idx_admin_flag_user ON admin_flag_log(user_id);
     CREATE INDEX IF NOT EXISTS idx_admin_flag_type ON admin_flag_log(type);
+
+    CREATE TABLE IF NOT EXISTS school_calendar_events (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      source_id TEXT,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'Event',
+      date TEXT NOT NULL,
+      date_raw TEXT,
+      month_label TEXT,
+      url TEXT,
+      selected INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_school_cal_user ON school_calendar_events(user_id);
+    CREATE INDEX IF NOT EXISTS idx_school_cal_user_date ON school_calendar_events(user_id, date);
 `;
 
 /** Splits the schema script into individual statements. */

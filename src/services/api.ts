@@ -176,6 +176,41 @@ export const homeworkService = {
   }
 };
 
+// --- SCHOOL CALENDAR (holidays / events from EduSecure) ---
+export const calendarService = {
+  async getEvents() {
+    const res = await apiFetch("/api/calendar", { headers: { Accept: "application/json" } });
+    const data = await apiJson<any>(res);
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to load school calendar.");
+    }
+    return Array.isArray(data.events) ? data.events : [];
+  },
+
+  async refresh() {
+    const res = await apiFetch("/api/calendar/refresh", {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok && (!data.events || data.events.length === 0)) {
+      throw new Error(data.error || "Failed to refresh school calendar.");
+    }
+    return Array.isArray(data.events) ? data.events : [];
+  },
+
+  async setSelected(eventId: string, selected: boolean) {
+    const res = await apiFetch(`/api/calendar/${encodeURIComponent(eventId)}/selected`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ selected }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) throw new Error(data.error || "Failed to update holiday.");
+    return data.event;
+  },
+};
+
 // --- MESSAGING SERVICE ---
 /** Maps an API message payload to the UI message shape. */
 function mapMessage(raw: any) {

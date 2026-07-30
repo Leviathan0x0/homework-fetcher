@@ -54,7 +54,7 @@ export interface SchoolCalendarEvent {
   updatedAt?: string;
 }
 
-export type ViewType = 'today' | 'recent' | 'all' | 'calendar' | 'exams' | 'attachments' | 'completed' | 'classwork' | 'requests' | 'messages' | 'settings';
+export type ViewType = 'today' | 'recent' | 'all' | 'calendar' | 'exams' | 'attachments' | 'completed' | 'classwork' | 'requests' | 'messages' | 'settings' | 'developers';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type SessionStatus = 'connected' | 'expired' | 'disconnected';
 

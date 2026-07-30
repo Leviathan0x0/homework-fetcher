@@ -62,6 +62,8 @@ export function SiteHeader({
         return "Completed homework";
       case "settings":
         return "Settings";
+      case "developers":
+        return "Meet the Developers";
       default:
         return "Dashboard";
     }

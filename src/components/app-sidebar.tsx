@@ -24,6 +24,7 @@ import { SearchIcon } from "@/components/ui/search"
 import { AttachFileIcon } from "@/components/ui/attach-file"
 import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
+import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
 import { AlertCircle } from "lucide-react"
 
@@ -144,6 +145,19 @@ export function AppSidebar({
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => onViewChange("developers")}
+                  onMouseEnter={() => setHoveredId("developers")}
+                  onMouseLeave={() => setHoveredId(null)}
+                  isActive={activeView === "developers"}
+                  tooltip="Meet the Developers"
+                  className="group/sbdev cursor-pointer text-xs transition-colors duration-150 active:scale-95"
+                >
+                  <LayersIcon size={18} isAnimated={activeView === "developers" || hoveredId === "developers"} className="shrink-0" />
+                  <span className="group-data-[collapsible=icon]:hidden">Meet the Developers</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={() => onViewChange("settings")}

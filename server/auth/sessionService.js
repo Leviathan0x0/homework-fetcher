@@ -183,6 +183,8 @@ class SessionService {
           studentId: existing.studentId,
           displayName: existing.displayName || null,
           section: existing.section,
+          role: existing.role || "student",
+          isMuted: existing.isMuted || 0,
           createdAt: existing.createdAt,
         };
         memUsers.set(u.id, u);
@@ -199,6 +201,8 @@ class SessionService {
           studentId: caseMatch.studentId,
           displayName: caseMatch.displayName || null,
           section: caseMatch.section,
+          role: caseMatch.role || "student",
+          isMuted: caseMatch.isMuted || 0,
           createdAt: caseMatch.createdAt,
         };
         memUsers.set(u.id, u);
@@ -210,9 +214,9 @@ class SessionService {
         id: crypto.randomUUID(),
         studentId: rawId,
         displayName: null,
-        // Unknown until EduSecure profile is fetched on their first login.
-        // Never invent "Section 10-A" — that incorrectly labeled every provisional chat.
         section: "",
+        role: "student",
+        isMuted: 0,
         createdAt: now,
         updatedAt: now,
       };
@@ -225,6 +229,8 @@ class SessionService {
         studentId: newUser.studentId,
         displayName: newUser.displayName,
         section: newUser.section,
+        role: newUser.role,
+        isMuted: newUser.isMuted,
         createdAt: newUser.createdAt,
       };
     } catch (err) {
@@ -238,6 +244,8 @@ class SessionService {
         studentId: rawId,
         displayName: null,
         section: "",
+        role: "student",
+        isMuted: 0,
         createdAt: now,
       };
       memUsers.set(newUser.id, newUser);
@@ -261,6 +269,8 @@ class SessionService {
           studentId: user.studentId,
           displayName: user.displayName || null,
           section: user.section,
+          role: user.role || "student",
+          isMuted: user.isMuted || 0,
           createdAt: user.createdAt,
         };
       }
@@ -275,6 +285,8 @@ class SessionService {
         studentId: memUser.studentId,
         displayName: memUser.displayName || null,
         section: memUser.section,
+        role: memUser.role || "student",
+        isMuted: memUser.isMuted || 0,
         createdAt: memUser.createdAt,
       };
     }

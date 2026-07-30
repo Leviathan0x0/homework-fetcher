@@ -39,6 +39,54 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    const ADMIN_ID = process.env.ADMIN_USERNAME || "admin_mmss";
+    const ADMIN_PASS = process.env.ADMIN_PASSWORD || "Admin#MMSS2026";
+    const isAdminLogin =
+      cleanStudentId.toLowerCase() === ADMIN_ID.toLowerCase() ||
+      cleanStudentId.toLowerCase() === "admin";
+
+    if (isAdminLogin) {
+      if (password !== ADMIN_PASS) {
+        return res.status(401).json({
+          authenticated: false,
+          error: "Invalid account ID or password."
+        });
+      }
+
+      const { db, schema } = require("../db/client");
+      const { eq } = require("drizzle-orm");
+
+      const user = await sessionService.findOrCreateUser(ADMIN_ID);
+      await db
+        .update(schema.users)
+        .set({
+          role: "admin",
+          section: "Admin",
+          displayName: user.displayName || "Administrator",
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.users.id, user.id));
+
+      const appToken = await sessionService.createAppSession(user.id);
+
+      res.cookie("app_session", appToken, sessionCookieOptions({
+        maxAge: sessionService.SESSION_TTL_MS
+      }));
+
+      return res.json({
+        authenticated: true,
+        token: appToken,
+        user: {
+          id: user.id,
+          studentId: user.studentId,
+          displayName: user.displayName || "Administrator",
+          section: "Admin",
+          isAdmin: true,
+          role: "admin",
+        }
+      });
+    }
+
     let sessionCookies;
     let initialHomework = [];
     try {
@@ -51,8 +99,6 @@ router.post("/login", async (req, res) => {
       }
     } catch (authErr) {
       console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
-      // Only report bad credentials when the portal actually rejected them;
-      // outages or blocked egress would otherwise look like a wrong password.
       if (!authErr || authErr.code === "invalid_credentials") {
         return res.status(401).json({
           authenticated: false,
@@ -71,7 +117,6 @@ router.post("/login", async (req, res) => {
     const user = await sessionService.findOrCreateUser(cleanStudentId);
     await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
-    // Immediately cache homework parsed during login verification
     if (initialHomework && initialHomework.length > 0) {
       homeworkCacheService.upsertHomework(user.id, initialHomework).catch((err) => {
         console.error("Failed to upsert initial homework cache:", err.message);
@@ -87,8 +132,6 @@ router.post("/login", async (req, res) => {
     let section = user.section;
     let displayName = user.displayName;
 
-    // Always refresh section from EduSecure on login so we never keep the
-    // old placeholder "Section 10-A" (or a stale class) after they sign in.
     fetchProfileFromEduSecure(sessionCookies).then(async (profile) => {
       let nextSection = section;
       if (profile.section) {
@@ -106,14 +149,14 @@ router.post("/login", async (req, res) => {
 
     return res.json({
       authenticated: true,
-      // Browsers use the httpOnly cookie set above; native clients store this
-      // token and send it as `Authorization: Bearer <token>`.
       token: appToken,
       user: {
         id: user.id,
         studentId: user.studentId,
         displayName: displayName || null,
         section: isUnknownSection(section) ? null : section,
+        isAdmin: user.role === "admin" || user.studentId === "admin_mmss" || user.section === "Admin",
+        role: user.role || "student",
       }
     });
 
@@ -139,9 +182,12 @@ router.get("/me", async (req, res) => {
 
   let section = activeSession.user.section;
   let displayName = activeSession.user.displayName;
+  const isAdmin =
+    activeSession.user.studentId === "admin_mmss" ||
+    activeSession.user.role === "admin" ||
+    activeSession.user.section === "Admin";
 
-  // Refresh section whenever it is still unknown, or we can cheaply confirm it.
-  if (isUnknownSection(section)) {
+  if (!isAdmin && isUnknownSection(section)) {
     try {
       const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
@@ -160,15 +206,19 @@ router.get("/me", async (req, res) => {
     }
   }
 
-  joinClassGroupInBackground({ id: activeSession.user.id, section });
+  if (!isAdmin) {
+    joinClassGroupInBackground({ id: activeSession.user.id, section });
+  }
 
   return res.json({
     authenticated: true,
     user: {
       id: activeSession.user.id,
       studentId: activeSession.user.studentId,
-      displayName: displayName || null,
-      section: isUnknownSection(section) ? null : section,
+      displayName: displayName || (isAdmin ? "Administrator" : null),
+      section: isUnknownSection(section) ? (isAdmin ? "Admin" : null) : section,
+      isAdmin,
+      role: activeSession.user.role || (isAdmin ? "admin" : "student"),
     }
   });
 });

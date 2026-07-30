@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { HomeworkEntry, ViewType } from '../types/homework';
 import { isTodayDate, formatContextualDate, getTimeGreeting, formatYmd } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';

@@ -23,6 +23,7 @@ import { MessagesView } from './MessagesView';
 import { SettingsModal } from './SettingsModal';
 import { SettingsView } from './SettingsView';
 import { DevelopersView } from './DevelopersView';
+import { AdminView } from './AdminView';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';

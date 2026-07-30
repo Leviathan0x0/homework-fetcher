@@ -74,11 +74,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       setReports(reportsData?.reports || []);
 
       if (settingsData?.settings) {
+        const s = settingsData.settings as Record<string, string>;
         setSettings({
-          global_chat_enabled: settingsData.settings.global_chat_enabled !== '0',
-          auto_mute_strikes_enabled: settingsData.settings.auto_mute_strikes_enabled !== '0',
-          section_requests_enabled: settingsData.settings.section_requests_enabled !== '0',
-          classwork_approval_required: settingsData.settings.classwork_approval_required === '1',
+          global_chat_enabled: s.global_chat_enabled !== '0',
+          auto_mute_strikes_enabled: s.auto_mute_strikes_enabled !== '0',
+          section_requests_enabled: s.section_requests_enabled !== '0',
+          classwork_approval_required: s.classwork_approval_required === '1',
         });
       }
     } catch (err) {

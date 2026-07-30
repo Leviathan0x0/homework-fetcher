@@ -8,6 +8,8 @@ export interface UserAccount {
   studentId: string;
   displayName?: string | null;
   section?: string;
+  isAdmin?: boolean;
+  role?: string;
 }
 
 export function useHomework() {

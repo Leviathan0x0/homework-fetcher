@@ -9,7 +9,7 @@ interface EmptyStateProps {
   /** Alias for `subtitle`, kept for call sites that describe the empty result. */
   description?: string;
   /** Overrides the icon inferred from `type`. */
-  icon?: React.ElementType;
+  icon?: any;
   action?: React.ReactNode;
 }
 
@@ -23,7 +23,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   let defaultTitle = 'No homework found';
   let defaultSubtitle = 'There are no assignments matching your filter criteria.';
-  let defaultIcon: React.ElementType = Inbox;
+  let defaultIcon: any = Inbox;
 
   if (type === 'today') {
     defaultTitle = 'No homework for today';

@@ -51,12 +51,12 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
   strokeWidth = 2,
   ...props
 }) => {
-  const getMotionVariants = () => {
+  const getMotionVariants = (): any => {
     switch (preset) {
       case 'gear':
         return {
           rest: { rotate: 0 },
-          hover: { rotate: 90, transition: { type: 'spring', stiffness: 200, damping: 12 } },
+          hover: { rotate: 90, transition: { type: 'spring' as const, stiffness: 200, damping: 12 } },
           active: { rotate: 180 },
         };
       case 'ring':
@@ -71,25 +71,25 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
       case 'spin':
         return {
           rest: { rotate: 0 },
-          hover: { rotate: 180, transition: { type: 'spring', stiffness: 260, damping: 18 } },
+          hover: { rotate: 180, transition: { type: 'spring' as const, stiffness: 260, damping: 18 } },
           active: { rotate: 360 },
         };
       case 'bounce':
         return {
           rest: { y: 0, scale: 1 },
-          hover: { y: -3, scale: 1.05, transition: { type: 'spring', stiffness: 400, damping: 10 } },
+          hover: { y: -3, scale: 1.05, transition: { type: 'spring' as const, stiffness: 400, damping: 10 } },
           active: { y: 0, scale: 0.95 },
         };
       case 'lift':
         return {
           rest: { y: 0, scale: 1 },
-          hover: { y: -2, scale: 1.08, transition: { type: 'spring', stiffness: 350, damping: 14 } },
+          hover: { y: -2, scale: 1.08, transition: { type: 'spring' as const, stiffness: 350, damping: 14 } },
           active: { y: 1, scale: 0.96 },
         };
       case 'zoom':
         return {
           rest: { scale: 1, rotate: 0 },
-          hover: { scale: 1.15, rotate: -4, transition: { type: 'spring', stiffness: 300, damping: 12 } },
+          hover: { scale: 1.15, rotate: -4, transition: { type: 'spring' as const, stiffness: 300, damping: 12 } },
           active: { scale: 0.95 },
         };
       case 'shake':
@@ -112,7 +112,7 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
       default:
         return {
           rest: { scale: 1, rotate: 0 },
-          hover: { scale: 1.12, transition: { type: 'spring', stiffness: 350, damping: 15 } },
+          hover: { scale: 1.12, transition: { type: 'spring' as const, stiffness: 350, damping: 15 } },
           active: { scale: 0.92 },
         };
     }

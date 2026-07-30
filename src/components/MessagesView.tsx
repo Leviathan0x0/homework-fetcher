@@ -1335,6 +1335,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             {visibleMessages.map((m, idx) => {
               const isMine = Boolean(m.isMine);
               const isPending = String(m.id).startsWith('temp_');
+              const isSectionChat = activeConv?.type === 'section';
               const isImage =
                 m.mimeType?.startsWith('image/') ||
                 Boolean(m.originalFilename?.match(/\.(jpg|jpeg|png|webp|gif)$/i)) ||
@@ -1342,20 +1343,29 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               const prev = visibleMessages[idx - 1];
               const next = visibleMessages[idx + 1];
               const showDay = !prev || !sameCalendarDay(prev.createdAt, m.createdAt);
+              const sameSenderAs = (other?: Message | null) =>
+                Boolean(
+                  other &&
+                    Boolean(other.isMine) === isMine &&
+                    (!isSectionChat || other.senderId === m.senderId)
+                );
               const clusteredWithPrev =
-                prev &&
-                Boolean(prev.isMine) === isMine &&
-                sameCalendarDay(prev.createdAt, m.createdAt) &&
-                new Date(m.createdAt).getTime() - new Date(prev.createdAt).getTime() < 5 * 60 * 1000;
+                sameSenderAs(prev) &&
+                sameCalendarDay(prev!.createdAt, m.createdAt) &&
+                new Date(m.createdAt).getTime() - new Date(prev!.createdAt).getTime() < 5 * 60 * 1000;
               const clusteredWithNext =
-                next &&
-                Boolean(next.isMine) === isMine &&
-                sameCalendarDay(next.createdAt, m.createdAt) &&
-                new Date(next.createdAt).getTime() - new Date(m.createdAt).getTime() < 5 * 60 * 1000;
+                sameSenderAs(next) &&
+                sameCalendarDay(next!.createdAt, m.createdAt) &&
+                new Date(next!.createdAt).getTime() - new Date(m.createdAt).getTime() < 5 * 60 * 1000;
               const timeStr = new Date(m.createdAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
               });
+              const senderLabel =
+                m.senderName?.trim() ||
+                m.senderStudentId?.trim() ||
+                'Student';
+              const showSenderName = isSectionChat && !isMine && !clusteredWithPrev;
 
               return (
                 <React.Fragment key={m.id}>
@@ -1368,11 +1378,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                   )}
                   <div
                     className={cn(
-                      'flex w-full',
-                      isMine ? 'justify-end' : 'justify-start',
+                      'flex w-full flex-col',
+                      isMine ? 'items-end' : 'items-start',
                       clusteredWithPrev ? 'mt-0.5' : 'mt-2.5'
                     )}
                   >
+                    {showSenderName && (
+                      <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 px-1 truncate max-w-[78%] sm:max-w-[62%]">
+                        {senderLabel}
+                      </span>
+                    )}
                     <div
                       className={cn(
                         'max-w-[78%] sm:max-w-[62%] px-3 py-2 text-[13px] leading-relaxed relative group',

@@ -586,3 +586,87 @@ export const classworkService = {
     if (!res.ok) throw new Error("Failed to delete classwork.");
   },
 };
+
+// --- ADMIN SERVICE ---
+export const adminService = {
+  async getStats() {
+    const res = await apiFetch("/api/admin/stats");
+    if (!res.ok) throw new Error("Failed to fetch admin stats");
+    return apiJson<{ stats: any }>(res);
+  },
+  async getStudents() {
+    const res = await apiFetch("/api/admin/students");
+    if (!res.ok) throw new Error("Failed to fetch students");
+    return apiJson<{ students: any[] }>(res);
+  },
+  async muteStudent(studentId: string, mute: boolean, reason?: string) {
+    const res = await apiFetch("/api/admin/students/mute", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId, mute, reason }),
+    });
+    if (!res.ok) throw new Error("Failed to update student mute status");
+    return apiJson<any>(res);
+  },
+  async getTeachers() {
+    const res = await apiFetch("/api/admin/teachers");
+    if (!res.ok) throw new Error("Failed to fetch teachers");
+    return apiJson<{ teachers: any[] }>(res);
+  },
+  async getAlerts() {
+    const res = await apiFetch("/api/admin/alerts");
+    if (!res.ok) throw new Error("Failed to fetch alerts");
+    return apiJson<{ alerts: any[] }>(res);
+  },
+  async createAlert(data: { title: string; message: string; level?: string; targetSection?: string }) {
+    const res = await apiFetch("/api/admin/alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error("Failed to create broadcast alert");
+    return apiJson<{ success: boolean; alert: any }>(res);
+  },
+  async deleteAlert(id: string) {
+    const res = await apiFetch(`/api/admin/alerts/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete alert");
+    return apiJson<any>(res);
+  },
+  async getReports() {
+    const res = await apiFetch("/api/admin/reports");
+    if (!res.ok) throw new Error("Failed to fetch reports");
+    return apiJson<{ reports: any[] }>(res);
+  },
+  async resolveReport(reportId: string, action: string) {
+    const res = await apiFetch("/api/admin/reports/resolve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reportId, action }),
+    });
+    if (!res.ok) throw new Error("Failed to resolve report");
+    return apiJson<any>(res);
+  },
+  async getSettings() {
+    const res = await apiFetch("/api/admin/settings");
+    if (!res.ok) throw new Error("Failed to fetch system settings");
+    return apiJson<{ settings: Record<string, string> }>(res);
+  },
+  async updateSetting(key: string, value: string | boolean) {
+    const res = await apiFetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, value: typeof value === "boolean" ? (value ? "1" : "0") : value }),
+    });
+    if (!res.ok) throw new Error("Failed to update setting");
+    return apiJson<any>(res);
+  },
+  async getActiveAlerts() {
+    try {
+      const res = await apiFetch("/api/alerts/active");
+      if (!res.ok) return { alerts: [] };
+      return apiJson<{ alerts: any[] }>(res);
+    } catch {
+      return { alerts: [] };
+    }
+  },
+};

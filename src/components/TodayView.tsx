@@ -10,8 +10,9 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import { RefreshButton } from './RefreshButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
+import { adminService } from '../services/api';
 import { cn } from '../utils/cn';
-import { BookOpen, MessageSquare, Handshake } from 'lucide-react';
+import { BookOpen, MessageSquare, Handshake, Bell } from 'lucide-react';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -62,6 +63,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onNavigate,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
+  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+
+  useEffect(() => {
+    adminService.getActiveAlerts().then((res) => {
+      if (res.alerts) setActiveAlerts(res.alerts);
+    });
+  }, []);
+
   const { events: calendarEvents, isLoading: holidaysLoading, reload: reloadHolidays } =
     useSchoolCalendar();
 
@@ -182,6 +191,26 @@ export const TodayView: React.FC<TodayViewProps> = ({
           />
         </div>
       </div>
+
+      {activeAlerts.map((alt) => (
+        <div
+          key={alt.id}
+          className={cn(
+            'p-4 rounded-2xl border flex items-start gap-3 text-xs shadow-2xs',
+            alt.level === 'urgent'
+              ? 'bg-rose-500/10 border-rose-500/30 text-rose-900 dark:text-rose-200'
+              : alt.level === 'warning'
+              ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+              : 'bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200'
+          )}
+        >
+          <Bell className="size-4 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="font-semibold">{alt.title}</p>
+            <p className="leading-relaxed opacity-90">{alt.message}</p>
+          </div>
+        </div>
+      ))}
 
       {todayHolidays.map((event) => (
         <HolidayCard key={event.id} event={event} variant="hero" />

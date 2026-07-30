@@ -604,6 +604,20 @@ router.post(
         return res.status(403).json({ error: "Access denied." });
       }
 
+      // Enforce Admin Mute Status
+      const dbUser = await db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get();
+      if (dbUser && dbUser.isMuted === 1) {
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        return res.status(403).json({ error: "Your account has been muted by an administrator." });
+      }
+
+      // Enforce Global Section Chat Toggle
+      const globalChatSetting = await db.select().from(schema.systemSettings).where(eq(schema.systemSettings.key, "global_chat_enabled")).get();
+      if (globalChatSetting && globalChatSetting.value === "0" && req.user.studentId !== "admin_mmss" && req.user.role !== "admin") {
+        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        return res.status(403).json({ error: "Section messaging is currently paused by the administrator." });
+      }
+
       const { value: content, tooLong } = limitText((req.body || {}).content, MAX_MESSAGE_CHARS);
       const replyToId = (req.body || {}).replyToId || null;
       if (!content && !req.file) {

@@ -165,6 +165,14 @@ export const AppShell: React.FC = () => {
     setIsSettingsOpen(true);
   }, [isMobile, activeView]);
 
+  const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss');
+
+  useEffect(() => {
+    if (isAdmin && !activeView.startsWith('admin-') && activeView !== 'settings' && activeView !== 'developers') {
+      setActiveView('admin-overview');
+    }
+  }, [isAdmin, activeView, setActiveView]);
+
   const handleOpenPreview = (url: string, filename?: string) => {
     setPreviewFileUrl(url);
     setPreviewOriginalFilename(filename || null);
@@ -418,6 +426,9 @@ export const AppShell: React.FC = () => {
           )}
 
           {activeView === 'developers' && <DevelopersView />}
+          {activeView.startsWith('admin-') && (
+            <AdminView activeSubView={activeView} onNavigate={handleViewChange} />
+          )}
         </div>
 
         {!(activeView === 'messages' && isMobileChatOpen) && (

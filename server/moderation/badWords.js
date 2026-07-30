@@ -1,16 +1,17 @@
 /**
  * Rules-first text filter for student messaging and section requests.
- * Uses `profanity-hindi` for Hindi/English abuse, plus a local blocklist
- * for obfuscation and gaps the library misses.
+ * Uses `profanity-hindi` for Hindi/English abuse, plus an expanded local blocklist
+ * for obfuscation, Hinglish/Hindi swear words, and character substitutions.
  */
 
 const { isMessageDirty } = require("profanity-hindi");
 
 const GUIDELINE_MESSAGE =
-  "That message can’t be sent — it doesn’t follow school guidelines. Keep chats about homework only.";
+  "That message can't be sent — it doesn't follow school guidelines. Keep chats about homework only.";
 
-// Extra English + school-chat slang / obfuscation gaps beyond profanity-hindi.
+// Comprehensive English + Hinglish / Hindi / Punjabi profanity blocklist
 const BAD_WORDS = [
+  // English abuse
   "fuck",
   "fucker",
   "fucking",
@@ -19,6 +20,7 @@ const BAD_WORDS = [
   "asshole",
   "bastard",
   "dick",
+  "dickhead",
   "cock",
   "pussy",
   "cunt",
@@ -47,29 +49,72 @@ const BAD_WORDS = [
   "nsfw",
   "kill yourself",
   "kys",
+  "dumbass",
+  "jackass",
+  "motherfucker",
+  "stfu",
+  "bullshit",
+
+  // Hindi / Hinglish / Punjabi profanities & variations
   "madarchod",
+  "maderchod",
+  "madarchode",
   "behenchod",
   "bhenchod",
+  "bhenchd",
+  "bhen_chod",
   "bhosdike",
   "bhosdi",
+  "bhosdika",
+  "bhosdiwala",
+  "bhosdiwaala",
+  "bhosada",
   "chutiya",
   "chutia",
+  "chutiyapa",
+  "chutiyap",
+  "chut",
+  "choot",
   "gaand",
   "gand",
+  "gandu",
+  "gandfat",
+  "gandmasti",
   "lund",
-  "lawda",
+  "lauda",
   "laude",
+  "lawda",
+  "lawde",
+  "lodu",
+  "lode",
   "randi",
+  "randwa",
   "haraami",
   "harami",
+  "harambhor",
   "saala",
+  "salla",
   "kutte",
   "kutta",
+  "kutti",
+  "kaminay",
+  "kamina",
+  "kamini",
+  "bhen ke lode",
+  "madarjat",
+  "tatte",
+  "tatta",
+  "chood",
+  "chod",
+  "chode",
+  "chodo",
+  "bakchod",
+  "bakchodi",
 ];
 
 /**
  * Lowercases, strips zero-width / punctuation noise, collapses repeated letters,
- * and inserts spaces so spaced-out abuse ("f u c k") still matches.
+ * normalizes common character substitutions (@, $, 0, 1, 3, 7, !), and inserts spaces.
  * @param {string} text
  * @returns {string}
  */
@@ -77,7 +122,9 @@ function normalizeForFilter(text) {
   if (!text || typeof text !== "string") return "";
   let s = text.toLowerCase().normalize("NFKC");
   s = s.replace(/[\u200B-\u200D\uFEFF]/g, "");
-  s = s.replace(/[@$0]/g, (ch) => ({ "@": "a", $: "s", "0": "o" }[ch]));
+  s = s.replace(/[@$0137!]/g, (ch) =>
+    ({ "@": "a", "$": "s", "0": "o", "1": "i", "3": "e", "7": "t", "!": "i" }[ch] || ch)
+  );
   s = s.replace(/[^a-z0-9\s]/g, " ");
   s = s.replace(/(.)\1{2,}/g, "$1$1");
   s = s.replace(/\s+/g, " ").trim();
@@ -91,7 +138,7 @@ function normalizeForFilter(text) {
 function checkBadWords(text) {
   if (!text || typeof text !== "string" || !text.trim()) return { ok: true };
 
-  // Library check on the raw message (Hindi romanized + common English abuse).
+  // Library check on the raw message
   try {
     if (isMessageDirty(text)) {
       return { ok: false, reason: GUIDELINE_MESSAGE };
@@ -103,9 +150,8 @@ function checkBadWords(text) {
   const normalized = normalizeForFilter(text);
   if (!normalized) return { ok: true };
 
-  // Spaced-out abuse only: "f u c k" → compact "fuck". Avoid naive substring
-  // checks on the spaced string (e.g. biology "sexual reproduction").
   const compact = normalized.replace(/\s+/g, "");
+
   for (const word of BAD_WORDS) {
     const w = word.toLowerCase();
     if (w.includes(" ")) {
@@ -118,9 +164,7 @@ function checkBadWords(text) {
     if (re.test(normalized)) {
       return { ok: false, reason: GUIDELINE_MESSAGE };
     }
-    // Obfuscation path: source had spaces between letters ("f u c k" → "fuck").
-    // Only when spacing was present, so normal phrases aren't substring-matched.
-    if (normalized.length > compact.length && w.length >= 4 && compact.includes(w)) {
+    if (normalized.length > compact.length && w.length >= 3 && compact.includes(w)) {
       return { ok: false, reason: GUIDELINE_MESSAGE };
     }
   }

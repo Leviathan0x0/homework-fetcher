@@ -64,6 +64,18 @@ export function SiteHeader({
         return "Settings";
       case "developers":
         return "Meet the Developers";
+      case "admin-overview":
+        return "System Overview";
+      case "admin-students":
+        return "Students Directory";
+      case "admin-teachers":
+        return "Teachers & Staff";
+      case "admin-moderation":
+        return "Moderation Controls";
+      case "admin-alerts":
+        return "Broadcast Alerts";
+      case "admin-reports":
+        return "Flagged Reports Queue";
       default:
         return "Dashboard";
     }

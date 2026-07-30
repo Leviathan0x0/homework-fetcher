@@ -338,8 +338,23 @@ CREATE TABLE IF NOT EXISTS users (
       updated_at TEXT NOT NULL
     );
 
-    CREATE INDEX IF NOT EXISTS idx_school_cal_user ON school_calendar_events(user_id);
-    CREATE INDEX IF NOT EXISTS idx_school_cal_user_date ON school_calendar_events(user_id, date);
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS broadcast_alerts (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      level TEXT NOT NULL DEFAULT 'info',
+      target_section TEXT NOT NULL DEFAULT 'All',
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_broadcast_active ON broadcast_alerts(active);
 `;
 
 /** Splits the schema script into individual statements. */
@@ -367,6 +382,11 @@ async function initDb() {
   // Lightweight migrations so databases created by older versions keep working.
   await ensureColumn("users", "display_name", "TEXT");
   await ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
+  await ensureColumn("users", "is_muted", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "muted_reason", "TEXT");
+  await ensureColumn("users", "muted_at", "TEXT");
+  await ensureColumn("users", "role", "TEXT NOT NULL DEFAULT 'student'");
+  await ensureColumn("admin_flag_log", "status", "TEXT NOT NULL DEFAULT 'pending'");
   await ensureColumn("messages", "attachment_url", "TEXT");
   await ensureColumn("messages", "original_filename", "TEXT");
   await ensureColumn("messages", "mime_type", "TEXT");

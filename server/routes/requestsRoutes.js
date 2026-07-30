@@ -55,6 +55,18 @@ router.post(
   rateLimit({ name: "create-request", windowMs: 60 * 1000, max: 10 }),
   async (req, res) => {
   try {
+    // Enforce Admin Mute Status
+    const dbUser = await db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get();
+    if (dbUser && dbUser.isMuted === 1) {
+      return res.status(403).json({ error: "Your account has been muted by an administrator." });
+    }
+
+    // Enforce System Toggle
+    const requestsSetting = await db.select().from(schema.systemSettings).where(eq(schema.systemSettings.key, "section_requests_enabled")).get();
+    if (requestsSetting && requestsSetting.value === "0" && req.user.studentId !== "admin_mmss" && req.user.role !== "admin") {
+      return res.status(403).json({ error: "Section requests are currently paused by the administrator." });
+    }
+
     const { category } = req.body || {};
     const titleField = limitText((req.body || {}).title, MAX_REQUEST_TITLE_CHARS);
     const contentField = limitText((req.body || {}).content, MAX_REQUEST_BODY_CHARS);

@@ -96,4 +96,25 @@ router.post("/notifications/read-all", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/alerts/active", requireAuth, async (req, res) => {
+  try {
+    const userSection = req.user.section || "";
+    const activeAlerts = await db
+      .select()
+      .from(schema.broadcastAlerts)
+      .where(eq(schema.broadcastAlerts.active, 1))
+      .orderBy(desc(schema.broadcastAlerts.createdAt))
+      .all();
+
+    const matchingAlerts = activeAlerts.filter(
+      (a) => a.targetSection === "All" || a.targetSection === userSection
+    );
+
+    return res.json({ alerts: matchingAlerts });
+  } catch (err) {
+    console.error("Get Active Broadcast Alerts Error:", err);
+    return res.status(500).json({ error: "Failed to load broadcast alerts." });
+  }
+});
+
 module.exports = router;

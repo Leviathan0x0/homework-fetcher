@@ -7,6 +7,10 @@ const users = sqliteTable(
     studentId: text("student_id").notNull().unique(),
     displayName: text("display_name"),
     section: text("section"),
+    isMuted: integer("is_muted").notNull().default(0),
+    mutedReason: text("muted_reason"),
+    mutedAt: text("muted_at"),
+    role: text("role").notNull().default("student"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -272,12 +276,39 @@ const adminFlagLog = sqliteTable(
     reason: text("reason").notNull(),
     detail: text("detail"),
     source: text("source"),
+    status: text("status").notNull().default("pending"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [
     index("idx_admin_flag_created").on(t.createdAt),
     index("idx_admin_flag_user").on(t.userId),
     index("idx_admin_flag_type").on(t.type),
+  ]
+);
+
+const systemSettings = sqliteTable(
+  "system_settings",
+  {
+    key: text("key").primaryKey(),
+    value: text("value").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
+
+const broadcastAlerts = sqliteTable(
+  "broadcast_alerts",
+  {
+    id: text("id").primaryKey(),
+    title: text("title").notNull(),
+    message: text("message").notNull(),
+    level: text("level").notNull().default("info"),
+    targetSection: text("target_section").notNull().default("All"),
+    active: integer("active").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_broadcast_active").on(t.active),
+    index("idx_broadcast_created").on(t.createdAt),
   ]
 );
 
@@ -327,4 +358,6 @@ module.exports = {
   moderationStrikes,
   adminFlagLog,
   schoolCalendarEvents,
+  systemSettings,
+  broadcastAlerts,
 };

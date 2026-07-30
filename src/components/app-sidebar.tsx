@@ -26,7 +26,7 @@ import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck } from "lucide-react"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
@@ -52,9 +52,11 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);
 
-  const navGroups: {
+  const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss' || user?.role === 'admin');
+
+  const studentNavGroups: {
     label: string;
-    items: { id: ViewType; title: string; IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>; badge?: number }[];
+    items: { id: ViewType; title: string; IconComponent: React.ComponentType<any>; badge?: number }[];
   }[] = [
     {
       label: "Main",
@@ -83,6 +85,25 @@ export function AppSidebar({
     },
   ];
 
+  const adminNavGroups: {
+    label: string;
+    items: { id: ViewType; title: string; IconComponent: React.ComponentType<any>; badge?: number }[];
+  }[] = [
+    {
+      label: "Admin Management",
+      items: [
+        { id: "admin-overview" as ViewType, title: "Overview", IconComponent: ({ className }: any) => <Activity className={className || "size-4"} /> },
+        { id: "admin-students" as ViewType, title: "Students", IconComponent: ({ className }: any) => <Users className={className || "size-4"} /> },
+        { id: "admin-teachers" as ViewType, title: "Teachers & Staff", IconComponent: GraduationCapIcon },
+        { id: "admin-moderation" as ViewType, title: "Moderation & Mutes", IconComponent: ({ className }: any) => <VolumeX className={className || "size-4"} /> },
+        { id: "admin-alerts" as ViewType, title: "Broadcast Alerts", IconComponent: ({ className }: any) => <Bell className={className || "size-4"} /> },
+        { id: "admin-reports" as ViewType, title: "Flagged Reports", IconComponent: ({ className }: any) => <Flag className={className || "size-4"} /> },
+      ],
+    },
+  ];
+
+  const navGroups = isAdmin ? adminNavGroups : studentNavGroups;
+
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -94,7 +115,9 @@ export function AppSidebar({
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold text-xs">MMSS Mohali</span>
-                <span className="truncate text-[11px] text-muted-foreground">Student Portal</span>
+                <span className="truncate text-[11px] text-muted-foreground">
+                  {isAdmin ? "Admin Console" : "Student Portal"}
+                </span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -179,19 +202,12 @@ export function AppSidebar({
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            {/* Full Card View when expanded */}
             <div className="p-2.5 flex flex-col gap-2 rounded-2xl bg-sidebar-accent/40 text-sidebar-accent-foreground text-xs border border-sidebar-border/40 group-data-[collapsible=icon]:hidden">
               <div className="flex items-center justify-between">
-                <span className="font-semibold truncate text-xs">{user?.studentId || "Student"}</span>
-                {sessionStatus === "connected" ? (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                    <CircleCheckIcon size={14} /> Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                    <AlertCircle size={14} /> Expired
-                  </span>
-                )}
+                <span className="font-semibold truncate text-xs">{user?.displayName || user?.studentId || (isAdmin ? "Administrator" : "Student")}</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CircleCheckIcon size={14} /> {isAdmin ? "Admin" : "Active"}
+                </span>
               </div>
               <button
                 onClick={onLogout}
@@ -202,11 +218,10 @@ export function AppSidebar({
               </button>
             </div>
 
-            {/* Icon Only Button when collapsed */}
             <div className="hidden group-data-[collapsible=icon]:flex items-center justify-center p-1">
               <SidebarMenuButton
                 onClick={onLogout}
-                tooltip={`Sign out (${user?.studentId || "Student"})`}
+                tooltip={`Sign out (${user?.displayName || user?.studentId})`}
                 className="group/sbiconlogout cursor-pointer text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl active:scale-95"
               >
                 <LogoutIcon size={18} className="shrink-0" />

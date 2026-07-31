@@ -42,7 +42,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     classwork_approval_required: false,
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionIsError, setActionIsError] = useState(false);
+  const [pendingClasswork, setPendingClasswork] = useState<any[]>([]);
 
   // Search & filter states
   const [studentSearch, setStudentSearch] = useState('');
@@ -57,21 +60,34 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
 
   const loadAdminData = async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
-      const [statsData, studentsData, teachersData, alertsData, reportsData, settingsData] = await Promise.all([
-        adminService.getStats().catch(() => null),
-        adminService.getStudents().catch(() => ({ students: [] })),
-        adminService.getTeachers().catch(() => ({ teachers: [] })),
-        adminService.getAlerts().catch(() => ({ alerts: [] })),
-        adminService.getReports().catch(() => ({ reports: [] })),
-        adminService.getSettings().catch(() => ({ settings: {} })),
+      const results = await Promise.allSettled([
+        adminService.getStats(),
+        adminService.getStudents(),
+        adminService.getTeachers(),
+        adminService.getAlerts(),
+        adminService.getReports(),
+        adminService.getSettings(),
+        adminService.getPendingClasswork(),
       ]);
+
+      const [statsData, studentsData, teachersData, alertsData, reportsData, settingsData, pendingData] =
+        results.map((r) => (r.status === 'fulfilled' ? r.value : null)) as any[];
+
+      const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+      if (failures.length === results.length) {
+        setLoadError(failures[0]?.reason?.message || 'Admin API is unavailable. Restart the server and try again.');
+      } else if (failures.length > 0) {
+        setLoadError(`${failures.length} admin endpoint(s) failed — some panels may be empty.`);
+      }
 
       if (statsData?.stats) setStats(statsData.stats);
       setStudents(studentsData?.students || []);
       setTeachers(teachersData?.teachers || []);
       setAlerts(alertsData?.alerts || []);
       setReports(reportsData?.reports || []);
+      setPendingClasswork(pendingData?.classwork || []);
 
       if (settingsData?.settings) {
         const s = settingsData.settings as Record<string, string>;
@@ -82,8 +98,9 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
           classwork_approval_required: s.classwork_approval_required === '1',
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load admin data:', err);
+      setLoadError(err?.message || 'Failed to load admin data');
     } finally {
       setIsLoading(false);
     }
@@ -101,7 +118,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       );
       showToast(res.message || `Student ${studentId} ${!currentMuted ? 'muted' : 'unmuted'}.`);
     } catch (err: any) {
-      showToast(err.message || 'Action failed');
+      showToast(err.message || 'Action failed', true);
     }
   };
 
@@ -110,10 +127,10 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     setSettings((prev) => ({ ...prev, [key]: nextVal }));
     try {
       await adminService.updateSetting(key, nextVal);
-      showToast(`System setting updated successfully.`);
+      showToast('System setting updated successfully.');
     } catch (err: any) {
       setSettings((prev) => ({ ...prev, [key]: currentValue }));
-      showToast(err.message || 'Failed to update setting');
+      showToast(err.message || 'Failed to update setting', true);
     }
   };
 
@@ -137,7 +154,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
         showToast('Broadcast alert published to school portal!');
       }
     } catch (err: any) {
-      showToast(err.message || 'Failed to create alert');
+      showToast(err.message || 'Failed to create alert', true);
     } finally {
       setIsSubmittingAlert(false);
     }
@@ -149,7 +166,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       setAlerts((prev) => prev.filter((a) => a.id !== id));
       showToast('Alert deactivated and removed.');
     } catch (err: any) {
-      showToast(err.message || 'Failed to delete alert');
+      showToast(err.message || 'Failed to delete alert', true);
     }
   };
 
@@ -157,13 +174,27 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     try {
       await adminService.resolveReport(reportId, action);
       setReports((prev) => prev.filter((r) => r.id !== reportId));
+      if (action === 'mute') {
+        await loadAdminData();
+      }
       showToast(`Report marked as ${action}.`);
     } catch (err: any) {
-      showToast(err.message || 'Failed to resolve report');
+      showToast(err.message || 'Failed to resolve report', true);
     }
   };
 
-  const showToast = (msg: string) => {
+  const handleApproveClasswork = async (id: string, approve: boolean) => {
+    try {
+      await adminService.approveClasswork(id, approve);
+      setPendingClasswork((prev) => prev.filter((c) => c.id !== id));
+      showToast(approve ? 'Classwork approved for the class.' : 'Classwork rejected.');
+    } catch (err: any) {
+      showToast(err.message || 'Failed to update classwork', true);
+    }
+  };
+
+  const showToast = (msg: string, isError = false) => {
+    setActionIsError(isError);
     setActionMessage(msg);
     setTimeout(() => setActionMessage(null), 3500);
   };
@@ -207,13 +238,28 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 px-4 py-3 text-xs font-semibold shadow-xl border border-neutral-800 dark:border-neutral-200"
+            className={cn(
+              'fixed top-4 right-4 z-50 flex items-center gap-2 rounded-xl px-4 py-3 text-xs font-semibold shadow-xl border',
+              actionIsError
+                ? 'bg-rose-600 text-white border-rose-500'
+                : 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 border-neutral-800 dark:border-neutral-200'
+            )}
           >
-            <CheckCircle2 className="size-4 text-emerald-400 dark:text-emerald-600" />
+            {actionIsError ? (
+              <AlertTriangle className="size-4 shrink-0" />
+            ) : (
+              <CheckCircle2 className="size-4 text-emerald-400 dark:text-emerald-600 shrink-0" />
+            )}
             <span>{actionMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {loadError && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-800 dark:text-amber-200">
+          {loadError}
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <PageHeader
@@ -512,6 +558,56 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
               </div>
             </div>
           </div>
+
+          {settings.classwork_approval_required && (
+            <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0c0c0e] p-5 space-y-4 shadow-2xs">
+              <div>
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Pending Classwork Approvals</h3>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Uploads waiting for admin review before they appear to classmates.
+                </p>
+              </div>
+              {pendingClasswork.length === 0 ? (
+                <p className="text-xs text-neutral-400 py-4 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                  No pending classwork uploads.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {pendingClasswork.map((cw) => (
+                    <div
+                      key={cw.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-neutral-900 dark:text-white truncate">
+                          {cw.subject} · {cw.originalFilename}
+                        </p>
+                        <p className="text-[11px] text-neutral-500">
+                          {cw.studentId} · {cw.section} · {cw.date}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveClasswork(cw.id, true)}
+                          className="rounded-lg bg-emerald-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-500 cursor-pointer"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveClasswork(cw.id, false)}
+                          className="rounded-lg border border-rose-200 dark:border-rose-900 px-2.5 py-1 text-[11px] font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -658,7 +754,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                   <div key={rep.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-neutral-50/50 dark:hover:bg-neutral-900/30 transition-colors">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="font-semibold text-neutral-900 dark:text-white">Student: {rep.studentId}</span>
+                        <span className="font-semibold text-neutral-900 dark:text-white">
+                          {rep.displayName && rep.displayName !== rep.studentId
+                            ? `${rep.displayName} (${rep.studentId})`
+                            : `Student: ${rep.studentId}`}
+                        </span>
                         <span className="text-neutral-400">({rep.section || 'General'})</span>
                         <span
                           className={cn(

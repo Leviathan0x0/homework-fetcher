@@ -611,9 +611,13 @@ router.post(
         return res.status(403).json({ error: "Your account has been muted by an administrator." });
       }
 
-      // Enforce Global Section Chat Toggle
-      const globalChatSetting = await db.select().from(schema.systemSettings).where(eq(schema.systemSettings.key, "global_chat_enabled")).get();
-      if (globalChatSetting && globalChatSetting.value === "0" && req.user.studentId !== "admin_mmss" && req.user.role !== "admin") {
+      // Enforce Global Section Chat Toggle (default enabled when unset)
+      const { isSettingEnabled } = require("../admin/settingsService");
+      if (
+        !(await isSettingEnabled("global_chat_enabled")) &&
+        req.user.studentId !== "admin_mmss" &&
+        req.user.role !== "admin"
+      ) {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
         return res.status(403).json({ error: "Section messaging is currently paused by the administrator." });
       }

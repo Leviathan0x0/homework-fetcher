@@ -39,10 +39,17 @@ function normalizeClassSection(raw) {
  * Fetches the student's profile (display name and class/section) from the
  * EduSecure StudentProfile page.
  * @param {string} sessionCookies - EduSecure session cookies
- * @returns {Promise<{section: string|null, displayName: string|null}>}
+ * @returns {Promise<{section: string|null, displayName: string|null, role: string|null, subjects: string[], assignedSections: string[], classTeacherSections: string[]}>}
  */
 async function fetchProfileFromEduSecure(sessionCookies) {
-  const empty = { section: null, displayName: null };
+  const empty = {
+    section: null,
+    displayName: null,
+    role: null,
+    subjects: [],
+    assignedSections: [],
+    classTeacherSections: [],
+  };
   try {
     const cheerio = require("cheerio");
     const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
@@ -64,6 +71,7 @@ async function fetchProfileFromEduSecure(sessionCookies) {
       return empty;
     }
     const $ = cheerio.load(html);
+    const bodyText = $("body").text().replace(/\s+/g, " ").trim();
 
     const rawSection = $("#ctl00_ContentPlaceHolder1_sClassSection").first().text().trim();
     let section = null;
@@ -73,8 +81,7 @@ async function fetchProfileFromEduSecure(sessionCookies) {
         console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
       }
     } else {
-      const bodyText = $("body").text().trim().substring(0, 200);
-      console.error("Section selector returned empty. Body preview:", bodyText);
+      console.error("Section selector returned empty. Body preview:", bodyText.substring(0, 200));
     }
 
     const nameSelectors = [
@@ -92,7 +99,40 @@ async function fetchProfileFromEduSecure(sessionCookies) {
       }
     }
 
-    return { section, displayName };
+    const roleSelectors = [
+      "#ctl00_ContentPlaceHolder1_sRole",
+      "#ctl00_ContentPlaceHolder1_lblRole",
+      "#ctl00_ContentPlaceHolder1_sUserType",
+      "[id*='Role']",
+      "[id*='Designation']",
+    ];
+    const roleText = roleSelectors
+      .map((selector) => $(selector).first().text().trim())
+      .find(Boolean) || "";
+    const role = /teacher|faculty|staff|principal|coordinator/i.test(roleText)
+      ? "teacher"
+      : /teacher|faculty|staff|principal|coordinator/i.test(bodyText) &&
+        /designation|role|employee|staff/i.test(bodyText)
+        ? "teacher"
+        : null;
+
+    const sections = Array.from(new Set(
+      [...bodyText.matchAll(/\b(?:I{1,3}|IV|V|VI{0,3}|IX|X|XI|XII|\d{1,2})\s*[-–]\s*[A-Za-z]\b/gi)]
+        .map((match) => normalizeClassSection(match[0]))
+        .filter(Boolean)
+    ));
+    const classTeacherSections = /class teacher|class-teacher|homeroom/i.test(bodyText)
+      ? sections
+      : [];
+
+    return {
+      section,
+      displayName,
+      role,
+      subjects: [],
+      assignedSections: sections,
+      classTeacherSections,
+    };
   } catch (err) {
     console.error("Failed to fetch profile from EduSecure:", err.message);
     return empty;

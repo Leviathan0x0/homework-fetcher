@@ -34,15 +34,26 @@ function clearConversationCache() {
 
 function mapAuthUser(user: any) {
   const section = user?.section;
+  const isAdmin = Boolean(
+    user?.isAdmin ||
+      user?.role === "admin" ||
+      user?.studentId === "admin_mmss" ||
+      section === "Admin"
+  );
   const unknown =
-    !section ||
-    String(section).trim() === "" ||
-    String(section).trim().toLowerCase() === "section 10-a";
+    !isAdmin &&
+    (!section ||
+      String(section).trim() === "" ||
+      String(section).trim().toLowerCase() === "section 10-a");
   return {
     id: user.id,
     studentId: user.studentId,
     displayName: user.displayName || null,
     section: unknown ? null : section,
+    isAdmin,
+    isTeacher: Boolean(user?.isTeacher || user?.role === "teacher" || user?.role === "class_teacher"),
+    role: user.role || (isAdmin ? "admin" : "student"),
+    teacherProfile: user?.teacherProfile || null,
   };
 }
 
@@ -588,16 +599,31 @@ export const classworkService = {
 };
 
 // --- ADMIN SERVICE ---
+async function adminJson<T>(res: Response): Promise<T> {
+  let data: any = null;
+  try {
+    data = await apiJson<any>(res);
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    const msg =
+      (typeof data?.error === "string" && data.error) ||
+      data?.message ||
+      `Request failed (${res.status})`;
+    throw new Error(msg);
+  }
+  return data as T;
+}
+
 export const adminService = {
   async getStats() {
     const res = await apiFetch("/api/admin/stats");
-    if (!res.ok) throw new Error("Failed to fetch admin stats");
-    return apiJson<{ stats: any }>(res);
+    return adminJson<{ stats: any }>(res);
   },
   async getStudents() {
     const res = await apiFetch("/api/admin/students");
-    if (!res.ok) throw new Error("Failed to fetch students");
-    return apiJson<{ students: any[] }>(res);
+    return adminJson<{ students: any[] }>(res);
   },
   async muteStudent(studentId: string, mute: boolean, reason?: string) {
     const res = await apiFetch("/api/admin/students/mute", {
@@ -605,18 +631,15 @@ export const adminService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ studentId, mute, reason }),
     });
-    if (!res.ok) throw new Error("Failed to update student mute status");
-    return apiJson<any>(res);
+    return adminJson<any>(res);
   },
   async getTeachers() {
     const res = await apiFetch("/api/admin/teachers");
-    if (!res.ok) throw new Error("Failed to fetch teachers");
-    return apiJson<{ teachers: any[] }>(res);
+    return adminJson<{ teachers: any[] }>(res);
   },
   async getAlerts() {
     const res = await apiFetch("/api/admin/alerts");
-    if (!res.ok) throw new Error("Failed to fetch alerts");
-    return apiJson<{ alerts: any[] }>(res);
+    return adminJson<{ alerts: any[] }>(res);
   },
   async createAlert(data: { title: string; message: string; level?: string; targetSection?: string }) {
     const res = await apiFetch("/api/admin/alerts", {
@@ -624,18 +647,15 @@ export const adminService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error("Failed to create broadcast alert");
-    return apiJson<{ success: boolean; alert: any }>(res);
+    return adminJson<{ success: boolean; alert: any }>(res);
   },
   async deleteAlert(id: string) {
     const res = await apiFetch(`/api/admin/alerts/${id}`, { method: "DELETE" });
-    if (!res.ok) throw new Error("Failed to delete alert");
-    return apiJson<any>(res);
+    return adminJson<any>(res);
   },
   async getReports() {
     const res = await apiFetch("/api/admin/reports");
-    if (!res.ok) throw new Error("Failed to fetch reports");
-    return apiJson<{ reports: any[] }>(res);
+    return adminJson<{ reports: any[] }>(res);
   },
   async resolveReport(reportId: string, action: string) {
     const res = await apiFetch("/api/admin/reports/resolve", {
@@ -643,13 +663,11 @@ export const adminService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reportId, action }),
     });
-    if (!res.ok) throw new Error("Failed to resolve report");
-    return apiJson<any>(res);
+    return adminJson<any>(res);
   },
   async getSettings() {
     const res = await apiFetch("/api/admin/settings");
-    if (!res.ok) throw new Error("Failed to fetch system settings");
-    return apiJson<{ settings: Record<string, string> }>(res);
+    return adminJson<{ settings: Record<string, string> }>(res);
   },
   async updateSetting(key: string, value: string | boolean) {
     const res = await apiFetch("/api/admin/settings", {
@@ -657,8 +675,19 @@ export const adminService = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key, value: typeof value === "boolean" ? (value ? "1" : "0") : value }),
     });
-    if (!res.ok) throw new Error("Failed to update setting");
-    return apiJson<any>(res);
+    return adminJson<any>(res);
+  },
+  async getPendingClasswork() {
+    const res = await apiFetch("/api/admin/classwork/pending");
+    return adminJson<{ classwork: any[] }>(res);
+  },
+  async approveClasswork(id: string, approve = true) {
+    const res = await apiFetch("/api/admin/classwork/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, approve }),
+    });
+    return adminJson<any>(res);
   },
   async getActiveAlerts() {
     try {
@@ -668,5 +697,146 @@ export const adminService = {
     } catch {
       return { alerts: [] };
     }
+  },
+};
+
+// --- TEACHER SERVICE ---
+async function teacherJson<T>(res: Response): Promise<T> {
+  let data: any = null;
+  try {
+    data = await apiJson<any>(res);
+  } catch {
+    data = null;
+  }
+  if (!res.ok) {
+    throw new Error(
+      (typeof data?.error === "string" && data.error) ||
+        data?.message ||
+        `Teacher request failed (${res.status})`
+    );
+  }
+  return data as T;
+}
+
+export const teacherService = {
+  async getStudentAssignments() {
+    return teacherJson<{ assignments: any[] }>(await apiFetch("/api/teacher/assignments/student"));
+  },
+  async getProfile() {
+    return teacherJson<{ profile: any }>(await apiFetch("/api/teacher/profile"));
+  },
+  async getDashboard() {
+    return teacherJson<any>(await apiFetch("/api/teacher/dashboard"));
+  },
+  async getRoster(section?: string) {
+    const query = section ? `?section=${encodeURIComponent(section)}` : "";
+    return teacherJson<{ students: any[] }>(await apiFetch(`/api/teacher/roster${query}`));
+  },
+  async getStudentNotes(studentId: string) {
+    return teacherJson<any>(await apiFetch(`/api/teacher/students/${encodeURIComponent(studentId)}/notes`));
+  },
+  async addStudentNote(studentId: string, note: string) {
+    return teacherJson<any>(await apiFetch(`/api/teacher/students/${encodeURIComponent(studentId)}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ note }),
+    }));
+  },
+  async getAssignments() {
+    return teacherJson<{ assignments: any[] }>(await apiFetch("/api/teacher/assignments"));
+  },
+  async createAssignment(data: {
+    subject: string;
+    title: string;
+    content: string;
+    dueDate: string;
+    sections: string[];
+    attachment?: { filename: string; mimeType: string; data: string } | null;
+  }) {
+    return teacherJson<any>(
+      await apiFetch("/api/teacher/assignments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+  },
+  async getSubmissions(assignmentId: string) {
+    return teacherJson<any>(await apiFetch(`/api/teacher/assignments/${encodeURIComponent(assignmentId)}/submissions`));
+  },
+  async getAttendance() {
+    return teacherJson<{ sessions: any[] }>(await apiFetch("/api/teacher/attendance"));
+  },
+  async getAttendanceReport(params: { section?: string; from?: string; to?: string } = {}) {
+    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => Boolean(value)) as string[][]).toString();
+    return teacherJson<any>(await apiFetch(`/api/teacher/attendance/report${query ? `?${query}` : ""}`));
+  },
+  async getLeaveRequests() {
+    return teacherJson<{ requests: any[] }>(await apiFetch("/api/teacher/leave"));
+  },
+  async updateLeaveRequest(id: string, status: string, reviewerNote?: string) {
+    return teacherJson<any>(await apiFetch(`/api/teacher/leave/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, reviewerNote }),
+    }));
+  },
+  async saveAttendance(data: { section: string; date: string; title?: string; records: any[] }) {
+    return teacherJson<any>(
+      await apiFetch("/api/teacher/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+  },
+  async getDuties() {
+    return teacherJson<{ duties: any[] }>(await apiFetch("/api/teacher/duties"));
+  },
+  async createDuty(data: any) {
+    return teacherJson<any>(
+      await apiFetch("/api/teacher/duties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+  },
+  async updateDuty(id: string, status: string) {
+    return teacherJson<any>(
+      await apiFetch(`/api/teacher/duties/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+    );
+  },
+  async getAnnouncements() {
+    return teacherJson<{ announcements: any[] }>(await apiFetch("/api/teacher/announcements"));
+  },
+  async createAnnouncement(data: { section: string; title: string; content: string }) {
+    return teacherJson<any>(
+      await apiFetch("/api/teacher/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      })
+    );
+  },
+  async getParents() {
+    return teacherJson<{ parents: any[] }>(await apiFetch("/api/teacher/parents"));
+  },
+};
+
+export const leaveService = {
+  async getMine() {
+    return teacherJson<{ requests: any[] }>(await apiFetch("/api/teacher/leave/my"));
+  },
+  async create(data: { fromDate: string; toDate: string; reason: string }) {
+    return teacherJson<any>(await apiFetch("/api/teacher/leave/my", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }));
   },
 };

@@ -19,11 +19,13 @@ import { AttachmentsView } from './AttachmentsView';
 import { CompletedView } from './CompletedView';
 import { ClassworkView } from './ClassworkView';
 import { RequestsView } from './RequestsView';
+import { LeaveView } from './LeaveView';
 import { MessagesView } from './MessagesView';
 import { SettingsModal } from './SettingsModal';
 import { SettingsView } from './SettingsView';
 import { DevelopersView } from './DevelopersView';
 import { AdminView } from './AdminView';
+import { TeacherView } from './TeacherView';
 import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
@@ -167,12 +169,16 @@ export const AppShell: React.FC = () => {
   }, [isMobile, activeView]);
 
   const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss');
+  const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
 
   useEffect(() => {
     if (isAdmin && !activeView.startsWith('admin-') && activeView !== 'settings' && activeView !== 'developers') {
       setActiveView('admin-overview');
     }
-  }, [isAdmin, activeView, setActiveView]);
+    if (isTeacher && !activeView.startsWith('teacher-') && activeView !== 'settings' && activeView !== 'developers') {
+      setActiveView('teacher-overview');
+    }
+  }, [isAdmin, isTeacher, activeView, setActiveView]);
 
   const handleOpenPreview = (url: string, filename?: string) => {
     setPreviewFileUrl(url);
@@ -329,6 +335,7 @@ export const AppShell: React.FC = () => {
               onNavigate={(v) => handleNavigate(v)}
             />
           )}
+          {activeView === 'leave' && <LeaveView />}
 
           {activeView === 'messages' && (
             <div className="flex-1 min-h-0">
@@ -429,6 +436,9 @@ export const AppShell: React.FC = () => {
           {activeView === 'developers' && <DevelopersView />}
           {activeView.startsWith('admin-') && (
             <AdminView activeSubView={activeView} onNavigate={handleViewChange} />
+          )}
+          {activeView.startsWith('teacher-') && (
+            <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
         </div>
 

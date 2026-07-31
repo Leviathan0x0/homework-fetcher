@@ -4,8 +4,18 @@ const { fetchProfileFromEduSecure, isUnknownSection } = require("../auth/session
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
+const { db, schema } = require("../db/client");
+const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
+const {
+  isTestTeacherLogin,
+  testTeacherUser,
+  profileFromEnvironment,
+  ensureTeacherProfile,
+  saveTeacherProfile,
+  normalizeTeacherProfile,
+} = require("../teacher/teacherService");
 
 const router = express.Router();
 
@@ -53,9 +63,6 @@ router.post("/login", async (req, res) => {
         });
       }
 
-      const { db, schema } = require("../db/client");
-      const { eq } = require("drizzle-orm");
-
       const user = await sessionService.findOrCreateUser(ADMIN_ID);
       await db
         .update(schema.users)
@@ -84,6 +91,44 @@ router.post("/login", async (req, res) => {
           isAdmin: true,
           role: "admin",
         }
+      });
+    }
+
+    if (isTestTeacherLogin(cleanStudentId, password)) {
+      const testUser = testTeacherUser();
+      const existing = await db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.studentId, testUser.studentId))
+        .get();
+      const user = existing || await sessionService.findOrCreateUser(testUser.studentId);
+      await db
+        .update(schema.users)
+        .set({
+          displayName: testUser.displayName,
+          role: "teacher",
+          section: "Staff",
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.users.id, user.id));
+      const profile = await ensureTeacherProfile(user.id, profileFromEnvironment());
+      const appToken = await sessionService.createAppSession(user.id);
+      res.cookie("app_session", appToken, sessionCookieOptions({
+        maxAge: sessionService.SESSION_TTL_MS,
+      }));
+      return res.json({
+        authenticated: true,
+        token: appToken,
+        user: {
+          id: user.id,
+          studentId: testUser.studentId,
+          displayName: testUser.displayName,
+          section: "Staff",
+          isTeacher: true,
+          role: "teacher",
+          teacherProfile: normalizeTeacherProfile(profile),
+          testAccount: true,
+        },
       });
     }
 
@@ -131,21 +176,42 @@ router.post("/login", async (req, res) => {
 
     let section = user.section;
     let displayName = user.displayName;
-
-    fetchProfileFromEduSecure(sessionCookies).then(async (profile) => {
-      let nextSection = section;
+    let teacherProfile = null;
+    let role = user.role || "student";
+    try {
+      const profile = await fetchProfileFromEduSecure(sessionCookies);
       if (profile.section) {
         await sessionService.updateSection(user.id, profile.section);
-        nextSection = profile.section;
+        section = profile.section;
       }
-      if (profile.displayName && !displayName) {
+      if (profile.displayName) {
         await sessionService.updateDisplayName(user.id, profile.displayName);
+        displayName = profile.displayName;
       }
-      await joinClassGroupInBackground({ id: user.id, section: nextSection });
-    }).catch((err) => {
-      console.error("Background profile fetch failed:", err.message);
-      joinClassGroupInBackground({ id: user.id, section });
-    });
+      const configuredTeacherIds = String(process.env.EDUSECURE_TEACHER_IDS || "")
+        .split(",")
+        .map((id) => id.trim().toLowerCase())
+        .filter(Boolean);
+      const isVerifiedTeacher =
+        profile.role === "teacher" ||
+        configuredTeacherIds.includes(cleanStudentId.toLowerCase());
+      if (isVerifiedTeacher) {
+        role = "teacher";
+        await db
+          .update(schema.users)
+          .set({ role: "teacher", updatedAt: new Date().toISOString() })
+          .where(eq(schema.users.id, user.id));
+        teacherProfile = await ensureTeacherProfile(user.id, {
+          subjects: profile.subjects,
+          assignedSections: profile.assignedSections.length ? profile.assignedSections : section ? [section] : [],
+          classTeacherSections: profile.classTeacherSections,
+        });
+      }
+      await joinClassGroupInBackground({ id: user.id, section });
+    } catch (err) {
+      console.error("Profile fetch failed after login:", err.message);
+      await joinClassGroupInBackground({ id: user.id, section });
+    }
 
     return res.json({
       authenticated: true,
@@ -155,8 +221,10 @@ router.post("/login", async (req, res) => {
         studentId: user.studentId,
         displayName: displayName || null,
         section: isUnknownSection(section) ? null : section,
-        isAdmin: user.role === "admin" || user.studentId === "admin_mmss" || user.section === "Admin",
-        role: user.role || "student",
+        isAdmin: role === "admin" || user.studentId === "admin_mmss" || user.section === "Admin",
+        isTeacher: role === "teacher" || role === "class_teacher",
+        role,
+        teacherProfile: teacherProfile ? normalizeTeacherProfile(teacherProfile) : null,
       }
     });
 
@@ -186,6 +254,20 @@ router.get("/me", async (req, res) => {
     activeSession.user.studentId === "admin_mmss" ||
     activeSession.user.role === "admin" ||
     activeSession.user.section === "Admin";
+  const isTeacher =
+    activeSession.user.role === "teacher" ||
+    activeSession.user.role === "class_teacher";
+  let teacherProfile = null;
+  if (isTeacher) {
+    try {
+      const { getTeacherProfile, normalizeTeacherProfile } = require("../teacher/teacherService");
+      teacherProfile = normalizeTeacherProfile(
+        await getTeacherProfile(activeSession.user.id)
+      );
+    } catch (err) {
+      console.error("Teacher profile refresh failed:", err.message);
+    }
+  }
 
   if (!isAdmin && isUnknownSection(section)) {
     try {
@@ -218,7 +300,9 @@ router.get("/me", async (req, res) => {
       displayName: displayName || (isAdmin ? "Administrator" : null),
       section: isUnknownSection(section) ? (isAdmin ? "Admin" : null) : section,
       isAdmin,
+      isTeacher,
       role: activeSession.user.role || (isAdmin ? "admin" : "student"),
+      teacherProfile,
     }
   });
 });

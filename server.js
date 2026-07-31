@@ -26,6 +26,8 @@ const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const calendarRoutes = require("./server/routes/calendarRoutes");
+const adminRoutes = require("./server/routes/adminRoutes");
+const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
@@ -129,6 +131,8 @@ app.use("/api", requestsRoutes);
 app.use("/api", messagingRoutes);
 app.use("/api", notificationsRoutes);
 app.use("/api", calendarRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/teacher", teacherRoutes);
 
 // Serve built Vite assets from dist/ if present, fallback to public/
 app.use(express.static(path.join(__dirname, "dist")));

@@ -17,6 +17,7 @@ const {
 const { MAX_UPLOAD_BYTES, rateLimit } = require("../limits");
 const { checkContent } = require("../moderation/checkContent");
 const { recordProfanityStrike, withStrikeWarning } = require("../moderation/flagLogService");
+const { isSettingEnabled } = require("../admin/settingsService");
 
 const router = express.Router();
 
@@ -77,6 +78,14 @@ router.get("/classwork", requireAuth, async (req, res) => {
       if (subject && subject !== "All" && item.subject.toLowerCase() !== String(subject).toLowerCase()) {
         return false;
       }
+      const status = item.approvalStatus || "approved";
+      const isOwner = item.userId === req.user.id;
+      const isAdmin =
+        req.user.studentId === "admin_mmss" ||
+        req.user.role === "admin" ||
+        req.user.section === "Admin";
+      // Pending/rejected uploads stay private to the owner (and admin) until approved.
+      if (status !== "approved" && !isOwner && !isAdmin) return false;
       return true;
     });
 
@@ -93,6 +102,7 @@ router.get("/classwork", requireAuth, async (req, res) => {
       mimeType: item.mimeType,
       createdAt: item.createdAt,
       isOwner: item.userId === req.user.id,
+      approvalStatus: item.approvalStatus || "approved",
     }));
 
     return res.json({
@@ -177,6 +187,9 @@ router.post(
           return res.status(400).json({ error: safety.reason });
         }
 
+        const requiresApproval = await isSettingEnabled("classwork_approval_required");
+        const approvalStatus = requiresApproval ? "pending" : "approved";
+
         const newUpload = {
           id,
           userId: req.user.id,
@@ -190,6 +203,7 @@ router.post(
           originalFilename: req.file.originalname,
           fileSize: req.file.size,
           mimeType,
+          approvalStatus,
           createdAt: now,
           updatedAt: now,
         };
@@ -207,36 +221,38 @@ router.post(
             .run();
         }
 
-        try {
-          const sectionUsers = await db
-            .select({ id: schema.users.id })
-            .from(schema.users)
-            .where(eq(schema.users.section, newUpload.section))
-            .all();
-          const otherUserIds = sectionUsers
-            .map((u) => u.id)
-            .filter((uid) => uid !== req.user.id);
-          if (otherUserIds.length > 0) {
-            const notifNow = new Date().toISOString();
-            for (const uid of otherUserIds) {
-              await db
-                .insert(schema.notifications)
-                .values({
-                  id: crypto.randomUUID(),
-                  userId: uid,
-                  type: "new_classwork",
-                  title: `New classwork: ${newUpload.subject}`,
-                  body: `${req.user.studentId} uploaded ${newUpload.originalFilename}`,
-                  link: "classwork",
-                  referenceId: newUpload.id,
-                  isRead: 0,
-                  createdAt: notifNow,
-                })
-                .run();
+        if (approvalStatus === "approved") {
+          try {
+            const sectionUsers = await db
+              .select({ id: schema.users.id })
+              .from(schema.users)
+              .where(eq(schema.users.section, newUpload.section))
+              .all();
+            const otherUserIds = sectionUsers
+              .map((u) => u.id)
+              .filter((uid) => uid !== req.user.id);
+            if (otherUserIds.length > 0) {
+              const notifNow = new Date().toISOString();
+              for (const uid of otherUserIds) {
+                await db
+                  .insert(schema.notifications)
+                  .values({
+                    id: crypto.randomUUID(),
+                    userId: uid,
+                    type: "new_classwork",
+                    title: `New classwork: ${newUpload.subject}`,
+                    body: `${req.user.studentId} uploaded ${newUpload.originalFilename}`,
+                    link: "classwork",
+                    referenceId: newUpload.id,
+                    isRead: 0,
+                    createdAt: notifNow,
+                  })
+                  .run();
+              }
             }
+          } catch (notifErr) {
+            console.error("Failed to create classwork notifications:", notifErr.message);
           }
-        } catch (notifErr) {
-          console.error("Failed to create classwork notifications:", notifErr.message);
         }
 
         return res.status(201).json({
@@ -252,9 +268,14 @@ router.post(
             originalFilename: newUpload.originalFilename,
             fileSize: newUpload.fileSize,
             mimeType: newUpload.mimeType,
+            approvalStatus: newUpload.approvalStatus,
             createdAt: newUpload.createdAt,
             isOwner: true,
           },
+          message:
+            approvalStatus === "pending"
+              ? "Upload saved and awaiting administrator approval before it appears to the class."
+              : undefined,
         });
       } catch (dbErr) {
         console.error("Save Classwork Error:", dbErr);

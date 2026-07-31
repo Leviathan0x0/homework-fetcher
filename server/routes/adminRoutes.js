@@ -1,11 +1,18 @@
 const express = require("express");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
-const { eq, desc, count, sql, and, ne } = require("drizzle-orm");
+const { eq, desc, count, ne } = require("drizzle-orm");
+const {
+  DEFAULT_SETTINGS,
+  getSetting,
+  seedDefaultSettings,
+} = require("../admin/settingsService");
+const { saveTeacherProfile } = require("../teacher/teacherService");
 
 const router = express.Router();
 
-// Admin authorization check middleware
+const ALLOWED_SETTING_KEYS = new Set(Object.keys(DEFAULT_SETTINGS));
+
 async function requireAdmin(req, res, next) {
   const activeSession = await getRequestSession(req);
   if (!activeSession || !activeSession.user) {
@@ -13,7 +20,10 @@ async function requireAdmin(req, res, next) {
   }
 
   const user = activeSession.user;
-  const isAdmin = user.studentId === "admin_mmss" || user.role === "admin" || user.section === "Admin";
+  const isAdmin =
+    user.studentId === "admin_mmss" ||
+    user.role === "admin" ||
+    user.section === "Admin";
   if (!isAdmin) {
     return res.status(403).json({ error: "Access denied. Administrator privileges required." });
   }
@@ -22,7 +32,15 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-// GET /api/admin/stats — Realtime System Overview
+function isAdminUser(u) {
+  return (
+    u.studentId === "admin_mmss" ||
+    u.role === "admin" ||
+    u.section === "Admin"
+  );
+}
+
+// GET /api/admin/stats
 router.get("/stats", requireAdmin, async (req, res) => {
   try {
     const [
@@ -33,7 +51,7 @@ router.get("/stats", requireAdmin, async (req, res) => {
       alertsRes,
       reportsRes,
     ] = await Promise.all([
-      db.select({ count: count() }).from(schema.users).all(),
+      db.select({ count: count() }).from(schema.users).where(ne(schema.users.studentId, "admin_mmss")).all(),
       db.select({ count: count() }).from(schema.users).where(eq(schema.users.isMuted, 1)).all(),
       db.select({ count: count() }).from(schema.homework).all(),
       db.select({ count: count() }).from(schema.classworkUploads).all(),
@@ -41,24 +59,15 @@ router.get("/stats", requireAdmin, async (req, res) => {
       db.select({ count: count() }).from(schema.adminFlagLog).where(eq(schema.adminFlagLog.status, "pending")).all(),
     ]);
 
-    const totalStudents = totalUsersRes[0]?.count || 0;
-    const mutedStudents = mutedUsersRes[0]?.count || 0;
-    const totalHomework = homeworkRes[0]?.count || 0;
-    const totalClasswork = classworkRes[0]?.count || 0;
-    const activeAlerts = alertsRes[0]?.count || 0;
-    const pendingReports = reportsRes[0]?.count || 0;
-
     return res.json({
       stats: {
-        totalStudents,
-        mutedStudents,
-        totalHomework,
-        totalClasswork,
-        activeAlerts,
-        pendingReports,
+        totalStudents: totalUsersRes[0]?.count || 0,
+        mutedStudents: mutedUsersRes[0]?.count || 0,
+        totalHomework: homeworkRes[0]?.count || 0,
+        totalClasswork: classworkRes[0]?.count || 0,
+        activeAlerts: alertsRes[0]?.count || 0,
+        pendingReports: reportsRes[0]?.count || 0,
         systemStatus: "Operational",
-        uptime: "99.9%",
-        apiResponseTimeMs: 38,
       },
     });
   } catch (err) {
@@ -67,13 +76,13 @@ router.get("/stats", requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/students — List Real Registered Students
+// GET /api/admin/students
 router.get("/students", requireAdmin, async (req, res) => {
   try {
     const usersList = await db.select().from(schema.users).all();
 
     const students = usersList
-      .filter((u) => u.studentId !== "admin_mmss")
+      .filter((u) => !isAdminUser(u))
       .map((u) => ({
         id: u.id,
         studentId: u.studentId,
@@ -84,7 +93,8 @@ router.get("/students", requireAdmin, async (req, res) => {
         mutedAt: u.mutedAt || null,
         role: u.role || "student",
         createdAt: u.createdAt,
-      }));
+      }))
+      .sort((a, b) => String(a.studentId).localeCompare(String(b.studentId)));
 
     return res.json({ students });
   } catch (err) {
@@ -93,7 +103,7 @@ router.get("/students", requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/students/mute — Real Mute/Unmute in DB
+// POST /api/admin/students/mute
 router.post("/students/mute", requireAdmin, async (req, res) => {
   try {
     const { studentId, mute, reason } = req.body || {};
@@ -110,17 +120,17 @@ router.post("/students/mute", requireAdmin, async (req, res) => {
     if (!targetUser) {
       return res.status(404).json({ error: `Student ${studentId} not found in database.` });
     }
+    if (isAdminUser(targetUser)) {
+      return res.status(400).json({ error: "Cannot mute an administrator account." });
+    }
 
-    const isMutedVal = mute ? 1 : 0;
-    const mutedReasonVal = mute ? reason || "Muted by administrator" : null;
-    const mutedAtVal = mute ? new Date().toISOString() : null;
-
+    const shouldMute = Boolean(mute);
     await db
       .update(schema.users)
       .set({
-        isMuted: isMutedVal,
-        mutedReason: mutedReasonVal,
-        mutedAt: mutedAtVal,
+        isMuted: shouldMute ? 1 : 0,
+        mutedReason: shouldMute ? reason || "Muted by administrator" : null,
+        mutedAt: shouldMute ? new Date().toISOString() : null,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.users.id, targetUser.id));
@@ -128,8 +138,10 @@ router.post("/students/mute", requireAdmin, async (req, res) => {
     return res.json({
       success: true,
       studentId,
-      muted: Boolean(mute),
-      message: `Student ${studentId} has been ${mute ? "muted" : "unmuted"}.${reason ? ` Reason: ${reason}` : ""}`,
+      muted: shouldMute,
+      message: `Student ${studentId} has been ${shouldMute ? "muted" : "unmuted"}.${
+        shouldMute && reason ? ` Reason: ${reason}` : ""
+      }`,
     });
   } catch (err) {
     console.error("Admin mute error:", err);
@@ -137,7 +149,7 @@ router.post("/students/mute", requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/teachers — Registered Teachers
+// GET /api/admin/teachers
 router.get("/teachers", requireAdmin, async (req, res) => {
   try {
     const teacherUsers = await db
@@ -146,14 +158,49 @@ router.get("/teachers", requireAdmin, async (req, res) => {
       .where(eq(schema.users.role, "teacher"))
       .all();
 
-    return res.json({ teachers: teacherUsers });
+    return res.json({
+      teachers: teacherUsers.map((u) => ({
+        id: u.id,
+        studentId: u.studentId,
+        displayName: u.displayName || u.studentId,
+        section: u.section || null,
+        role: u.role,
+        createdAt: u.createdAt,
+      })),
+    });
   } catch (err) {
     console.error("Admin teachers error:", err);
     return res.status(500).json({ error: "Failed to fetch teachers." });
   }
 });
 
-// GET /api/admin/alerts — Real Broadcast Alerts from DB
+// PUT /api/admin/teachers/:id/profile — assign sections and class-teacher scope
+router.put("/teachers/:id/profile", requireAdmin, async (req, res) => {
+  try {
+    const teacher = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, req.params.id))
+      .get();
+    if (!teacher) return res.status(404).json({ error: "Teacher account not found." });
+    const profile = await saveTeacherProfile(teacher.id, {
+      subjects: Array.isArray(req.body?.subjects) ? req.body.subjects : [],
+      assignedSections: Array.isArray(req.body?.assignedSections) ? req.body.assignedSections : [],
+      classTeacherSections: Array.isArray(req.body?.classTeacherSections) ? req.body.classTeacherSections : [],
+    });
+    await db
+      .update(schema.users)
+      .set({ role: "teacher", updatedAt: new Date().toISOString() })
+      .where(eq(schema.users.id, teacher.id))
+      .run();
+    return res.json({ success: true, profile });
+  } catch (err) {
+    console.error("Admin teacher profile error:", err);
+    return res.status(500).json({ error: "Failed to update teacher permissions." });
+  }
+});
+
+// GET /api/admin/alerts
 router.get("/alerts", requireAdmin, async (req, res) => {
   try {
     const alertsList = await db
@@ -162,14 +209,19 @@ router.get("/alerts", requireAdmin, async (req, res) => {
       .orderBy(desc(schema.broadcastAlerts.createdAt))
       .all();
 
-    return res.json({ alerts: alertsList });
+    return res.json({
+      alerts: alertsList.map((a) => ({
+        ...a,
+        active: Boolean(a.active),
+      })),
+    });
   } catch (err) {
     console.error("Admin alerts error:", err);
     return res.status(500).json({ error: "Failed to fetch alerts." });
   }
 });
 
-// POST /api/admin/alerts — Create Real Broadcast Alert
+// POST /api/admin/alerts
 router.post("/alerts", requireAdmin, async (req, res) => {
   try {
     const { title, message, level, targetSection } = req.body || {};
@@ -178,9 +230,9 @@ router.post("/alerts", requireAdmin, async (req, res) => {
     }
 
     const newAlert = {
-      id: `alert-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      title: title.trim(),
-      message: message.trim(),
+      id: `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: String(title).trim(),
+      message: String(message).trim(),
       level: level || "info",
       targetSection: targetSection || "All",
       active: 1,
@@ -188,14 +240,17 @@ router.post("/alerts", requireAdmin, async (req, res) => {
     };
 
     await db.insert(schema.broadcastAlerts).values(newAlert);
-    return res.json({ success: true, alert: newAlert });
+    return res.json({
+      success: true,
+      alert: { ...newAlert, active: true },
+    });
   } catch (err) {
     console.error("Admin create alert error:", err);
     return res.status(500).json({ error: "Failed to create broadcast alert." });
   }
 });
 
-// DELETE /api/admin/alerts/:id — Delete Broadcast Alert from DB
+// DELETE /api/admin/alerts/:id
 router.delete("/alerts/:id", requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -207,7 +262,7 @@ router.delete("/alerts/:id", requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/reports — List Real Moderation Flag Reports
+// GET /api/admin/reports
 router.get("/reports", requireAdmin, async (req, res) => {
   try {
     const reportsList = await db
@@ -216,14 +271,37 @@ router.get("/reports", requireAdmin, async (req, res) => {
       .orderBy(desc(schema.adminFlagLog.createdAt))
       .all();
 
-    return res.json({ reports: reportsList });
+    const userIds = [...new Set(reportsList.map((r) => r.userId).filter(Boolean))];
+    const usersById = {};
+    if (userIds.length) {
+      const users = await db.select().from(schema.users).all();
+      for (const u of users) {
+        if (userIds.includes(u.id)) usersById[u.id] = u;
+      }
+    }
+
+    return res.json({
+      reports: reportsList.map((r) => ({
+        id: r.id,
+        type: r.type,
+        studentId: r.studentId,
+        displayName: usersById[r.userId]?.displayName || r.studentId,
+        section: r.section,
+        conversationId: r.conversationId,
+        reason: r.reason,
+        detail: r.detail,
+        source: r.source,
+        status: r.status || "pending",
+        createdAt: r.createdAt,
+      })),
+    });
   } catch (err) {
     console.error("Admin reports error:", err);
     return res.status(500).json({ error: "Failed to fetch reports." });
   }
 });
 
-// POST /api/admin/reports/resolve — Resolve or Dismiss Report in DB
+// POST /api/admin/reports/resolve
 router.post("/reports/resolve", requireAdmin, async (req, res) => {
   try {
     const { reportId, action } = req.body || {};
@@ -231,7 +309,30 @@ router.post("/reports/resolve", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "reportId is required." });
     }
 
-    const statusVal = action === "dismiss" ? "dismissed" : action === "mute" ? "muted" : "resolved";
+    const report = await db
+      .select()
+      .from(schema.adminFlagLog)
+      .where(eq(schema.adminFlagLog.id, reportId))
+      .get();
+
+    if (!report) {
+      return res.status(404).json({ error: "Report not found." });
+    }
+
+    const statusVal =
+      action === "dismiss" ? "dismissed" : action === "mute" ? "muted" : "resolved";
+
+    if (action === "mute" && report.studentId) {
+      await db
+        .update(schema.users)
+        .set({
+          isMuted: 1,
+          mutedReason: report.reason || "Muted from flagged report",
+          mutedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(schema.users.studentId, report.studentId));
+    }
 
     await db
       .update(schema.adminFlagLog)
@@ -250,16 +351,12 @@ router.post("/reports/resolve", requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/settings — Get System Feature Toggles
+// GET /api/admin/settings
 router.get("/settings", requireAdmin, async (req, res) => {
   try {
+    await seedDefaultSettings();
     const settingsList = await db.select().from(schema.systemSettings).all();
-    const settingsMap = {
-      global_chat_enabled: "1",
-      auto_mute_strikes_enabled: "1",
-      section_requests_enabled: "1",
-      classwork_approval_required: "0",
-    };
+    const settingsMap = { ...DEFAULT_SETTINGS };
 
     settingsList.forEach((s) => {
       settingsMap[s.key] = s.value;
@@ -272,38 +369,98 @@ router.get("/settings", requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/settings — Toggle System Setting in DB
+// POST /api/admin/settings
 router.post("/settings", requireAdmin, async (req, res) => {
   try {
     const { key, value } = req.body || {};
-    if (!key || value === undefined) {
+    if (!key || value === undefined || value === null) {
       return res.status(400).json({ error: "key and value are required." });
     }
+    if (!ALLOWED_SETTING_KEYS.has(key)) {
+      return res.status(400).json({ error: `Unknown setting key: ${key}` });
+    }
 
-    const stringVal = String(value);
+    const stringVal = value === true || value === "1" || value === 1 ? "1" : value === false || value === "0" || value === 0 ? "0" : String(value);
+    if (stringVal !== "0" && stringVal !== "1") {
+      return res.status(400).json({ error: "Setting value must be 0 or 1." });
+    }
+
     const existing = await db
       .select()
       .from(schema.systemSettings)
       .where(eq(schema.systemSettings.key, key))
       .get();
 
+    const now = new Date().toISOString();
     if (existing) {
       await db
         .update(schema.systemSettings)
-        .set({ value: stringVal, updatedAt: new Date().toISOString() })
+        .set({ value: stringVal, updatedAt: now })
         .where(eq(schema.systemSettings.key, key));
     } else {
       await db.insert(schema.systemSettings).values({
         key,
         value: stringVal,
-        updatedAt: new Date().toISOString(),
+        updatedAt: now,
       });
     }
 
-    return res.json({ success: true, key, value: stringVal });
+    const confirmed = await getSetting(key, stringVal);
+    return res.json({ success: true, key, value: confirmed });
   } catch (err) {
     console.error("Admin update setting error:", err);
     return res.status(500).json({ error: "Failed to update system setting." });
+  }
+});
+
+// GET /api/admin/classwork/pending — pending classwork when approval is required
+router.get("/classwork/pending", requireAdmin, async (req, res) => {
+  try {
+    const pending = await db
+      .select()
+      .from(schema.classworkUploads)
+      .where(eq(schema.classworkUploads.approvalStatus, "pending"))
+      .orderBy(desc(schema.classworkUploads.createdAt))
+      .all();
+
+    return res.json({
+      classwork: pending.map((item) => ({
+        id: item.id,
+        studentId: item.studentId,
+        section: item.section,
+        subject: item.subject,
+        title: item.title,
+        date: item.date,
+        originalFilename: item.originalFilename,
+        createdAt: item.createdAt,
+        approvalStatus: item.approvalStatus || "pending",
+      })),
+    });
+  } catch (err) {
+    console.error("Admin pending classwork error:", err);
+    return res.status(500).json({ error: "Failed to fetch pending classwork." });
+  }
+});
+
+// POST /api/admin/classwork/approve
+router.post("/classwork/approve", requireAdmin, async (req, res) => {
+  try {
+    const { id, approve } = req.body || {};
+    if (!id) return res.status(400).json({ error: "id is required." });
+
+    const status = approve === false ? "rejected" : "approved";
+    await db
+      .update(schema.classworkUploads)
+      .set({
+        approvalStatus: status,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.classworkUploads.id, id));
+
+    return res.json({ success: true, id, approvalStatus: status });
+  } catch (err) {
+    console.error("Admin approve classwork error:", err);
+    return res.status(500).json({ error: "Failed to update classwork approval." });
   }
 });
 

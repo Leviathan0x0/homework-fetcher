@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock, GraduationCap, UserRound } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface LoginPageProps {
@@ -18,6 +18,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loginMode, setLoginMode] = useState<'student' | 'teacher'>('student');
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,7 +28,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     const rawId = studentId.trim();
     if (!rawId) {
-      setLocalError('Please enter your student ID.');
+      setLocalError(`Please enter your ${loginMode} ID.`);
       return;
     }
     if (!password) {
@@ -78,6 +79,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </p>
             </div>
 
+            <div className="mb-5 flex max-w-[280px] gap-0.5 rounded-lg border border-white/15 bg-black/20 p-0.5" role="tablist" aria-label="Choose account type">
+              {([
+                ['student', 'Student', UserRound],
+                ['teacher', 'Teacher', GraduationCap],
+              ] as const).map(([mode, label, Icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={loginMode === mode}
+                  disabled={isLoading}
+                  onClick={() => setLoginMode(mode)}
+                  className={cn(
+                    'flex h-8 w-1/2 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-150',
+                    loginMode === mode
+                      ? 'bg-white/10 text-[#f5f2eb]'
+                      : 'text-[#f5f2eb]/55 hover:bg-white/5 hover:text-[#f5f2eb]/85',
+                    'disabled:cursor-not-allowed disabled:opacity-50'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {activeError && (
               <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-300/30 bg-rose-950/75 px-4 py-3 text-sm text-rose-100" role="alert">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
@@ -88,7 +115,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <label htmlFor="login-student-id" className="block text-sm font-medium text-[#f5f2eb]/80">
-                  Account ID
+                  {loginMode === 'teacher' ? 'Teacher ID' : 'Student ID'}
                 </label>
                 <div className="relative">
                   <CreditCard className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f5f2eb]/45" />
@@ -98,7 +125,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    placeholder="Enter account ID"
+                    placeholder={`Enter ${loginMode} ID`}
                     disabled={isLoading}
                     autoComplete="username"
                     className={cn(

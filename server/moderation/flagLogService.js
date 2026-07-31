@@ -9,6 +9,7 @@
 const crypto = require("crypto");
 const { eq } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
+const { isSettingEnabled } = require("../admin/settingsService");
 
 const STRIKE_THRESHOLD = 3;
 const MAX_SNIPPET = 160;
@@ -32,7 +33,7 @@ function clipSnippet(text) {
  *   snippet?: string|null,
  *   conversationId?: string|null,
  * }} options
- * @returns {Promise<{ strikes: number, flagged: boolean }>}
+ * @returns {Promise<{ strikes: number, flagged: boolean, muted?: boolean }>}
  */
 async function recordProfanityStrike({
   userId,
@@ -86,6 +87,7 @@ async function recordProfanityStrike({
       reason: `Reached ${STRIKE_THRESHOLD} blocked vulgar/abuse attempts (text or NSFW images)`,
       detail: clipSnippet(snippet),
       source: source || "unknown",
+      status: "pending",
       createdAt: stamped,
     })
     .run();
@@ -97,7 +99,26 @@ async function recordProfanityStrike({
     .where(eq(schema.moderationStrikes.userId, userId))
     .run();
 
-  return { strikes: STRIKE_THRESHOLD, flagged: true };
+  let muted = false;
+  try {
+    if (await isSettingEnabled("auto_mute_strikes_enabled")) {
+      await db
+        .update(schema.users)
+        .set({
+          isMuted: 1,
+          mutedReason: `Auto-muted after ${STRIKE_THRESHOLD} vulgarity strikes`,
+          mutedAt: stamped,
+          updatedAt: stamped,
+        })
+        .where(eq(schema.users.id, userId))
+        .run();
+      muted = true;
+    }
+  } catch (err) {
+    console.error("Auto-mute after strikes failed:", err.message);
+  }
+
+  return { strikes: STRIKE_THRESHOLD, flagged: true, muted };
 }
 
 /**
@@ -131,6 +152,7 @@ async function reportConversation({
       reason: (reason && String(reason).trim()) || "Student reported this conversation",
       detail: null,
       source: "messages",
+      status: "pending",
       createdAt: stamped,
     })
     .run();

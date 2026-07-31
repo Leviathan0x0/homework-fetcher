@@ -46,6 +46,8 @@ export function SiteHeader({
         return "Classwork Uploads";
       case "requests":
         return "Requests";
+      case "leave":
+        return "Leave & absence";
       case "messages":
         return "Messages";
       case "calendar":
@@ -76,6 +78,22 @@ export function SiteHeader({
         return "Broadcast Alerts";
       case "admin-reports":
         return "Flagged Reports Queue";
+      case "teacher-overview":
+        return "Teacher dashboard";
+      case "teacher-assignments":
+        return "Assignments";
+      case "teacher-attendance":
+        return "Attendance";
+      case "teacher-duties":
+        return "Duties";
+      case "teacher-announcements":
+        return "Announcements";
+      case "teacher-parents":
+        return "Parent connections";
+      case "teacher-students":
+        return "Student profiles";
+      case "teacher-leave":
+        return "Leave approvals";
       default:
         return "Dashboard";
     }

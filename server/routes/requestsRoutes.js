@@ -62,8 +62,12 @@ router.post(
     }
 
     // Enforce System Toggle
-    const requestsSetting = await db.select().from(schema.systemSettings).where(eq(schema.systemSettings.key, "section_requests_enabled")).get();
-    if (requestsSetting && requestsSetting.value === "0" && req.user.studentId !== "admin_mmss" && req.user.role !== "admin") {
+    const { isSettingEnabled } = require("../admin/settingsService");
+    if (
+      !(await isSettingEnabled("section_requests_enabled")) &&
+      req.user.studentId !== "admin_mmss" &&
+      req.user.role !== "admin"
+    ) {
       return res.status(403).json({ error: "Section requests are currently paused by the administrator." });
     }
 

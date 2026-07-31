@@ -64,6 +64,7 @@ export type ViewType =
   | 'completed'
   | 'classwork'
   | 'requests'
+  | 'leave'
   | 'messages'
   | 'settings'
   | 'developers'
@@ -72,7 +73,15 @@ export type ViewType =
   | 'admin-teachers'
   | 'admin-moderation'
   | 'admin-alerts'
-  | 'admin-reports';
+  | 'admin-reports'
+  | 'teacher-overview'
+  | 'teacher-assignments'
+  | 'teacher-attendance'
+  | 'teacher-duties'
+  | 'teacher-announcements'
+  | 'teacher-parents'
+  | 'teacher-students'
+  | 'teacher-leave';
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type SessionStatus = 'connected' | 'expired' | 'disconnected';
 

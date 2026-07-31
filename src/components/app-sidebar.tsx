@@ -26,7 +26,7 @@ import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
-import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck } from "lucide-react"
+import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck, BookOpen, ClipboardCheck, ClipboardList, MessageCircle, CalendarDays } from "lucide-react"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
@@ -53,6 +53,7 @@ export function AppSidebar({
   const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);
 
   const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss' || user?.role === 'admin');
+  const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
 
   const studentNavGroups: {
     label: string;
@@ -64,6 +65,7 @@ export function AppSidebar({
         { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon, badge: todayCount > 0 ? todayCount : undefined },
         { id: "classwork" as ViewType, title: "Classwork", IconComponent: UploadIcon },
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
+        { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarDays },
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
       ],
     },
@@ -102,7 +104,31 @@ export function AppSidebar({
     },
   ];
 
-  const navGroups = isAdmin ? adminNavGroups : studentNavGroups;
+  const teacherNavGroups: {
+    label: string;
+    items: { id: ViewType; title: string; IconComponent: React.ComponentType<any>; badge?: number }[];
+  }[] = [
+    {
+      label: "Teaching",
+      items: [
+        { id: "teacher-overview", title: "Overview", IconComponent: Activity },
+        { id: "teacher-assignments", title: "Assignments", IconComponent: BookOpen },
+        { id: "teacher-attendance", title: "Attendance", IconComponent: ClipboardList },
+      ],
+    },
+    {
+      label: "Class management",
+      items: [
+        { id: "teacher-duties", title: "Duties", IconComponent: ShieldCheck },
+        { id: "teacher-announcements", title: "Announcements", IconComponent: Bell },
+        { id: "teacher-parents", title: "Parent connections", IconComponent: MessageCircle },
+        { id: "teacher-students", title: "Student profiles", IconComponent: Users },
+        { id: "teacher-leave", title: "Leave approvals", IconComponent: CalendarDays },
+      ],
+    },
+  ];
+
+  const navGroups = isAdmin ? adminNavGroups : isTeacher ? teacherNavGroups : studentNavGroups;
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -116,7 +142,7 @@ export function AppSidebar({
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold text-xs">MMSS Mohali</span>
                 <span className="truncate text-[11px] text-muted-foreground">
-                  {isAdmin ? "Admin Console" : "Student Portal"}
+                  {isAdmin ? "Admin Console" : isTeacher ? "Teacher Workspace" : "Student Portal"}
                 </span>
               </div>
             </SidebarMenuButton>
@@ -204,9 +230,9 @@ export function AppSidebar({
           <SidebarMenuItem>
             <div className="p-2.5 flex flex-col gap-2 rounded-2xl bg-sidebar-accent/40 text-sidebar-accent-foreground text-xs border border-sidebar-border/40 group-data-[collapsible=icon]:hidden">
               <div className="flex items-center justify-between">
-                <span className="font-semibold truncate text-xs">{user?.displayName || user?.studentId || (isAdmin ? "Administrator" : "Student")}</span>
+                <span className="font-semibold truncate text-xs">{user?.displayName || user?.studentId || (isAdmin ? "Administrator" : isTeacher ? "Teacher" : "Student")}</span>
                 <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                  <CircleCheckIcon size={14} /> {isAdmin ? "Admin" : "Active"}
+                  <CircleCheckIcon size={14} /> {isAdmin ? "Admin" : isTeacher ? "Teacher" : "Active"}
                 </span>
               </div>
               <button

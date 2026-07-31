@@ -9,7 +9,13 @@ export interface UserAccount {
   displayName?: string | null;
   section?: string;
   isAdmin?: boolean;
+  isTeacher?: boolean;
   role?: string;
+  teacherProfile?: {
+    subjects: string[];
+    assignedSections: string[];
+    classTeacherSections: string[];
+  } | null;
 }
 
 export function useHomework() {
@@ -182,7 +188,7 @@ export function useHomework() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && user && !isAuthChecking) {
+    if (isAuthenticated && user && !user.isTeacher && !isAuthChecking) {
       fetchHomework(false);
     }
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);

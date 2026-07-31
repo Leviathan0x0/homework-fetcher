@@ -355,6 +355,139 @@ CREATE TABLE IF NOT EXISTS users (
     );
 
     CREATE INDEX IF NOT EXISTS idx_broadcast_active ON broadcast_alerts(active);
+
+    CREATE TABLE IF NOT EXISTS teacher_profiles (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      subjects TEXT NOT NULL DEFAULT '[]',
+      assigned_sections TEXT NOT NULL DEFAULT '[]',
+      class_teacher_sections TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS teacher_assignments (
+      id TEXT PRIMARY KEY,
+      teacher_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      attachment_url TEXT,
+      due_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_assignments_teacher ON teacher_assignments(teacher_user_id);
+    CREATE INDEX IF NOT EXISTS idx_teacher_assignments_due ON teacher_assignments(due_date);
+
+    CREATE TABLE IF NOT EXISTS teacher_assignment_targets (
+      id TEXT PRIMARY KEY,
+      assignment_id TEXT NOT NULL REFERENCES teacher_assignments(id) ON DELETE CASCADE,
+      section TEXT NOT NULL,
+      student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'assigned',
+      submitted_at TEXT,
+      submission_text TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_teacher_target_assignment_student ON teacher_assignment_targets(assignment_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_teacher_target_section ON teacher_assignment_targets(section);
+    CREATE INDEX IF NOT EXISTS idx_teacher_target_student ON teacher_assignment_targets(student_id);
+
+    CREATE TABLE IF NOT EXISTS teacher_assignment_attachments (
+      id TEXT PRIMARY KEY,
+      assignment_id TEXT NOT NULL REFERENCES teacher_assignments(id) ON DELETE CASCADE,
+      filename TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      data TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_attachment_assignment ON teacher_assignment_attachments(assignment_id);
+
+    CREATE TABLE IF NOT EXISTS teacher_student_notes (
+      id TEXT PRIMARY KEY,
+      teacher_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      note TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_note_teacher_student ON teacher_student_notes(teacher_user_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_teacher_note_student ON teacher_student_notes(student_id);
+
+    CREATE TABLE IF NOT EXISTS teacher_grades (
+      id TEXT PRIMARY KEY,
+      target_id TEXT NOT NULL UNIQUE REFERENCES teacher_assignment_targets(id) ON DELETE CASCADE,
+      grade TEXT,
+      feedback TEXT,
+      graded_by TEXT NOT NULL REFERENCES users(id),
+      graded_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS attendance_sessions (
+      id TEXT PRIMARY KEY,
+      teacher_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      section TEXT NOT NULL,
+      date TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT 'Daily attendance',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_attendance_session_teacher ON attendance_sessions(teacher_user_id);
+    CREATE INDEX IF NOT EXISTS idx_attendance_session_section_date ON attendance_sessions(section, date);
+
+    CREATE TABLE IF NOT EXISTS attendance_records (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES attendance_sessions(id) ON DELETE CASCADE,
+      student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'present',
+      note TEXT,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_record_session_student ON attendance_records(session_id, student_id);
+    CREATE INDEX IF NOT EXISTS idx_attendance_record_student ON attendance_records(student_id);
+
+    CREATE TABLE IF NOT EXISTS teacher_duties (
+      id TEXT PRIMARY KEY,
+      assigned_by TEXT NOT NULL REFERENCES users(id),
+      assignee_id TEXT REFERENCES users(id),
+      section TEXT,
+      title TEXT NOT NULL,
+      description TEXT,
+      due_date TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_duties_assignee ON teacher_duties(assignee_id);
+    CREATE INDEX IF NOT EXISTS idx_teacher_duties_section ON teacher_duties(section);
+
+    CREATE TABLE IF NOT EXISTS teacher_announcements (
+      id TEXT PRIMARY KEY,
+      teacher_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      section TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_teacher_announcement_section ON teacher_announcements(section);
+    CREATE INDEX IF NOT EXISTS idx_teacher_announcement_teacher ON teacher_announcements(teacher_user_id);
+
+    CREATE TABLE IF NOT EXISTS leave_requests (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      section TEXT NOT NULL,
+      from_date TEXT NOT NULL,
+      to_date TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reviewed_by TEXT REFERENCES users(id),
+      reviewed_at TEXT,
+      reviewer_note TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_leave_student ON leave_requests(student_id);
+    CREATE INDEX IF NOT EXISTS idx_leave_section_status ON leave_requests(section, status);
+    CREATE INDEX IF NOT EXISTS idx_leave_dates ON leave_requests(from_date, to_date);
 `;
 
 /** Splits the schema script into individual statements. */
@@ -396,6 +529,7 @@ async function initDb() {
   await ensureColumn("conversations", "section", "TEXT");
   await ensureColumn("conversations", "pinned_homework_id", "TEXT");
   await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("classwork_uploads", "approval_status", "TEXT NOT NULL DEFAULT 'approved'");
 
   // Clear the fake default section. Real EduSecure values look like "9-C" / "10-A",
   // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
@@ -403,6 +537,24 @@ async function initDb() {
     await exec(`UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'`);
   } catch (err) {
     console.error("Clear fake Section 10-A migration:", err.message);
+  }
+
+  // Seed feature toggles without importing settingsService (avoids circular require).
+  const defaultSettings = [
+    ["global_chat_enabled", "1"],
+    ["auto_mute_strikes_enabled", "1"],
+    ["section_requests_enabled", "1"],
+    ["classwork_approval_required", "0"],
+  ];
+  const stamped = new Date().toISOString();
+  for (const [key, value] of defaultSettings) {
+    try {
+      await exec(
+        `INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('${key}', '${value}', '${stamped}')`
+      );
+    } catch (err) {
+      console.error(`Seed setting ${key}:`, err.message);
+    }
   }
   
   // Create indexes for new columns after they exist

@@ -22,7 +22,7 @@ const router = express.Router();
 async function joinClassGroupInBackground(user) {
   if (!user?.id || isUnknownSection(user.section)) return;
   try {
-    await ensureSectionConversation(user);
+    await ensureSectionConversation(user, { force: true });
   } catch (err) {
     console.error("Auto-join class group failed:", err.message);
   }

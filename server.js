@@ -35,6 +35,51 @@ const { rateLimit } = require("./server/limits");
 
 const app = express();
 
+/**
+ * Gzips JSON responses that are large enough to be worth it.
+ *
+ * Only res.json is wrapped, so file downloads and streamed responses keep their
+ * existing handling.
+ */
+function compressJsonResponses({ threshold = 1024 } = {}) {
+  const zlib = require("zlib");
+
+  return function compressJson(req, res, next) {
+    const acceptsGzip = /\bgzip\b/i.test(req.headers["accept-encoding"] || "");
+    if (!acceptsGzip || req.method === "HEAD") return next();
+
+    const sendJson = res.json.bind(res);
+    res.json = (body) => {
+      let payload;
+      try {
+        payload = Buffer.from(JSON.stringify(body === undefined ? null : body));
+      } catch {
+        return sendJson(body);
+      }
+
+      if (payload.length < threshold || res.getHeader("Content-Encoding")) {
+        return sendJson(body);
+      }
+
+      let compressed;
+      try {
+        compressed = zlib.gzipSync(payload);
+      } catch (err) {
+        console.error("Response compression failed:", err.message);
+        return sendJson(body);
+      }
+
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Content-Encoding", "gzip");
+      res.setHeader("Content-Length", String(compressed.length));
+      res.setHeader("Vary", res.getHeader("Vary") ? `${res.getHeader("Vary")}, Accept-Encoding` : "Accept-Encoding");
+      return res.end(compressed);
+    };
+
+    next();
+  };
+}
+
 // Required so Secure cookies are honoured behind hosting platform TLS proxies
 app.set("trust proxy", 1);
 
@@ -64,6 +109,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
+
+// API payloads are JSON lists (messages, homework, rosters) that compress by
+// roughly an order of magnitude. On a phone connection the transfer, not the
+// query, is what makes a screen feel slow.
+app.use("/api", compressJsonResponses());
 
 // Without a real signing/encryption key, session cookies could be forged by
 // anyone, so the API refuses to answer instead of running insecurely.
@@ -135,8 +185,19 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/teacher", teacherRoutes);
 
 // Serve built Vite assets from dist/ if present, fallback to public/
-app.use(express.static(path.join(__dirname, "dist")));
-app.use(express.static(path.join(__dirname, "public")));
+// Vite fingerprints everything under /assets, so those files can be cached
+// permanently; the rest is revalidated so a deploy is picked up immediately.
+app.use(
+  express.static(path.join(__dirname, "dist"), {
+    maxAge: "1y",
+    setHeaders: (res, filePath) => {
+      if (!filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
+  })
+);
+app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h" }));
 
 // Unknown API routes must not fall through to the SPA HTML response
 app.use("/api", (req, res) => {

@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and, gt } = require("drizzle-orm");
+const { eq, and, gt, sql } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 const { deriveKey } = require("./secrets");
@@ -145,6 +145,50 @@ const memEduSessions = new Map();
 const memAppSessions = new Map();
 
 /**
+ * Resolved sessions, cached for a few seconds.
+ *
+ * Every authenticated endpoint resolves the same session before it can do any
+ * work, which on a hosted database costs a network round trip per request (and
+ * the UI fires several requests per screen). A short time-to-live keeps logout,
+ * revocation and role changes effectively immediate while collapsing bursts of
+ * requests onto a single lookup.
+ */
+const SESSION_CACHE_TTL_MS = 10 * 1000;
+const sessionCache = new Map();
+
+function readCachedSession(token) {
+  const entry = sessionCache.get(token);
+  if (!entry) return null;
+  if (Date.now() > entry.cachedUntil) {
+    sessionCache.delete(token);
+    return null;
+  }
+  return entry.session;
+}
+
+function writeCachedSession(token, session, jti) {
+  // Bounded so a flood of invalid tokens cannot grow the map without limit.
+  if (sessionCache.size > 5000) sessionCache.clear();
+  sessionCache.set(token, { session, jti, cachedUntil: Date.now() + SESSION_CACHE_TTL_MS });
+}
+
+/** Drops the cache entry for a revoked session id. */
+function invalidateCachedSessionId(jti) {
+  if (!jti) return;
+  for (const [token, entry] of sessionCache) {
+    if (entry.jti === jti || token === jti) sessionCache.delete(token);
+  }
+}
+
+/** Drops cached sessions for a user so profile or status changes apply at once. */
+function invalidateCachedSessionsForUser(userId) {
+  if (!userId) return;
+  for (const [token, entry] of sessionCache) {
+    if (entry.session?.user?.id === userId) sessionCache.delete(token);
+  }
+}
+
+/**
  * Fetches only the normalized section string from EduSecure.
  * @param {string} sessionCookies - EduSecure session cookies
  * @returns {Promise<string|null>} Normalized section string like "9-F" or null
@@ -233,10 +277,13 @@ class SessionService {
         return u;
       }
 
-      const allUsers = await db.select().from(schema.users).all();
-      const caseMatch = allUsers.find(
-        (u) => u.studentId.trim().toLowerCase() === normalizedId
-      );
+      // Case-insensitive match in SQL: reading the whole user table to compare
+      // in JavaScript got slower with every account that signed up.
+      const caseMatch = await db
+        .select()
+        .from(schema.users)
+        .where(sql`lower(trim(${schema.users.studentId})) = ${normalizedId}`)
+        .get();
       if (caseMatch) {
         const u = {
           id: caseMatch.id,
@@ -445,35 +492,9 @@ class SessionService {
     return token;
   }
 
-  /**
-   * Looks up the revocation record for a session id.
-   * Returns null when the session was revoked, expired or never existed.
-   */
-  async findLiveSession(jti) {
-    let record = null;
-    try {
-      record = await db
-        .select()
-        .from(schema.appSessions)
-        .where(eq(schema.appSessions.token, jti))
-        .get();
-    } catch (err) {
-      // A database hiccup must not hand out access on its own, so fall back to
-      // this instance's own record of the session rather than to "allow".
-      console.error("getAppSession revocation lookup failed:", err.message);
-      record = memAppSessions.get(jti) || null;
-    }
-
-    if (!record) return null;
-    if (Date.now() > record.expiresAt) {
-      await this.deleteSessionRecord(jti);
-      return null;
-    }
-    return record;
-  }
-
   async deleteSessionRecord(jti) {
     memAppSessions.delete(jti);
+    invalidateCachedSessionId(jti);
     try {
       await db.delete(schema.appSessions)
         .where(eq(schema.appSessions.token, jti))
@@ -484,42 +505,37 @@ class SessionService {
   async getAppSession(token) {
     if (!token) return null;
 
+    const cached = readCachedSession(token);
+    if (cached) return cached;
+
     const payload = verifySessionToken(token);
     if (payload) {
-      const record = await this.findLiveSession(payload.jti);
-      if (!record) return null;
+      // Session row and account are read together: a signature check that costs
+      // two sequential round trips would double the latency of every request.
+      const row = await this.loadSessionWithUser(payload.jti);
+      if (!row) return null;
 
-      // A signature only proves the token was issued here. An account that no
-      // longer exists must not be recreated from its own cookie, otherwise a
-      // deleted or banned student simply comes back on the next request.
-      const user = await this.getUserById(payload.uid);
-      if (!user) return null;
+      if (Date.now() > row.expiresAt) {
+        await this.deleteSessionRecord(payload.jti);
+        return null;
+      }
 
-      return { token, user };
+      const session = { token, user: row.user };
+      writeCachedSession(token, session, payload.jti);
+      return session;
     }
 
     // Legacy opaque tokens issued before signed cookies existed.
     try {
-      const session = await db
-        .select()
-        .from(schema.appSessions)
-        .where(eq(schema.appSessions.token, token))
-        .get();
-
-      if (session) {
-        if (Date.now() > session.expiresAt) {
-          try {
-            await db.delete(schema.appSessions)
-              .where(eq(schema.appSessions.token, token))
-              .run();
-          } catch {}
+      const row = await this.loadSessionWithUser(token);
+      if (row) {
+        if (Date.now() > row.expiresAt) {
+          await this.deleteSessionRecord(token);
           return null;
         }
-
-        const user = await this.getUserById(session.userId);
-        if (user) {
-          return { token: session.token, user };
-        }
+        const session = { token, user: row.user };
+        writeCachedSession(token, session, token);
+        return session;
       }
     } catch (err) {
       console.error("getAppSession database lookup failed:", err.message);
@@ -528,8 +544,71 @@ class SessionService {
     return null;
   }
 
+  /**
+   * Reads a session row together with its account in a single query.
+   * @param {string} sessionKey the stored app_sessions.token value (jti)
+   * @returns {Promise<{expiresAt: number, user: object}|null>}
+   */
+  async loadSessionWithUser(sessionKey) {
+    try {
+      const row = await db
+        .select({
+          expiresAt: schema.appSessions.expiresAt,
+          id: schema.users.id,
+          studentId: schema.users.studentId,
+          displayName: schema.users.displayName,
+          section: schema.users.section,
+          role: schema.users.role,
+          isMuted: schema.users.isMuted,
+          createdAt: schema.users.createdAt,
+        })
+        .from(schema.appSessions)
+        .innerJoin(schema.users, eq(schema.users.id, schema.appSessions.userId))
+        .where(eq(schema.appSessions.token, sessionKey))
+        .get();
+
+      if (row) {
+        return {
+          expiresAt: row.expiresAt,
+          user: {
+            id: row.id,
+            studentId: row.studentId,
+            displayName: row.displayName || null,
+            section: row.section,
+            role: row.role || "student",
+            isMuted: row.isMuted || 0,
+            createdAt: row.createdAt,
+          },
+        };
+      }
+    } catch (err) {
+      // A database hiccup must not hand out access on its own, so fall back to
+      // this instance's own record of the session rather than to "allow".
+      console.error("Session lookup failed, checking memory store:", err.message);
+    }
+
+    const record = memAppSessions.get(sessionKey);
+    if (!record) return null;
+    const memUser = memUsers.get(record.userId);
+    if (!memUser) return null;
+    return {
+      expiresAt: record.expiresAt,
+      user: {
+        id: memUser.id,
+        studentId: memUser.studentId,
+        displayName: memUser.displayName || null,
+        section: memUser.section,
+        role: memUser.role || "student",
+        isMuted: memUser.isMuted || 0,
+        createdAt: memUser.createdAt,
+      },
+    };
+  }
+
   async destroyAppSession(token) {
     if (!token) return;
+
+    sessionCache.delete(token);
 
     const payload = verifySessionToken(token);
     if (payload) {
@@ -547,6 +626,7 @@ class SessionService {
    */
   async destroyAllUserSessions(userId) {
     if (!userId) return;
+    invalidateCachedSessionsForUser(userId);
     for (const [jti, session] of memAppSessions) {
       if (session.userId === userId) memAppSessions.delete(jti);
     }
@@ -563,6 +643,7 @@ class SessionService {
     if (!userId) return;
     const u = memUsers.get(userId);
     if (u) u.section = section;
+    invalidateCachedSessionsForUser(userId);
 
     try {
       await db.update(schema.users)
@@ -581,6 +662,7 @@ class SessionService {
    */
   async updateDisplayName(userId, displayName) {
     if (!userId || !displayName) return;
+    invalidateCachedSessionsForUser(userId);
     await db.update(schema.users)
       .set({ displayName, updatedAt: new Date().toISOString() })
       .where(eq(schema.users.id, userId))
@@ -592,6 +674,7 @@ const sessionService = new SessionService();
 
 module.exports = sessionService;
 module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
+module.exports.invalidateCachedSessionsForUser = invalidateCachedSessionsForUser;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
 module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;
 module.exports.isUnknownSection = isUnknownSection;

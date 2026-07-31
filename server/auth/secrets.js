@@ -16,6 +16,9 @@ const MISSING_KEY_MESSAGE =
 
 let devSecretFallback = null;
 
+/** Derived keys, cached because HKDF runs on every signed-cookie check. */
+const derivedKeys = new Map();
+
 /**
  * @returns {string} the configured secret
  */
@@ -53,9 +56,19 @@ function requireSecret() {
  * @returns {Buffer}
  */
 function deriveKey(purpose, length = 32) {
-  return Buffer.from(
-    crypto.hkdfSync("sha256", requireSecret(), "homework-fetcher-hkdf-salt", purpose, length)
+  const secret = requireSecret();
+  // Session cookies are signed and verified on every single API request, so the
+  // derivation is memoized per (secret, purpose). Keying on the secret keeps a
+  // later ENCRYPTION_KEY change from being served a stale key.
+  const cacheKey = `${secret}\u0000${purpose}\u0000${length}`;
+  const cached = derivedKeys.get(cacheKey);
+  if (cached) return cached;
+
+  const key = Buffer.from(
+    crypto.hkdfSync("sha256", secret, "homework-fetcher-hkdf-salt", purpose, length)
   );
+  derivedKeys.set(cacheKey, key);
+  return key;
 }
 
 /**

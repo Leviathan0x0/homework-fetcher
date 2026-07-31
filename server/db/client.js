@@ -610,6 +610,31 @@ async function exec(sql) {
   sqlite.exec(sql);
 }
 
+/**
+ * Runs several drizzle statements in as few round trips as possible.
+ *
+ * A hosted libSQL database charges a full HTTPS round trip per statement, so a
+ * loop of awaited writes turns a single logical operation into dozens of
+ * sequential network hops. Batching sends them in one pipeline request; the
+ * local driver runs in-process, where sequential execution is already free.
+ *
+ * @param {any[]} statements drizzle query builders (falsy entries are skipped)
+ */
+async function runBatch(statements) {
+  const queries = (statements || []).filter(Boolean);
+  if (queries.length === 0) return [];
+
+  if (isRemote && typeof db.batch === "function") {
+    return db.batch(queries);
+  }
+
+  const results = [];
+  for (const query of queries) {
+    results.push(await query);
+  }
+  return results;
+}
+
 // Schema initialization starts once per process. If a serverless cold start
 // hits a transient hosted-database outage, a later request may retry instead
 // of leaving that warm function instance permanently stuck on a rejected
@@ -668,5 +693,6 @@ module.exports = {
   initDb,
   ready: initialReady,
   ensureDatabaseReady,
+  runBatch,
   schema,
 };

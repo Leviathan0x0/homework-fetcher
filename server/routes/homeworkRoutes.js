@@ -7,6 +7,32 @@ const homeworkCacheService = require("../homework/homeworkCacheService");
 const router = express.Router();
 
 /**
+ * EduSecure refreshes in flight, keyed by user.
+ *
+ * Scraping the school portal is by far the slowest thing this API does, and the
+ * dashboard can ask for homework several times in a row (initial load, tab
+ * switch, manual refresh). Without this, each of those starts its own scrape and
+ * they queue up behind each other; sharing the promise makes the extra callers
+ * wait on the one request that is already running.
+ */
+const refreshesInFlight = new Map();
+
+function refreshFromSchool(userId, sessionCookies) {
+  const running = refreshesInFlight.get(userId);
+  if (running) return running;
+
+  const pending = (async () => {
+    const data = await fetchHomeworkForSession(sessionCookies);
+    return homeworkCacheService.upsertHomework(userId, data.homework);
+  })().finally(() => {
+    refreshesInFlight.delete(userId);
+  });
+
+  refreshesInFlight.set(userId, pending);
+  return pending;
+}
+
+/**
  * Middleware to authenticate requests via HTTP-only app_session cookie.
  * SECURITY: Never trusts userId from query or body.
  */
@@ -24,15 +50,13 @@ router.get("/homework", requireAuth, async (req, res) => {
   if (cachedHomework.length > 0) {
     // If cache is stale, trigger background refresh asynchronously without freezing the user
     homeworkCacheService.isCacheStale(userId).then(async (isStale) => {
-      if (isStale) {
-        const eduSession = await sessionService.getEduSecureSession(userId);
-        if (eduSession && eduSession.sessionCookies) {
-          try {
-            const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-            await homeworkCacheService.upsertHomework(userId, data.homework);
-          } catch (err) {
-            console.error("Background homework refresh error:", err.message);
-          }
+      if (!isStale || refreshesInFlight.has(userId)) return;
+      const eduSession = await sessionService.getEduSecureSession(userId);
+      if (eduSession && eduSession.sessionCookies) {
+        try {
+          await refreshFromSchool(userId, eduSession.sessionCookies);
+        } catch (err) {
+          console.error("Background homework refresh error:", err.message);
         }
       }
     }).catch(() => {});
@@ -55,8 +79,7 @@ router.get("/homework", requireAuth, async (req, res) => {
   }
 
   try {
-    const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
+    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies);
 
     return res.json({
       count: updatedHomework.length,
@@ -117,8 +140,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
   }
 
   try {
-    const data = await fetchHomeworkForSession(eduSession.sessionCookies);
-    const updatedHomework = await homeworkCacheService.upsertHomework(userId, data.homework);
+    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies);
 
     return res.json({
       count: updatedHomework.length,

@@ -1,6 +1,6 @@
 const crypto = require("crypto");
-const { eq, and, desc, or } = require("drizzle-orm");
-const { db, schema } = require("../db/client");
+const { eq, and, desc, inArray, sql } = require("drizzle-orm");
+const { db, schema, runBatch } = require("../db/client");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
 
@@ -101,15 +101,27 @@ function generateHomeworkId(userId, date, content) {
 
 /**
  * Purges duplicate entries for the same user, date, and content.
+ *
+ * Only worth running after a fetch from EduSecure has written new rows: reads
+ * already collapse duplicates in memory, and doing this on every read turned a
+ * cache hit into a full table scan plus one delete round trip per duplicate.
+ *
+ * @param {string} userId
+ * @param {Array} [rows] already-loaded homework rows for this user
  */
-async function cleanDuplicateHomework(userId) {
+async function cleanDuplicateHomework(userId, rows) {
   if (!userId) return;
   try {
-    const all = await db
-      .select()
+    const all = rows || (await db
+      .select({
+        id: schema.homework.id,
+        date: schema.homework.date,
+        content: schema.homework.content,
+        subject: schema.homework.subject,
+      })
       .from(schema.homework)
       .where(eq(schema.homework.userId, userId))
-      .all();
+      .all());
 
     const seen = new Map();
     const toDeleteIds = [];
@@ -131,9 +143,8 @@ async function cleanDuplicateHomework(userId) {
     }
 
     if (toDeleteIds.length > 0) {
-      for (const delId of toDeleteIds) {
-        await db.delete(schema.homework).where(eq(schema.homework.id, delId)).run();
-      }
+      // One statement instead of one round trip per duplicate row.
+      await db.delete(schema.homework).where(inArray(schema.homework.id, toDeleteIds)).run();
     }
   } catch (err) {
     console.error("Cleanup Duplicate Homework Error:", err);
@@ -153,6 +164,29 @@ class HomeworkCacheService {
 
     const now = new Date().toISOString();
 
+    // Everything the loop needs is read once. Querying per entry meant one
+    // network round trip per homework item before a single row was written.
+    const existingRows = await db
+      .select({
+        id: schema.homework.id,
+        date: schema.homework.date,
+        content: schema.homework.content,
+        subject: schema.homework.subject,
+      })
+      .from(schema.homework)
+      .where(eq(schema.homework.userId, userId))
+      .all();
+
+    const byId = new Map();
+    const byDateContent = new Map();
+    for (const row of existingRows) {
+      byId.set(row.id, row);
+      byDateContent.set(`${(row.date || "").trim()}\u0000${row.content || ""}`, row);
+    }
+
+    const writes = [];
+    const resultRows = new Map(existingRows.map((row) => [row.id, row]));
+
     for (const item of parsedHomework) {
       const type = item.type || "Homework";
       const date = (item.date || "").trim();
@@ -163,62 +197,60 @@ class HomeworkCacheService {
       const subject = detectSubjectFromText(content, item.subject || "", type);
       const homeworkId = generateHomeworkId(userId, date, content);
 
-      const existing = await db
-        .select()
-        .from(schema.homework)
-        .where(
-          and(
-            eq(schema.homework.userId, userId),
-            or(
-              eq(schema.homework.id, homeworkId),
-              and(
-                eq(schema.homework.date, date),
-                eq(schema.homework.content, content)
-              )
-            )
-          )
-        )
-        .get();
+      const existing = byId.get(homeworkId) || byDateContent.get(`${date}\u0000${content}`);
 
       if (existing) {
-        await db.update(schema.homework)
-          .set({
-            id: homeworkId,
-            date,
-            subject,
-            content,
-            attachmentUrl,
-            type,
-            updatedAt: now,
-          })
-          .where(eq(schema.homework.id, existing.id))
-          .run();
+        writes.push(
+          db.update(schema.homework)
+            .set({
+              id: homeworkId,
+              date,
+              subject,
+              content,
+              attachmentUrl,
+              type,
+              updatedAt: now,
+            })
+            .where(eq(schema.homework.id, existing.id))
+        );
 
         if (existing.id !== homeworkId) {
-          await db.update(schema.homeworkUserState)
-            .set({ homeworkId })
-            .where(and(eq(schema.homeworkUserState.homeworkId, existing.id), eq(schema.homeworkUserState.userId, userId)))
-            .run();
+          writes.push(
+            db.update(schema.homeworkUserState)
+              .set({ homeworkId })
+              .where(and(
+                eq(schema.homeworkUserState.homeworkId, existing.id),
+                eq(schema.homeworkUserState.userId, userId)
+              ))
+          );
+          resultRows.delete(existing.id);
         }
       } else {
-        await db.insert(schema.homework)
-          .values({
-            id: homeworkId,
-            userId,
-            sourceIdentifier: "edusecure",
-            date,
-            subject,
-            content,
-            attachmentUrl,
-            type,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .run();
+        writes.push(
+          db.insert(schema.homework)
+            .values({
+              id: homeworkId,
+              userId,
+              sourceIdentifier: "edusecure",
+              date,
+              subject,
+              content,
+              attachmentUrl,
+              type,
+              createdAt: now,
+              updatedAt: now,
+            })
+        );
       }
+
+      const merged = { id: homeworkId, date, content, subject };
+      byId.set(homeworkId, merged);
+      byDateContent.set(`${date}\u0000${content}`, merged);
+      resultRows.set(homeworkId, merged);
     }
 
-    await cleanDuplicateHomework(userId);
+    await runBatch(writes);
+    await cleanDuplicateHomework(userId, Array.from(resultRows.values()));
 
     return await this.getCachedHomework(userId);
   }
@@ -231,8 +263,6 @@ class HomeworkCacheService {
    */
   async getCachedHomework(userId) {
     if (!userId) return [];
-
-    await cleanDuplicateHomework(userId);
 
     // Query homework left joining homework_user_state for completion status & personal notes
     const rows = await db
@@ -296,19 +326,19 @@ class HomeworkCacheService {
   async isCacheStale(userId, maxAgeMinutes = DEFAULT_CACHE_MAX_AGE_MINUTES) {
     if (!userId) return true;
 
-    const items = await this.getCachedHomework(userId);
-    if (!items || items.length === 0) return true;
+    // A single aggregate answers this. Re-reading and de-duplicating every
+    // cached row just to look at one timestamp doubled the cost of a cache hit.
+    const row = await db
+      .select({ latest: sql`max(${schema.homework.updatedAt})` })
+      .from(schema.homework)
+      .where(eq(schema.homework.userId, userId))
+      .get();
 
-    // Find the latest updatedAt timestamp among cached homework items
-    let latestMs = 0;
-    for (const item of items) {
-      if (item.updatedAt) {
-        const ms = new Date(item.updatedAt).getTime();
-        if (ms > latestMs) latestMs = ms;
-      }
-    }
+    const latest = row?.latest;
+    if (!latest) return true;
 
-    if (latestMs === 0) return true;
+    const latestMs = new Date(latest).getTime();
+    if (!latestMs) return true;
 
     const ageMinutes = (Date.now() - latestMs) / (1000 * 60);
     return ageMinutes >= maxAgeMinutes;
@@ -325,40 +355,20 @@ class HomeworkCacheService {
   async updateHomeworkStatus(userId, homeworkId, completed) {
     if (!userId || !homeworkId) throw new Error("Invalid parameters.");
 
-    // Verify homework ownership
-    const hw = await db
-      .select()
-      .from(schema.homework)
-      .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
-      .get();
-
-    if (!hw) {
-      const err = new Error("Homework not found or unauthorized.");
-      err.statusCode = 404;
-      throw err;
-    }
+    // Ownership check and existing-state lookup share one query so ticking a
+    // checkbox costs two round trips instead of three.
+    const row = await this.findOwnedHomeworkState(userId, homeworkId);
 
     const now = new Date().toISOString();
     const isCompleted = completed ? 1 : 0;
 
-    const existingState = await db
-      .select()
-      .from(schema.homeworkUserState)
-      .where(
-        and(
-          eq(schema.homeworkUserState.userId, userId),
-          eq(schema.homeworkUserState.homeworkId, homeworkId)
-        )
-      )
-      .get();
-
-    if (existingState) {
+    if (row.stateId) {
       await db.update(schema.homeworkUserState)
         .set({
           completed: isCompleted,
           updatedAt: now,
         })
-        .where(eq(schema.homeworkUserState.id, existingState.id))
+        .where(eq(schema.homeworkUserState.id, row.stateId))
         .run();
     } else {
       await db.insert(schema.homeworkUserState)
@@ -381,6 +391,39 @@ class HomeworkCacheService {
   }
 
   /**
+   * Verifies the homework belongs to the user and returns its personal-state row id.
+   * SECURITY: Strictly verifies homework belongs to userId.
+   * @param {string} userId
+   * @param {string} homeworkId
+   * @returns {Promise<{stateId: string|null}>}
+   */
+  async findOwnedHomeworkState(userId, homeworkId) {
+    const row = await db
+      .select({
+        homeworkId: schema.homework.id,
+        stateId: schema.homeworkUserState.id,
+      })
+      .from(schema.homework)
+      .leftJoin(
+        schema.homeworkUserState,
+        and(
+          eq(schema.homeworkUserState.homeworkId, schema.homework.id),
+          eq(schema.homeworkUserState.userId, userId)
+        )
+      )
+      .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
+      .get();
+
+    if (!row) {
+      const err = new Error("Homework not found or unauthorized.");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    return { stateId: row.stateId || null };
+  }
+
+  /**
    * Updates personal note for a homework item for the authenticated user.
    * SECURITY: Strictly verifies homework belongs to userId.
    * @param {string} userId 
@@ -391,40 +434,18 @@ class HomeworkCacheService {
   async updateHomeworkNote(userId, homeworkId, note) {
     if (!userId || !homeworkId) throw new Error("Invalid parameters.");
 
-    // Verify homework ownership
-    const hw = await db
-      .select()
-      .from(schema.homework)
-      .where(and(eq(schema.homework.id, homeworkId), eq(schema.homework.userId, userId)))
-      .get();
-
-    if (!hw) {
-      const err = new Error("Homework not found or unauthorized.");
-      err.statusCode = 404;
-      throw err;
-    }
+    const row = await this.findOwnedHomeworkState(userId, homeworkId);
 
     const now = new Date().toISOString();
     const cleanNote = typeof note === "string" ? note.trim() : null;
 
-    const existingState = await db
-      .select()
-      .from(schema.homeworkUserState)
-      .where(
-        and(
-          eq(schema.homeworkUserState.userId, userId),
-          eq(schema.homeworkUserState.homeworkId, homeworkId)
-        )
-      )
-      .get();
-
-    if (existingState) {
+    if (row.stateId) {
       await db.update(schema.homeworkUserState)
         .set({
           note: cleanNote,
           updatedAt: now,
         })
-        .where(eq(schema.homeworkUserState.id, existingState.id))
+        .where(eq(schema.homeworkUserState.id, row.stateId))
         .run();
     } else {
       await db.insert(schema.homeworkUserState)

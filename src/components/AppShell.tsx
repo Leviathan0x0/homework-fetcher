@@ -146,6 +146,14 @@ export const AppShell: React.FC = () => {
   };
 
   function handleViewChange(view: typeof activeView) {
+    if (view.startsWith('admin-') && !isAdmin) {
+      setActiveView('today');
+      return;
+    }
+    if (view.startsWith('teacher-') && !isTeacher) {
+      setActiveView('today');
+      return;
+    }
     if (view === 'settings') {
       if (isMobile) {
         if (activeView !== 'settings') viewBeforeSettings.current = activeView;
@@ -170,15 +178,34 @@ export const AppShell: React.FC = () => {
 
   const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss');
   const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
+  const portalPath = isAdmin ? '/admin' : isTeacher ? '/teacher' : '/student';
 
   useEffect(() => {
+    if (isAuthChecking || isAuthenticated) return;
+    const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (currentPath === '/admin' || currentPath === '/teacher' || currentPath === '/student') {
+      window.history.replaceState({}, '', '/');
+    }
+  }, [isAuthChecking, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isAuthChecking || !user) return;
+    const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (currentPath === '/' || ['/admin', '/teacher', '/student'].includes(currentPath)) {
+      if (currentPath !== portalPath) {
+        window.history.replaceState({}, '', portalPath);
+      }
+    }
     if (isAdmin && !activeView.startsWith('admin-') && activeView !== 'settings' && activeView !== 'developers') {
       setActiveView('admin-overview');
     }
     if (isTeacher && !activeView.startsWith('teacher-') && activeView !== 'settings' && activeView !== 'developers') {
       setActiveView('teacher-overview');
     }
-  }, [isAdmin, isTeacher, activeView, setActiveView]);
+    if (!isAdmin && !isTeacher && (activeView.startsWith('admin-') || activeView.startsWith('teacher-'))) {
+      setActiveView('today');
+    }
+  }, [isAdmin, isTeacher, portalPath, activeView, isAuthenticated, isAuthChecking, user, setActiveView]);
 
   const handleOpenPreview = (url: string, filename?: string) => {
     setPreviewFileUrl(url);
@@ -191,6 +218,14 @@ export const AppShell: React.FC = () => {
   };
 
   const handleNavigate = useCallback((view: string) => {
+    if (view.startsWith('admin-') && !isAdmin) {
+      setActiveView('today');
+      return;
+    }
+    if (view.startsWith('teacher-') && !isTeacher) {
+      setActiveView('today');
+      return;
+    }
     if (view.startsWith('messages:')) {
       const targetConvId = view.slice('messages:'.length).trim();
       if (targetConvId) {
@@ -209,7 +244,7 @@ export const AppShell: React.FC = () => {
       return;
     }
     setActiveView(view as any);
-  }, [setActiveView]);
+  }, [isAdmin, isTeacher, setActiveView]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {

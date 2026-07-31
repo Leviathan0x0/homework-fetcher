@@ -154,7 +154,9 @@ async function fetchSectionFromEduSecure(sessionCookies) {
   return profile.section;
 }
 
-const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+// Keep the app session across normal browser returns and server restarts.
+// Logging out explicitly still revokes the session immediately.
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Key used to sign session cookies. Derived from ENCRYPTION_KEY so every

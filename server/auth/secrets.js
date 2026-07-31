@@ -3,9 +3,9 @@ const crypto = require("crypto");
 /**
  * Central handling of ENCRYPTION_KEY.
  *
- * There is deliberately no fallback value: a default committed to the
- * repository would let anyone forge session cookies and decrypt stored school
- * portal sessions. The API refuses to serve requests until a real key is set.
+ * Production deployments should always provide ENCRYPTION_KEY. The stable
+ * fallback below is only for development/self-hosted setups where a missing
+ * key must not invalidate every remembered session after a restart.
  */
 
 const MIN_SECRET_LENGTH = 32;
@@ -25,9 +25,19 @@ function requireSecret() {
     return secret;
   }
   if (!devSecretFallback) {
-    devSecretFallback = crypto.randomBytes(32).toString("hex");
+    const stableSeed = [
+      process.env.DATABASE_URL,
+      process.env.TURSO_DATABASE_URL,
+      process.env.LIBSQL_URL,
+      process.env.SQLITE_DB_PATH,
+      process.cwd(),
+    ].find((value) => String(value || "").trim()) || "homework-fetcher-local";
+    devSecretFallback = crypto
+      .createHash("sha256")
+      .update(`homework-fetcher:${stableSeed}`)
+      .digest("hex");
     console.warn(
-      "[auth] ENCRYPTION_KEY not found in environment. Using generated session secret."
+      "[auth] ENCRYPTION_KEY not found. Using a stable local fallback; configure ENCRYPTION_KEY for production."
     );
   }
   return devSecretFallback;

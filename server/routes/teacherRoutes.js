@@ -385,7 +385,7 @@ router.post("/assignments", async (req, res) => {
         "teacher_assignment",
         `New assignment: ${assignment.title}`,
         `${assignment.subject} is due ${assignment.dueDate}.`,
-        "teacher-assignments",
+        "today",
         assignment.id
       );
     }

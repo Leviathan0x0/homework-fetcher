@@ -50,6 +50,13 @@ export function useHomework() {
         setUser(currentUser);
         setIsAuthenticated(true);
         setSessionStatus("connected");
+        if (currentUser.isAdmin || currentUser.role === "admin") {
+          setActiveView("admin-overview");
+        } else if (currentUser.isTeacher || currentUser.role === "teacher" || currentUser.role === "class_teacher") {
+          setActiveView("teacher-overview");
+        } else {
+          setActiveView("today");
+        }
       } else {
         setUser(null);
         setIsAuthenticated(false);
@@ -157,6 +164,13 @@ export function useHomework() {
       setUser(loggedUser);
       setIsAuthenticated(true);
       setSessionStatus("connected");
+      if (loggedUser.isAdmin || loggedUser.role === "admin") {
+        setActiveView("admin-overview");
+      } else if (loggedUser.isTeacher || loggedUser.role === "teacher" || loggedUser.role === "class_teacher") {
+        setActiveView("teacher-overview");
+      } else {
+        setActiveView("today");
+      }
       return true;
     } catch (err: any) {
       console.error("Login Error:", err);

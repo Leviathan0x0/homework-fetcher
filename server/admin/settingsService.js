@@ -32,21 +32,40 @@ async function seedDefaultSettings() {
 }
 
 /**
+ * Toggle values, cached briefly.
+ *
+ * Feature toggles are read on the hot path of sending a message or opening a
+ * request, and they change once in a blue moon, so a per-request query is pure
+ * latency. The window is short enough that an administrator flipping a switch
+ * takes effect right away in practice.
+ */
+const SETTINGS_CACHE_TTL_MS = 15 * 1000;
+const settingsCache = new Map();
+
+/** Clears cached toggle values after an administrator changes one. */
+function invalidateSettingsCache(key) {
+  if (key) settingsCache.delete(key);
+  else settingsCache.clear();
+}
+
+/**
  * @param {string} key
  * @param {string} [fallback]
  * @returns {Promise<string>}
  */
 async function getSetting(key, fallback = "1") {
+  const cached = settingsCache.get(key);
+  if (cached && cached.cachedUntil > Date.now()) return cached.value;
+
   const row = await db
     .select()
     .from(schema.systemSettings)
     .where(eq(schema.systemSettings.key, key))
     .get();
 
-  if (!row) {
-    return DEFAULT_SETTINGS[key] ?? fallback;
-  }
-  return row.value;
+  const value = row ? row.value : DEFAULT_SETTINGS[key] ?? fallback;
+  settingsCache.set(key, { value, cachedUntil: Date.now() + SETTINGS_CACHE_TTL_MS });
+  return value;
 }
 
 /**
@@ -63,4 +82,5 @@ module.exports = {
   seedDefaultSettings,
   getSetting,
   isSettingEnabled,
+  invalidateSettingsCache,
 };

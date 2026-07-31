@@ -37,8 +37,34 @@ export class ApiUnreachableError extends Error {
   }
 }
 
+/**
+ * GET requests currently on the wire, keyed by URL.
+ *
+ * Several screens poll the same endpoints (inbox counts, unread badge, message
+ * list) and mount at the same time, so identical requests used to stack up and
+ * queue behind each other. Sharing the response means one round trip serves
+ * every caller; each gets its own clone so the body can still be read once.
+ */
+const inFlightGets = new Map<string, Promise<Response>>();
+
 /** fetch() wrapper that targets the API origin and always sends session cookies. */
 export function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method || "GET").toUpperCase();
+  const isShareable = method === "GET" && !init.body && !init.signal;
+  if (!isShareable) return requestApi(path, init);
+
+  const key = apiUrl(path);
+  const pending = inFlightGets.get(key);
+  if (pending) return pending.then((res) => res.clone());
+
+  const request = requestApi(path, init).finally(() => {
+    inFlightGets.delete(key);
+  });
+  inFlightGets.set(key, request);
+  return request.then((res) => res.clone());
+}
+
+function requestApi(path: string, init: RequestInit): Promise<Response> {
   return fetch(apiUrl(path), { credentials: "include", ...init }).catch((err: unknown) => {
     const reason = err instanceof Error ? err.message : String(err);
     // Browser TypeError is usually just "Failed to fetch" — make it actionable.

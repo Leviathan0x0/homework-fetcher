@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homework-pwa-v3';
+const CACHE_NAME = 'homework-pwa-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -31,17 +31,53 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Network-First for everything in development/updates so changes apply instantly
+/**
+ * Build output is fingerprinted (/assets/index-a1b2c3.js), so its contents can
+ * never change behind a URL. Those requests are answered straight from the
+ * cache instead of waiting for the network on every single navigation.
+ */
+function isImmutableAsset(url) {
+  if (url.origin !== self.location.origin) return false;
+  return (
+    url.pathname.startsWith('/assets/') ||
+    /\.(woff2?|ttf|otf|png|jpe?g|gif|svg|webp|ico)$/i.test(url.pathname)
+  );
+}
+
+// Fetch Event: cached-first for immutable build assets, network-first for
+// everything else so HTML and API data stay fresh (with an offline fallback).
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // Ignore chrome extensions or non-http requests
   if (!url.protocol.startsWith('http')) return;
 
+  // Writes must always reach the server; passing them through the worker only
+  // adds overhead to every action a student takes.
+  if (event.request.method !== 'GET') return;
+
+  if (isImmutableAsset(url)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.status === 200 && event.request.method === 'GET') {
+        if (response.status === 200) {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseClone);

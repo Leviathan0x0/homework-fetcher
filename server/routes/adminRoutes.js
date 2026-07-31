@@ -5,9 +5,11 @@ const { eq, desc, count, ne } = require("drizzle-orm");
 const {
   DEFAULT_SETTINGS,
   getSetting,
+  invalidateSettingsCache,
   seedDefaultSettings,
 } = require("../admin/settingsService");
 const { saveTeacherProfile } = require("../teacher/teacherService");
+const { invalidateCachedSessionsForUser } = require("../auth/sessionService");
 
 const router = express.Router();
 
@@ -134,6 +136,9 @@ router.post("/students/mute", requireAdmin, async (req, res) => {
         updatedAt: new Date().toISOString(),
       })
       .where(eq(schema.users.id, targetUser.id));
+
+    // The mute flag travels with the cached session, so drop it immediately.
+    invalidateCachedSessionsForUser(targetUser.id);
 
     return res.json({
       success: true,
@@ -332,6 +337,7 @@ router.post("/reports/resolve", requireAdmin, async (req, res) => {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(schema.users.studentId, report.studentId));
+      if (report.userId) invalidateCachedSessionsForUser(report.userId);
     }
 
     await db
@@ -405,6 +411,7 @@ router.post("/settings", requireAdmin, async (req, res) => {
       });
     }
 
+    invalidateSettingsCache(key);
     const confirmed = await getSetting(key, stringVal);
     return res.json({ success: true, key, value: confirmed });
   } catch (err) {

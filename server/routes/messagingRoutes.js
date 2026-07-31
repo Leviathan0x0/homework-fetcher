@@ -199,58 +199,47 @@ router.get("/conversations", requireAuth, async (req, res) => {
     const participationByConv = {};
     for (const p of participations) participationByConv[p.conversationId] = p;
 
-    // The other participant of each conversation, joined with their account, so
-    // the whole user table never has to be transferred.
-    const others = await db
-      .select({
-        conversationId: schema.conversationParticipants.conversationId,
-        id: schema.users.id,
-        studentId: schema.users.studentId,
-        displayName: schema.users.displayName,
-        section: schema.users.section,
-      })
-      .from(schema.conversationParticipants)
-      .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
-      .where(
-        and(
-          inArray(schema.conversationParticipants.conversationId, convIds),
-          ne(schema.conversationParticipants.userId, userId)
-        )
-      )
-      .all();
+    // Every remaining lookup is independent, so they go out together instead of
+    // paying one network round trip after another.
+    const [members, convs, unreadRows] = await Promise.all([
+      // Members of each conversation, joined with their account, so the whole
+      // user table never has to be transferred. One pass gives both the other
+      // participant of a DM and the member count of a class group.
+      db
+        .select({
+          conversationId: schema.conversationParticipants.conversationId,
+          id: schema.users.id,
+          studentId: schema.users.studentId,
+          displayName: schema.users.displayName,
+          section: schema.users.section,
+        })
+        .from(schema.conversationParticipants)
+        .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
+        .where(inArray(schema.conversationParticipants.conversationId, convIds))
+        .all(),
+      db
+        .select()
+        .from(schema.conversations)
+        .where(inArray(schema.conversations.id, convIds))
+        .all(),
+      // Unread counts for every conversation in a single aggregate query.
+      db.all(sql`
+        SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
+        FROM messages m
+        JOIN conversation_participants p
+          ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
+        WHERE m.sender_id <> ${userId}
+          AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
+        GROUP BY m.conversation_id
+      `),
+    ]);
 
     const otherByConv = {};
-    for (const row of others) otherByConv[row.conversationId] = row;
-
-    const allParticipants = await db
-      .select({
-        conversationId: schema.conversationParticipants.conversationId,
-      })
-      .from(schema.conversationParticipants)
-      .where(inArray(schema.conversationParticipants.conversationId, convIds))
-      .all();
     const memberCountByConv = {};
-    for (const row of allParticipants) {
-      memberCountByConv[row.conversationId] =
-        (memberCountByConv[row.conversationId] || 0) + 1;
+    for (const row of members) {
+      memberCountByConv[row.conversationId] = (memberCountByConv[row.conversationId] || 0) + 1;
+      if (row.id !== userId) otherByConv[row.conversationId] = row;
     }
-
-    const convs = await db
-      .select()
-      .from(schema.conversations)
-      .where(inArray(schema.conversations.id, convIds))
-      .all();
-
-    // Unread counts for every conversation in a single aggregate query.
-    const unreadRows = await db.all(sql`
-      SELECT m.conversation_id AS conversation_id, COUNT(*) AS unread
-      FROM messages m
-      JOIN conversation_participants p
-        ON p.conversation_id = m.conversation_id AND p.user_id = ${userId}
-      WHERE m.sender_id <> ${userId}
-        AND (p.last_read_at IS NULL OR m.created_at > p.last_read_at)
-      GROUP BY m.conversation_id
-    `);
 
     const unreadByConv = {};
     for (const row of unreadRows || []) {
@@ -516,21 +505,29 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       .all();
 
     const senderIds = [...new Set(msgs.map((m) => m.senderId))];
-    const senders = senderIds.length
-      ? await db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
-      : [];
+    const messageIds = msgs.map((m) => m.id);
+    const replyToIds = [...new Set(msgs.map((m) => m.replyToId).filter(Boolean))];
+
+    // Senders, read receipts and quoted messages do not depend on each other,
+    // so the thread opens after one round trip instead of three.
+    const [senders, receipts, parentMessages] = await Promise.all([
+      senderIds.length
+        ? db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
+        : [],
+      messageIds.length
+        ? db
+            .select()
+            .from(schema.messageReadReceipts)
+            .where(inArray(schema.messageReadReceipts.messageId, messageIds))
+            .all()
+        : [],
+      replyToIds.length
+        ? db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
+        : [],
+    ]);
+
     const senderMap = {};
     for (const sender of senders) senderMap[sender.id] = sender;
-
-    // Fetch read receipts for all messages
-    const messageIds = msgs.map((m) => m.id);
-    const receipts = messageIds.length
-      ? await db
-          .select()
-          .from(schema.messageReadReceipts)
-          .where(inArray(schema.messageReadReceipts.messageId, messageIds))
-          .all()
-      : [];
 
     const receiptsByMessage = {};
     for (const receipt of receipts) {
@@ -541,11 +538,6 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       });
     }
 
-    // Fetch parent messages for replies
-    const replyToIds = msgs.map((m) => m.replyToId).filter(Boolean);
-    const parentMessages = replyToIds.length
-      ? await db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
-      : [];
     const parentMap = {};
     for (const parent of parentMessages) parentMap[parent.id] = parent;
 

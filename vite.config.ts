@@ -38,4 +38,21 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    // Keep the rarely-changing framework and heavyweight widget libraries in
+    // their own chunks so a normal deploy does not invalidate them, and so a
+    // student who never opens a chart never downloads the charting library.
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
+          if (/node_modules\/(recharts|d3-|victory-|internmap|robust-predicates|delaunator)/.test(id)) return 'charts';
+          if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(id)) return 'motion';
+          return undefined;
+        },
+      },
+    },
+    chunkSizeWarningLimit: 900,
+  },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { notificationService, messagingService, requestService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework } from '../hooks/useHomework';
@@ -11,28 +11,40 @@ import { AppSidebar } from './app-sidebar';
 import { SiteHeader } from './site-header';
 import { MobileNavigation } from './MobileNavigation';
 import { TodayView } from './TodayView';
-import { CalendarView } from './CalendarView';
-import { ExamsView } from './ExamsView';
-import { RecentView } from './RecentView';
-import { AllHomeworkView } from './AllHomeworkView';
-import { AttachmentsView } from './AttachmentsView';
-import { CompletedView } from './CompletedView';
-import { ClassworkView } from './ClassworkView';
-import { RequestsView } from './RequestsView';
-import { LeaveView } from './LeaveView';
-import { MessagesView } from './MessagesView';
-import { SettingsModal } from './SettingsModal';
-import { SettingsView } from './SettingsView';
-import { DevelopersView } from './DevelopersView';
-import { AdminView } from './AdminView';
-import { TeacherView } from './TeacherView';
-import { FilePreviewSidebar } from './FilePreviewSidebar';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
 import { isTodayDate } from '../utils/dateUtils';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { Loader2 } from 'lucide-react';
 import { ViewType } from '../types/homework';
+
+// Only the landing view ships in the first bundle. The rest — including the
+// chat client, the charting admin/teacher portals and the file preview — is
+// fetched the first time a student actually opens that screen, which keeps the
+// startup download (and every subsequent interaction) small.
+const CalendarView = lazy(() => import('./CalendarView').then((m) => ({ default: m.CalendarView })));
+const ExamsView = lazy(() => import('./ExamsView').then((m) => ({ default: m.ExamsView })));
+const RecentView = lazy(() => import('./RecentView').then((m) => ({ default: m.RecentView })));
+const AllHomeworkView = lazy(() => import('./AllHomeworkView').then((m) => ({ default: m.AllHomeworkView })));
+const AttachmentsView = lazy(() => import('./AttachmentsView').then((m) => ({ default: m.AttachmentsView })));
+const CompletedView = lazy(() => import('./CompletedView').then((m) => ({ default: m.CompletedView })));
+const ClassworkView = lazy(() => import('./ClassworkView').then((m) => ({ default: m.ClassworkView })));
+const RequestsView = lazy(() => import('./RequestsView').then((m) => ({ default: m.RequestsView })));
+const LeaveView = lazy(() => import('./LeaveView').then((m) => ({ default: m.LeaveView })));
+const MessagesView = lazy(() => import('./MessagesView').then((m) => ({ default: m.MessagesView })));
+const SettingsModal = lazy(() => import('./SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })));
+const DevelopersView = lazy(() => import('./DevelopersView').then((m) => ({ default: m.DevelopersView })));
+const AdminView = lazy(() => import('./AdminView').then((m) => ({ default: m.AdminView })));
+const TeacherView = lazy(() => import('./TeacherView').then((m) => ({ default: m.TeacherView })));
+const FilePreviewSidebar = lazy(() => import('./FilePreviewSidebar').then((m) => ({ default: m.FilePreviewSidebar })));
+
+/** Placeholder shown while a screen's code is still downloading. */
+const ViewFallback: React.FC = () => (
+  <div className="flex items-center justify-center py-16">
+    <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+  </div>
+);
 
 export const AppShell: React.FC = () => {
   const {
@@ -111,7 +123,10 @@ export const AppShell: React.FC = () => {
       window.clearInterval(id);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
     };
-  }, [isAuthenticated, user, activeView, refreshGlanceCounts]);
+    // Deliberately not keyed on activeView: the badge counts are the same on
+    // every screen, and re-running this on navigation made each click wait for
+    // two network requests before the new view could settle.
+  }, [isAuthenticated, user, refreshGlanceCounts]);
 
   const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
 
@@ -320,6 +335,7 @@ export const AppShell: React.FC = () => {
           onUnreadCountChange={setUnreadCount}
         />
 
+        <Suspense fallback={<ViewFallback />}>
         <div className={cn(
           "flex-1 w-full mx-auto min-h-0",
           activeView === 'messages'
@@ -476,6 +492,7 @@ export const AppShell: React.FC = () => {
             <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
         </div>
+        </Suspense>
 
         {!(activeView === 'messages' && isMobileChatOpen) && (
           <MobileNavigation
@@ -486,22 +503,30 @@ export const AppShell: React.FC = () => {
           />
         )}
 
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={handleCloseSettings}
-          user={user}
-          onLogout={logout}
-          onUserChange={setUser}
-          sessionStatus={sessionStatus}
-          theme={theme}
-          onThemeChange={setTheme}
-        />
+        {isSettingsOpen && (
+          <Suspense fallback={null}>
+            <SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={handleCloseSettings}
+              user={user}
+              onLogout={logout}
+              onUserChange={setUser}
+              sessionStatus={sessionStatus}
+              theme={theme}
+              onThemeChange={setTheme}
+            />
+          </Suspense>
+        )}
 
-        <FilePreviewSidebar
-          fileUrl={previewFileUrl}
-          onClose={handleClosePreview}
-          originalFilename={previewOriginalFilename}
-        />
+        {previewFileUrl && (
+          <Suspense fallback={null}>
+            <FilePreviewSidebar
+              fileUrl={previewFileUrl}
+              onClose={handleClosePreview}
+              originalFilename={previewOriginalFilename}
+            />
+          </Suspense>
+        )}
       </SidebarInset>
     </SidebarProvider>
   );

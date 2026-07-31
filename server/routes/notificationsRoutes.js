@@ -1,5 +1,5 @@
 const express = require("express");
-const { eq, desc, and } = require("drizzle-orm");
+const { eq, desc, and, count } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
@@ -37,8 +37,9 @@ router.get("/notifications", requireAuth, async (req, res) => {
 
 router.get("/notifications/unread-count", requireAuth, async (req, res) => {
   try {
-    const records = await db
-      .select()
+    // Counted in SQL: the badge only needs a number, not every unread row.
+    const row = await db
+      .select({ total: count() })
       .from(schema.notifications)
       .where(
         and(
@@ -46,9 +47,9 @@ router.get("/notifications/unread-count", requireAuth, async (req, res) => {
           eq(schema.notifications.isRead, 0)
         )
       )
-      .all();
+      .get();
 
-    return res.json({ count: records.length });
+    return res.json({ count: Number(row?.total) || 0 });
   } catch (err) {
     console.error("Unread Count Error:", err);
     return res.status(500).json({ error: "Failed to get unread count." });

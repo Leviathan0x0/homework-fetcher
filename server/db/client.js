@@ -300,6 +300,16 @@ CREATE TABLE IF NOT EXISTS users (
     CREATE UNIQUE INDEX IF NOT EXISTS idx_mrr_message_user ON message_read_receipts(message_id, user_id);
     CREATE INDEX IF NOT EXISTS idx_mrr_message_id ON message_read_receipts(message_id);
 
+    CREATE TABLE IF NOT EXISTS monitoring_notice_tokens (
+      token TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      participant_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      valid_after INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_monitoring_notice_expiry ON monitoring_notice_tokens(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_monitoring_notice_user ON monitoring_notice_tokens(user_id);
+
     CREATE TABLE IF NOT EXISTS moderation_strikes (
       user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       count INTEGER NOT NULL DEFAULT 0,

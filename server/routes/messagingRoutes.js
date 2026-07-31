@@ -296,16 +296,6 @@ router.get("/conversations", requireAuth, async (req, res) => {
   }
 });
 
-const noticeTokens = new Map();
-
-// Periodic cleanup of expired notice tokens
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, data] of noticeTokens.entries()) {
-    if (now > data.expiresAt) noticeTokens.delete(token);
-  }
-}, 60 * 1000);
-
 router.post("/conversations/notice-token", requireAuth, async (req, res) => {
   try {
     let { participantId, studentId } = req.body || {};
@@ -324,12 +314,17 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
     }
     const token = crypto.randomUUID();
     const now = Date.now();
-    noticeTokens.set(token, {
+    await db
+      .delete(schema.monitoringNoticeTokens)
+      .where(lt(schema.monitoringNoticeTokens.expiresAt, now))
+      .run();
+    await db.insert(schema.monitoringNoticeTokens).values({
+      token,
       userId: req.user.id,
       participantId,
       validAfter: now + 3000,
       expiresAt: now + 5 * 60 * 1000,
-    });
+    }).run();
     return res.json({ noticeToken: token, validAfter: now + 3000, participantId });
   } catch (err) {
     console.error("Notice Token Error:", err);
@@ -411,11 +406,16 @@ router.post("/conversations", requireAuth, async (req, res) => {
         needsNotice: true,
       });
     }
-    const tokenData = noticeTokens.get(noticeToken);
+    const tokenData = await db
+      .select()
+      .from(schema.monitoringNoticeTokens)
+      .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
+      .get();
     if (
       !tokenData ||
       tokenData.userId !== req.user.id ||
-      tokenData.participantId !== participantId
+      tokenData.participantId !== participantId ||
+      Date.now() > tokenData.expiresAt
     ) {
       return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
     }
@@ -424,7 +424,10 @@ router.post("/conversations", requireAuth, async (req, res) => {
         error: "Monitoring notice countdown must be completed before starting a conversation.",
       });
     }
-    noticeTokens.delete(noticeToken);
+    await db
+      .delete(schema.monitoringNoticeTokens)
+      .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
+      .run();
 
     const convId = crypto.randomUUID();
     const now = new Date().toISOString();

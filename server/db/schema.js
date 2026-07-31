@@ -247,6 +247,21 @@ const messageReadReceipts = sqliteTable(
   ]
 );
 
+const monitoringNoticeTokens = sqliteTable(
+  "monitoring_notice_tokens",
+  {
+    token: text("token").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    participantId: text("participant_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    validAfter: integer("valid_after").notNull(),
+    expiresAt: integer("expires_at").notNull(),
+  },
+  (t) => [
+    index("idx_monitoring_notice_expiry").on(t.expiresAt),
+    index("idx_monitoring_notice_user").on(t.userId),
+  ]
+);
+
 /** Running count of blocked vulgar/abuse text attempts per student. */
 const moderationStrikes = sqliteTable(
   "moderation_strikes",
@@ -545,6 +560,7 @@ module.exports = {
   messages,
   messageAttachments,
   messageReadReceipts,
+  monitoringNoticeTokens,
   moderationStrikes,
   adminFlagLog,
   schoolCalendarEvents,

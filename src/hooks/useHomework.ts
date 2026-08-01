@@ -77,6 +77,23 @@ function defaultViewForUser(account: UserAccount): ViewType {
   return "today";
 }
 
+/**
+ * Whether this account has a school-portal login behind it.
+ *
+ * Administrators authenticate against local credentials and teachers use the
+ * teacher portal, so neither has an EduSecure diary. Asking for their homework
+ * anyway came back as "your school session expired" — for an account that
+ * never had one — and offered a reconnect that could only ever be refused.
+ */
+function usesSchoolPortal(account: UserAccount | null): boolean {
+  if (!account) return false;
+  if (account.isAdmin || account.role === "admin") return false;
+  if (account.isTeacher || account.role === "teacher" || account.role === "class_teacher") {
+    return false;
+  }
+  return true;
+}
+
 export function useHomework() {
   const initialUser = useRef<UserAccount | null>(readCachedUser()).current;
 
@@ -97,6 +114,10 @@ export function useHomework() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialUser ? "connected" : "disconnected");
+  // The school portal ends its own session long before the app session does, so
+  // it is tracked separately: the student stays signed in here while homework
+  // can no longer be scraped, and the fix is a password, not a re-login.
+  const [schoolSessionExpired, setSchoolSessionExpired] = useState<boolean>(false);
 
   const [completedMap, setCompletedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
@@ -167,7 +188,7 @@ export function useHomework() {
   }, [checkAuth]);
 
   const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
-    if (!user) return;
+    if (!user || !usesSchoolPortal(user)) return;
     if (forceRefresh) {
       setIsRefreshing(true);
     } else {
@@ -180,10 +201,14 @@ export function useHomework() {
     setErrorMessage(null);
 
     try {
-      const list = await homeworkService.getHomework(user.id);
-      const sortedList = sortHomeworkNewestFirst(list);
+      const { items, schoolSessionExpired: portalExpired } = await homeworkService.getHomework(user.id);
+      const sortedList = sortHomeworkNewestFirst(items);
       setHomework(sortedList);
       writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
+      setSchoolSessionExpired(portalExpired);
+      if (portalExpired) {
+        setErrorMessage("Your school session has expired.");
+      }
 
       const newCompletedMap: Record<string, boolean> = {};
       const newNotesMap: Record<string, string> = {};
@@ -210,7 +235,10 @@ export function useHomework() {
       console.error("Fetch Homework Error:", err);
       // A rejected session is already being handled by the auth check, and
       // surfacing it here would print an error over the login page.
-      if (err?.code !== "UNAUTHENTICATED") {
+      if (err?.code === "SCHOOL_SESSION_EXPIRED") {
+        setSchoolSessionExpired(true);
+        setErrorMessage(err.message || "Your school session has expired.");
+      } else if (err?.code !== "UNAUTHENTICATED") {
         setErrorMessage(err.message || "Failed to fetch homework.");
       }
     } finally {
@@ -218,6 +246,13 @@ export function useHomework() {
       setIsRefreshing(false);
     }
   }, [user]);
+
+  /** Called once the school portal has accepted the password again. */
+  const handleSchoolReconnected = useCallback(() => {
+    setSchoolSessionExpired(false);
+    setErrorMessage(null);
+    fetchHomework(true);
+  }, [fetchHomework]);
 
   const toggleTaskCompleted = useCallback(async (id: string) => {
     if (!id || !user) return;
@@ -266,6 +301,7 @@ export function useHomework() {
       setUser(loggedUser);
       setIsAuthenticated(true);
       setSessionStatus("connected");
+      setSchoolSessionExpired(false);
       setHomework(readCachedHomework(loggedUser.id));
       writeJson(CACHED_USER_KEY, loggedUser);
       hasAppliedRoleView.current = true;
@@ -296,6 +332,7 @@ export function useHomework() {
       setLastUpdated(null);
       setErrorMessage(null);
       setSessionStatus("disconnected");
+      setSchoolSessionExpired(false);
       setCompletedMap({});
       setNotesMap({});
       localStorage.removeItem("lastUpdated");
@@ -304,7 +341,7 @@ export function useHomework() {
   }, [user]);
 
   useEffect(() => {
-    if (isAuthenticated && user && !user.isTeacher && !isAuthChecking) {
+    if (isAuthenticated && !isAuthChecking && usesSchoolPortal(user)) {
       fetchHomework(false);
     }
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);
@@ -326,6 +363,8 @@ export function useHomework() {
     isRefreshing,
     errorMessage,
     sessionStatus,
+    schoolSessionExpired,
+    handleSchoolReconnected,
     setActiveView,
     setSearchQuery,
     setSelectedDateFilter,

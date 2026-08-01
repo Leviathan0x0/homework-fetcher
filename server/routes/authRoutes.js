@@ -1,6 +1,6 @@
 const express = require("express");
 const sessionService = require("../auth/sessionService");
-const { fetchProfileFromEduSecure, isUnknownSection } = require("../auth/sessionService");
+const { fetchProfileFromEduSecure, isUnknownSection, isAdminAccount } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken, requireAuth } = require("../auth/requireAuth");
@@ -375,11 +375,10 @@ router.post(
     }
 
     const studentId = (req.user.studentId || "").trim();
-    const role = req.user.role || "student";
 
     // Accounts that never sign in through EduSecure have no school session to
     // renew, so say that rather than bouncing their password off the portal.
-    if (role === "admin" || studentId === "admin_mmss") {
+    if (isAdminAccount(req.user)) {
       return res.status(400).json({
         error: "The administrator account does not use the school portal.",
       });

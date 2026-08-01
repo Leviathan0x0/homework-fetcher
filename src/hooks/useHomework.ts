@@ -77,6 +77,23 @@ function defaultViewForUser(account: UserAccount): ViewType {
   return "today";
 }
 
+/**
+ * Whether this account has a school-portal login behind it.
+ *
+ * Administrators authenticate against local credentials and teachers use the
+ * teacher portal, so neither has an EduSecure diary. Asking for their homework
+ * anyway came back as "your school session expired" — for an account that
+ * never had one — and offered a reconnect that could only ever be refused.
+ */
+function usesSchoolPortal(account: UserAccount | null): boolean {
+  if (!account) return false;
+  if (account.isAdmin || account.role === "admin") return false;
+  if (account.isTeacher || account.role === "teacher" || account.role === "class_teacher") {
+    return false;
+  }
+  return true;
+}
+
 export function useHomework() {
   const initialUser = useRef<UserAccount | null>(readCachedUser()).current;
 
@@ -171,7 +188,7 @@ export function useHomework() {
   }, [checkAuth]);
 
   const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
-    if (!user) return;
+    if (!user || !usesSchoolPortal(user)) return;
     if (forceRefresh) {
       setIsRefreshing(true);
     } else {
@@ -324,7 +341,7 @@ export function useHomework() {
   }, [user]);
 
   useEffect(() => {
-    if (isAuthenticated && user && !user.isTeacher && !isAuthChecking) {
+    if (isAuthenticated && !isAuthChecking && usesSchoolPortal(user)) {
       fetchHomework(false);
     }
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);

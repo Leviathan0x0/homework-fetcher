@@ -705,6 +705,23 @@ class SessionService {
 
 const sessionService = new SessionService();
 
+/**
+ * True for the administrator account.
+ *
+ * Administrators sign in against local credentials, never EduSecure, so they
+ * have no school session and no diary to scrape. Code that talks to the school
+ * portal has to skip them rather than reporting their (permanently absent)
+ * school session as expired.
+ */
+function isAdminAccount(user) {
+  if (!user) return false;
+  return (
+    user.role === "admin" ||
+    user.studentId === "admin_mmss" ||
+    user.section === "Admin"
+  );
+}
+
 module.exports = sessionService;
 module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
 module.exports.invalidateCachedSessionsForUser = invalidateCachedSessionsForUser;
@@ -713,3 +730,4 @@ module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;
 module.exports.isUnknownSection = isUnknownSection;
 module.exports.UNKNOWN_SECTION_SENTINEL = UNKNOWN_SECTION_SENTINEL;
 module.exports.normalizeClassSection = normalizeClassSection;
+module.exports.isAdminAccount = isAdminAccount;

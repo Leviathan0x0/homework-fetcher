@@ -62,11 +62,11 @@ function decodeValue(cell) {
 function createLibsqlClient(url, authToken) {
   const endpoint = `${toHttpUrl(url)}/v2/pipeline`;
   const maxAttempts = 3;
-  const requestTimeoutMs = 2_500;
+  const defaultTimeoutMs = 2_500;
 
   const wait = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
 
-  async function postPipeline(requests) {
+  async function postPipeline(requests, requestTimeoutMs = defaultTimeoutMs) {
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
@@ -112,10 +112,16 @@ function createLibsqlClient(url, authToken) {
 
   /**
    * Executes one or more statements in a single round trip.
+   *
    * @param {{sql: string, args?: any[]}[]} statements
-   * @returns {Promise<{columns: string[], rows: any[][], rowsAffected: number}[]>}
+   * @param {{timeoutMs?: number, throwOnError?: boolean}} [options]
+   *   `throwOnError: false` reports a failed statement as `{ error }` in its
+   *   slot instead of rejecting, so a batch of independent best-effort
+   *   statements (migrations, seeds) still costs a single round trip.
+   * @returns {Promise<{columns: string[], rows: any[][], rowsAffected: number, error?: string}[]>}
    */
-  async function executeBatch(statements) {
+  async function executeBatch(statements, options = {}) {
+    const { timeoutMs, throwOnError = true } = options;
     const requests = statements.map((statement) => ({
       type: "execute",
       stmt: {
@@ -125,13 +131,16 @@ function createLibsqlClient(url, authToken) {
     }));
     requests.push({ type: "close" });
 
-    const res = await postPipeline(requests);
+    const res = await postPipeline(requests, timeoutMs);
 
     const payload = await res.json();
     const results = [];
     for (const entry of payload.results || []) {
       if (entry.type === "error") {
-        throw new Error(`libSQL error: ${entry.error?.message || "unknown error"}`);
+        const message = entry.error?.message || "unknown error";
+        if (throwOnError) throw new Error(`libSQL error: ${message}`);
+        results.push({ columns: [], rows: [], rowsAffected: 0, error: message });
+        continue;
       }
       if (entry.response?.type !== "execute") continue;
       const result = entry.response.result || {};
@@ -148,9 +157,10 @@ function createLibsqlClient(url, authToken) {
    * Executes a single statement.
    * @param {string} sql
    * @param {any[]} [args]
+   * @param {{timeoutMs?: number}} [options]
    */
-  async function execute(sql, args) {
-    const [result] = await executeBatch([{ sql, args }]);
+  async function execute(sql, args, options) {
+    const [result] = await executeBatch([{ sql, args }], options);
     return result || { columns: [], rows: [], rowsAffected: 0 };
   }
 

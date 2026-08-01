@@ -12,7 +12,7 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
-import { ClipboardList, MessageSquare, Handshake, Bell, Paperclip } from 'lucide-react';
+import { ClipboardList, MessageSquare, Handshake, Bell, Paperclip, X } from 'lucide-react';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -37,6 +37,24 @@ function firstNameFrom(displayName?: string | null, studentId?: string | null): 
   const token = raw.split(/[\s@._-]+/).filter(Boolean)[0] || raw;
   const cleaned = token.replace(/\d+$/, '') || token;
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
+/**
+ * Broadcasts the student has already closed.
+ *
+ * Kept in localStorage so a dismissed announcement does not come back on the
+ * next visit; an administrator posting a new alert gets a new id, so it still
+ * shows up.
+ */
+const DISMISSED_ALERTS_KEY = 'dismissedBroadcastAlerts';
+
+function readDismissedAlerts(): string[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DISMISSED_ALERTS_KEY) || '[]');
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
 function progressEncouragement(done: number, total: number): string {
@@ -64,6 +82,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
+  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(readDismissedAlerts);
   const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
 
   useEffect(() => {
@@ -74,6 +93,22 @@ export const TodayView: React.FC<TodayViewProps> = ({
       if (res.assignments) setTeacherAssignments(res.assignments.slice(0, 3));
     }).catch(() => {});
   }, []);
+
+  const dismissAlert = (alertId: string) => {
+    setDismissedAlertIds((previous) => {
+      if (previous.includes(alertId)) return previous;
+      const next = [...previous, alertId];
+      try {
+        localStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const visibleAlerts = useMemo(
+    () => activeAlerts.filter((alert) => !dismissedAlertIds.includes(String(alert.id))),
+    [activeAlerts, dismissedAlertIds]
+  );
 
   const { events: calendarEvents, isLoading: holidaysLoading, reload: reloadHolidays } =
     useSchoolCalendar();
@@ -196,7 +231,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         </div>
       </div>
 
-      {activeAlerts.map((alt) => (
+      {visibleAlerts.map((alt) => (
         <div
           key={alt.id}
           className={cn(
@@ -209,10 +244,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
           )}
         >
           <Bell className="size-4 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 min-w-0 flex-1">
             <p className="font-semibold">{alt.title}</p>
             <p className="leading-relaxed opacity-90">{alt.message}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => dismissAlert(String(alt.id))}
+            aria-label={`Dismiss announcement: ${alt.title}`}
+            title="Dismiss"
+            className="-m-1 shrink-0 rounded-lg p-1 opacity-60 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current dark:hover:bg-white/10"
+          >
+            <X className="size-4" />
+          </button>
         </div>
       ))}
 

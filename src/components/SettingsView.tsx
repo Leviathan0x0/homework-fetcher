@@ -9,6 +9,8 @@ interface SettingsViewProps {
   onLogout: () => void;
   onUserChange?: (user: UserAccount) => void;
   sessionStatus: SessionStatus;
+  schoolSessionExpired?: boolean;
+  onReconnect?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
   onBack: () => void;
@@ -23,6 +25,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLogout,
   onUserChange,
   sessionStatus,
+  schoolSessionExpired,
+  onReconnect,
   theme,
   onThemeChange,
   onBack,
@@ -45,6 +49,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onLogout={onLogout}
         onUserChange={onUserChange}
         sessionStatus={sessionStatus}
+        schoolSessionExpired={schoolSessionExpired}
+        onReconnect={onReconnect}
         theme={theme}
         onThemeChange={onThemeChange}
       />

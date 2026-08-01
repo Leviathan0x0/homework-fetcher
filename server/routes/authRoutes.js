@@ -1,9 +1,10 @@
 const express = require("express");
 const sessionService = require("../auth/sessionService");
-const { fetchProfileFromEduSecure, isUnknownSection } = require("../auth/sessionService");
+const { fetchProfileFromEduSecure, isUnknownSection, isAdminAccount } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
-const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
+const { getRequestSession, getRequestToken, requireAuth } = require("../auth/requireAuth");
+const { rateLimit } = require("../limits");
 const { db, schema } = require("../db/client");
 const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
@@ -19,10 +20,10 @@ const {
 
 const router = express.Router();
 
-async function joinClassGroupInBackground(user) {
+async function joinClassGroupInBackground(user, { force = false } = {}) {
   if (!user?.id || isUnknownSection(user.section)) return;
   try {
-    await ensureSectionConversation(user, { force: true });
+    await ensureSectionConversation(user, { force });
   } catch (err) {
     console.error("Auto-join class group failed:", err.message);
   }
@@ -160,7 +161,6 @@ router.post("/login", async (req, res) => {
     }
 
     const user = await sessionService.findOrCreateUser(cleanStudentId);
-    await sessionService.saveEduSecureSession(user.id, sessionCookies);
 
     if (initialHomework && initialHomework.length > 0) {
       homeworkCacheService.upsertHomework(user.id, initialHomework).catch((err) => {
@@ -168,7 +168,18 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const appToken = await sessionService.createAppSession(user.id);
+    // Storing the school session, minting the app session and reading the
+    // profile page are independent of each other. Awaiting them one by one
+    // added a full school-portal page load plus several database round trips
+    // to the time a student spends staring at the login button.
+    const [, appToken, profileResult] = await Promise.all([
+      sessionService.saveEduSecureSession(user.id, sessionCookies),
+      sessionService.createAppSession(user.id, user),
+      fetchProfileFromEduSecure(sessionCookies).catch((err) => {
+        console.error("Profile fetch failed after login:", err.message);
+        return null;
+      }),
+    ]);
 
     res.cookie("app_session", appToken, sessionCookieOptions({
       maxAge: sessionService.SESSION_TTL_MS
@@ -179,15 +190,20 @@ router.post("/login", async (req, res) => {
     let teacherProfile = null;
     let role = user.role || "student";
     try {
-      const profile = await fetchProfileFromEduSecure(sessionCookies);
-      if (profile.section) {
-        await sessionService.updateSection(user.id, profile.section);
-        section = profile.section;
-      }
-      if (profile.displayName) {
-        await sessionService.updateDisplayName(user.id, profile.displayName);
-        displayName = profile.displayName;
-      }
+      const profile = profileResult || {
+        section: null,
+        displayName: null,
+        role: null,
+        subjects: [],
+        assignedSections: [],
+        classTeacherSections: [],
+      };
+      if (profile.section) section = profile.section;
+      if (profile.displayName) displayName = profile.displayName;
+      await sessionService.updateProfileFields(user.id, {
+        section: profile.section,
+        displayName: profile.displayName,
+      });
       const configuredTeacherIds = String(process.env.EDUSECURE_TEACHER_IDS || "")
         .split(",")
         .map((id) => id.trim().toLowerCase())
@@ -207,10 +223,10 @@ router.post("/login", async (req, res) => {
           classTeacherSections: profile.classTeacherSections,
         });
       }
-      await joinClassGroupInBackground({ id: user.id, section });
+      await joinClassGroupInBackground({ id: user.id, section }, { force: true });
     } catch (err) {
-      console.error("Profile fetch failed after login:", err.message);
-      await joinClassGroupInBackground({ id: user.id, section });
+      console.error("Profile setup failed after login:", err.message);
+      await joinClassGroupInBackground({ id: user.id, section }, { force: true });
     }
 
     return res.json({
@@ -274,14 +290,13 @@ router.get("/me", async (req, res) => {
       const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
         const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
-        if (profile.section) {
-          await sessionService.updateSection(activeSession.user.id, profile.section);
-          section = profile.section;
-        }
-        if (profile.displayName && !displayName) {
-          await sessionService.updateDisplayName(activeSession.user.id, profile.displayName);
-          displayName = profile.displayName;
-        }
+        const resolvedName = profile.displayName && !displayName ? profile.displayName : null;
+        await sessionService.updateProfileFields(activeSession.user.id, {
+          section: profile.section,
+          displayName: resolvedName,
+        });
+        if (profile.section) section = profile.section;
+        if (resolvedName) displayName = resolvedName;
       }
     } catch (err) {
       console.error("Profile refresh failed:", err.message);
@@ -338,6 +353,73 @@ router.patch("/profile", async (req, res) => {
     },
   });
 });
+
+// POST /api/auth/reconnect
+// Re-establishes the EduSecure session without signing the student out.
+//
+// The school portal ends its own session within minutes, while the app session
+// lasts 30 days, so the normal case is being perfectly signed in here while the
+// scraper has nothing valid to talk to the school with. The password is
+// deliberately never stored, so the only way back is to ask for it again — but
+// only the password, and without losing the app session, the cached homework or
+// whatever screen the student was on.
+router.post(
+  "/reconnect",
+  requireAuth,
+  rateLimit({ name: "school-reconnect", windowMs: 60 * 1000, max: 8 }),
+  async (req, res) => {
+    const { password } = req.body || {};
+
+    if (!password || typeof password !== "string" || !password.trim()) {
+      return res.status(400).json({ error: "Please enter your school password." });
+    }
+
+    const studentId = (req.user.studentId || "").trim();
+
+    // Accounts that never sign in through EduSecure have no school session to
+    // renew, so say that rather than bouncing their password off the portal.
+    if (isAdminAccount(req.user)) {
+      return res.status(400).json({
+        error: "The administrator account does not use the school portal.",
+      });
+    }
+
+    let sessionCookies;
+    let initialHomework = [];
+    try {
+      const authResult = await loginToEduSecure(studentId, password);
+      if (typeof authResult === "string") {
+        sessionCookies = authResult;
+      } else {
+        sessionCookies = authResult.sessionCookies;
+        initialHomework = authResult.initialHomework || [];
+      }
+    } catch (authErr) {
+      console.error("Reconnect auth error:", authErr?.message || authErr);
+      if (!authErr || authErr.code === "invalid_credentials") {
+        return res.status(401).json({
+          error: "That password was not accepted by the school portal. Check it and try again.",
+        });
+      }
+      return res.status(502).json({
+        error:
+          authErr.code === "portal_unreachable"
+            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again."
+            : authErr.message || "The school portal is currently unreachable. Please try again later.",
+      });
+    }
+
+    await sessionService.saveEduSecureSession(req.user.id, sessionCookies);
+
+    if (initialHomework.length > 0) {
+      homeworkCacheService.upsertHomework(req.user.id, initialHomework).catch((err) => {
+        console.error("Failed to upsert homework cache after reconnect:", err.message);
+      });
+    }
+
+    return res.json({ success: true, reconnected: true });
+  }
+);
 
 // POST /api/auth/logout
 router.post("/logout", async (req, res) => {

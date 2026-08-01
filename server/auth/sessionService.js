@@ -458,12 +458,14 @@ class SessionService {
     } catch {}
   }
 
-  async createAppSession(userId) {
+  async createAppSession(userId, knownUser) {
     const expiresAt = Date.now() + SESSION_TTL_MS;
     const createdAt = new Date().toISOString();
     const jti = crypto.randomUUID();
 
-    const user = await this.getUserById(userId);
+    // Callers that just loaded the account pass it in: re-reading it here cost
+    // an extra database round trip on the login path.
+    const user = knownUser || (await this.getUserById(userId));
     const token = signSessionToken({
       jti,
       uid: userId,
@@ -668,9 +670,57 @@ class SessionService {
       .where(eq(schema.users.id, userId))
       .run();
   }
+
+  /**
+   * Writes the fields resolved from the EduSecure profile page in one statement.
+   *
+   * Section and display name arrive together, so updating them separately spent
+   * two round trips on the login path for a single row.
+   *
+   * @param {string} userId
+   * @param {{section?: string|null, displayName?: string|null}} fields
+   */
+  async updateProfileFields(userId, fields = {}) {
+    if (!userId) return;
+
+    const changes = {};
+    if (fields.section) changes.section = fields.section;
+    if (fields.displayName) changes.displayName = fields.displayName;
+    if (Object.keys(changes).length === 0) return;
+
+    const cached = memUsers.get(userId);
+    if (cached) Object.assign(cached, changes);
+    invalidateCachedSessionsForUser(userId);
+
+    try {
+      await db.update(schema.users)
+        .set({ ...changes, updatedAt: new Date().toISOString() })
+        .where(eq(schema.users.id, userId))
+        .run();
+    } catch (err) {
+      console.error("updateProfileFields failed, updated memory store:", err.message);
+    }
+  }
 }
 
 const sessionService = new SessionService();
+
+/**
+ * True for the administrator account.
+ *
+ * Administrators sign in against local credentials, never EduSecure, so they
+ * have no school session and no diary to scrape. Code that talks to the school
+ * portal has to skip them rather than reporting their (permanently absent)
+ * school session as expired.
+ */
+function isAdminAccount(user) {
+  if (!user) return false;
+  return (
+    user.role === "admin" ||
+    user.studentId === "admin_mmss" ||
+    user.section === "Admin"
+  );
+}
 
 module.exports = sessionService;
 module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
@@ -680,3 +730,4 @@ module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;
 module.exports.isUnknownSection = isUnknownSection;
 module.exports.UNKNOWN_SECTION_SENTINEL = UNKNOWN_SECTION_SENTINEL;
 module.exports.normalizeClassSection = normalizeClassSection;
+module.exports.isAdminAccount = isAdminAccount;

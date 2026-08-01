@@ -156,6 +156,9 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `UPLOADS_DIR` | Directory for uploaded files (persistent volume) |
 | `ENCRYPTION_KEY` | **Required.** 32+ character root secret for session cookie signing and EduSecure session encryption |
 | `OPENAI_API_KEY` | See **Content safety** below |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Administrator sign-in. Both fall back to the values in the source, so set them on any real deployment |
+| `TEACHER_TEST_USERNAME` / `TEACHER_TEST_PASSWORD` | Demo teacher sign-in. See **Demo teacher account** below |
+| `EDUSECURE_TEACHER_IDS` | Comma-separated EduSecure IDs that get the teacher portal on login |
 
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
@@ -216,6 +219,28 @@ The browser client token and RUM application ID are public identifiers; never pu
 in a `VITE_*` variable. If the frontend is served from a CDN with its own Content-Security-Policy,
 allow scripts from `https://www.datadoghq-browser-agent.com` and connections to the matching
 Datadog Browser Intake domain.
+## Demo teacher account
+
+`teacher_test` lets you open the teacher portal without a real EduSecure staff
+login. It works in production, but only after the deployment picks its own
+password:
+
+```
+TEACHER_TEST_PASSWORD=<something only you know>
+```
+
+Without that variable the account is available in local development (using the
+default password in `server/teacher/teacherService.js`) and refused in
+production. That default is public in this repository, and the teacher portal
+exposes class rosters, attendance and teacher notes about named students, so a
+live deployment must not accept it.
+
+Optional: `TEACHER_TEST_USERNAME` (default `teacher_test`), `TEACHER_TEST_NAME`,
+`TEACHER_TEST_SUBJECTS`, `TEACHER_TEST_SECTIONS`,
+`TEACHER_TEST_CLASS_TEACHER_SECTIONS`.
+
+`GET /api/health` reports `testTeacherEnabled` so you can confirm the variable
+reached the running deployment.
 
 ## Content safety (`OPENAI_API_KEY`)
 

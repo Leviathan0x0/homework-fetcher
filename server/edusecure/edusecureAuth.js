@@ -19,18 +19,35 @@ const invalidCredentialsError = () =>
   new EduSecureAuthError("Invalid student ID or password", "invalid_credentials");
 
 /**
+ * Longest a single school-portal request may take.
+ *
+ * fetch() waits forever by default, so one stalled connection to edusecure.in
+ * used to hold the whole login open until the hosting platform killed the
+ * function. Failing fast lets the next session year (or a clear error) happen
+ * while the student is still watching.
+ */
+const PORTAL_TIMEOUT_MS = 15_000;
+
+/**
  * Performs a request against the school portal, converting transport failures
  * (DNS, TLS, blocked egress, timeouts) into a portal_unreachable error instead
  * of letting them surface as an authentication failure.
  */
 async function portalFetch(url, options, step) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PORTAL_TIMEOUT_MS);
   try {
-    return await fetch(url, options);
+    return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
+    const reason = err?.name === "AbortError"
+      ? `it did not answer within ${PORTAL_TIMEOUT_MS / 1000}s`
+      : err.message;
     throw new EduSecureAuthError(
-      `Could not reach the school portal while ${step} (${err.message}). The server hosting this app may not be allowed to make outbound requests to edusecure.in.`,
+      `Could not reach the school portal while ${step} (${reason}). The server hosting this app may not be allowed to make outbound requests to edusecure.in.`,
       "portal_unreachable"
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

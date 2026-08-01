@@ -30,7 +30,7 @@ const adminRoutes = require("./server/routes/adminRoutes");
 const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
-const { isTestTeacherEnabled } = require("./server/teacher/teacherService");
+const { isTestTeacherEnabled, testTeacherDiagnostics } = require("./server/teacher/teacherService");
 const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
 const { rateLimit } = require("./server/limits");
 
@@ -151,6 +151,9 @@ app.get("/api/health", async (req, res) => {
     encryptionKeyConfigured: isConfigured(),
     uploadsDirConfigured: !!process.env.UPLOADS_DIR,
     testTeacherEnabled: isTestTeacherEnabled(),
+    // Enough to tell apart the three ways a demo teacher sign-in fails,
+    // without putting the username or the password itself on a public page.
+    testTeacher: testTeacherDiagnostics(),
   };
 
   if (!status.encryptionKeyConfigured) {

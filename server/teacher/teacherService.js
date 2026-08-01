@@ -118,7 +118,36 @@ function testTeacherCredentials() {
   return { username, password: DEFAULT_TEST_TEACHER_PASSWORD, enabled: true };
 }
 
+/**
+ * True when the configured password is wrapped in matching quotes.
+ *
+ * Hosting dashboards store the field exactly as typed, so pasting "hunter2"
+ * with the quotes makes them part of the password and every sign-in fails
+ * while the variable still looks correctly set. The value is never rewritten —
+ * a password may legitimately contain quotes — but it is worth saying out loud.
+ */
+function passwordLooksQuoted() {
+  const configured = (process.env.TEACHER_TEST_PASSWORD || "").trim();
+  return configured.length >= 2 && /^(['"]).*\1$/s.test(configured);
+}
+
+/**
+ * Configuration facts about the demo account, with no secret in them.
+ *
+ * Exposed through /api/health because the alternative is guessing: a login
+ * that fails looks identical whether the password variable never reached the
+ * runtime, the username was overridden, or the value was pasted with quotes.
+ */
+function testTeacherDiagnostics() {
+  return {
+    enabled: testTeacherCredentials().enabled,
+    usernameOverridden: Boolean((process.env.TEACHER_TEST_USERNAME || "").trim()),
+    passwordLooksQuoted: passwordLooksQuoted(),
+  };
+}
+
 let warnedAboutMissingTestPassword = false;
+let warnedAboutQuotedTestPassword = false;
 
 /**
  * Outcomes of checking credentials against the demo teacher account.
@@ -171,7 +200,17 @@ function matchTestTeacherLogin(studentId, password) {
     return TEST_TEACHER_MATCH.DISABLED;
   }
 
-  return matchesSecret(password, expected) ? TEST_TEACHER_MATCH.OK : TEST_TEACHER_MATCH.BAD_PASSWORD;
+  if (matchesSecret(password, expected)) return TEST_TEACHER_MATCH.OK;
+
+  if (passwordLooksQuoted() && !warnedAboutQuotedTestPassword) {
+    warnedAboutQuotedTestPassword = true;
+    console.error(
+      "[auth] TEACHER_TEST_PASSWORD is wrapped in quotes, so the quotes are part of the " +
+        "password. Re-enter it in the deployment environment without them."
+    );
+  }
+
+  return TEST_TEACHER_MATCH.BAD_PASSWORD;
 }
 
 function isTestTeacherLogin(studentId, password) {
@@ -207,6 +246,7 @@ module.exports = {
   normalizeTeacherProfile,
   isTestTeacherLogin,
   isTestTeacherEnabled,
+  testTeacherDiagnostics,
   matchTestTeacherLogin,
   TEST_TEACHER_MATCH,
   testTeacherUser,

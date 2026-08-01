@@ -194,6 +194,25 @@ password. Remember that most hosts, Vercel included, only apply a new
 environment variable to deployments created after it was added — set the
 variable for the **Production** environment and redeploy.
 
+### If the demo login is refused
+
+`GET /api/health` returns a `testTeacher` object that tells the three causes
+apart without exposing the username or the password:
+
+| `testTeacher` | Cause | Fix |
+| --- | --- | --- |
+| `enabled: false` | `TEACHER_TEST_PASSWORD` never reached the runtime | Add it to the **Production** environment and redeploy |
+| `usernameOverridden: true` | `TEACHER_TEST_USERNAME` is set, so `teacher_test` is not the account | Sign in with the configured name, or unset the variable |
+| `passwordLooksQuoted: true` | The value was pasted with surrounding quotes, which became part of the password | Re-enter it without the quotes |
+
+All three `false`/`enabled: true` means the account is configured correctly and
+the password being typed simply does not match. Surrounding whitespace on the
+stored value is trimmed and does not need fixing.
+
+Note that the **Student / Teacher tabs on the sign-in page are labels only** —
+both submit to the same endpoint, so the tab cannot be the reason a sign-in
+fails.
+
 ## Content safety (`OPENAI_API_KEY`)
 
 This is only about blocking bad text and NSFW images in **Messages**, **Requests**, and **Classwork**.

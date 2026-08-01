@@ -85,15 +85,71 @@ function normalizeTeacherProfile(profile) {
   };
 }
 
-function isTestTeacherLogin(studentId, password) {
-  if (process.env.NODE_ENV === "production") return false;
+/**
+ * Password used by the shared demo teacher account when none is configured.
+ * It is published in this repository, so it is only ever accepted outside
+ * production.
+ */
+const DEFAULT_TEST_TEACHER_PASSWORD = "Teacher#MMSS2026";
+
+/** Constant-time comparison so a wrong password cannot be probed byte by byte. */
+function matchesSecret(given, expected) {
+  const a = Buffer.from(String(given));
+  const b = Buffer.from(String(expected));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+/**
+ * Credentials for the demo teacher account.
+ *
+ * The account works in production, but only once the deployment has chosen its
+ * own password: a live install serves real rosters, attendance and teacher
+ * notes about named students, so the password committed to this repository
+ * must not be enough to reach any of it.
+ *
+ * @returns {{username: string, password: string|null, enabled: boolean}}
+ */
+function testTeacherCredentials() {
   const username = (process.env.TEACHER_TEST_USERNAME || "teacher_test").trim();
-  const pass = process.env.TEACHER_TEST_PASSWORD || "Teacher#MMSS2026";
-  return Boolean(studentId && password && studentId.trim().toLowerCase() === username.toLowerCase() && password === pass);
+  const configured = (process.env.TEACHER_TEST_PASSWORD || "").trim();
+
+  if (configured) return { username, password: configured, enabled: true };
+  if (process.env.NODE_ENV === "production") return { username, password: null, enabled: false };
+  return { username, password: DEFAULT_TEST_TEACHER_PASSWORD, enabled: true };
+}
+
+let warnedAboutMissingTestPassword = false;
+
+/** Whether the demo teacher account can be signed into on this deployment. */
+function isTestTeacherEnabled() {
+  return testTeacherCredentials().enabled;
+}
+
+function isTestTeacherLogin(studentId, password) {
+  if (!studentId || !password) return false;
+
+  const { username, password: expected, enabled } = testTeacherCredentials();
+  if (studentId.trim().toLowerCase() !== username.toLowerCase()) return false;
+
+  if (!enabled) {
+    // Logged once per instance, and only when someone actually tries, so the
+    // reason for the rejection is visible without spamming every cold start.
+    if (!warnedAboutMissingTestPassword) {
+      warnedAboutMissingTestPassword = true;
+      console.error(
+        `[auth] Rejected "${username}" because TEACHER_TEST_PASSWORD is not set. ` +
+          "Set it in the deployment environment to enable the demo teacher account here; " +
+          "the default password is published in the repository and is never accepted in production."
+      );
+    }
+    return false;
+  }
+
+  return matchesSecret(password, expected);
 }
 
 function testTeacherUser() {
-  const username = (process.env.TEACHER_TEST_USERNAME || "teacher_test").trim();
+  const { username } = testTeacherCredentials();
   return {
     id: `test-teacher-${crypto.createHash("sha256").update(username).digest("hex").slice(0, 16)}`,
     studentId: username,
@@ -120,6 +176,7 @@ module.exports = {
   ensureTeacherProfile,
   normalizeTeacherProfile,
   isTestTeacherLogin,
+  isTestTeacherEnabled,
   testTeacherUser,
   profileFromEnvironment,
   assertSectionAccess,

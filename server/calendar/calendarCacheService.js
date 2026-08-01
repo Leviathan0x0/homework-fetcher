@@ -1,6 +1,6 @@
 const crypto = require("crypto");
-const { eq, and } = require("drizzle-orm");
-const { db, schema } = require("../db/client");
+const { eq, and, inArray, sql } = require("drizzle-orm");
+const { db, schema, runBatch } = require("../db/client");
 
 const CACHE_MAX_AGE_MS = (parseInt(process.env.CALENDAR_CACHE_MAX_AGE_MINUTES || "60", 10) || 60) * 60 * 1000;
 
@@ -46,15 +46,11 @@ async function getCachedEvents(userId) {
 async function getCacheUpdatedAt(userId) {
   try {
     const row = await db
-      .select({ updatedAt: schema.schoolCalendarEvents.updatedAt })
+      .select({ updatedAt: sql`max(${schema.schoolCalendarEvents.updatedAt})` })
       .from(schema.schoolCalendarEvents)
       .where(eq(schema.schoolCalendarEvents.userId, userId))
-      .all();
-    if (!row.length) return null;
-    return row.reduce((latest, r) => {
-      if (!latest || (r.updatedAt && r.updatedAt > latest)) return r.updatedAt;
-      return latest;
-    }, null);
+      .get();
+    return row?.updatedAt || null;
   } catch {
     return null;
   }
@@ -86,6 +82,9 @@ async function upsertEvents(userId, events) {
 
   const now = new Date().toISOString();
   const incomingIds = new Set();
+  const updates = [];
+  const inserts = [];
+  const existingById = new Map(existing.map((row) => [row.id, row]));
 
   for (const event of events) {
     if (!event?.date || !event?.title) continue;
@@ -108,39 +107,36 @@ async function upsertEvents(userId, events) {
       updatedAt: now,
     };
 
-    const found = existing.find((r) => r.id === id);
+    const found = existingById.get(id);
     if (found) {
-      await db
-        .update(schema.schoolCalendarEvents)
-        .set({
-          sourceId: values.sourceId,
-          title: values.title,
-          type: values.type,
-          date: values.date,
-          dateRaw: values.dateRaw,
-          monthLabel: values.monthLabel,
-          url: values.url,
-          updatedAt: now,
-        })
-        .where(eq(schema.schoolCalendarEvents.id, id))
-        .run();
+      updates.push(
+        db.update(schema.schoolCalendarEvents)
+          .set({
+            sourceId: values.sourceId,
+            title: values.title,
+            type: values.type,
+            date: values.date,
+            dateRaw: values.dateRaw,
+            monthLabel: values.monthLabel,
+            url: values.url,
+            updatedAt: now,
+          })
+          .where(eq(schema.schoolCalendarEvents.id, id))
+      );
     } else {
-      await db
-        .insert(schema.schoolCalendarEvents)
-        .values({ ...values, createdAt: now })
-        .run();
+      inserts.push(db.insert(schema.schoolCalendarEvents).values({ ...values, createdAt: now }));
     }
   }
 
   // Drop stale rows that EduSecure no longer returns (keep user-selected custom? none yet)
-  for (const row of existing) {
-    if (!incomingIds.has(row.id)) {
-      await db
-        .delete(schema.schoolCalendarEvents)
-        .where(eq(schema.schoolCalendarEvents.id, row.id))
-        .run();
-    }
+  const staleIds = existing.map((row) => row.id).filter((id) => !incomingIds.has(id));
+  if (staleIds.length > 0) {
+    updates.push(
+      db.delete(schema.schoolCalendarEvents).where(inArray(schema.schoolCalendarEvents.id, staleIds))
+    );
   }
+
+  await runBatch([...updates, ...inserts]);
 }
 
 async function setEventSelected(userId, eventId, selected) {

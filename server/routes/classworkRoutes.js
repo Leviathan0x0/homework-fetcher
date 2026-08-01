@@ -233,10 +233,11 @@ router.post(
               .filter((uid) => uid !== req.user.id);
             if (otherUserIds.length > 0) {
               const notifNow = new Date().toISOString();
-              for (const uid of otherUserIds) {
-                await db
-                  .insert(schema.notifications)
-                  .values({
+              // One multi-row insert instead of one round trip per student.
+              await db
+                .insert(schema.notifications)
+                .values(
+                  otherUserIds.map((uid) => ({
                     id: crypto.randomUUID(),
                     userId: uid,
                     type: "new_classwork",
@@ -246,9 +247,9 @@ router.post(
                     referenceId: newUpload.id,
                     isRead: 0,
                     createdAt: notifNow,
-                  })
-                  .run();
-              }
+                  }))
+                )
+                .run();
             }
           } catch (notifErr) {
             console.error("Failed to create classwork notifications:", notifErr.message);

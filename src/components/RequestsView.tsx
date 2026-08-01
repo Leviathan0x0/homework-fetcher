@@ -15,7 +15,6 @@ import {
   AlertCircle,
   FolderOpen,
   MessageSquare,
-  BookOpen,
   Printer,
   HelpCircle,
   Box,
@@ -26,7 +25,7 @@ const CATEGORIES = ['Help', 'Book', 'Printout', 'Supply', 'Other'];
 function getCategoryIcon(cat: string | null | undefined) {
   switch (cat) {
     case 'Help': return <HelpCircle className="w-4 h-4" />;
-    case 'Book': return <BookOpen className="w-4 h-4" />;
+    case 'Book': return <FolderOpen className="w-4 h-4" />;
     case 'Printout': return <Printer className="w-4 h-4" />;
     case 'Supply': return <Box className="w-4 h-4" />;
     default: return <MessageSquare className="w-4 h-4" />;

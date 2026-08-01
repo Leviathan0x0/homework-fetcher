@@ -497,10 +497,22 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Access denied." });
     }
 
+    // Optional cursor: only messages newer than this timestamp are returned,
+    // so a chat left open in the background polls new arrivals instead of
+    // downloading the whole thread every few seconds.
+    const afterRaw = req.query.after;
+    const afterMs = typeof afterRaw === "string" && afterRaw ? new Date(afterRaw).getTime() : null;
+    const afterIso = afterMs && !Number.isNaN(afterMs) ? new Date(afterMs).toISOString() : null;
+
     const msgs = await db
       .select()
       .from(schema.messages)
-      .where(eq(schema.messages.conversationId, convId))
+      .where(
+        and(
+          eq(schema.messages.conversationId, convId),
+          ...(afterIso ? [gt(schema.messages.createdAt, afterIso)] : [])
+        )
+      )
       .orderBy(asc(schema.messages.createdAt))
       .all();
 
@@ -1117,6 +1129,8 @@ router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
       .run();
 
     // Write per-message read receipts so senders see “seen”.
+    // The old loop issued one SELECT plus one INSERT per message; a busy class
+    // thread could make opening it cost hundreds of sequential round trips.
     const othersMsgs = await db
       .select({ id: schema.messages.id })
       .from(schema.messages)
@@ -1128,26 +1142,32 @@ router.patch("/conversations/:id/read", requireAuth, async (req, res) => {
       )
       .all();
 
-    for (const msg of othersMsgs) {
-      const existing = await db
-        .select()
+    if (othersMsgs.length > 0) {
+      const messageIds = othersMsgs.map((m) => m.id);
+      const existingRows = await db
+        .select({ messageId: schema.messageReadReceipts.messageId })
         .from(schema.messageReadReceipts)
         .where(
           and(
-            eq(schema.messageReadReceipts.messageId, msg.id),
+            inArray(schema.messageReadReceipts.messageId, messageIds),
             eq(schema.messageReadReceipts.userId, req.user.id)
           )
         )
-        .get();
-      if (!existing) {
+        .all();
+      const existingSet = new Set(existingRows.map((r) => r.messageId));
+      const missing = othersMsgs.filter((m) => !existingSet.has(m.id));
+
+      if (missing.length > 0) {
         await db
           .insert(schema.messageReadReceipts)
-          .values({
-            id: crypto.randomUUID(),
-            messageId: msg.id,
-            userId: req.user.id,
-            readAt: now,
-          })
+          .values(
+            missing.map((m) => ({
+              id: crypto.randomUUID(),
+              messageId: m.id,
+              userId: req.user.id,
+              readAt: now,
+            }))
+          )
           .run();
       }
     }

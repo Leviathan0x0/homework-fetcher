@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, Github, Globe, Linkedin, BookOpen } from 'lucide-react';
+import { ExternalLink, Github, Globe, Linkedin } from 'lucide-react';
 import { motion } from 'motion/react';
 import { PageHeader } from './PageHeader';
 import { DEVELOPERS, DEVELOPERS_PROJECT, DeveloperLink, DeveloperLinkKind } from '../data/developers';
@@ -15,7 +15,7 @@ function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
     case 'linkedin':
       return <Linkedin className={className} aria-hidden />;
     case 'devto':
-      return <BookOpen className={className} aria-hidden />;
+      return <ExternalLink className={className} aria-hidden />;
     case 'x':
       return (
         <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>

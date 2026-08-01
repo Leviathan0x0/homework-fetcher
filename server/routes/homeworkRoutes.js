@@ -43,28 +43,41 @@ function refreshFromSchool(userId, sessionCookies) {
 router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
-  // 1. Retrieve cached homework from SQLite
-  let cachedHomework = await homeworkCacheService.getCachedHomework(userId);
+  // 1. Retrieve cached homework from SQLite, and check staleness in the same
+  // breath — they are independent reads, so waiting on them one after the other
+  // doubles the latency of every cache hit.
+  let cachedHomework;
+  let cacheStale = true;
+  try {
+    [cachedHomework, cacheStale] = await Promise.all([
+      homeworkCacheService.getCachedHomework(userId),
+      homeworkCacheService.isCacheStale(userId),
+    ]);
+  } catch (err) {
+    console.error("Homework cache read error:", err.message);
+    cachedHomework = [];
+  }
 
   // 2. If cached data exists (even if stale), return immediately for instant render (<15ms)
   if (cachedHomework.length > 0) {
     // If cache is stale, trigger background refresh asynchronously without freezing the user
-    homeworkCacheService.isCacheStale(userId).then(async (isStale) => {
-      if (!isStale || refreshesInFlight.has(userId)) return;
-      const eduSession = await sessionService.getEduSecureSession(userId);
-      if (eduSession && eduSession.sessionCookies) {
-        try {
-          await refreshFromSchool(userId, eduSession.sessionCookies);
-        } catch (err) {
-          console.error("Background homework refresh error:", err.message);
+    if (cacheStale && !refreshesInFlight.has(userId)) {
+      (async () => {
+        const eduSession = await sessionService.getEduSecureSession(userId);
+        if (eduSession && eduSession.sessionCookies) {
+          try {
+            await refreshFromSchool(userId, eduSession.sessionCookies);
+          } catch (err) {
+            console.error("Background homework refresh error:", err.message);
+          }
         }
-      }
-    }).catch(() => {});
+      })();
+    }
 
     return res.json({
       count: cachedHomework.length,
       homework: cachedHomework,
-      isStale: false,
+      isStale: cacheStale,
       isRefreshing: false
     });
   }

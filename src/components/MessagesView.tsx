@@ -147,6 +147,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const conversationsFpRef = useRef('');
   const activeConvIdRef = useRef(activeConvId);
   const messagesRequestIdRef = useRef(0);
+  const newestServerAtRef = useRef<string | null>(null);
   const loadedMessagesConvIdRef = useRef<string | null>(null);
   activeConvIdRef.current = activeConvId;
 
@@ -450,33 +451,46 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const fetchMessages = useCallback(async (
     convId: string,
     silent: boolean = false,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    after?: string | null
   ) => {
     const requestId = ++messagesRequestIdRef.current;
     if (!silent) setMessagesLoading(true);
     try {
-      const msgs = (await messagingService.getMessages(convId, signal)) as Message[];
+      const msgs = (await messagingService.getMessages(convId, signal, after)) as Message[];
       if (
         signal?.aborted ||
         activeConvIdRef.current !== convId ||
         requestId !== messagesRequestIdRef.current
       ) return;
+      const newestAt = msgs.reduce(
+        (max, m) => Math.max(max, new Date(m.createdAt).getTime()),
+        0
+      );
+      if (newestAt > 0) newestServerAtRef.current = new Date(newestAt).toISOString();
       const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
       setMessages((prev) => {
         const map = new Map<string, Message>();
-        msgs.forEach((m: Message) => map.set(m.id, m));
-        const newestServerAt = msgs.length
-          ? new Date(msgs[msgs.length - 1].createdAt).getTime()
-          : 0;
-        // Keep optimistic temps + any local-only sends the poll hasn't returned yet.
-        prev.forEach((m) => {
-          if (m.conversationId !== convId || map.has(m.id)) return;
-          if (String(m.id).startsWith('temp_')) {
-            map.set(m.id, m);
-            return;
-          }
-          if (new Date(m.createdAt).getTime() > newestServerAt) map.set(m.id, m);
-        });
+        if (after) {
+          // Incremental poll: keep what we already have and overlay new arrivals.
+          prev.forEach((m) => map.set(m.id, m));
+          msgs.forEach((m: Message) => map.set(m.id, m));
+        } else {
+          // Initial load: replace the list but keep optimistic temps and any
+          // local-only sends the poll hasn't returned yet.
+          msgs.forEach((m: Message) => map.set(m.id, m));
+          const newestServerAt = msgs.length
+            ? new Date(msgs[msgs.length - 1].createdAt).getTime()
+            : 0;
+          prev.forEach((m) => {
+            if (m.conversationId !== convId || map.has(m.id)) return;
+            if (String(m.id).startsWith('temp_')) {
+              map.set(m.id, m);
+              return;
+            }
+            if (new Date(m.createdAt).getTime() > newestServerAt) map.set(m.id, m);
+          });
+        }
         const next = Array.from(map.values()).sort(
           (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
@@ -525,6 +539,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const controller = new AbortController();
     stickToBottomRef.current = true;
     messagesFpRef.current = '';
+    newestServerAtRef.current = null;
     loadedMessagesConvIdRef.current = null;
     setMessages([]);
     setMessagesConvId(null);
@@ -539,7 +554,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     const messageInterval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         if (loadedMessagesConvIdRef.current === activeConvId) {
-          fetchMessages(activeConvId, true, controller.signal);
+          fetchMessages(activeConvId, true, controller.signal, newestServerAtRef.current);
         }
         messagingService.markAsRead(activeConvId);
       }

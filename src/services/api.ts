@@ -337,8 +337,9 @@ export const messagingService = {
     return data;
   },
 
-  async getMessages(convId: string, signal?: AbortSignal) {
-    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
+  async getMessages(convId: string, signal?: AbortSignal, after?: string | null) {
+    const query = after ? `?after=${encodeURIComponent(after)}` : "";
+    const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages${query}`, {
       headers: { Accept: "application/json" },
       signal,
     });

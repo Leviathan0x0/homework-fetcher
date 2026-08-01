@@ -24,8 +24,12 @@ router.get("/calendar", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
   try {
-    let events = await calendarCacheService.getCachedEvents(userId);
-    const stale = await calendarCacheService.isCacheStale(userId);
+    // Cache read and staleness check are independent; run them together so a
+    // calendar load is one round trip, not two back to back.
+    let [events, stale] = await Promise.all([
+      calendarCacheService.getCachedEvents(userId),
+      calendarCacheService.isCacheStale(userId),
+    ]);
 
     if (events.length > 0) {
       if (stale) {

@@ -26,7 +26,7 @@ import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
-import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck, BookOpen, ClipboardCheck, ClipboardList, MessageCircle, CalendarDays } from "lucide-react"
+import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardCheck, ClipboardList, MessageCircle, CalendarDays } from "lucide-react"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
@@ -112,7 +112,7 @@ export function AppSidebar({
       label: "Teaching",
       items: [
         { id: "teacher-overview", title: "Overview", IconComponent: Activity },
-        { id: "teacher-assignments", title: "Assignments", IconComponent: BookOpen },
+        { id: "teacher-assignments", title: "Assignments", IconComponent: FileText },
         { id: "teacher-attendance", title: "Attendance", IconComponent: ClipboardList },
       ],
     },

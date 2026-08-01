@@ -12,7 +12,7 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
-import { BookOpen, MessageSquare, Handshake, Bell, Paperclip } from 'lucide-react';
+import { ClipboardList, MessageSquare, Handshake, Bell, Paperclip } from 'lucide-react';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -151,7 +151,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       key: 'homework',
       label: pendingCount === 1 ? 'task left' : 'tasks left',
       value: isLoading ? '—' : String(pendingCount),
-      icon: BookOpen,
+      icon: ClipboardList,
       onClick: undefined as undefined | (() => void),
     },
     {
@@ -226,7 +226,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
               <h2 className="text-sm font-semibold text-sky-950 dark:text-sky-100">From your teachers</h2>
               <p className="mt-0.5 text-[11px] text-sky-800/70 dark:text-sky-200/70">New assignments shared with your class.</p>
             </div>
-            <BookOpen className="size-4 text-sky-600 dark:text-sky-300" />
           </div>
           <div className="space-y-2">
             {teacherAssignments.map((assignment) => (

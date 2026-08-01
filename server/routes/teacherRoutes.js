@@ -303,17 +303,23 @@ router.get("/assignments", async (req, res) => {
       ? await db.select().from(schema.teacherAssignmentAttachments).where(inArray(schema.teacherAssignmentAttachments.assignmentId, assignments.map((item) => item.id))).all()
       : [];
     const attachmentByAssignment = new Map(attachments.map((item) => [item.assignmentId, item]));
+    // Load every assignment's targets in one query instead of one per assignment.
+    const targets = assignments.length
+      ? await db.select().from(schema.teacherAssignmentTargets).where(inArray(schema.teacherAssignmentTargets.assignmentId, assignments.map((item) => item.id))).all()
+      : [];
+    const targetsByAssignment = new Map();
+    for (const target of targets) {
+      if (!targetsByAssignment.has(target.assignmentId)) {
+        targetsByAssignment.set(target.assignmentId, []);
+      }
+      targetsByAssignment.get(target.assignmentId).push(target);
+    }
     const result = [];
     for (const assignment of assignments) {
-      const targets = await db
-        .select()
-        .from(schema.teacherAssignmentTargets)
-        .where(eq(schema.teacherAssignmentTargets.assignmentId, assignment.id))
-        .all();
       const attachment = attachmentByAssignment.get(assignment.id);
       result.push({
         ...assignment,
-        targets,
+        targets: targetsByAssignment.get(assignment.id) || [],
         attachmentUrl: attachment ? `/api/teacher/assignments/${assignment.id}/attachment` : null,
         attachmentFilename: attachment?.filename || null,
         attachmentMimeType: attachment?.mimeType || null,

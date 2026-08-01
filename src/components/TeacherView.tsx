@@ -3,7 +3,6 @@ import { motion } from "motion/react";
 import {
   AlertCircle,
   Bell,
-  BookOpen,
   Check,
   ClipboardCheck,
   ClipboardList,
@@ -317,7 +316,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
           </div>
           <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
             <Panel>
-              <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Start something</h2><p className="mt-1 text-xs text-neutral-500">Your most-used teacher actions.</p></div><BookOpen className="size-5 text-sky-500" /></div>
+              <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Start something</h2><p className="mt-1 text-xs text-neutral-500">Your most-used teacher actions.</p></div></div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
                   ["teacher-assignments", "New assignment", "Give homework to a section", Plus],
@@ -367,7 +366,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             <div><p className="mb-2 text-[11px] font-medium text-neutral-500">Assign to sections</p><div className="flex flex-wrap gap-2">{sections.map((section: string) => <button type="button" key={section} onClick={() => setAssignmentForm({ ...assignmentForm, sections: assignmentForm.sections.includes(section) ? assignmentForm.sections.filter((item) => item !== section) : [...assignmentForm.sections, section] })} className={cn("rounded-lg border px-2.5 py-1.5 text-[11px] font-medium", assignmentForm.sections.includes(section) ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300" : "border-neutral-200 dark:border-neutral-800")}>{section}</button>)}</div></div>
             <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"><Send className="size-3.5" />Publish assignment</button>
           </form></Panel>
-          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Published assignments</h2><p className="mt-1 text-xs text-neutral-500">Assignments currently shared with your sections.</p></div><div className="flex items-center gap-2"><a href="/api/teacher/exports/assignments.csv" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px] font-medium dark:border-neutral-800">Export CSV</a><BookOpen className="size-5 text-sky-500" /></div></div>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="w-full rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold">{assignment.title}</p><p className="mt-1 text-[11px] text-neutral-500">{assignment.subject} · due {assignment.dueDate}</p>{assignment.attachmentUrl && <a className="mt-2 inline-block text-[11px] font-medium text-sky-600 hover:underline" href={assignment.attachmentUrl} target="_blank" rel="noreferrer">Open attachment</a>}</div><span className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium dark:bg-neutral-900">{assignment.targetCount || assignment.targets?.length || 0} students</span></div></div>)}</div> : <Empty>No assignments published yet.</Empty>}</Panel>
+          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Published assignments</h2><p className="mt-1 text-xs text-neutral-500">Assignments currently shared with your sections.</p></div><div className="flex items-center gap-2"><a href="/api/teacher/exports/assignments.csv" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px] font-medium dark:border-neutral-800">Export CSV</a></div></div>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="w-full rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold">{assignment.title}</p><p className="mt-1 text-[11px] text-neutral-500">{assignment.subject} · due {assignment.dueDate}</p>{assignment.attachmentUrl && <a className="mt-2 inline-block text-[11px] font-medium text-sky-600 hover:underline" href={assignment.attachmentUrl} target="_blank" rel="noreferrer">Open attachment</a>}</div><span className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium dark:bg-neutral-900">{assignment.targetCount || assignment.targets?.length || 0} students</span></div></div>)}</div> : <Empty>No assignments published yet.</Empty>}</Panel>
         </div>
       )}
 

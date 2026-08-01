@@ -7,7 +7,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
-import { GraduationCap, BookOpen } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface ExamsViewProps {
@@ -86,7 +86,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-900 dark:text-white shrink-0">
-            <BookOpen className="w-5 h-5" />
+            <GraduationCap className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">

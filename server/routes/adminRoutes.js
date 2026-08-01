@@ -1,7 +1,7 @@
 const express = require("express");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
-const { eq, desc, count, ne } = require("drizzle-orm");
+const { eq, desc, count, ne, inArray } = require("drizzle-orm");
 const {
   DEFAULT_SETTINGS,
   getSetting,
@@ -279,10 +279,13 @@ router.get("/reports", requireAdmin, async (req, res) => {
     const userIds = [...new Set(reportsList.map((r) => r.userId).filter(Boolean))];
     const usersById = {};
     if (userIds.length) {
-      const users = await db.select().from(schema.users).all();
-      for (const u of users) {
-        if (userIds.includes(u.id)) usersById[u.id] = u;
-      }
+      // Fetch only the flagged users instead of transferring the whole table.
+      const users = await db
+        .select()
+        .from(schema.users)
+        .where(inArray(schema.users.id, userIds))
+        .all();
+      for (const u of users) usersById[u.id] = u;
     }
 
     return res.json({

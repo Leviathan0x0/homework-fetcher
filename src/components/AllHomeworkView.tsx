@@ -15,7 +15,7 @@ import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
-import { BookOpen, Handshake, Upload } from 'lucide-react';
+import { Handshake, Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface AllHomeworkViewProps {
@@ -197,7 +197,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
             <div className="space-y-6">
               {q && (
                 <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5" /> Homework
+                  Homework
                   <span className="tabular-nums normal-case tracking-normal font-medium">({filtered.length})</span>
                 </h2>
               )}

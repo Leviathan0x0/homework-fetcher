@@ -164,61 +164,6 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
 
-## Datadog observability
-
-The application can send privacy-conscious telemetry to Datadog across the Express API and the
-browser application:
-
-- **APM** traces Express routes, outgoing HTTP calls, database work supported by the tracer, errors,
-  and runtime metrics. Set `DD_PROFILING_ENABLED=true` to collect continuous profiling on supported
-  long-lived Node hosts.
-- **Structured API logs** record only the API prefix, HTTP method, response status, and duration.
-  Request bodies, route parameters, cookies, authorization headers, student IDs, and message
-  content are never written by this logger.
-- **RUM** captures page performance, resource timing, frontend errors, long tasks, and user
-  interactions. Input fields are masked and session replay is disabled by default.
-- **Browser logs** can forward unhandled frontend errors without forwarding console output.
-
-Install the new server dependency before deploying:
-
-```bash
-npm install
-```
-
-Set these server variables where the Express API runs:
-
-```bash
-DD_TRACE_ENABLED=true
-DD_SERVICE=homework-fetcher
-DD_ENV=production
-DD_VERSION=<deployment-version>
-DD_RUNTIME_METRICS_ENABLED=true
-DD_AGENT_HOST=<datadog-agent-host>
-DD_TRACE_AGENT_PORT=8126
-DATADOG_RUM_ENABLED=true
-DATADOG_SITE=datadoghq.com
-```
-
-`dd-trace` sends APM data to a Datadog Agent. On serverless deployments, use the deployment
-platform's Datadog extension or integration rather than exposing an API key to application code.
-
-Set the following **build-time** frontend variables where Vite builds the static bundle:
-
-```bash
-VITE_DATADOG_RUM_ENABLED=true
-VITE_DATADOG_APPLICATION_ID=<rum-application-id>
-VITE_DATADOG_CLIENT_TOKEN=<rum-client-token>
-VITE_DATADOG_SITE=datadoghq.com
-VITE_DATADOG_SERVICE=homework-fetcher-web
-VITE_DATADOG_ENV=production
-VITE_DATADOG_VERSION=<deployment-version>
-VITE_DATADOG_LOGS_ENABLED=true
-```
-
-The browser client token and RUM application ID are public identifiers; never put a Datadog API key
-in a `VITE_*` variable. If the frontend is served from a CDN with its own Content-Security-Policy,
-allow scripts from `https://www.datadoghq-browser-agent.com` and connections to the matching
-Datadog Browser Intake domain.
 ## Demo teacher account
 
 `teacher_test` lets you open the teacher portal without a real EduSecure staff

@@ -5,9 +5,7 @@ import App from './App.tsx';
 import { registerServiceWorker } from './registerServiceWorker';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { initializeObservability } from './observability';
 
-void initializeObservability();
 registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(

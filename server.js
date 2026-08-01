@@ -1,3 +1,4 @@
+const express = require("express");
 const path = require("path");
 
 // Load .env variables into process.env if present
@@ -15,9 +16,6 @@ try {
   }
 } catch (e) {}
 
-require("./server/observability");
-
-const express = require("express");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 
@@ -35,7 +33,6 @@ const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { isTestTeacherEnabled } = require("./server/teacher/teacherService");
 const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
 const { rateLimit } = require("./server/limits");
-const { apiRequestLogger } = require("./server/observability");
 
 const app = express();
 
@@ -87,40 +84,7 @@ function compressJsonResponses({ threshold = 1024 } = {}) {
 // Required so Secure cookies are honoured behind hosting platform TLS proxies
 app.set("trust proxy", 1);
 
-const datadogRumEnabled = process.env.DATADOG_RUM_ENABLED === "true";
-const datadogSite = process.env.DATADOG_SITE || "datadoghq.com";
-const browserIntakeOrigin = `https://browser-intake-${datadogSite}`;
-const corsRequestHeaders = [
-  "Content-Type",
-  "Accept",
-  "Authorization",
-  ...(datadogRumEnabled
-    ? [
-        "traceparent",
-        "tracestate",
-        "x-datadog-origin",
-        "x-datadog-parent-id",
-        "x-datadog-sampling-priority",
-        "x-datadog-trace-id",
-      ]
-    : []),
-].join(", ");
-
-app.use(
-  helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-    ...(datadogRumEnabled
-      ? {
-          contentSecurityPolicy: {
-            directives: {
-              scriptSrc: ["'self'", "https://www.datadoghq-browser-agent.com"],
-              connectSrc: ["'self'", browserIntakeOrigin],
-            },
-          },
-        }
-      : {}),
-  })
-);
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 // Allow a separately hosted frontend (e.g. Appwrite Sites, Expo Web) to call this API with cookies
 app.use((req, res, next) => {
@@ -129,13 +93,13 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
   } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
     res.setHeader("Access-Control-Allow-Origin", origin || "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     return res.sendStatus(204);
   } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
     console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);
@@ -146,7 +110,6 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
-app.use("/api", apiRequestLogger);
 
 // API payloads are JSON lists (messages, homework, rosters) that compress by
 // roughly an order of magnitude. On a phone connection the transfer, not the

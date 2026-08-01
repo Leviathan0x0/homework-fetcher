@@ -125,42 +125,39 @@ export const authService = {
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
   async getHomework(userId: string) {
-    try {
-      const res = await apiFetch("/api/homework", {
-        headers: { "Accept": "application/json" }
-      });
-      if (!res.ok) {
-        const errData = await apiJson<any>(res).catch(() => ({} as any));
-        throw new Error(errData.message || "Failed to fetch homework.");
-      }
-      const data = await apiJson<any>(res);
-      const rawList = data.homework || [];
-      const seen = new Set<string>();
-      const deduplicated: any[] = [];
-
-      for (const doc of rawList) {
-        if (!doc) continue;
-        const text = (doc.homework || doc.content || "").trim();
-        const key = `${(doc.date || "").trim()}:${text}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduplicated.push({
-          id: doc.id,
-          type: doc.type || "School Diary",
-          date: doc.date || "",
-          subject: doc.subject || "School Diary",
-          homework: text,
-          attachment: doc.attachment || doc.attachmentUrl || null,
-          completed: !!doc.completed,
-          note: doc.note || null,
-          updatedAt: doc.updatedAt,
-        });
-      }
-      return deduplicated;
-    } catch (err: any) {
-      console.error("Error loading homework:", err);
-      return [];
+    const res = await apiFetch("/api/homework", {
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) {
+      const errData = await apiJson<any>(res).catch(() => ({} as any));
+      const error: any = new Error(errData.message || errData.error || "Failed to fetch homework.");
+      error.code = errData.code || (res.status === 401 ? "UNAUTHENTICATED" : undefined);
+      throw error;
     }
+    const data = await apiJson<any>(res);
+    const rawList = data.homework || [];
+    const seen = new Set<string>();
+    const deduplicated: any[] = [];
+
+    for (const doc of rawList) {
+      if (!doc) continue;
+      const text = (doc.homework || doc.content || "").trim();
+      const key = `${(doc.date || "").trim()}:${text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduplicated.push({
+        id: doc.id,
+        type: doc.type || "School Diary",
+        date: doc.date || "",
+        subject: doc.subject || "School Diary",
+        homework: text,
+        attachment: doc.attachment || doc.attachmentUrl || null,
+        completed: !!doc.completed,
+        note: doc.note || null,
+        updatedAt: doc.updatedAt,
+      });
+    }
+    return deduplicated;
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {

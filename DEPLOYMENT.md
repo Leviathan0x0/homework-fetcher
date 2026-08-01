@@ -187,6 +187,13 @@ Optional: `TEACHER_TEST_USERNAME` (default `teacher_test`), `TEACHER_TEST_NAME`,
 `GET /api/health` reports `testTeacherEnabled` so you can confirm the variable
 reached the running deployment.
 
+If the account is not enabled, signing in as `teacher_test` returns **"The demo
+teacher account is not enabled on this deployment."** rather than an invalid
+credentials error, so the wording distinguishes a missing setting from a wrong
+password. Remember that most hosts, Vercel included, only apply a new
+environment variable to deployments created after it was added — set the
+variable for the **Production** environment and redeploy.
+
 ## Content safety (`OPENAI_API_KEY`)
 
 This is only about blocking bad text and NSFW images in **Messages**, **Requests**, and **Classwork**.

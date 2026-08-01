@@ -120,16 +120,42 @@ function testTeacherCredentials() {
 
 let warnedAboutMissingTestPassword = false;
 
+/**
+ * Outcomes of checking credentials against the demo teacher account.
+ *
+ * "disabled" is deliberately distinct from "no match": collapsing them into a
+ * single false sent the request on to EduSecure, which rejected the unknown ID
+ * and reported a missing TEACHER_TEST_PASSWORD as "invalid student ID or
+ * password" — an answer that points at the wrong problem entirely.
+ */
+const TEST_TEACHER_MATCH = {
+  NO_MATCH: "no_match",
+  DISABLED: "disabled",
+  BAD_PASSWORD: "bad_password",
+  OK: "ok",
+};
+
 /** Whether the demo teacher account can be signed into on this deployment. */
 function isTestTeacherEnabled() {
   return testTeacherCredentials().enabled;
 }
 
-function isTestTeacherLogin(studentId, password) {
-  if (!studentId || !password) return false;
+/**
+ * Matches credentials against the demo teacher account.
+ *
+ * The configured username is reserved for this account, so once it matches the
+ * result is authoritative and the school portal is never consulted — the demo
+ * account exists precisely so a teacher view can be opened without EduSecure.
+ *
+ * @returns {"no_match"|"disabled"|"bad_password"|"ok"}
+ */
+function matchTestTeacherLogin(studentId, password) {
+  if (!studentId || !password) return TEST_TEACHER_MATCH.NO_MATCH;
 
   const { username, password: expected, enabled } = testTeacherCredentials();
-  if (studentId.trim().toLowerCase() !== username.toLowerCase()) return false;
+  if (studentId.trim().toLowerCase() !== username.toLowerCase()) {
+    return TEST_TEACHER_MATCH.NO_MATCH;
+  }
 
   if (!enabled) {
     // Logged once per instance, and only when someone actually tries, so the
@@ -142,10 +168,14 @@ function isTestTeacherLogin(studentId, password) {
           "the default password is published in the repository and is never accepted in production."
       );
     }
-    return false;
+    return TEST_TEACHER_MATCH.DISABLED;
   }
 
-  return matchesSecret(password, expected);
+  return matchesSecret(password, expected) ? TEST_TEACHER_MATCH.OK : TEST_TEACHER_MATCH.BAD_PASSWORD;
+}
+
+function isTestTeacherLogin(studentId, password) {
+  return matchTestTeacherLogin(studentId, password) === TEST_TEACHER_MATCH.OK;
 }
 
 function testTeacherUser() {
@@ -177,6 +207,8 @@ module.exports = {
   normalizeTeacherProfile,
   isTestTeacherLogin,
   isTestTeacherEnabled,
+  matchTestTeacherLogin,
+  TEST_TEACHER_MATCH,
   testTeacherUser,
   profileFromEnvironment,
   assertSectionAccess,

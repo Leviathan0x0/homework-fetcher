@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
 import { authService, homeworkService } from "../services/api";
@@ -18,59 +18,149 @@ export interface UserAccount {
   } | null;
 }
 
-export function useHomework() {
-  const [user, setUser] = useState<UserAccount | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+/**
+ * Last signed-in account and the homework it was showing.
+ *
+ * Every screen used to start from nothing and wait for a full round trip
+ * before it could render anything at all, so a slow API turned into a blank
+ * "Checking your session" page followed by an empty dashboard. Re-using the
+ * previous result lets the app paint immediately and correct itself once the
+ * server answers; the server still authorises every request, so this only ever
+ * affects what is drawn, never what the account is allowed to see.
+ */
+const CACHED_USER_KEY = "cachedUser";
+const CACHED_HOMEWORK_PREFIX = "cachedHomework:";
 
-  const [homework, setHomework] = useState<HomeworkEntry[]>([]);
+function readJson<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return fallback;
+    const parsed = JSON.parse(raw);
+    return (parsed ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // A full or unavailable storage quota only costs the head start.
+  }
+}
+
+function readCachedUser(): UserAccount | null {
+  const cached = readJson<UserAccount | null>(CACHED_USER_KEY, null);
+  return cached && cached.id && cached.studentId ? cached : null;
+}
+
+function readCachedHomework(userId?: string | null): HomeworkEntry[] {
+  if (!userId) return [];
+  const cached = readJson<HomeworkEntry[]>(`${CACHED_HOMEWORK_PREFIX}${userId}`, []);
+  return Array.isArray(cached) ? cached : [];
+}
+
+function clearCachedAccount(userId?: string | null) {
+  try {
+    localStorage.removeItem(CACHED_USER_KEY);
+    if (userId) localStorage.removeItem(`${CACHED_HOMEWORK_PREFIX}${userId}`);
+  } catch {}
+}
+
+/** The screen a role lands on after signing in. */
+function defaultViewForUser(account: UserAccount): ViewType {
+  if (account.isAdmin || account.role === "admin") return "admin-overview";
+  if (account.isTeacher || account.role === "teacher" || account.role === "class_teacher") {
+    return "teacher-overview";
+  }
+  return "today";
+}
+
+export function useHomework() {
+  const initialUser = useRef<UserAccount | null>(readCachedUser()).current;
+
+  const [user, setUser] = useState<UserAccount | null>(initialUser);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(!initialUser);
+
+  const [homework, setHomework] = useState<HomeworkEntry[]>(() => readCachedHomework(initialUser?.id));
 
   const [lastUpdated, setLastUpdated] = useState<string | null>(() => localStorage.getItem("lastUpdated") || null);
-  const [activeView, setActiveView] = useState<ViewType>(() => (localStorage.getItem("activeView") as ViewType) || "today");
+  const [activeView, setActiveView] = useState<ViewType>(
+    () => (initialUser ? defaultViewForUser(initialUser) : (localStorage.getItem("activeView") as ViewType)) || "today"
+  );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("All");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("disconnected");
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialUser ? "connected" : "disconnected");
 
-  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>({});
+  const [completedMap, setCompletedMap] = useState<Record<string, boolean>>(() => {
+    const map: Record<string, boolean> = {};
+    readCachedHomework(initialUser?.id).forEach((item) => {
+      if (item.id && typeof item.completed === "boolean") map[item.id] = item.completed;
+    });
+    return map;
+  });
   const [notesMap, setNotesMap] = useState<Record<string, string>>({});
+
+  // The role landing screen is applied once. Re-applying it whenever the
+  // session is re-validated would drag the student back off whatever screen
+  // they had already opened.
+  const hasAppliedRoleView = useRef<boolean>(!!initialUser);
+
+  // Read inside callbacks that must not be re-created whenever the list
+  // changes: fetchHomework is a dependency of the effect that calls it, so a
+  // changing identity would make it fetch itself in a loop.
+  const homeworkRef = useRef<HomeworkEntry[]>(homework);
+  useEffect(() => {
+    homeworkRef.current = homework;
+  }, [homework]);
 
   useEffect(() => {
     localStorage.setItem("activeView", activeView);
   }, [activeView]);
 
   const checkAuth = useCallback(async () => {
-    setIsAuthChecking(true);
     try {
       const currentUser = await authService.getCurrentUser();
       if (currentUser) {
-        setUser(currentUser);
+        // Keeping the same object when nothing changed stops the revalidation
+        // from re-triggering every effect that depends on the account.
+        setUser((previous) =>
+          previous && JSON.stringify(previous) === JSON.stringify(currentUser) ? previous : currentUser
+        );
         setIsAuthenticated(true);
         setSessionStatus("connected");
-        if (currentUser.isAdmin || currentUser.role === "admin") {
-          setActiveView("admin-overview");
-        } else if (currentUser.isTeacher || currentUser.role === "teacher" || currentUser.role === "class_teacher") {
-          setActiveView("teacher-overview");
-        } else {
-          setActiveView("today");
+        writeJson(CACHED_USER_KEY, currentUser);
+        if (!hasAppliedRoleView.current) {
+          hasAppliedRoleView.current = true;
+          setActiveView(defaultViewForUser(currentUser));
         }
       } else {
+        clearCachedAccount(initialUser?.id);
+        setUser(null);
+        setIsAuthenticated(false);
+        setHomework([]);
+        setErrorMessage(null);
+        setSessionStatus("disconnected");
+      }
+    } catch (err) {
+      // A revalidation that could not reach the server must not sign a student
+      // out: the cached account keeps the app usable until the next attempt.
+      console.error("Check Auth Error:", err);
+      if (!initialUser) {
         setUser(null);
         setIsAuthenticated(false);
         setSessionStatus("disconnected");
       }
-    } catch (err) {
-      console.error("Check Auth Error:", err);
-      setUser(null);
-      setIsAuthenticated(false);
-      setSessionStatus("disconnected");
     } finally {
       setIsAuthChecking(false);
     }
-  }, []);
+  }, [initialUser]);
 
   useEffect(() => {
     checkAuth();
@@ -81,7 +171,11 @@ export function useHomework() {
     if (forceRefresh) {
       setIsRefreshing(true);
     } else {
-      setIsLoading(true);
+      // Cached homework is already on screen, so a background refresh must not
+      // replace it with a loading skeleton.
+      const hasVisibleHomework = homeworkRef.current.length > 0;
+      setIsLoading(!hasVisibleHomework);
+      setIsRefreshing(hasVisibleHomework);
     }
     setErrorMessage(null);
 
@@ -89,6 +183,7 @@ export function useHomework() {
       const list = await homeworkService.getHomework(user.id);
       const sortedList = sortHomeworkNewestFirst(list);
       setHomework(sortedList);
+      writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
 
       const newCompletedMap: Record<string, boolean> = {};
       const newNotesMap: Record<string, string> = {};
@@ -111,8 +206,13 @@ export function useHomework() {
       setLastUpdated(timeNow);
       localStorage.setItem("lastUpdated", timeNow);
     } catch (err: any) {
+      // Keep whatever is already on screen rather than blanking the dashboard.
       console.error("Fetch Homework Error:", err);
-      setErrorMessage(err.message || "Failed to fetch homework.");
+      // A rejected session is already being handled by the auth check, and
+      // surfacing it here would print an error over the login page.
+      if (err?.code !== "UNAUTHENTICATED") {
+        setErrorMessage(err.message || "Failed to fetch homework.");
+      }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -161,16 +261,15 @@ export function useHomework() {
     try {
       const loggedUser = await authService.login(studentId, pass, chosenSection);
       if (!loggedUser) throw new Error("Authentication failed");
+      // A different account must never inherit the previous one's dashboard.
+      if (user && user.id !== loggedUser.id) clearCachedAccount(user.id);
       setUser(loggedUser);
       setIsAuthenticated(true);
       setSessionStatus("connected");
-      if (loggedUser.isAdmin || loggedUser.role === "admin") {
-        setActiveView("admin-overview");
-      } else if (loggedUser.isTeacher || loggedUser.role === "teacher" || loggedUser.role === "class_teacher") {
-        setActiveView("teacher-overview");
-      } else {
-        setActiveView("today");
-      }
+      setHomework(readCachedHomework(loggedUser.id));
+      writeJson(CACHED_USER_KEY, loggedUser);
+      hasAppliedRoleView.current = true;
+      setActiveView(defaultViewForUser(loggedUser));
       return true;
     } catch (err: any) {
       console.error("Login Error:", err);
@@ -179,15 +278,18 @@ export function useHomework() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const logout = useCallback(async () => {
     setIsLoading(true);
+    const previousUserId = user?.id;
     try {
       await authService.logout();
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
+      clearCachedAccount(previousUserId);
+      hasAppliedRoleView.current = false;
       setUser(null);
       setIsAuthenticated(false);
       setHomework([]);
@@ -199,7 +301,7 @@ export function useHomework() {
       localStorage.removeItem("lastUpdated");
       setIsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (isAuthenticated && user && !user.isTeacher && !isAuthChecking) {

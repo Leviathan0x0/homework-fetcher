@@ -822,8 +822,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     setShowPinPicker(true);
     setPinLoading(true);
     try {
-      const list = await homeworkService.getHomework(currentStudentId);
-      const withFiles = (list || []).filter((h: HomeworkEntry) => Boolean(h.attachment));
+      const { items } = await homeworkService.getHomework(currentStudentId);
+      const withFiles = (items || []).filter((h: HomeworkEntry) => Boolean(h.attachment));
       setPinCandidates(withFiles);
     } catch {
       setPinCandidates([]);

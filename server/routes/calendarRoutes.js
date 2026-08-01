@@ -51,7 +51,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
     } catch (err) {
       if (err instanceof SchoolSessionExpiredError) {
         return res.status(401).json({
-          error: "Your school session has expired. Please sign in again.",
+          error: "Your school session has expired. Reconnect with your school password to continue.",
           code: "SCHOOL_SESSION_EXPIRED",
           events: [],
           count: 0,
@@ -80,7 +80,7 @@ router.post("/calendar/refresh", requireAuth, async (req, res) => {
     if (err instanceof SchoolSessionExpiredError) {
       const cached = await calendarCacheService.getCachedEvents(userId);
       return res.status(401).json({
-        error: "Your school session has expired. Please sign in again.",
+        error: "Your school session has expired. Reconnect with your school password to continue.",
         code: "SCHOOL_SESSION_EXPIRED",
         events: cached,
         count: cached.length,

@@ -108,6 +108,24 @@ export const authService = {
     return mapAuthUser(data.user);
   },
 
+  /**
+   * Renews the school-portal session without signing out of the app.
+   * The password is never stored, so the school portal has to be given it
+   * again whenever its own (much shorter) session lapses.
+   */
+  async reconnectSchool(password: string) {
+    const res = await apiFetch("/api/auth/reconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Could not reconnect to the school portal.");
+    }
+    return true;
+  },
+
   async logout() {
     try {
       await apiFetch("/api/auth/logout", {
@@ -157,7 +175,9 @@ export const homeworkService = {
         updatedAt: doc.updatedAt,
       });
     }
-    return deduplicated;
+    // The school session can be dead while cached homework still renders, so
+    // the flag travels with the list rather than only as an error.
+    return { items: deduplicated, schoolSessionExpired: Boolean(data.schoolSessionExpired) };
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {

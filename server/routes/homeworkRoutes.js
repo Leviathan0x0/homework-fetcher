@@ -43,33 +43,34 @@ function refreshFromSchool(userId, sessionCookies) {
 router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
-  // 1. Retrieve cached homework from SQLite, and check staleness in the same
-  // breath — they are independent reads, so waiting on them one after the other
-  // doubles the latency of every cache hit.
+  // 1. Retrieve cached homework from SQLite, check staleness and load the
+  // school session in the same breath — they are independent reads, so waiting
+  // on them one after the other multiplies the latency of every cache hit.
   let cachedHomework;
   let cacheStale = true;
+  let eduSession = null;
   try {
-    [cachedHomework, cacheStale] = await Promise.all([
+    [cachedHomework, cacheStale, eduSession] = await Promise.all([
       homeworkCacheService.getCachedHomework(userId),
       homeworkCacheService.isCacheStale(userId),
+      sessionService.getEduSecureSession(userId),
     ]);
   } catch (err) {
     console.error("Homework cache read error:", err.message);
     cachedHomework = [];
   }
 
+  const hasSchoolSession = Boolean(eduSession && eduSession.sessionCookies);
+
   // 2. If cached data exists (even if stale), return immediately for instant render (<15ms)
   if (cachedHomework.length > 0) {
     // If cache is stale, trigger background refresh asynchronously without freezing the user
-    if (cacheStale && !refreshesInFlight.has(userId)) {
+    if (cacheStale && hasSchoolSession && !refreshesInFlight.has(userId)) {
       (async () => {
-        const eduSession = await sessionService.getEduSecureSession(userId);
-        if (eduSession && eduSession.sessionCookies) {
-          try {
-            await refreshFromSchool(userId, eduSession.sessionCookies);
-          } catch (err) {
-            console.error("Background homework refresh error:", err.message);
-          }
+        try {
+          await refreshFromSchool(userId, eduSession.sessionCookies);
+        } catch (err) {
+          console.error("Background homework refresh error:", err.message);
         }
       })();
     }
@@ -78,16 +79,19 @@ router.get("/homework", requireAuth, async (req, res) => {
       count: cachedHomework.length,
       homework: cachedHomework,
       isStale: cacheStale,
-      isRefreshing: false
+      isRefreshing: false,
+      // Cached homework still renders, but without this the app had no way to
+      // tell that nothing new can arrive until the student reconnects — it just
+      // kept showing the same list indefinitely.
+      schoolSessionExpired: !hasSchoolSession,
     });
   }
 
   // 3. Cache is completely empty -> Attempt inline fetch
-  const eduSession = await sessionService.getEduSecureSession(userId);
-  if (!eduSession || !eduSession.sessionCookies) {
+  if (!hasSchoolSession) {
     return res.status(401).json({
       code: "SCHOOL_SESSION_EXPIRED",
-      message: "Your school session has expired. Please sign in again."
+      message: "Your school session has expired. Reconnect with your school password to continue."
     });
   }
 
@@ -101,37 +105,18 @@ router.get("/homework", requireAuth, async (req, res) => {
       isRefreshing: false
     });
   } catch (err) {
+    // Only reachable with an empty cache: the branch above returns first
+    // whenever there is anything at all to show.
     if (err instanceof SchoolSessionExpiredError || err.code === "SCHOOL_SESSION_EXPIRED") {
       await sessionService.removeEduSecureSession(userId);
 
-      // Return cached homework if available even if EduSecure session expired
-      if (cachedHomework.length > 0) {
-        return res.json({
-          count: cachedHomework.length,
-          homework: cachedHomework,
-          isStale: true,
-          sessionExpired: true,
-          warning: "Your school session has expired. Showing cached homework."
-        });
-      }
-
       return res.status(401).json({
         code: "SCHOOL_SESSION_EXPIRED",
-        message: "Your school session has expired. Please sign in again."
+        message: "Your school session has expired. Reconnect with your school password to continue."
       });
     }
 
     console.error("Homework Fetch Error:", err);
-
-    // Return cached homework on network failure if available
-    if (cachedHomework.length > 0) {
-      return res.json({
-        count: cachedHomework.length,
-        homework: cachedHomework,
-        isStale: true,
-        error: "Unable to refresh from school server. Showing cached homework."
-      });
-    }
 
     return res.status(500).json({
       error: "Failed to fetch homework."
@@ -148,7 +133,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
   if (!eduSession || !eduSession.sessionCookies) {
     return res.status(401).json({
       code: "SCHOOL_SESSION_EXPIRED",
-      message: "Your school session has expired. Please sign in again."
+      message: "Your school session has expired. Reconnect with your school password to continue."
     });
   }
 
@@ -165,7 +150,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
       await sessionService.removeEduSecureSession(userId);
       return res.status(401).json({
         code: "SCHOOL_SESSION_EXPIRED",
-        message: "Your school session has expired. Please sign in again."
+        message: "Your school session has expired. Reconnect with your school password to continue."
       });
     }
 

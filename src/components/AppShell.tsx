@@ -38,6 +38,7 @@ const DevelopersView = lazy(() => import('./DevelopersView').then((m) => ({ defa
 const AdminView = lazy(() => import('./AdminView').then((m) => ({ default: m.AdminView })));
 const TeacherView = lazy(() => import('./TeacherView').then((m) => ({ default: m.TeacherView })));
 const FilePreviewSidebar = lazy(() => import('./FilePreviewSidebar').then((m) => ({ default: m.FilePreviewSidebar })));
+const ReconnectSchoolDialog = lazy(() => import('./ReconnectSchoolDialog').then((m) => ({ default: m.ReconnectSchoolDialog })));
 
 /** Placeholder shown while a screen's code is still downloading. */
 const ViewFallback: React.FC = () => (
@@ -62,6 +63,8 @@ export const AppShell: React.FC = () => {
     isRefreshing,
     errorMessage,
     sessionStatus,
+    schoolSessionExpired,
+    handleSchoolReconnected,
     setActiveView,
     setSearchQuery,
     setSelectedDateFilter,
@@ -76,6 +79,7 @@ export const AppShell: React.FC = () => {
   const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
   const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isReconnectOpen, setIsReconnectOpen] = useState(false);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -345,8 +349,9 @@ export const AppShell: React.FC = () => {
           {errorMessage && (
             <ErrorBanner
               message={errorMessage}
+              isSchoolSessionExpired={schoolSessionExpired}
               onRetry={() => fetchHomework(true)}
-              onOpenSettings={handleOpenSettings}
+              onReconnect={() => setIsReconnectOpen(true)}
             />
           )}
 
@@ -478,6 +483,8 @@ export const AppShell: React.FC = () => {
               onLogout={logout}
               onUserChange={setUser}
               sessionStatus={sessionStatus}
+              schoolSessionExpired={schoolSessionExpired}
+              onReconnect={() => setIsReconnectOpen(true)}
               theme={theme}
               onThemeChange={setTheme}
               onBack={handleLeaveSettings}
@@ -512,8 +519,21 @@ export const AppShell: React.FC = () => {
               onLogout={logout}
               onUserChange={setUser}
               sessionStatus={sessionStatus}
+              schoolSessionExpired={schoolSessionExpired}
+              onReconnect={() => setIsReconnectOpen(true)}
               theme={theme}
               onThemeChange={setTheme}
+            />
+          </Suspense>
+        )}
+
+        {isReconnectOpen && (
+          <Suspense fallback={null}>
+            <ReconnectSchoolDialog
+              isOpen={isReconnectOpen}
+              studentId={user?.studentId}
+              onClose={() => setIsReconnectOpen(false)}
+              onReconnected={handleSchoolReconnected}
             />
           </Suspense>
         )}

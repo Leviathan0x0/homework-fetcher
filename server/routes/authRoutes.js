@@ -3,7 +3,8 @@ const sessionService = require("../auth/sessionService");
 const { fetchProfileFromEduSecure, isUnknownSection } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { sessionCookieOptions } = require("../config");
-const { getRequestSession, getRequestToken } = require("../auth/requireAuth");
+const { getRequestSession, getRequestToken, requireAuth } = require("../auth/requireAuth");
+const { rateLimit } = require("../limits");
 const { db, schema } = require("../db/client");
 const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
@@ -352,6 +353,74 @@ router.patch("/profile", async (req, res) => {
     },
   });
 });
+
+// POST /api/auth/reconnect
+// Re-establishes the EduSecure session without signing the student out.
+//
+// The school portal ends its own session within minutes, while the app session
+// lasts 30 days, so the normal case is being perfectly signed in here while the
+// scraper has nothing valid to talk to the school with. The password is
+// deliberately never stored, so the only way back is to ask for it again — but
+// only the password, and without losing the app session, the cached homework or
+// whatever screen the student was on.
+router.post(
+  "/reconnect",
+  requireAuth,
+  rateLimit({ name: "school-reconnect", windowMs: 60 * 1000, max: 8 }),
+  async (req, res) => {
+    const { password } = req.body || {};
+
+    if (!password || typeof password !== "string" || !password.trim()) {
+      return res.status(400).json({ error: "Please enter your school password." });
+    }
+
+    const studentId = (req.user.studentId || "").trim();
+    const role = req.user.role || "student";
+
+    // Accounts that never sign in through EduSecure have no school session to
+    // renew, so say that rather than bouncing their password off the portal.
+    if (role === "admin" || studentId === "admin_mmss") {
+      return res.status(400).json({
+        error: "The administrator account does not use the school portal.",
+      });
+    }
+
+    let sessionCookies;
+    let initialHomework = [];
+    try {
+      const authResult = await loginToEduSecure(studentId, password);
+      if (typeof authResult === "string") {
+        sessionCookies = authResult;
+      } else {
+        sessionCookies = authResult.sessionCookies;
+        initialHomework = authResult.initialHomework || [];
+      }
+    } catch (authErr) {
+      console.error("Reconnect auth error:", authErr?.message || authErr);
+      if (!authErr || authErr.code === "invalid_credentials") {
+        return res.status(401).json({
+          error: "That password was not accepted by the school portal. Check it and try again.",
+        });
+      }
+      return res.status(502).json({
+        error:
+          authErr.code === "portal_unreachable"
+            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again."
+            : authErr.message || "The school portal is currently unreachable. Please try again later.",
+      });
+    }
+
+    await sessionService.saveEduSecureSession(req.user.id, sessionCookies);
+
+    if (initialHomework.length > 0) {
+      homeworkCacheService.upsertHomework(req.user.id, initialHomework).catch((err) => {
+        console.error("Failed to upsert homework cache after reconnect:", err.message);
+      });
+    }
+
+    return res.json({ success: true, reconnected: true });
+  }
+);
 
 // POST /api/auth/logout
 router.post("/logout", async (req, res) => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homework-pwa-v4';
+const CACHE_NAME = 'homework-pwa-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -55,6 +55,12 @@ self.addEventListener('fetch', (event) => {
   // Writes must always reach the server; passing them through the worker only
   // adds overhead to every action a student takes.
   if (event.request.method !== 'GET') return;
+
+  // API responses are per-account and change constantly. Copying every one of
+  // them into the cache added a clone plus a cache write to each request, and
+  // the stale copy could be replayed after a reload. The app keeps its own
+  // last-known homework and session in localStorage for the offline case.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/api/')) return;
 
   if (isImmutableAsset(url)) {
     event.respondWith(

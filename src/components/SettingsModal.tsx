@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor } from 'lucide-react';
+import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor, KeyRound } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -15,6 +15,9 @@ interface SettingsPanelProps {
   onLogout: () => void;
   onUserChange?: (user: UserAccount) => void;
   sessionStatus: SessionStatus;
+  /** True when the school portal ended its session but the app login is fine. */
+  schoolSessionExpired?: boolean;
+  onReconnect?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
   /** Renders the closing action. Omitted when settings are a page of their own. */
@@ -36,6 +39,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onLogout,
   onUserChange,
   sessionStatus,
+  schoolSessionExpired,
+  onReconnect,
   theme,
   onThemeChange,
   onDone,
@@ -118,7 +123,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             School account
           </h3>
           <div className="flex items-center gap-1.5 text-xs">
-            {sessionStatus === 'connected' ? (
+            {schoolSessionExpired ? (
+              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 animate-wiggle-subtle" /> School portal disconnected
+              </span>
+            ) : sessionStatus === 'connected' ? (
               <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Session active
               </span>
@@ -153,6 +162,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <span>Sign out</span>
             </button>
           </div>
+
+          {schoolSessionExpired && onReconnect && (
+            <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
+              <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+                The school portal ended its own session, so new homework has stopped arriving. You
+                are still signed in here — reconnect with your school password to start it again.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  onDone?.();
+                  onReconnect();
+                }}
+                className="group/reconnect inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+              >
+                <KeyRound className="w-3.5 h-3.5 transition-transform duration-200 group-hover/reconnect:rotate-12" />
+                <span>Reconnect to school portal</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -421,6 +450,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onLogout,
   onUserChange,
   sessionStatus,
+  schoolSessionExpired,
+  onReconnect,
   theme,
   onThemeChange,
 }) => {
@@ -459,6 +490,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           onLogout={onLogout}
           onUserChange={onUserChange}
           sessionStatus={sessionStatus}
+          schoolSessionExpired={schoolSessionExpired}
+          onReconnect={onReconnect}
           theme={theme}
           onThemeChange={onThemeChange}
           onDone={onClose}

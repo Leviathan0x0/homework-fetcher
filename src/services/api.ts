@@ -108,6 +108,24 @@ export const authService = {
     return mapAuthUser(data.user);
   },
 
+  /**
+   * Renews the school-portal session without signing out of the app.
+   * The password is never stored, so the school portal has to be given it
+   * again whenever its own (much shorter) session lapses.
+   */
+  async reconnectSchool(password: string) {
+    const res = await apiFetch("/api/auth/reconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Could not reconnect to the school portal.");
+    }
+    return true;
+  },
+
   async logout() {
     try {
       await apiFetch("/api/auth/logout", {
@@ -125,42 +143,41 @@ export const authService = {
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
   async getHomework(userId: string) {
-    try {
-      const res = await apiFetch("/api/homework", {
-        headers: { "Accept": "application/json" }
-      });
-      if (!res.ok) {
-        const errData = await apiJson<any>(res).catch(() => ({} as any));
-        throw new Error(errData.message || "Failed to fetch homework.");
-      }
-      const data = await apiJson<any>(res);
-      const rawList = data.homework || [];
-      const seen = new Set<string>();
-      const deduplicated: any[] = [];
-
-      for (const doc of rawList) {
-        if (!doc) continue;
-        const text = (doc.homework || doc.content || "").trim();
-        const key = `${(doc.date || "").trim()}:${text}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduplicated.push({
-          id: doc.id,
-          type: doc.type || "School Diary",
-          date: doc.date || "",
-          subject: doc.subject || "School Diary",
-          homework: text,
-          attachment: doc.attachment || doc.attachmentUrl || null,
-          completed: !!doc.completed,
-          note: doc.note || null,
-          updatedAt: doc.updatedAt,
-        });
-      }
-      return deduplicated;
-    } catch (err: any) {
-      console.error("Error loading homework:", err);
-      return [];
+    const res = await apiFetch("/api/homework", {
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) {
+      const errData = await apiJson<any>(res).catch(() => ({} as any));
+      const error: any = new Error(errData.message || errData.error || "Failed to fetch homework.");
+      error.code = errData.code || (res.status === 401 ? "UNAUTHENTICATED" : undefined);
+      throw error;
     }
+    const data = await apiJson<any>(res);
+    const rawList = data.homework || [];
+    const seen = new Set<string>();
+    const deduplicated: any[] = [];
+
+    for (const doc of rawList) {
+      if (!doc) continue;
+      const text = (doc.homework || doc.content || "").trim();
+      const key = `${(doc.date || "").trim()}:${text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduplicated.push({
+        id: doc.id,
+        type: doc.type || "School Diary",
+        date: doc.date || "",
+        subject: doc.subject || "School Diary",
+        homework: text,
+        attachment: doc.attachment || doc.attachmentUrl || null,
+        completed: !!doc.completed,
+        note: doc.note || null,
+        updatedAt: doc.updatedAt,
+      });
+    }
+    // The school session can be dead while cached homework still renders, so
+    // the flag travels with the list rather than only as an error.
+    return { items: deduplicated, schoolSessionExpired: Boolean(data.schoolSessionExpired) };
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {

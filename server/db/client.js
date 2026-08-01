@@ -22,6 +22,10 @@ const remoteAuthToken = (process.env.TURSO_AUTH_TOKEN || process.env.LIBSQL_AUTH
 
 const isRemote = !!remoteUrl;
 
+// The migration pipelines carry ~90 statements, so they need a longer budget
+// than the per-request default used for ordinary queries.
+const SCHEMA_BATCH_TIMEOUT_MS = 10_000;
+
 const defaultDbPath = isServerless
   ? path.join(os.tmpdir(), "homework-fetcher.db")
   : path.join(__dirname, "../../sqlite.db");
@@ -508,71 +512,124 @@ function schemaStatements() {
 }
 
 /**
+ * Columns added after the first release, checked on startup so databases
+ * created by older versions keep working.
+ */
+const ADDED_COLUMNS = [
+  ["users", "display_name", "TEXT"],
+  ["users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'"],
+  ["users", "is_muted", "INTEGER NOT NULL DEFAULT 0"],
+  ["users", "muted_reason", "TEXT"],
+  ["users", "muted_at", "TEXT"],
+  ["users", "role", "TEXT NOT NULL DEFAULT 'student'"],
+  ["admin_flag_log", "status", "TEXT NOT NULL DEFAULT 'pending'"],
+  ["messages", "attachment_url", "TEXT"],
+  ["messages", "original_filename", "TEXT"],
+  ["messages", "mime_type", "TEXT"],
+  ["messages", "file_path", "TEXT"],
+  ["messages", "reply_to_id", "TEXT"],
+  ["conversations", "type", "TEXT NOT NULL DEFAULT 'dm'"],
+  ["conversations", "section", "TEXT"],
+  ["conversations", "pinned_homework_id", "TEXT"],
+  ["conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0"],
+  ["classwork_uploads", "approval_status", "TEXT NOT NULL DEFAULT 'approved'"],
+];
+
+/** Feature toggles seeded without importing settingsService (avoids circular require). */
+const DEFAULT_SETTINGS = [
+  ["global_chat_enabled", "1"],
+  ["auto_mute_strikes_enabled", "1"],
+  ["section_requests_enabled", "1"],
+  ["classwork_approval_required", "0"],
+];
+
+/**
+ * Statements that finish the migration once the base schema exists.
+ * Every one of them is safe to re-run, so they are sent as a single
+ * best-effort batch instead of being awaited one at a time.
+ */
+function postSchemaStatements() {
+  const stamped = new Date().toISOString();
+  return [
+    // Clear the fake default section. Real EduSecure values look like "9-C" / "10-A",
+    // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
+    { sql: `UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'` },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)" },
+    ...DEFAULT_SETTINGS.map(([key, value]) => ({
+      sql: "INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)",
+      args: [key, value, stamped],
+    })),
+  ];
+}
+
+/**
  * Ensures all required tables, indices and columns exist.
  * Safe to call on startup: it never drops or overwrites existing data.
+ *
+ * A hosted libSQL database charges a full HTTPS round trip per statement. Run
+ * one statement at a time and this migration alone costs ~100 sequential round
+ * trips on every serverless cold start, which is what put a multi-second floor
+ * under every single API call. The remote path therefore pipelines the whole
+ * migration into two round trips: one that creates the schema and reads the
+ * current columns, and one that applies whatever is still missing.
  */
 async function initDb() {
   if (startupError) throw startupError;
 
-  if (isRemote) {
-    for (const statement of schemaStatements()) {
-      await remoteClient.execute(statement);
-    }
-  } else {
+  if (!isRemote) {
     sqlite.exec(SCHEMA_SQL);
-  }
-
-  // Lightweight migrations so databases created by older versions keep working.
-  await ensureColumn("users", "display_name", "TEXT");
-  await ensureColumn("users", "section", "TEXT NOT NULL DEFAULT 'Section 10-A'");
-  await ensureColumn("users", "is_muted", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn("users", "muted_reason", "TEXT");
-  await ensureColumn("users", "muted_at", "TEXT");
-  await ensureColumn("users", "role", "TEXT NOT NULL DEFAULT 'student'");
-  await ensureColumn("admin_flag_log", "status", "TEXT NOT NULL DEFAULT 'pending'");
-  await ensureColumn("messages", "attachment_url", "TEXT");
-  await ensureColumn("messages", "original_filename", "TEXT");
-  await ensureColumn("messages", "mime_type", "TEXT");
-  await ensureColumn("messages", "file_path", "TEXT");
-  await ensureColumn("messages", "reply_to_id", "TEXT");
-  await ensureColumn("conversations", "type", "TEXT NOT NULL DEFAULT 'dm'");
-  await ensureColumn("conversations", "section", "TEXT");
-  await ensureColumn("conversations", "pinned_homework_id", "TEXT");
-  await ensureColumn("conversation_participants", "muted", "INTEGER NOT NULL DEFAULT 0");
-  await ensureColumn("classwork_uploads", "approval_status", "TEXT NOT NULL DEFAULT 'approved'");
-
-  // Clear the fake default section. Real EduSecure values look like "9-C" / "10-A",
-  // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
-  try {
-    await exec(`UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'`);
-  } catch (err) {
-    console.error("Clear fake Section 10-A migration:", err.message);
-  }
-
-  // Seed feature toggles without importing settingsService (avoids circular require).
-  const defaultSettings = [
-    ["global_chat_enabled", "1"],
-    ["auto_mute_strikes_enabled", "1"],
-    ["section_requests_enabled", "1"],
-    ["classwork_approval_required", "0"],
-  ];
-  const stamped = new Date().toISOString();
-  for (const [key, value] of defaultSettings) {
-    try {
-      await exec(
-        `INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES ('${key}', '${value}', '${stamped}')`
-      );
-    } catch (err) {
-      console.error(`Seed setting ${key}:`, err.message);
+    for (const [table, column, definition] of ADDED_COLUMNS) {
+      await ensureColumn(table, column, definition);
     }
+    for (const statement of postSchemaStatements()) {
+      try {
+        await runRaw(statement.sql, statement.args);
+      } catch (err) {
+        console.error("Migration statement failed:", err.message);
+      }
+    }
+    return;
   }
-  
-  // Create indexes for new columns after they exist
-  try {
-    await exec("CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)");
-  } catch (err) {
-    console.error("Index creation (reply_to_id):", err.message);
-  }
+
+  const migratedTables = Array.from(new Set(ADDED_COLUMNS.map(([table]) => table)));
+
+  const created = await remoteClient.executeBatch(
+    [
+      ...schemaStatements().map((sql) => ({ sql })),
+      ...migratedTables.map((table) => ({
+        sql: `SELECT name FROM pragma_table_info('${table}')`,
+      })),
+    ],
+    { timeoutMs: SCHEMA_BATCH_TIMEOUT_MS }
+  );
+
+  const existingColumns = new Map();
+  migratedTables.forEach((table, index) => {
+    const result = created[created.length - migratedTables.length + index];
+    existingColumns.set(table, new Set((result?.rows || []).map((row) => String(row[0]))));
+  });
+
+  const pending = ADDED_COLUMNS.filter(([table, column]) => {
+    const columns = existingColumns.get(table);
+    // An unknown table means the CREATE above did not report its columns; the
+    // ALTER would fail anyway, so leave it alone rather than aborting startup.
+    return columns && columns.size > 0 && !columns.has(column);
+  }).map(([table, column, definition]) => ({
+    sql: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`,
+  }));
+
+  const postSchema = postSchemaStatements();
+
+  const results = await remoteClient.executeBatch(
+    [...pending, ...postSchema],
+    { timeoutMs: SCHEMA_BATCH_TIMEOUT_MS, throwOnError: false }
+  );
+
+  results.forEach((result, index) => {
+    if (!result?.error) return;
+    const statement = [...pending, ...postSchema][index];
+    console.error(`Migration statement failed (${statement?.sql}):`, result.error);
+  });
 }
 
 /**
@@ -599,6 +656,15 @@ async function tableColumns(table) {
     return result.rows.map((row) => row[0]);
   }
   return sqlite.pragma(`table_info(${table})`).map((column) => column.name);
+}
+
+/** Runs a raw statement, with optional bound parameters, against the configured database. */
+async function runRaw(sql, args) {
+  if (isRemote) {
+    await remoteClient.execute(sql, args);
+    return;
+  }
+  sqlite.prepare(sql).run(...(args || []));
 }
 
 /** Runs a raw statement against the configured database. */

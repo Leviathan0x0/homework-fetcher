@@ -10,7 +10,8 @@ const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
-  isTestTeacherLogin,
+  matchTestTeacherLogin,
+  TEST_TEACHER_MATCH,
   testTeacherUser,
   profileFromEnvironment,
   ensureTeacherProfile,
@@ -95,7 +96,28 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    if (isTestTeacherLogin(cleanStudentId, password)) {
+    const testTeacherMatch = matchTestTeacherLogin(cleanStudentId, password);
+
+    // The demo account owns its username, so answer for it here instead of
+    // letting the request fall through to EduSecure, which would reject the
+    // unknown ID and blame the student's credentials for a server setting.
+    if (testTeacherMatch === TEST_TEACHER_MATCH.DISABLED) {
+      return res.status(503).json({
+        authenticated: false,
+        error:
+          "The demo teacher account is not enabled on this deployment. " +
+          "An administrator needs to configure a password for it before it can be used.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.BAD_PASSWORD) {
+      return res.status(401).json({
+        authenticated: false,
+        error: "Invalid account ID or password.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.OK) {
       const testUser = testTeacherUser();
       const existing = await db
         .select()

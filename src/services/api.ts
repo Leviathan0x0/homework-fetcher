@@ -83,11 +83,16 @@ export const authService = {
 
     const data = await apiJson<any>(res);
     if (!res.ok || !data.authenticated) {
+      const msg = typeof data.error === "string" ? data.error : (data.error?.message || data.message || "");
+      // The server's own wording is always more specific than a status-code
+      // guess: a 503 can mean the API is unconfigured, but it can equally mean
+      // a named account is switched off, and replacing that with "try again in
+      // a moment" sends people to wait for something that will never change.
+      if (msg) throw new Error(msg);
       if (res.status === 503) {
         throw new Error("The school portal service is temporarily unavailable. Please try again in a moment.");
       }
-      const msg = typeof data.error === "string" ? data.error : (data.error?.message || data.message || "Invalid student ID or password.");
-      throw new Error(msg);
+      throw new Error("Invalid student ID or password.");
     }
 
     // A new session must never read the previous account's cached conversations.

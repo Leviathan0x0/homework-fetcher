@@ -16,7 +16,7 @@ interface ReconnectSchoolDialogProps {
  * The app session lasts 30 days but EduSecure's own session lapses within
  * minutes, so students are regularly signed in here while homework can no
  * longer be fetched. The password is never stored, so it has to be entered
- * again — this asks for that one field instead of signing them out and making
+ * again - this asks for that one field instead of signing them out and making
  * them start over.
  */
 export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
@@ -98,7 +98,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
 
         <p className="text-xs text-neutral-600 dark:text-neutral-300 leading-relaxed">
           You are still signed in. The school portal just ended its own session, which is why new
-          homework stopped arriving. Enter your school password to reconnect — your password is
+          homework stopped arriving. Enter your school password to reconnect - your password is
           never saved, so it has to be typed each time.
         </p>
 

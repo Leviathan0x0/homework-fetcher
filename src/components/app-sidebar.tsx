@@ -26,12 +26,28 @@ import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
-import { AlertCircle, Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardCheck, ClipboardList, MessageCircle, CalendarDays } from "lucide-react"
+import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
+import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, CalendarDays, type LucideIcon } from "lucide-react"
+
+const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
+  function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
+    return <AnimatedIcon icon={icon} preset={preset} size={size} className={className} isActive={isAnimated} />
+  };
+
+const ActivityNavIcon = makeNavIcon(Activity, "pulse");
+const UsersNavIcon = makeNavIcon(Users);
+const ModerationNavIcon = makeNavIcon(VolumeX, "shake");
+const BellNavIcon = makeNavIcon(Bell, "ring");
+const FlagNavIcon = makeNavIcon(Flag, "lift");
+const ShieldNavIcon = makeNavIcon(ShieldCheck, "scale");
+const FileTextNavIcon = makeNavIcon(FileText, "lift");
+const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
+const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
+const CalendarNavIcon = makeNavIcon(CalendarDays, "bounce");
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
-  todayCount: number;
   user: UserAccount | null;
   sessionStatus: SessionStatus;
   onLogout: () => void;
@@ -42,7 +58,6 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({
   activeView,
   onViewChange,
-  todayCount,
   user,
   sessionStatus,
   onLogout,
@@ -62,10 +77,10 @@ export function AppSidebar({
     {
       label: "Main",
       items: [
-        { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon, badge: todayCount > 0 ? todayCount : undefined },
+        { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon },
         { id: "classwork" as ViewType, title: "Classwork", IconComponent: UploadIcon },
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
-        { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarDays },
+        { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarNavIcon },
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
       ],
     },
@@ -94,12 +109,12 @@ export function AppSidebar({
     {
       label: "Admin Management",
       items: [
-        { id: "admin-overview" as ViewType, title: "Overview", IconComponent: ({ className }: any) => <Activity className={className || "size-4"} /> },
-        { id: "admin-students" as ViewType, title: "Students", IconComponent: ({ className }: any) => <Users className={className || "size-4"} /> },
+        { id: "admin-overview" as ViewType, title: "Overview", IconComponent: ActivityNavIcon },
+        { id: "admin-students" as ViewType, title: "Students", IconComponent: UsersNavIcon },
         { id: "admin-teachers" as ViewType, title: "Teachers & Staff", IconComponent: GraduationCapIcon },
-        { id: "admin-moderation" as ViewType, title: "Moderation & Mutes", IconComponent: ({ className }: any) => <VolumeX className={className || "size-4"} /> },
-        { id: "admin-alerts" as ViewType, title: "Broadcast Alerts", IconComponent: ({ className }: any) => <Bell className={className || "size-4"} /> },
-        { id: "admin-reports" as ViewType, title: "Flagged Reports", IconComponent: ({ className }: any) => <Flag className={className || "size-4"} /> },
+        { id: "admin-moderation" as ViewType, title: "Moderation & Mutes", IconComponent: ModerationNavIcon },
+        { id: "admin-alerts" as ViewType, title: "Broadcast Alerts", IconComponent: BellNavIcon },
+        { id: "admin-reports" as ViewType, title: "Flagged Reports", IconComponent: FlagNavIcon },
       ],
     },
   ];
@@ -111,19 +126,19 @@ export function AppSidebar({
     {
       label: "Teaching",
       items: [
-        { id: "teacher-overview", title: "Overview", IconComponent: Activity },
-        { id: "teacher-assignments", title: "Assignments", IconComponent: FileText },
-        { id: "teacher-attendance", title: "Attendance", IconComponent: ClipboardList },
+        { id: "teacher-overview", title: "Overview", IconComponent: ActivityNavIcon },
+        { id: "teacher-assignments", title: "Assignments", IconComponent: FileTextNavIcon },
+        { id: "teacher-attendance", title: "Attendance", IconComponent: ClipboardNavIcon },
       ],
     },
     {
       label: "Class management",
       items: [
-        { id: "teacher-duties", title: "Duties", IconComponent: ShieldCheck },
-        { id: "teacher-announcements", title: "Announcements", IconComponent: Bell },
-        { id: "teacher-parents", title: "Parent connections", IconComponent: MessageCircle },
-        { id: "teacher-students", title: "Student profiles", IconComponent: Users },
-        { id: "teacher-leave", title: "Leave approvals", IconComponent: CalendarDays },
+        { id: "teacher-duties", title: "Duties", IconComponent: ShieldNavIcon },
+        { id: "teacher-announcements", title: "Announcements", IconComponent: BellNavIcon },
+        { id: "teacher-parents", title: "Parent connections", IconComponent: MessageNavIcon },
+        { id: "teacher-students", title: "Student profiles", IconComponent: UsersNavIcon },
+        { id: "teacher-leave", title: "Leave approvals", IconComponent: CalendarNavIcon },
       ],
     },
   ];
@@ -142,7 +157,7 @@ export function AppSidebar({
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                 <span className="truncate font-semibold text-xs">MMSS Mohali</span>
                 <span className="truncate text-[11px] text-muted-foreground">
-                  {isAdmin ? "Admin Console" : isTeacher ? "Teacher Workspace" : "Student Portal"}
+                  {isAdmin ? "Admin Console" : isTeacher ? "Faculty Portal" : "Student Portal"}
                 </span>
               </div>
             </SidebarMenuButton>

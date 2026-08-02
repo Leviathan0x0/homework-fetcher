@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   AlertCircle,
   Bell,
   Check,
   ClipboardCheck,
   ClipboardList,
-  GraduationCap,
   Loader2,
   Mic,
   Paperclip,
@@ -53,6 +52,7 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavigate }) => {
+  const prefersReducedMotion = useReducedMotion();
   const [dashboard, setDashboard] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [assignments, setAssignments] = useState<any[]>([]);
@@ -296,23 +296,22 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl space-y-6 pb-12">
+    <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl space-y-6 pb-12">
       {message && <div className="fixed right-4 top-4 z-50 rounded-xl bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-xl dark:bg-white dark:text-neutral-900">{message}</div>}
       {error && <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-300"><AlertCircle className="size-4 shrink-0" />{error}<button className="ml-auto" onClick={() => setError(null)}><X className="size-3.5" /></button></div>}
 
       <PageHeader
         title={title[0]}
         description={title[1]}
-        badge={<span className="inline-flex items-center gap-1 rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300"><GraduationCap className="size-3" />Teacher workspace</span>}
       />
 
       {activeSubView === "teacher-overview" && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Assigned sections" value={dashboard?.stats?.sections || sections.length} accent="text-sky-600 dark:text-sky-400" />
+            <StatCard label="Assigned sections" value={dashboard?.stats?.sections || sections.length} accent="text-neutral-900 dark:text-white" />
             <StatCard label="Assignments" value={dashboard?.stats?.assignments || 0} accent="text-neutral-900 dark:text-white" />
-            <StatCard label="Student submissions" value={dashboard?.stats?.pendingSubmissions || 0} accent="text-amber-600 dark:text-amber-400" />
-            <StatCard label="Open duties" value={dashboard?.stats?.openDuties || 0} accent="text-rose-600 dark:text-rose-400" />
+            <StatCard label="Student submissions" value={dashboard?.stats?.pendingSubmissions || 0} accent="text-neutral-900 dark:text-white" />
+            <StatCard label="Open duties" value={dashboard?.stats?.openDuties || 0} accent="text-neutral-900 dark:text-white" />
           </div>
           <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
             <Panel>
@@ -334,9 +333,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             <Panel>
               <h2 className="text-sm font-semibold">Your teaching scope</h2>
               <div className="mt-4 space-y-3 text-xs">
-                <div><p className="mb-1 text-[11px] text-neutral-500">Subjects</p><div className="flex flex-wrap gap-1.5">{(profile?.subjects || []).map((subject: string) => <span key={subject} className="rounded-md bg-sky-500/10 px-2 py-1 font-medium text-sky-700 dark:text-sky-300">{subject}</span>)}</div></div>
+                <div><p className="mb-1 text-[11px] text-neutral-500">Subjects</p><div className="flex flex-wrap gap-1.5">{(profile?.subjects || []).map((subject: string) => <span key={subject} className="rounded-md bg-neutral-100 px-2 py-1 font-medium text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">{subject}</span>)}</div></div>
                 <div><p className="mb-1 text-[11px] text-neutral-500">Assigned sections</p><div className="flex flex-wrap gap-1.5">{sections.map((section: string) => <span key={section} className="rounded-md bg-neutral-100 px-2 py-1 font-medium dark:bg-neutral-900">{section}</span>)}</div></div>
-                <div><p className="mb-1 text-[11px] text-neutral-500">Class teacher</p><div className="flex flex-wrap gap-1.5">{classTeacherSections.length ? classTeacherSections.map((section: string) => <span key={section} className="rounded-md bg-emerald-500/10 px-2 py-1 font-medium text-emerald-700 dark:text-emerald-300">{section}</span>) : <span className="text-neutral-400">Not assigned</span>}</div></div>
+                <div><p className="mb-1 text-[11px] text-neutral-500">Class teacher</p><div className="flex flex-wrap gap-1.5">{classTeacherSections.length ? classTeacherSections.map((section: string) => <span key={section} className="rounded-md bg-neutral-100 px-2 py-1 font-medium text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">{section}</span>) : <span className="text-neutral-400">Not assigned</span>}</div></div>
               </div>
             </Panel>
           </div>
@@ -411,7 +410,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             <Panel>
               <div className="mb-4 flex items-center justify-between">
                 <div><h2 className="text-sm font-semibold">Class roster</h2><p className="mt-1 text-xs text-neutral-500">{roster.length ? `${roster.length} students · tap a status to update` : "Select a section to load students."}</p></div>
-                <Users className="size-5 text-emerald-500" />
+                <Users className="size-5 text-neutral-400" />
               </div>
               {roster.length ? (
                 <div className="space-y-2">
@@ -449,7 +448,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
 
       {activeSubView === "teacher-students" && (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Student profiles</h2><p className="mt-1 text-xs text-neutral-500">Notes are private to you and are never shown to students.</p></div><Users className="size-5 text-sky-500" /></div><select className={inputClass} value={attendanceSection} onChange={(e) => loadRoster(e.target.value)}><option value="">Choose section</option>{sections.map((section: string) => <option key={section}>{section}</option>)}</select><div className="mt-3 space-y-2">{roster.length ? roster.map((student) => <button key={student.id} onClick={() => loadStudentNotes(student)} className={cn("flex w-full items-center justify-between rounded-xl border p-3 text-left transition", selectedStudent?.id === student.id ? "border-sky-500 bg-sky-500/5" : "border-neutral-200 dark:border-neutral-800")}><span><p className="text-xs font-semibold">{student.displayName}</p><p className="text-[11px] text-neutral-500">{student.studentId} · {student.section}</p></span><span className="text-[11px] text-sky-600">Open profile</span></button>) : <Empty>Select a section to view students.</Empty>}</div></Panel>
+          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Student profiles</h2><p className="mt-1 text-xs text-neutral-500">Notes are private to you and are never shown to students.</p></div><Users className="size-5 text-neutral-400" /></div><select className={inputClass} value={attendanceSection} onChange={(e) => loadRoster(e.target.value)}><option value="">Choose section</option>{sections.map((section: string) => <option key={section}>{section}</option>)}</select><div className="mt-3 space-y-2">{roster.length ? roster.map((student) => <button key={student.id} onClick={() => loadStudentNotes(student)} className={cn("flex w-full items-center justify-between rounded-xl border p-3 text-left transition", selectedStudent?.id === student.id ? "border-neutral-500 bg-neutral-500/5" : "border-neutral-200 dark:border-neutral-800")}><span><p className="text-xs font-semibold">{student.displayName}</p><p className="text-[11px] text-neutral-500">{student.studentId} · {student.section}</p></span><span className="text-[11px] text-neutral-600 dark:text-neutral-400">Open profile</span></button>) : <Empty>Select a section to view students.</Empty>}</div></Panel>
           <Panel>{selectedStudent ? <><div className="mb-4"><p className="text-sm font-semibold">{selectedStudent.displayName}</p><p className="mt-1 text-xs text-neutral-500">{selectedStudent.studentId} · {selectedStudent.section}</p></div><div className="flex gap-2"><textarea className={textareaClass} placeholder="Add a private observation, support note, or follow-up..." value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} /><button type="button" onClick={saveStudentNote} className="h-10 shrink-0 rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900">Save</button></div><div className="mt-5 space-y-2">{studentNotes.length ? studentNotes.map((note) => <div key={note.id} className="rounded-xl border border-neutral-100 p-3 dark:border-neutral-800"><p className="text-xs leading-relaxed">{note.note}</p><p className="mt-2 text-[10px] text-neutral-400">{new Date(note.updatedAt).toLocaleString()}</p></div>) : <Empty>No private notes for this student.</Empty>}</div></> : <Empty>Select a student to view their profile.</Empty>}</Panel>
         </div>
       )}
@@ -467,7 +466,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
       )}
 
       {activeSubView === "teacher-parents" && (
-        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><MessageCircle className="size-5 text-violet-500" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium dark:border-neutral-800">Message</button></div>)}</div> : <Empty>No parent accounts are linked to your sections yet.</Empty>}</Panel>
+        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><MessageCircle className="size-5 text-neutral-400" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium dark:border-neutral-800">Message</button></div>)}</div> : <Empty>No parent accounts are linked to your sections yet.</Empty>}</Panel>
       )}
     </motion.div>
   );

@@ -1,6 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LayoutGroup, motion } from 'motion/react';
+import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
+import {
+  Bell,
+  ClipboardList,
+  FileText,
+  Flag,
+  GraduationCap,
+  LayoutDashboard,
+  Megaphone,
+  Settings,
+  Users,
+  type LucideIcon,
+} from 'lucide-react';
 import { ViewType } from '../types/homework';
 import { CalendarCheckIcon } from '@/components/ui/calendar-check';
 import { UploadIcon } from '@/components/ui/upload';
@@ -8,11 +20,13 @@ import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
 import { MessageSquareIcon } from '@/components/ui/message-square';
 import { SearchIcon } from '@/components/ui/search';
 import { SettingsIcon } from '@/components/ui/settings';
+import { AnimatedIcon, type AnimationPreset } from '@/components/ui/animated-icon';
 import { cn } from '../utils/cn';
 
 interface MobileNavigationProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
+  role: 'student' | 'teacher' | 'admin';
   messagesUnread?: number;
   openRequests?: number;
 }
@@ -21,7 +35,7 @@ interface MobileNavigationProps {
  * Keeps the floating tab bar glued to the *visible* bottom of the screen.
  * Mobile Safari/Chrome shrink the visual viewport when the URL bar / toolbar
  * shows (~40–50px). A plain `position: fixed; bottom: …` then sits too high
- * with a gap underneath — most noticeable on tall scroll pages like
+ * with a gap underneath - most noticeable on tall scroll pages like
  * Classwork and Requests.
  */
 function useVisualViewportBottomOffset() {
@@ -58,11 +72,13 @@ const pressSpring = { type: 'spring' as const, stiffness: 700, damping: 30 };
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeView,
   onViewChange,
+  role,
   messagesUnread = 0,
   openRequests = 0,
 }) => {
   const viewportBottomOffset = useVisualViewportBottomOffset();
   const [mounted, setMounted] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
@@ -76,19 +92,40 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     };
   }, []);
 
-  const items: {
+  type NavItem = {
     id: ViewType;
     label: string;
-    IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>;
+    IconComponent?: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>;
+    icon?: LucideIcon;
+    preset?: AnimationPreset;
     badge?: number;
-  }[] = [
+  };
+
+  const studentItems: NavItem[] = [
     { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon },
-    { id: 'classwork', label: 'Classwork', IconComponent: UploadIcon },
+    { id: 'classwork', label: 'Uploads', IconComponent: UploadIcon },
     { id: 'requests', label: 'Requests', IconComponent: HeartHandshakeIcon, badge: openRequests > 0 ? openRequests : undefined },
     { id: 'messages', label: 'Messages', IconComponent: MessageSquareIcon, badge: messagesUnread > 0 ? messagesUnread : undefined },
     { id: 'all', label: 'Search', IconComponent: SearchIcon },
     { id: 'settings', label: 'Settings', IconComponent: SettingsIcon },
   ];
+  const teacherItems: NavItem[] = [
+    { id: 'teacher-overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'teacher-assignments', label: 'Tasks', icon: FileText, preset: 'lift' },
+    { id: 'teacher-attendance', label: 'Roll', icon: ClipboardList },
+    { id: 'teacher-announcements', label: 'Updates', icon: Megaphone, preset: 'bounce' },
+    { id: 'teacher-students', label: 'Students', icon: Users },
+    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+  ];
+  const adminItems: NavItem[] = [
+    { id: 'admin-overview', label: 'Overview', icon: LayoutDashboard },
+    { id: 'admin-students', label: 'Students', icon: Users },
+    { id: 'admin-teachers', label: 'Staff', icon: GraduationCap },
+    { id: 'admin-reports', label: 'Reports', icon: Flag, preset: 'lift' },
+    { id: 'admin-alerts', label: 'Alerts', icon: Bell, preset: 'ring' },
+    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+  ];
+  const items = role === 'admin' ? adminItems : role === 'teacher' ? teacherItems : studentItems;
 
   const nav = (
     <nav
@@ -136,15 +173,15 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 {isActive && (
                   <motion.span
                     layoutId="mobile-nav-indicator"
-                    transition={indicatorSpring}
+                    transition={prefersReducedMotion ? { duration: 0 } : indicatorSpring}
                     aria-hidden
                     className="absolute inset-0 rounded-[0.8rem] bg-neutral-900 dark:bg-white"
                   />
                 )}
 
                 <motion.span
-                  whileTap={{ scale: 0.88 }}
-                  transition={pressSpring}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.88 }}
+                  transition={prefersReducedMotion ? { duration: 0 } : pressSpring}
                   className={cn(
                     'relative z-[1] flex items-center justify-center transition-colors duration-150',
                     isActive
@@ -152,7 +189,17 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                       : 'text-neutral-400 dark:text-neutral-500'
                   )}
                 >
-                  <IconComp size={19} isAnimated={isActive} className="shrink-0" />
+                  {IconComp ? (
+                    <IconComp size={19} isAnimated={isActive} className="shrink-0" />
+                  ) : item.icon ? (
+                    <AnimatedIcon
+                      icon={item.icon}
+                      preset={item.preset || 'scale'}
+                      isActive={isActive}
+                      size={19}
+                      className="shrink-0"
+                    />
+                  ) : null}
                   {item.badge !== undefined && (
                     <span
                       className={cn(
@@ -169,7 +216,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
                 <span
                   className={cn(
-                    'relative z-[1] text-[10px] leading-none tracking-tight truncate max-w-[3.6rem] transition-colors duration-150',
+                    'relative z-[1] max-w-[3.6rem] truncate text-[10px] leading-none tracking-tight transition-colors duration-150 max-[359px]:sr-only',
                     isActive
                       ? 'font-medium text-white dark:text-neutral-900'
                       : 'font-medium text-neutral-400 dark:text-neutral-500'

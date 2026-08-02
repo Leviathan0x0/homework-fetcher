@@ -130,7 +130,7 @@ router.post(
         const tooLarge = err.code === "LIMIT_FILE_SIZE";
         return res.status(tooLarge ? 413 : 400).json({
           error: tooLarge
-            ? `Uploads are limited to ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB. Photos are compressed automatically — try re-selecting the file.`
+            ? `Uploads are limited to ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))} MB. Photos are compressed automatically - try re-selecting the file.`
             : err.message || "File upload failed.",
         });
       }

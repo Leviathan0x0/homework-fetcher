@@ -17,7 +17,7 @@ export function friendlyContentError(raw: unknown, fallback = 'Something went wr
     return 'Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.';
   }
   if (lower.includes("doesn't follow school guidelines") || lower.includes('school guidelines')) {
-    return "That message can't be sent — it doesn't follow school guidelines. Keep chats about homework only.";
+    return "That message can't be sent - it doesn't follow school guidelines. Keep chats about homework only.";
   }
   if (lower.includes("couldn't be verified") || lower.includes('could not be verified') || lower.includes("couldn't check")) {
     return "We couldn't check that photo right now. Please try again in a moment.";

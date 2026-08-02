@@ -82,8 +82,8 @@ function defaultViewForUser(account: UserAccount): ViewType {
  *
  * Administrators authenticate against local credentials and teachers use the
  * teacher portal, so neither has an EduSecure diary. Asking for their homework
- * anyway came back as "your school session expired" — for an account that
- * never had one — and offered a reconnect that could only ever be refused.
+ * anyway came back as "your school session expired" - for an account that
+ * never had one - and offered a reconnect that could only ever be refused.
  */
 function usesSchoolPortal(account: UserAccount | null): boolean {
   if (!account) return false;
@@ -99,7 +99,11 @@ export function useHomework() {
 
   const [user, setUser] = useState<UserAccount | null>(initialUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(!initialUser);
+  // The cached account can paint data after validation, but it must not choose
+  // role navigation before the server confirms the current role. With the
+  // session endpoint kept fast, this prevents a stale student/teacher/admin
+  // dock from flashing without bringing back a long startup delay.
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
   const [homework, setHomework] = useState<HomeworkEntry[]>(() => readCachedHomework(initialUser?.id));
 
@@ -157,9 +161,11 @@ export function useHomework() {
         setIsAuthenticated(true);
         setSessionStatus("connected");
         writeJson(CACHED_USER_KEY, currentUser);
-        if (!hasAppliedRoleView.current) {
+        const cachedRoleHome = initialUser ? defaultViewForUser(initialUser) : null;
+        const currentRoleHome = defaultViewForUser(currentUser);
+        if (!hasAppliedRoleView.current || (cachedRoleHome && cachedRoleHome !== currentRoleHome)) {
           hasAppliedRoleView.current = true;
-          setActiveView(defaultViewForUser(currentUser));
+          setActiveView(currentRoleHome);
         }
       } else {
         clearCachedAccount(initialUser?.id);

@@ -2,6 +2,7 @@ const express = require("express");
 const sessionService = require("../auth/sessionService");
 const { fetchProfileFromEduSecure, isUnknownSection, isAdminAccount } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
+const { fetchHomeworkForSession } = require("../edusecure/homeworkService");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken, requireAuth } = require("../auth/requireAuth");
 const { rateLimit } = require("../limits");
@@ -10,7 +11,8 @@ const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
-  isTestTeacherLogin,
+  matchTestTeacherLogin,
+  TEST_TEACHER_MATCH,
   testTeacherUser,
   profileFromEnvironment,
   ensureTeacherProfile,
@@ -95,7 +97,28 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    if (isTestTeacherLogin(cleanStudentId, password)) {
+    const testTeacherMatch = matchTestTeacherLogin(cleanStudentId, password);
+
+    // The demo account owns its username, so answer for it here instead of
+    // letting the request fall through to EduSecure, which would reject the
+    // unknown ID and blame the student's credentials for a server setting.
+    if (testTeacherMatch === TEST_TEACHER_MATCH.DISABLED) {
+      return res.status(503).json({
+        authenticated: false,
+        error:
+          "The demo teacher account is not enabled on this deployment. " +
+          "An administrator needs to configure a password for it before it can be used.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.BAD_PASSWORD) {
+      return res.status(401).json({
+        authenticated: false,
+        error: "Invalid account ID or password.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.OK) {
       const testUser = testTeacherUser();
       const existing = await db
         .select()
@@ -134,14 +157,12 @@ router.post("/login", async (req, res) => {
     }
 
     let sessionCookies;
-    let initialHomework = [];
     try {
       const authResult = await loginToEduSecure(cleanStudentId, password);
       if (typeof authResult === "string") {
         sessionCookies = authResult;
       } else {
         sessionCookies = authResult.sessionCookies;
-        initialHomework = authResult.initialHomework || [];
       }
     } catch (authErr) {
       console.error("EduSecure Auth Error:", authErr && authErr.message ? authErr.message : authErr);
@@ -155,18 +176,12 @@ router.post("/login", async (req, res) => {
         authenticated: false,
         error:
           authErr.code === "portal_unreachable"
-            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again — login needs a live connection to edusecure.in."
+            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again - login needs a live connection to edusecure.in."
             : authErr.message || "The school portal is currently unreachable. Please try again later.",
       });
     }
 
     const user = await sessionService.findOrCreateUser(cleanStudentId);
-
-    if (initialHomework && initialHomework.length > 0) {
-      homeworkCacheService.upsertHomework(user.id, initialHomework).catch((err) => {
-        console.error("Failed to upsert initial homework cache:", err.message);
-      });
-    }
 
     // Storing the school session, minting the app session and reading the
     // profile page are independent of each other. Awaiting them one by one
@@ -180,6 +195,15 @@ router.post("/login", async (req, res) => {
         return null;
       }),
     ]);
+
+    // Fetch and cache initial homework in the background — this no longer
+    // blocks the login response now that the Announcement.aspx verification
+    // round-trip has been removed from loginToEduSecure.
+    fetchHomeworkForSession(sessionCookies)
+      .then((data) => homeworkCacheService.upsertHomework(user.id, data.homework))
+      .catch((err) => {
+        console.error("Failed to prefetch homework cache after login:", err.message);
+      });
 
     res.cookie("app_session", appToken, sessionCookieOptions({
       maxAge: sessionService.SESSION_TTL_MS
@@ -200,10 +224,6 @@ router.post("/login", async (req, res) => {
       };
       if (profile.section) section = profile.section;
       if (profile.displayName) displayName = profile.displayName;
-      await sessionService.updateProfileFields(user.id, {
-        section: profile.section,
-        displayName: profile.displayName,
-      });
       const configuredTeacherIds = String(process.env.EDUSECURE_TEACHER_IDS || "")
         .split(",")
         .map((id) => id.trim().toLowerCase())
@@ -213,14 +233,28 @@ router.post("/login", async (req, res) => {
         configuredTeacherIds.includes(cleanStudentId.toLowerCase());
       if (isVerifiedTeacher) {
         role = "teacher";
-        await db
-          .update(schema.users)
-          .set({ role: "teacher", updatedAt: new Date().toISOString() })
-          .where(eq(schema.users.id, user.id));
-        teacherProfile = await ensureTeacherProfile(user.id, {
-          subjects: profile.subjects,
-          assignedSections: profile.assignedSections.length ? profile.assignedSections : section ? [section] : [],
-          classTeacherSections: profile.classTeacherSections,
+        // Batch the profile update and teacher role DB write in parallel.
+        [, teacherProfile] = await Promise.all([
+          Promise.all([
+            sessionService.updateProfileFields(user.id, {
+              section: profile.section,
+              displayName: profile.displayName,
+            }),
+            db
+              .update(schema.users)
+              .set({ role: "teacher", updatedAt: new Date().toISOString() })
+              .where(eq(schema.users.id, user.id)),
+          ]),
+          ensureTeacherProfile(user.id, {
+            subjects: profile.subjects,
+            assignedSections: profile.assignedSections.length ? profile.assignedSections : section ? [section] : [],
+            classTeacherSections: profile.classTeacherSections,
+          }),
+        ]);
+      } else {
+        await sessionService.updateProfileFields(user.id, {
+          section: profile.section,
+          displayName: profile.displayName,
         });
       }
       await joinClassGroupInBackground({ id: user.id, section }, { force: true });
@@ -256,9 +290,11 @@ router.post("/login", async (req, res) => {
 
 // GET /api/auth/me
 router.get("/me", async (req, res) => {
+  const startedAt = Date.now();
   const activeSession = await getRequestSession(req);
 
   if (!activeSession) {
+    res.setHeader("Server-Timing", `session;dur=${Date.now() - startedAt}`);
     return res.json({
       authenticated: false
     });
@@ -273,40 +309,38 @@ router.get("/me", async (req, res) => {
   const isTeacher =
     activeSession.user.role === "teacher" ||
     activeSession.user.role === "class_teacher";
-  let teacherProfile = null;
-  if (isTeacher) {
-    try {
-      const { getTeacherProfile, normalizeTeacherProfile } = require("../teacher/teacherService");
-      teacherProfile = normalizeTeacherProfile(
-        await getTeacherProfile(activeSession.user.id)
-      );
-    } catch (err) {
-      console.error("Teacher profile refresh failed:", err.message);
-    }
-  }
-
-  if (!isAdmin && isUnknownSection(section)) {
-    try {
-      const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
-      if (eduSession) {
+  // A missing section used to make session validation wait for a live external
+  // school-profile page. That call can take 20 seconds and is not needed to
+  // validate the signed app session or its role. Repair the optional profile in
+  // the background and let the authenticated shell render immediately.
+  if (!isAdmin && !isTeacher && isUnknownSection(section)) {
+    void (async () => {
+      try {
+        const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
+        if (!eduSession) return;
         const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
         const resolvedName = profile.displayName && !displayName ? profile.displayName : null;
         await sessionService.updateProfileFields(activeSession.user.id, {
           section: profile.section,
           displayName: resolvedName,
         });
-        if (profile.section) section = profile.section;
-        if (resolvedName) displayName = resolvedName;
+        if (profile.section) {
+          await joinClassGroupInBackground(
+            { id: activeSession.user.id, section: profile.section },
+            { force: true }
+          );
+        }
+      } catch (err) {
+        console.error("Background profile refresh failed:", err.message);
       }
-    } catch (err) {
-      console.error("Profile refresh failed:", err.message);
-    }
+    })();
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isTeacher && !isUnknownSection(section)) {
     joinClassGroupInBackground({ id: activeSession.user.id, section });
   }
 
+  res.setHeader("Server-Timing", `session;dur=${Date.now() - startedAt}`);
   return res.json({
     authenticated: true,
     user: {
@@ -317,7 +351,7 @@ router.get("/me", async (req, res) => {
       isAdmin,
       isTeacher,
       role: activeSession.user.role || (isAdmin ? "admin" : "student"),
-      teacherProfile,
+      teacherProfile: null,
     }
   });
 });
@@ -360,7 +394,7 @@ router.patch("/profile", async (req, res) => {
 // The school portal ends its own session within minutes, while the app session
 // lasts 30 days, so the normal case is being perfectly signed in here while the
 // scraper has nothing valid to talk to the school with. The password is
-// deliberately never stored, so the only way back is to ask for it again — but
+// deliberately never stored, so the only way back is to ask for it again - but
 // only the password, and without losing the app session, the cached homework or
 // whatever screen the student was on.
 router.post(
@@ -385,14 +419,12 @@ router.post(
     }
 
     let sessionCookies;
-    let initialHomework = [];
     try {
       const authResult = await loginToEduSecure(studentId, password);
       if (typeof authResult === "string") {
         sessionCookies = authResult;
       } else {
         sessionCookies = authResult.sessionCookies;
-        initialHomework = authResult.initialHomework || [];
       }
     } catch (authErr) {
       console.error("Reconnect auth error:", authErr?.message || authErr);
@@ -411,11 +443,13 @@ router.post(
 
     await sessionService.saveEduSecureSession(req.user.id, sessionCookies);
 
-    if (initialHomework.length > 0) {
-      homeworkCacheService.upsertHomework(req.user.id, initialHomework).catch((err) => {
+    // Warm the homework cache in the background after reconnect (same pattern
+    // as the login route — Announcement.aspx is no longer fetched inline).
+    fetchHomeworkForSession(sessionCookies)
+      .then((data) => homeworkCacheService.upsertHomework(req.user.id, data.homework))
+      .catch((err) => {
         console.error("Failed to upsert homework cache after reconnect:", err.message);
       });
-    }
 
     return res.json({ success: true, reconnected: true });
   }

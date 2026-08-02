@@ -98,25 +98,25 @@ export function consumePendingMessageOpen(): PendingMessageOpen | null {
   return pending;
 }
 
-/** Natural first-message draft — request details live in the reply chrome, not the text. */
+/** Natural first-message draft - request details live in the reply chrome, not the text. */
 export function buildHelpPrefill(request: PendingRequestContext): string {
   const title = request.title.trim().replace(/\s+/g, ' ');
   const category = (request.category || '').trim().toLowerCase();
 
   if (category.includes('note')) {
     return title
-      ? `Hey! I can help with “${title}” — want me to share notes or walk you through it?`
-      : `Hey! Happy to help with notes — what do you need?`;
+      ? `Hey! I can help with “${title}”. Want me to share notes or walk you through it?`
+      : `Hey! Happy to help with notes. What do you need?`;
   }
   if (category.includes('homework') || category.includes('hw')) {
     return title
-      ? `Hey! Saw your homework request about “${title}” — I can help. Where are you stuck?`
-      : `Hey! I can help with the homework — where are you stuck?`;
+      ? `Hey! Saw your homework request about “${title}”. I can help. Where are you stuck?`
+      : `Hey! I can help with the homework. Where are you stuck?`;
   }
   if (title) {
-    return `Hey! Saw your request about “${title}” — happy to help. What do you need?`;
+    return `Hey! Saw your request about “${title}”. Happy to help. What do you need?`;
   }
-  return `Hey! Happy to help with your request — what do you need?`;
+  return `Hey! Happy to help with your request. What do you need?`;
 }
 
 export function encodeRequestInMessage(
@@ -143,13 +143,32 @@ export function parseMessageRequestRef(content: string): {
     return { request: null, body: content || '' };
   }
   const end = content.indexOf(REQUEST_CLOSE);
-  if (end < 0) return { request: null, body: content };
+  if (end < 0) {
+    // Older conversation previews were truncated before the closing marker.
+    // Never let that internal transport format leak into the inbox. The title
+    // normally appears near the start of the JSON, so retain a useful preview
+    // when it can be recovered safely.
+    const titleMatch = content.match(/"title"\s*:\s*"((?:\\.|[^"\\])*)"/);
+    let title = '';
+    if (titleMatch) {
+      try {
+        title = JSON.parse(`"${titleMatch[1]}"`);
+      } catch {
+        title = titleMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      }
+    }
+    return {
+      request: title ? { id: 'unknown', title, content: '' } : null,
+      body: title ? `Help request: ${title}` : 'Help request',
+    };
+  }
 
   try {
     const raw = content.slice(REQUEST_OPEN.length, end);
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || typeof parsed.title !== 'string') {
-      return { request: null, body: content };
+      const body = content.slice(end + REQUEST_CLOSE.length).replace(/^\n/, '').trim();
+      return { request: null, body: body || 'Help request' };
     }
     const request: PendingRequestContext = {
       id: typeof parsed.id === 'string' ? parsed.id : 'unknown',
@@ -160,13 +179,22 @@ export function parseMessageRequestRef(content: string): {
     const body = content.slice(end + REQUEST_CLOSE.length).replace(/^\n/, '');
     return { request, body };
   } catch {
-    return { request: null, body: content };
+    const body = content.slice(end + REQUEST_CLOSE.length).replace(/^\n/, '').trim();
+    return { request: null, body: body || 'Help request' };
   }
 }
 
 /** Preview text without the embedded request marker. */
 export function messagePreviewText(content: string, fallback = ''): string {
-  const { body } = parseMessageRequestRef(content);
+  const embeddedAt = content.indexOf(REQUEST_OPEN);
+  if (embeddedAt > 0) {
+    const prefix = content.slice(0, embeddedAt);
+    const nested = messagePreviewText(content.slice(embeddedAt), fallback);
+    return `${prefix}${nested}`.trim();
+  }
+  const { request, body } = parseMessageRequestRef(content);
   const trimmed = body.trim();
-  return trimmed || fallback;
+  if (trimmed) return trimmed;
+  if (request?.title) return `Help request: ${request.title}`;
+  return fallback;
 }

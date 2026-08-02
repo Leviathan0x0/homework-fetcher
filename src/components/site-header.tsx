@@ -17,6 +17,7 @@ import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
 interface SiteHeaderProps {
   activeView: ViewType;
+  role: 'student' | 'teacher' | 'admin';
   theme: ThemeMode;
   onToggleTheme: () => void;
   onRefresh: () => void;
@@ -29,6 +30,7 @@ interface SiteHeaderProps {
 
 export function SiteHeader({
   activeView,
+  role,
   theme,
   onToggleTheme,
   onOpenSettings,
@@ -103,26 +105,29 @@ export function SiteHeader({
     <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-2 border-b border-neutral-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl px-4 lg:px-6 pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sticky top-0 z-20">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1 cursor-pointer" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden sm:inline-flex">
-              <span className="text-xs font-medium text-muted-foreground">Dashboard</span>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden sm:inline-flex" />
-            <BreadcrumbItem>
-              <BreadcrumbPage className="font-semibold text-xs">
-                {getBreadcrumbTitle(activeView)}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div className="hidden items-center gap-2 md:flex">
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden sm:inline-flex">
+                <span className="text-xs font-medium text-muted-foreground">Dashboard</span>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden sm:inline-flex" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-semibold text-xs">
+                  {getBreadcrumbTitle(activeView)}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
         <PWAInstallPrompt variant="button" />
 
         <NotificationPopover
+          role={role}
           unreadCount={unreadCount}
           onNavigate={onNavigate}
           onCountChange={onUnreadCountChange}
@@ -147,7 +152,7 @@ export function SiteHeader({
           onClick={onOpenSettings}
           onMouseEnter={() => setHoveredButton('settings')}
           onMouseLeave={() => setHoveredButton(null)}
-          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
+          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50 max-[350px]:hidden"
           title="Settings"
           aria-label="Settings"
         >

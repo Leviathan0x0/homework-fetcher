@@ -1,4 +1,4 @@
-const { eq } = require("drizzle-orm");
+const { eq, inArray } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 
 const DEFAULT_SETTINGS = {
@@ -14,20 +14,23 @@ const DEFAULT_SETTINGS = {
  */
 async function seedDefaultSettings() {
   const now = new Date().toISOString();
-  for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-    const existing = await db
-      .select()
-      .from(schema.systemSettings)
-      .where(eq(schema.systemSettings.key, key))
-      .get();
+  const keys = Object.keys(DEFAULT_SETTINGS);
 
-    if (!existing) {
-      await db.insert(schema.systemSettings).values({
-        key,
-        value,
-        updatedAt: now,
-      });
-    }
+  // Fetch all existing keys in a single query instead of one per key.
+  const existing = await db
+    .select({ key: schema.systemSettings.key })
+    .from(schema.systemSettings)
+    .where(inArray(schema.systemSettings.key, keys))
+    .all();
+
+  const existingKeys = new Set(existing.map((r) => r.key));
+
+  const toInsert = keys
+    .filter((key) => !existingKeys.has(key))
+    .map((key) => ({ key, value: DEFAULT_SETTINGS[key], updatedAt: now }));
+
+  if (toInsert.length > 0) {
+    await db.insert(schema.systemSettings).values(toInsert);
   }
 }
 

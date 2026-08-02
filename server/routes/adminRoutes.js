@@ -1,7 +1,7 @@
 const express = require("express");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
-const { eq, desc, count, ne, inArray } = require("drizzle-orm");
+const { eq, desc, count, and, inArray } = require("drizzle-orm");
 const {
   DEFAULT_SETTINGS,
   getSetting,
@@ -53,8 +53,8 @@ router.get("/stats", requireAdmin, async (req, res) => {
       alertsRes,
       reportsRes,
     ] = await Promise.all([
-      db.select({ count: count() }).from(schema.users).where(ne(schema.users.studentId, "admin_mmss")).all(),
-      db.select({ count: count() }).from(schema.users).where(eq(schema.users.isMuted, 1)).all(),
+      db.select({ count: count() }).from(schema.users).where(eq(schema.users.role, "student")).all(),
+      db.select({ count: count() }).from(schema.users).where(and(eq(schema.users.role, "student"), eq(schema.users.isMuted, 1))).all(),
       db.select({ count: count() }).from(schema.homework).all(),
       db.select({ count: count() }).from(schema.classworkUploads).all(),
       db.select({ count: count() }).from(schema.broadcastAlerts).where(eq(schema.broadcastAlerts.active, 1)).all(),
@@ -81,10 +81,13 @@ router.get("/stats", requireAdmin, async (req, res) => {
 // GET /api/admin/students
 router.get("/students", requireAdmin, async (req, res) => {
   try {
-    const usersList = await db.select().from(schema.users).all();
+    const usersList = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.role, "student"))
+      .all();
 
     const students = usersList
-      .filter((u) => !isAdminUser(u))
       .map((u) => ({
         id: u.id,
         studentId: u.studentId,
@@ -160,7 +163,7 @@ router.get("/teachers", requireAdmin, async (req, res) => {
     const teacherUsers = await db
       .select()
       .from(schema.users)
-      .where(eq(schema.users.role, "teacher"))
+      .where(inArray(schema.users.role, ["teacher", "class_teacher"]))
       .all();
 
     return res.json({
@@ -179,7 +182,7 @@ router.get("/teachers", requireAdmin, async (req, res) => {
   }
 });
 
-// PUT /api/admin/teachers/:id/profile — assign sections and class-teacher scope
+// PUT /api/admin/teachers/:id/profile - assign sections and class-teacher scope
 router.put("/teachers/:id/profile", requireAdmin, async (req, res) => {
   try {
     const teacher = await db
@@ -198,6 +201,7 @@ router.put("/teachers/:id/profile", requireAdmin, async (req, res) => {
       .set({ role: "teacher", updatedAt: new Date().toISOString() })
       .where(eq(schema.users.id, teacher.id))
       .run();
+    invalidateCachedSessionsForUser(teacher.id);
     return res.json({ success: true, profile });
   } catch (err) {
     console.error("Admin teacher profile error:", err);
@@ -363,7 +367,6 @@ router.post("/reports/resolve", requireAdmin, async (req, res) => {
 // GET /api/admin/settings
 router.get("/settings", requireAdmin, async (req, res) => {
   try {
-    await seedDefaultSettings();
     const settingsList = await db.select().from(schema.systemSettings).all();
     const settingsMap = { ...DEFAULT_SETTINGS };
 
@@ -423,7 +426,7 @@ router.post("/settings", requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/classwork/pending — pending classwork when approval is required
+// GET /api/admin/classwork/pending - pending classwork when approval is required
 router.get("/classwork/pending", requireAdmin, async (req, res) => {
   try {
     const pending = await db

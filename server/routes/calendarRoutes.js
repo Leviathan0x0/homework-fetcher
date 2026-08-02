@@ -19,7 +19,7 @@ async function refreshFromEduSecure(userId) {
   return calendarCacheService.getCachedEvents(userId);
 }
 
-// GET /api/calendar — school holidays & events from EduSecure (cached)
+// GET /api/calendar - school holidays & events from EduSecure (cached)
 router.get("/calendar", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
@@ -44,7 +44,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
       });
     }
 
-    // Empty cache — fetch inline
+    // Empty cache - fetch inline
     try {
       events = await refreshFromEduSecure(userId);
       return res.json({ count: events.length, events, isStale: false });
@@ -70,7 +70,7 @@ router.get("/calendar", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/calendar/refresh — force refresh from EduSecure
+// POST /api/calendar/refresh - force refresh from EduSecure
 router.post("/calendar/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
   try {
@@ -96,7 +96,7 @@ router.post("/calendar/refresh", requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/calendar/:id/selected — pin/unpin a holiday on the calendar
+// PATCH /api/calendar/:id/selected - pin/unpin a holiday on the calendar
 router.patch("/calendar/:id/selected", requireAuth, async (req, res) => {
   const userId = req.user.id;
   const eventId = req.params.id;

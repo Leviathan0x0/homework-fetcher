@@ -55,13 +55,13 @@ function formatFileSize(bytes: number): string {
 function getFileIcon(mimeType: string | null | undefined, filename: string) {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return <ImageIcon className="w-5 h-5 text-indigo-500" />;
+    return <ImageIcon className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
   }
-  if (mimeType === 'application/pdf' || ext === 'pdf') return <FileText className="w-5 h-5 text-rose-500" />;
-  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <FileText className="w-5 h-5 text-blue-500" />;
-  if (ext === 'xls' || ext === 'xlsx' || mimeType?.includes('sheet') || mimeType?.includes('excel')) return <FileSpreadsheet className="w-5 h-5 text-emerald-500" />;
-  if (ext === 'ppt' || ext === 'pptx' || mimeType?.includes('presentation') || mimeType?.includes('powerpoint')) return <Presentation className="w-5 h-5 text-amber-500" />;
-  if (ext === 'txt') return <FileCode className="w-5 h-5 text-neutral-500" />;
+  if (mimeType === 'application/pdf' || ext === 'pdf') return <FileText className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
+  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <FileText className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
+  if (ext === 'xls' || ext === 'xlsx' || mimeType?.includes('sheet') || mimeType?.includes('excel')) return <FileSpreadsheet className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
+  if (ext === 'ppt' || ext === 'pptx' || mimeType?.includes('presentation') || mimeType?.includes('powerpoint')) return <Presentation className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
+  if (ext === 'txt') return <FileCode className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
   return <File className="w-5 h-5 text-neutral-400" />;
 }
 
@@ -215,8 +215,8 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         title="Classwork Uploads"
         description="Access and share today's class notes, slides, and documents with classmates in your section."
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/50 text-xs font-medium">
-            <UserCheck className="w-3 h-3 text-indigo-500" />
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700 text-xs font-medium">
+            <UserCheck className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
             {sectionName}
           </span>
         }
@@ -504,7 +504,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+                <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
                   <UploadCloud className="w-5 h-5" />
                 </div>
                 <div>

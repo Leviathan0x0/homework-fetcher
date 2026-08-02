@@ -167,7 +167,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
               <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
                 The school portal ended its own session, so new homework has stopped arriving. You
-                are still signed in here — reconnect with your school password to start it again.
+                are still signed in here - reconnect with your school password to start it again.
               </p>
               <button
                 type="button"
@@ -390,7 +390,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <li>Open Chrome or Samsung Internet on your Android phone</li>
                     <li>Tap the <strong>Menu icon (⋮)</strong> in the top right corner</li>
                     <li>Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong></li>
-                    <li>Tap <strong>Add</strong> to confirm — the app icon will appear on your home screen</li>
+                    <li>Tap <strong>Add</strong> to confirm - the app icon will appear on your home screen</li>
                   </ol>
                 </div>
               )}
@@ -403,7 +403,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   <ol className="text-xs text-neutral-600 dark:text-neutral-300 space-y-2 list-decimal list-inside pl-1 leading-relaxed">
                     <li>Click the <strong>Share icon</strong> in the search bar / navigation bar (the box with an upward arrow ⎋)</li>
                     <li>Click <strong>View More</strong> (or scroll down the share menu)</li>
-                    <li>Click <strong>Add to Home Screen</strong> (➕)</li>
+                    <li>Click <strong>Add to Home Screen</strong></li>
                     <li>Tap <strong>Add</strong> in the top right corner</li>
                   </ol>
                 </div>

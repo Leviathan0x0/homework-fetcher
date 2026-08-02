@@ -105,6 +105,7 @@ export interface SectionRequest {
   createdAt: string;
   creatorUserId?: string;
   isOwner?: boolean;
+  isSeen?: boolean;
 }
 
 export interface AppNotification {

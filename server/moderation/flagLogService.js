@@ -7,9 +7,10 @@
  */
 
 const crypto = require("crypto");
-const { eq } = require("drizzle-orm");
+const { eq, or } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { isSettingEnabled } = require("../admin/settingsService");
+const { createNotifications } = require("../notifications/notificationService");
 
 const STRIKE_THRESHOLD = 3;
 const MAX_SNIPPET = 160;
@@ -22,6 +23,26 @@ function clipSnippet(text) {
   const t = typeof text === "string" ? text.trim() : "";
   if (!t) return null;
   return t.length > MAX_SNIPPET ? `${t.slice(0, MAX_SNIPPET)}…` : t;
+}
+
+async function notifyAdministrators(title, body, referenceId) {
+  try {
+    const administrators = await db
+      .select({ id: schema.users.id })
+      .from(schema.users)
+      .where(or(eq(schema.users.role, "admin"), eq(schema.users.studentId, "admin_mmss")))
+      .all();
+    await createNotifications(
+      administrators.map((user) => user.id),
+      "new_report",
+      title,
+      body,
+      "admin-reports",
+      referenceId
+    );
+  } catch (err) {
+    console.error("Administrator report notification failed:", err.message);
+  }
 }
 
 /**
@@ -75,10 +96,11 @@ async function recordProfanityStrike({
     return { strikes: nextCount, flagged: false };
   }
 
+  const flagId = crypto.randomUUID();
   await db
     .insert(schema.adminFlagLog)
     .values({
-      id: crypto.randomUUID(),
+      id: flagId,
       type: "strike_threshold",
       userId,
       studentId: studentId || userId,
@@ -91,6 +113,11 @@ async function recordProfanityStrike({
       createdAt: stamped,
     })
     .run();
+  await notifyAdministrators(
+    "Moderation report needs review",
+    `${studentId || "A student"} reached the moderation warning threshold.`,
+    flagId
+  );
 
   // Reset so the next window of 3 can flag again.
   await db
@@ -156,6 +183,11 @@ async function reportConversation({
       createdAt: stamped,
     })
     .run();
+  await notifyAdministrators(
+    "New conversation report",
+    `${reporterStudentId || "A student"} reported a conversation for review.`,
+    id
+  );
 
   return { id, createdAt: stamped };
 }
@@ -168,7 +200,7 @@ async function reportConversation({
 function withStrikeWarning(baseReason, { strikes, flagged }) {
   const base =
     (baseReason || "").trim() ||
-    "That content can’t be sent — it doesn’t follow school guidelines.";
+    "That content can’t be sent - it doesn’t follow school guidelines.";
   if (flagged || strikes >= STRIKE_THRESHOLD) {
     return (
       `${base} This counts as warning ${STRIKE_THRESHOLD} of ${STRIKE_THRESHOLD}. ` +

@@ -91,7 +91,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
               {event.title}
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              No school today — enjoy the break.
+              No school today - enjoy the break.
             </p>
           </div>
         </div>
@@ -126,7 +126,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
                 : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400'
             )}
           >
-            {Number(event.date.slice(8)) || '—'}
+            {Number(event.date.slice(8)) || '-'}
           </span>
           <span className="min-w-0">
             <span

@@ -13,6 +13,7 @@ import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
 import { ClipboardList, MessageSquare, Handshake, Bell, Paperclip, X } from 'lucide-react';
+import { AnimatedIcon } from './ui/animated-icon';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -58,11 +59,11 @@ function readDismissedAlerts(): string[] {
 }
 
 function progressEncouragement(done: number, total: number): string {
-  if (total === 0) return 'Nothing due today — enjoy the quiet.';
-  if (done === 0) return 'Start with one — momentum builds fast.';
+  if (total === 0) return 'Nothing due today - enjoy the quiet.';
+  if (done === 0) return 'Start with one - momentum builds fast.';
   if (done >= total) return 'All done for today. Nice work.';
-  if (done / total >= 0.66) return 'Almost there — keep going.';
-  return 'Keep going — you are making progress.';
+  if (done / total >= 0.66) return 'Almost there - keep going.';
+  return 'Keep going - you are making progress.';
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -170,35 +171,35 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const allDone = !isLoading && totalCount > 0 && doneCount >= totalCount;
 
   const subtitle = isLoading
-    ? 'Loading today’s homework…'
+    ? 'Preparing your dashboard...'
     : hasHolidayToday && totalCount === 0
-      ? 'School holiday today — no homework expected.'
+      ? 'School holiday today. No homework is expected.'
       : hasHolidayToday && totalCount > 0
-        ? `Holiday today — still ${pendingCount} task${pendingCount === 1 ? '' : 's'} left.`
+        ? 'A few assigned tasks still need your attention today.'
         : totalCount === 0
           ? 'No homework assigned for today.'
           : allDone
-            ? `You finished all ${totalCount} homework task${totalCount === 1 ? '' : 's'} for today.`
-            : `You have ${pendingCount} homework task${pendingCount === 1 ? '' : 's'} left today.`;
+            ? 'Everything assigned for today is complete.'
+            : 'Here is your plan for today.';
 
   const glance = [
     {
       key: 'homework',
-      label: pendingCount === 1 ? 'task left' : 'tasks left',
-      value: isLoading ? '—' : String(pendingCount),
+      label: pendingCount === 1 ? 'task' : 'tasks',
+      value: isLoading ? '...' : String(pendingCount),
       icon: ClipboardList,
       onClick: undefined as undefined | (() => void),
     },
     {
       key: 'messages',
-      label: unreadMessages === 1 ? 'unread chat' : 'unread chats',
+      label: unreadMessages === 1 ? 'chat' : 'chats',
       value: String(unreadMessages),
       icon: MessageSquare,
       onClick: onNavigate ? () => onNavigate('messages') : undefined,
     },
     {
       key: 'requests',
-      label: openRequests === 1 ? 'open request' : 'open requests',
+      label: openRequests === 1 ? 'request' : 'requests',
       value: String(openRequests),
       icon: Handshake,
       onClick: onNavigate ? () => onNavigate('requests') : undefined,
@@ -216,7 +217,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <div className="min-w-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-300">
           <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">{dateStr}</p>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
-            <span aria-hidden className="mr-1.5">👋</span>
+            <span
+              aria-hidden
+              className="mr-1.5 [font-family:'Apple_Color_Emoji','Segoe_UI_Emoji','Noto_Color_Emoji',sans-serif]"
+            >
+              👋
+            </span>
             {greeting}, {name}
           </h1>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
@@ -262,30 +268,30 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
       {teacherAssignments.length > 0 && (
         <section
-          className="rounded-2xl border border-sky-200/70 bg-sky-50/60 p-4 shadow-2xs dark:border-sky-900/50 dark:bg-sky-950/20"
+          className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-2xs dark:border-neutral-800 dark:bg-[#141417]"
           aria-label="Teacher assignments"
         >
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold text-sky-950 dark:text-sky-100">From your teachers</h2>
-              <p className="mt-0.5 text-[11px] text-sky-800/70 dark:text-sky-200/70">New assignments shared with your class.</p>
+              <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">From your teachers</h2>
+              <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">New assignments shared with your class.</p>
             </div>
           </div>
           <div className="space-y-2">
             {teacherAssignments.map((assignment) => (
-              <div key={assignment.targetId} className="rounded-xl border border-sky-200/70 bg-white/70 px-3 py-2.5 dark:border-sky-900/50 dark:bg-neutral-950/40">
+              <div key={assignment.targetId} className="rounded-xl border border-neutral-200/80 bg-neutral-50/70 px-3 py-2.5 dark:border-neutral-800 dark:bg-neutral-950/40">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">{assignment.title}</p>
                     <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">{assignment.subject} · due {assignment.dueDate}</p>
                   </div>
-                  <span className="rounded-md bg-sky-500/10 px-2 py-1 text-[10px] font-medium text-sky-700 dark:text-sky-300">{assignment.status}</span>
+                  <span className="rounded-md bg-neutral-200/70 px-2 py-1 text-[10px] font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">{assignment.status}</span>
                 </div>
                 {assignment.attachmentUrl && (
                   assignment.attachmentMimeType?.startsWith('audio/') ? (
                     <audio className="mt-3 w-full" controls src={assignment.attachmentUrl} />
                   ) : (
-                    <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 hover:underline"><Paperclip className="size-3" />{assignment.attachmentFilename || 'Open attachment'}</a>
+                    <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><Paperclip className="size-3" />{assignment.attachmentFilename || 'Open attachment'}</a>
                   )
                 )}
               </div>
@@ -335,19 +341,24 @@ export const TodayView: React.FC<TodayViewProps> = ({
               key={item.key}
               type={interactive ? 'button' : undefined}
               onClick={item.onClick}
+              aria-label={`${item.value} ${item.label}`}
               className={cn(
-                'rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#141417] p-3 text-left shadow-2xs',
+                'flex min-w-0 items-center gap-2 rounded-2xl border border-neutral-200/80 bg-gradient-to-br from-white to-neutral-50/80 p-2.5 text-left shadow-2xs dark:border-neutral-800/80 dark:from-[#18181b] dark:to-[#111113]',
                 interactive &&
-                  'cursor-pointer hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors active:scale-[0.98]'
+                  'cursor-pointer hover:border-neutral-300 dark:hover:border-neutral-700 transition-all active:scale-[0.98]'
               )}
             >
-              <Icon className="w-3.5 h-3.5 text-neutral-400 mb-2" aria-hidden />
-              <p className="text-lg sm:text-xl font-semibold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-50 leading-none">
-                {item.value}
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 leading-snug">
-                {item.label}
-              </p>
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/80 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 max-[359px]:hidden">
+                <AnimatedIcon icon={Icon} preset={item.key === 'messages' ? 'bounce' : item.key === 'requests' ? 'shake' : 'scale'} size={14} />
+              </span>
+              <span className="flex min-w-0 items-baseline gap-1">
+                <span className="text-base sm:text-lg font-semibold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-50 leading-none">
+                  {item.value}
+                </span>
+                <span className="truncate text-[10px] sm:text-[11px] text-neutral-500 dark:text-neutral-400 leading-snug max-[359px]:sr-only">
+                  {item.label}
+                </span>
+              </span>
             </Comp>
           );
         })}
@@ -363,7 +374,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               Today’s Progress
             </h2>
             <p className="text-xs font-semibold tabular-nums text-neutral-600 dark:text-neutral-300">
-              {doneCount}/{totalCount} Done
+              {progressPct}% complete
             </p>
           </div>
           <div
@@ -383,7 +394,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
           <p className="mt-2.5 text-xs text-neutral-500 dark:text-neutral-400">
             {progressEncouragement(doneCount, totalCount)}
-            {doneCount > 0 && doneCount < totalCount ? ' 💪' : allDone ? ' ✨' : ''}
           </p>
         </section>
       )}

@@ -15,7 +15,7 @@ import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { Loader2 } from 'lucide-react';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
 
 type AppRole = 'student' | 'teacher' | 'admin';
@@ -370,12 +370,10 @@ export const AppShell: React.FC = () => {
         />
 
         <Suspense fallback={<ViewFallback />}>
-        <AnimatePresence initial={false} mode="popLayout">
         <motion.main
           key={activeView}
           initial={prefersReducedMotion ? false : { opacity: 0.94, x: isMobile ? 16 : 0 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: isMobile ? -10 : 0 }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             "flex-1 w-full mx-auto min-h-0",
@@ -537,7 +535,6 @@ export const AppShell: React.FC = () => {
             <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
         </motion.main>
-        </AnimatePresence>
         </Suspense>
 
         {!(activeView === 'messages' && isMobileChatOpen) && (

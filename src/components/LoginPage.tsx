@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock, GraduationCap, UserRound } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { cn } from '../utils/cn';
 
 interface LoginPageProps {
@@ -19,7 +20,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginMode, setLoginMode] = useState<'student' | 'teacher'>('student');
+  const [switchDirection, setSwitchDirection] = useState(1);
   const [localError, setLocalError] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
+
+  const handleModeChange = (mode: 'student' | 'teacher') => {
+    if (mode === loginMode) return;
+    setSwitchDirection(mode === 'student' ? 1 : -1);
+    setLoginMode(mode);
+    setLocalError(null);
+    onDismissError();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +101,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   role="tab"
                   aria-selected={loginMode === mode}
                   disabled={isLoading}
-                  onClick={() => setLoginMode(mode)}
+                  onClick={() => handleModeChange(mode)}
                   className={cn(
                     'flex h-8 w-1/2 items-center justify-center gap-1.5 rounded-md text-xs font-medium transition-colors duration-150',
                     loginMode === mode
@@ -113,6 +124,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             )}
 
             <form className="space-y-5" onSubmit={handleSubmit}>
+              <AnimatePresence initial={false} mode="popLayout" custom={switchDirection}>
+              <motion.div
+                key={loginMode}
+                custom={switchDirection}
+                variants={{
+                  enter: (direction: number) => ({
+                    opacity: prefersReducedMotion ? 1 : 0,
+                    x: prefersReducedMotion ? 0 : direction * 20,
+                  }),
+                  center: { opacity: 1, x: 0 },
+                  exit: (direction: number) => ({
+                    opacity: prefersReducedMotion ? 1 : 0,
+                    x: prefersReducedMotion ? 0 : direction * 20,
+                  }),
+                }}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+                className="space-y-5"
+              >
               <div className="space-y-2">
                 <label htmlFor="login-student-id" className="block text-sm font-medium text-[#f5f2eb]/80">
                   {loginMode === 'teacher' ? 'Teacher ID' : 'Student ID'}
@@ -132,7 +164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       'h-12 w-full rounded-xl border border-white/20 bg-black/25 pl-11 pr-4 text-sm text-[#f8f5ee]',
                       'placeholder:text-[#f5f2eb]/35 outline-none transition-[border-color,background-color,box-shadow] duration-150',
                       'hover:border-white/30 hover:bg-black/30',
-                      'focus:border-[#d5bd94]/70 focus:bg-black/35 focus:ring-2 focus:ring-[#d5bd94]/20',
+                      'focus:border-sky-400/80 focus:bg-black/35 focus:ring-2 focus:ring-sky-400/25',
                       'disabled:opacity-50'
                     )}
                   />
@@ -158,20 +190,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       'h-12 w-full rounded-xl border border-white/20 bg-black/25 pl-11 pr-12 text-sm text-[#f8f5ee]',
                       'placeholder:text-[#f5f2eb]/35 outline-none transition-[border-color,background-color,box-shadow] duration-150',
                       'hover:border-white/30 hover:bg-black/30',
-                      'focus:border-[#d5bd94]/70 focus:bg-black/35 focus:ring-2 focus:ring-[#d5bd94]/20',
+                      'focus:border-sky-400/80 focus:bg-black/35 focus:ring-2 focus:ring-sky-400/25',
                       'disabled:opacity-50'
                     )}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#f5f2eb]/50 transition-colors hover:text-[#f8f5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d5bd94]/50 cursor-pointer"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#f5f2eb]/50 transition-colors hover:text-[#f8f5ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 cursor-pointer"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
+              </motion.div>
+              </AnimatePresence>
 
               <button
                 type="submit"
@@ -200,7 +234,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </form>
 
             <p className="mt-6 text-xs leading-relaxed text-[#f5f2eb]/50">
-              Sign-in may take a few seconds while your account is verified.
+              Your session is securely verified before the portal opens.
             </p>
           </div>
         </section>

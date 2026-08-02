@@ -12,7 +12,7 @@ const INSTALLED_KEY = 'pwa_installed_v5';
 const DELAY_START_KEY = 'pwa_banner_delay_started_at_v1';
 /** Soft-dismiss: show again after 3 days. */
 const DISMISS_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-/** Don’t interrupt the first glance — wait a bit after load. */
+/** Don’t interrupt the first glance - wait a bit after load. */
 const BANNER_DELAY_MS = 12_000;
 
 function wasDismissedRecently(): boolean {
@@ -192,18 +192,19 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   if (variant === 'button') {
     return (
       <>
-        <div className="inline-flex items-center rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-2xs border border-neutral-800 dark:border-neutral-200 overflow-hidden text-xs font-semibold shrink-0 whitespace-nowrap">
+        <div className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold">
           <button
             onClick={handleInstallClick}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 hover:opacity-90 active:opacity-80 transition-opacity cursor-pointer touch-manipulation whitespace-nowrap shrink-0"
+            className="inline-flex shrink-0 touch-manipulation items-center gap-1.5 whitespace-nowrap rounded-xl border border-neutral-800 bg-neutral-900 px-2.5 py-1.5 text-white shadow-2xs transition-opacity hover:opacity-90 active:opacity-80 dark:border-neutral-200 dark:bg-white dark:text-neutral-900 sm:px-3"
             title="Install MMSS Mohali App"
+            aria-label="Install MMSS Mohali App"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
-            <span className="whitespace-nowrap">Install App</span>
+            <span className="whitespace-nowrap max-[350px]:sr-only">Install</span>
           </button>
           <button
             onClick={handleDismiss}
-            className="px-2 py-1.5 hover:opacity-90 active:opacity-80 text-white/70 dark:text-neutral-500 hover:text-white dark:hover:text-neutral-900 border-l border-white/20 dark:border-neutral-300 transition-opacity cursor-pointer touch-manipulation shrink-0"
+            className="inline-flex size-8 shrink-0 touch-manipulation items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 shadow-2xs transition-colors hover:bg-neutral-100 hover:text-neutral-900 active:opacity-80 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
             title="Dismiss install button"
             aria-label="Dismiss install button"
           >
@@ -223,7 +224,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
           <span className="font-medium text-neutral-800 dark:text-neutral-200">Install the app</span>
           <span className="text-neutral-500 dark:text-neutral-500">
             {' '}
-            — faster access, works offline.
+            - faster access, works offline.
           </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">

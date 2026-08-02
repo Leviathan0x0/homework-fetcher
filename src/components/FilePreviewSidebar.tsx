@@ -190,7 +190,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
           ) : (
             <div className="w-full max-w-md p-8 rounded-3xl bg-white/80 dark:bg-[#18181c]/80 border border-white/60 dark:border-white/10 backdrop-blur-xl text-center space-y-4 shadow-lg my-auto">
               <div className="w-14 h-14 rounded-3xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 mx-auto">
-                <FileText className="w-7 h-7 text-amber-500" />
+                <FileText className="w-7 h-7 text-neutral-500 dark:text-neutral-400" />
               </div>
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">{fileName}</h4>

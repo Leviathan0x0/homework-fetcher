@@ -6,7 +6,7 @@ import { cn } from '../utils/cn';
 interface AuthenticatedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError' | 'onLoad'> {
   /** API path or absolute URL that requires the session cookie. */
   src: string;
-  /** Decorative by default — never use the filename as visible fallback text. */
+  /** Decorative by default - never use the filename as visible fallback text. */
   alt?: string;
   fallbackClassName?: string;
   onReady?: () => void;
@@ -22,7 +22,7 @@ type ImageLoadState = {
 /**
  * Loads protected upload URLs with credentials and renders via a blob URL.
  * Plain <img src="/api/..."> breaks after refresh when the cookie-gated file
- * endpoint returns 401/404 JSON — the browser then shows the alt filename.
+ * endpoint returns 401/404 JSON - the browser then shows the alt filename.
  */
 export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   src,
@@ -73,7 +73,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
           ownedUrl = null;
           return;
         }
-        // Hand ownership to React state — effect cleanup must not revoke this URL.
+        // Hand ownership to React state - effect cleanup must not revoke this URL.
         ownedUrl = null;
         setLoadState({ src, status: 'ready', objectUrl });
       } catch {

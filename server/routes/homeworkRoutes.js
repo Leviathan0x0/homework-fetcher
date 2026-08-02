@@ -59,7 +59,7 @@ router.get("/homework", requireAuth, async (req, res) => {
   }
 
   // 1. Retrieve cached homework from SQLite, check staleness and load the
-  // school session in the same breath — they are independent reads, so waiting
+  // school session in the same breath - they are independent reads, so waiting
   // on them one after the other multiplies the latency of every cache hit.
   let cachedHomework;
   let cacheStale = true;
@@ -96,7 +96,7 @@ router.get("/homework", requireAuth, async (req, res) => {
       isStale: cacheStale,
       isRefreshing: false,
       // Cached homework still renders, but without this the app had no way to
-      // tell that nothing new can arrive until the student reconnects — it just
+      // tell that nothing new can arrive until the student reconnects - it just
       // kept showing the same list indefinitely.
       schoolSessionExpired: !hasSchoolSession,
     });

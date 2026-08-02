@@ -13,13 +13,15 @@ import { MobileNavigation } from './MobileNavigation';
 import { TodayView } from './TodayView';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
-import { isTodayDate } from '../utils/dateUtils';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { Loader2 } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
 
-// Only the landing view ships in the first bundle. The rest — including the
-// chat client, the charting admin/teacher portals and the file preview — is
+type AppRole = 'student' | 'teacher' | 'admin';
+
+// Only the landing view ships in the first bundle. The rest - including the
+// chat client, the charting admin/teacher portals and the file preview - is
 // fetched the first time a student actually opens that screen, which keeps the
 // startup download (and every subsequent interaction) small.
 const CalendarView = lazy(() => import('./CalendarView').then((m) => ({ default: m.CalendarView })));
@@ -84,9 +86,28 @@ export const AppShell: React.FC = () => {
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [messagesUnread, setMessagesUnread] = useState(0);
-  const [openRequestsCount, setOpenRequestsCount] = useState(0);
+  const [unseenRequestsCount, setUnseenRequestsCount] = useState(0);
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const viewBeforeSettings = useRef<typeof activeView>('today');
+  const activeViewRef = useRef(activeView);
+  const prefersReducedMotion = useReducedMotion();
+
+  const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin' || user?.studentId === 'admin_mmss');
+  const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
+  const appRole: AppRole = isAdmin ? 'admin' : isTeacher ? 'teacher' : 'student';
+  const roleHome: ViewType = isAdmin ? 'admin-overview' : isTeacher ? 'teacher-overview' : 'today';
+  const portalPath = isAdmin ? '/admin' : isTeacher ? '/teacher' : '/student';
+
+  const isViewAllowed = useCallback((view: ViewType) => {
+    if (view === 'settings' || view === 'developers') return true;
+    if (isAdmin) return view.startsWith('admin-');
+    if (isTeacher) return view.startsWith('teacher-') || view === 'messages';
+    return !view.startsWith('admin-') && !view.startsWith('teacher-');
+  }, [isAdmin, isTeacher]);
+
+  useEffect(() => {
+    activeViewRef.current = activeView;
+  }, [activeView]);
 
   useEffect(() => {
     const handleActiveConv = (e: Event) => {
@@ -99,6 +120,11 @@ export const AppShell: React.FC = () => {
 
   const refreshGlanceCounts = useCallback(async () => {
     if (!user) return;
+    if (appRole !== 'student') {
+      setMessagesUnread(0);
+      setUnseenRequestsCount(0);
+      return;
+    }
     try {
       const [convs, reqs] = await Promise.all([
         messagingService.getConversations(user.studentId),
@@ -109,11 +135,23 @@ export const AppShell: React.FC = () => {
         (c: { unreadCount?: number }) => (c.unreadCount || 0) > 0
       ).length;
       setMessagesUnread(unreadChats);
-      setOpenRequestsCount((reqs || []).filter((r: { status?: string }) => r.status === 'open').length);
+      const unseenRequests = (reqs || []).filter(
+        (r: { status?: string; isOwner?: boolean; isSeen?: boolean }) =>
+          r.status === 'open' && !r.isOwner && r.isSeen === false
+      );
+      if (activeViewRef.current === 'requests') {
+        setUnseenRequestsCount(0);
+        requestService.markSeen(unseenRequests.map((request: { id: string }) => request.id)).then(() => {
+          window.dispatchEvent(new CustomEvent('requests_seen_changed'));
+          window.dispatchEvent(new CustomEvent('notifications_unread_changed'));
+        }).catch(() => {});
+      } else {
+        setUnseenRequestsCount(unseenRequests.length);
+      }
     } catch {
       // Glance counts are best-effort.
     }
-  }, [user]);
+  }, [user, appRole]);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -122,21 +160,22 @@ export const AppShell: React.FC = () => {
       if (document.visibilityState === 'visible') refreshGlanceCounts();
     }, 20000);
     const onUnreadChanged = () => refreshGlanceCounts();
+    const onRequestsSeen = () => setUnseenRequestsCount(0);
     window.addEventListener('messages_unread_changed', onUnreadChanged);
+    window.addEventListener('requests_seen_changed', onRequestsSeen);
     return () => {
       window.clearInterval(id);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
+      window.removeEventListener('requests_seen_changed', onRequestsSeen);
     };
     // Deliberately not keyed on activeView: the badge counts are the same on
     // every screen, and re-running this on navigation made each click wait for
     // two network requests before the new view could settle.
   }, [isAuthenticated, user, refreshGlanceCounts]);
 
-  const todayCount = homework.filter((item) => isTodayDate(item.date)).length;
-
   useKeyboardShortcuts({
     onSearchFocus: () => {
-      if (!isAuthenticated) return;
+      if (!isAuthenticated || appRole !== 'student') return;
       setActiveView('all');
       setTimeout(() => {
         const searchInput = document.querySelector('input[type="search"]') as HTMLInputElement;
@@ -144,10 +183,10 @@ export const AppShell: React.FC = () => {
       }, 50);
     },
     onRefresh: () => {
-      if (isAuthenticated) fetchHomework(true);
+      if (isAuthenticated && appRole === 'student') fetchHomework(true);
     },
     onViewChange: (view) => {
-      if (isAuthenticated) setActiveView(view);
+      if (isAuthenticated && isViewAllowed(view)) setActiveView(view);
     },
   });
 
@@ -165,13 +204,16 @@ export const AppShell: React.FC = () => {
   };
 
   function handleViewChange(view: typeof activeView) {
-    if (view.startsWith('admin-') && !isAdmin) {
-      setActiveView('today');
+    if (!isViewAllowed(view)) {
+      setActiveView(roleHome);
       return;
     }
-    if (view.startsWith('teacher-') && !isTeacher) {
-      setActiveView('today');
-      return;
+    if (view === 'requests') {
+      setUnseenRequestsCount(0);
+      requestService.markSeen().then(() => {
+        window.dispatchEvent(new CustomEvent('requests_seen_changed'));
+        window.dispatchEvent(new CustomEvent('notifications_unread_changed'));
+      }).catch(() => {});
     }
     if (view === 'settings') {
       if (isMobile) {
@@ -195,10 +237,6 @@ export const AppShell: React.FC = () => {
     setIsSettingsOpen(true);
   }, [isMobile, activeView]);
 
-  const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss');
-  const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
-  const portalPath = isAdmin ? '/admin' : isTeacher ? '/teacher' : '/student';
-
   useEffect(() => {
     if (isAuthChecking || isAuthenticated) return;
     const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
@@ -215,16 +253,10 @@ export const AppShell: React.FC = () => {
         window.history.replaceState({}, '', portalPath);
       }
     }
-    if (isAdmin && !activeView.startsWith('admin-') && activeView !== 'settings' && activeView !== 'developers') {
-      setActiveView('admin-overview');
+    if (!isViewAllowed(activeView)) {
+      setActiveView(roleHome);
     }
-    if (isTeacher && !activeView.startsWith('teacher-') && activeView !== 'settings' && activeView !== 'developers') {
-      setActiveView('teacher-overview');
-    }
-    if (!isAdmin && !isTeacher && (activeView.startsWith('admin-') || activeView.startsWith('teacher-'))) {
-      setActiveView('today');
-    }
-  }, [isAdmin, isTeacher, portalPath, activeView, isAuthenticated, isAuthChecking, user, setActiveView]);
+  }, [portalPath, activeView, isAuthenticated, isAuthChecking, user, setActiveView, isViewAllowed, roleHome]);
 
   const handleOpenPreview = (url: string, filename?: string) => {
     setPreviewFileUrl(url);
@@ -237,15 +269,11 @@ export const AppShell: React.FC = () => {
   };
 
   const handleNavigate = useCallback((view: string) => {
-    if (view.startsWith('admin-') && !isAdmin) {
-      setActiveView('today');
-      return;
-    }
-    if (view.startsWith('teacher-') && !isTeacher) {
-      setActiveView('today');
-      return;
-    }
     if (view.startsWith('messages:')) {
+      if (!isViewAllowed('messages')) {
+        setActiveView(roleHome);
+        return;
+      }
       const targetConvId = view.slice('messages:'.length).trim();
       if (targetConvId) {
         setPendingMessageOpen({ conversationId: targetConvId });
@@ -262,8 +290,8 @@ export const AppShell: React.FC = () => {
       }
       return;
     }
-    setActiveView(view as any);
-  }, [isAdmin, isTeacher, setActiveView]);
+    handleViewChange(view as ViewType);
+  }, [isViewAllowed, roleHome, setActiveView, handleViewChange]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -280,9 +308,11 @@ export const AppShell: React.FC = () => {
     }, 20000);
     const onUnreadChanged = () => fetchUnreadCount();
     window.addEventListener('messages_unread_changed', onUnreadChanged);
+    window.addEventListener('notifications_unread_changed', onUnreadChanged);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
+      window.removeEventListener('notifications_unread_changed', onUnreadChanged);
     };
   }, [isAuthenticated, fetchUnreadCount]);
 
@@ -318,7 +348,6 @@ export const AppShell: React.FC = () => {
       <AppSidebar
         activeView={activeView}
         onViewChange={handleViewChange}
-        todayCount={todayCount}
         user={user}
         sessionStatus={sessionStatus}
         onLogout={logout}
@@ -329,6 +358,7 @@ export const AppShell: React.FC = () => {
       <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-dvh max-h-dvh overflow-hidden flex flex-col")}>
         <SiteHeader
           activeView={activeView}
+          role={appRole}
           theme={resolvedTheme}
           onToggleTheme={toggleTheme}
           onRefresh={() => fetchHomework(true)}
@@ -340,12 +370,20 @@ export const AppShell: React.FC = () => {
         />
 
         <Suspense fallback={<ViewFallback />}>
-        <div className={cn(
-          "flex-1 w-full mx-auto min-h-0",
-          activeView === 'messages'
-            ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
-            : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
-        )}>
+        <AnimatePresence initial={false} mode="popLayout">
+        <motion.main
+          key={activeView}
+          initial={prefersReducedMotion ? false : { opacity: 0.94, x: isMobile ? 16 : 0 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={prefersReducedMotion ? { opacity: 1 } : { opacity: 0, x: isMobile ? -10 : 0 }}
+          transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+          className={cn(
+            "flex-1 w-full mx-auto min-h-0",
+            activeView === 'messages'
+              ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
+              : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
+          )}
+        >
           {errorMessage && (
             <ErrorBanner
               message={errorMessage}
@@ -374,7 +412,7 @@ export const AppShell: React.FC = () => {
               displayName={user?.displayName}
               studentId={user?.studentId}
               unreadMessages={messagesUnread}
-              openRequests={openRequestsCount}
+              openRequests={unseenRequestsCount}
               onNavigate={(view: ViewType) => handleViewChange(view)}
             />
           )}
@@ -395,7 +433,7 @@ export const AppShell: React.FC = () => {
 
           {activeView === 'messages' && (
             <div className="flex-1 min-h-0">
-              <MessagesView userSection={user?.section} />
+              <MessagesView userSection={user?.section} currentStudentId={user?.studentId} />
             </div>
           )}
 
@@ -498,15 +536,17 @@ export const AppShell: React.FC = () => {
           {activeView.startsWith('teacher-') && (
             <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
-        </div>
+        </motion.main>
+        </AnimatePresence>
         </Suspense>
 
         {!(activeView === 'messages' && isMobileChatOpen) && (
           <MobileNavigation
             activeView={activeView}
             onViewChange={handleViewChange}
+            role={appRole}
             messagesUnread={messagesUnread}
-            openRequests={openRequestsCount}
+            openRequests={unseenRequestsCount}
           />
         )}
 

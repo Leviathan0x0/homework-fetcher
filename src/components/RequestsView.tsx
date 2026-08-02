@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { requestService, authService } from '../services/api';
+import { requestService } from '../services/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
@@ -58,6 +58,10 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     try {
       const list = await requestService.getRequests(userSection);
       setRequests(list as any);
+      requestService.markSeen().then(() => {
+        window.dispatchEvent(new CustomEvent('requests_seen_changed'));
+        window.dispatchEvent(new CustomEvent('notifications_unread_changed'));
+      }).catch(() => {});
     } catch (err: any) {
       setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load requests.');
     } finally {
@@ -75,11 +79,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
 
     setIsSubmitting(true);
     try {
-      const user = await authService.getCurrentUser();
       const newReq = await requestService.createRequest(
-        user?.id || 'anon',
-        user?.studentId || 'Student',
-        userSection || '',
         formTitle.trim(),
         formContent.trim(),
         formCategory
@@ -277,12 +277,23 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
           isLoading && requests.length > 0 && 'opacity-60'
         )}>
           {filtered.map((item) => (
-            <div key={item.id} className={cn(
+            <div
+              key={item.id}
+              onClickCapture={() => {
+                if (!item.isSeen) {
+                  requestService.markSeen([item.id]).then(() => {
+                    window.dispatchEvent(new CustomEvent('requests_seen_changed'));
+                    window.dispatchEvent(new CustomEvent('notifications_unread_changed'));
+                  }).catch(() => {});
+                }
+              }}
+              className={cn(
               'group relative rounded-2xl border bg-white dark:bg-[#141417] p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-xs',
               item.status === 'completed'
                 ? 'border-emerald-200/60 dark:border-emerald-800/40 opacity-70'
                 : 'border-neutral-200/80 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700'
-            )}>
+              )}
+            >
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">

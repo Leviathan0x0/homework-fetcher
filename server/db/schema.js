@@ -276,7 +276,7 @@ const moderationStrikes = sqliteTable(
 
 /**
  * Staff-facing log. Written when a student hits 3 vulgar blocks, or when a
- * student reports a conversation. No teacher UI yet — query this table later.
+ * student reports a conversation. No teacher UI yet - query this table later.
  */
 const adminFlagLog = sqliteTable(
   "admin_flag_log",

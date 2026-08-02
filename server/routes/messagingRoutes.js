@@ -26,6 +26,35 @@ const { isUnknownSection } = require("../auth/sessionService");
 
 const router = express.Router();
 
+const REQUEST_OPEN = "⟦hf-request⟧";
+const REQUEST_CLOSE = "⟦/hf-request⟧";
+
+/** Removes request-reference transport metadata before text reaches a preview. */
+function messagePreviewText(content) {
+  const text = String(content || "");
+  if (!text.startsWith(REQUEST_OPEN)) return text;
+
+  const end = text.indexOf(REQUEST_CLOSE);
+  if (end >= 0) {
+    const body = text.slice(end + REQUEST_CLOSE.length).replace(/^\n/, "").trim();
+    if (body) return body;
+    try {
+      const request = JSON.parse(text.slice(REQUEST_OPEN.length, end));
+      return request?.title ? `Help request: ${request.title}` : "Help request";
+    } catch {
+      return "Help request";
+    }
+  }
+
+  const titleMatch = text.match(/"title"\s*:\s*"((?:\\.|[^"\\])*)"/);
+  if (!titleMatch) return "Help request";
+  try {
+    return `Help request: ${JSON.parse(`"${titleMatch[1]}"`)}`;
+  } catch {
+    return "Help request";
+  }
+}
+
 
 async function isParticipant(conversationId, userId) {
   const row = await db
@@ -263,7 +292,7 @@ router.get("/conversations", requireAuth, async (req, res) => {
         otherUser: c.type === "section" ? null : toPublicUser(otherByConv[c.id]),
         section: c.section || null,
         memberCount: memberCountByConv[c.id] || 0,
-        lastMessagePreview: c.lastMessagePreview || null,
+        lastMessagePreview: c.lastMessagePreview ? messagePreviewText(c.lastMessagePreview) : null,
         lastMessageAt: c.lastMessageAt || c.createdAt,
         unreadCount: unreadByConv[c.id] || 0,
         muted: !!participation?.muted,
@@ -353,7 +382,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
     if (!otherUser) return res.status(404).json({ error: "User not found." });
 
     // Existing 1:1 DMs never need the monitoring notice again.
-    // Do NOT match section class-group threads — every classmate is a participant there.
+    // Do NOT match section class-group threads - every classmate is a participant there.
     const existing = await db
       .select({ conversationId: schema.conversationParticipants.conversationId })
       .from(schema.conversationParticipants)
@@ -720,7 +749,9 @@ router.post(
           .run();
       }
 
-      const previewText = req.file ? `[Attachment] ${originalFilename}` : trimmed.substring(0, 80);
+      const previewText = req.file
+        ? `[Attachment] ${originalFilename}`
+        : messagePreviewText(trimmed).substring(0, 80);
 
       await db.update(schema.conversations)
         .set({
@@ -737,7 +768,7 @@ router.post(
         .where(eq(schema.conversationParticipants.conversationId, convId))
         .all();
 
-      // Skip muted recipients — mute means no notification, unread still updates in inbox.
+      // Skip muted recipients - mute means no notification, unread still updates in inbox.
       const otherUserIds = participants
         .filter((p) => p.userId !== req.user.id && !p.muted)
         .map((p) => p.userId);
@@ -947,7 +978,7 @@ router.post(
 
       return res.status(201).json({
         success: true,
-        message: "Thanks — this chat was reported for school review.",
+        message: "Thanks - this chat was reported for school review.",
         id: result.id,
       });
     } catch (err) {

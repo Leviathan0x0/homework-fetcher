@@ -1,15 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { notificationService, authService } from '../services/api';
+import { notificationService } from '../services/api';
 import { AppNotification } from '../types/homework';
-import { CheckCheck, Loader2 } from 'lucide-react';
+import {
+  BookOpenCheck,
+  CheckCheck,
+  ClipboardCheck,
+  FileUp,
+  Flag,
+  Inbox,
+  Loader2,
+  Megaphone,
+  ShieldCheck,
+  UserCog,
+} from 'lucide-react';
 import { BellIcon } from '@/components/ui/bell';
-import { UploadIcon } from '@/components/ui/upload';
 import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
 import { MessageSquareIcon } from '@/components/ui/message-square';
 import { cn } from '../utils/cn';
 import { formatChatListTime } from '../utils/dateUtils';
+import { messagePreviewText } from '../utils/pendingMessageOpen';
 
 interface NotificationPopoverProps {
+  role: 'student' | 'teacher' | 'admin';
   unreadCount: number;
   onNavigate: (view: string) => void;
   onCountChange: (count: number) => void;
@@ -18,15 +30,51 @@ interface NotificationPopoverProps {
 function getNotifIcon(type: string) {
   switch (type) {
     case 'new_classwork':
-      return <UploadIcon size={16} className="text-indigo-500" />;
+      return <FileUp className="size-4" />;
     case 'new_request':
-      return <HeartHandshakeIcon size={16} className="text-amber-500" />;
+      return <HeartHandshakeIcon size={16} />;
     case 'new_message':
-      return <MessageSquareIcon size={16} className="text-emerald-500" />;
+      return <MessageSquareIcon size={16} />;
+    case 'teacher_assignment':
+    case 'new_homework':
+    case 'homework_updated':
+      return <BookOpenCheck className="size-4" />;
+    case 'teacher_announcement':
+      return <Megaphone className="size-4" />;
+    case 'new_submission':
+    case 'submission_updated':
+      return <ClipboardCheck className="size-4" />;
+    case 'new_report':
+    case 'moderation_event':
+      return <Flag className="size-4" />;
+    case 'account_activity':
+    case 'role_updated':
+      return <UserCog className="size-4" />;
     default:
-      return <BellIcon size={16} className="text-neutral-500" />;
+      return <Inbox className="size-4" />;
   }
 }
+
+const roleCopy = {
+  student: {
+    heading: 'Student updates',
+    emptyTitle: "You're all caught up",
+    emptyBody: 'Homework, announcements, uploads, help requests, and school notices will appear here.',
+    EmptyIcon: BookOpenCheck,
+  },
+  teacher: {
+    heading: 'Teacher updates',
+    emptyTitle: 'No teacher updates',
+    emptyBody: 'Help requests, submissions, class activity, and staff notices will appear here.',
+    EmptyIcon: ClipboardCheck,
+  },
+  admin: {
+    heading: 'Administrator updates',
+    emptyTitle: 'No administrator alerts',
+    emptyBody: 'Reports, account changes, moderation events, and platform notices will appear here.',
+    EmptyIcon: ShieldCheck,
+  },
+} as const;
 
 function resolveNavigateTarget(n: AppNotification): string | null {
   if (n.type === 'new_message') {
@@ -44,6 +92,7 @@ function resolveNavigateTarget(n: AppNotification): string | null {
 }
 
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
+  role,
   unreadCount,
   onNavigate,
   onCountChange,
@@ -56,18 +105,11 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setIsLoading(true);
-    authService.getCurrentUser().then((user) => {
-      if (!user) {
-        setNotifications([]);
-        setIsLoading(false);
-        return;
-      }
-      notificationService
-        .getNotifications(user.id)
-        .then((list) => setNotifications(list))
-        .catch(() => setNotifications([]))
-        .finally(() => setIsLoading(false));
-    });
+    notificationService
+      .getNotifications()
+      .then((list) => setNotifications(list))
+      .catch(() => setNotifications([]))
+      .finally(() => setIsLoading(false));
   }, [isOpen]);
 
   useEffect(() => {
@@ -92,10 +134,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
   const handleMarkAllRead = async () => {
     try {
-      const user = await authService.getCurrentUser();
-      if (user) {
-        await notificationService.markAllAsRead(user.id);
-      }
+      await notificationService.markAllAsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: 1 })));
       onCountChange(0);
     } catch {
@@ -111,6 +150,8 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   };
 
   const unread = notifications.filter((n) => !n.isRead).length;
+  const copy = roleCopy[role];
+  const EmptyIcon = copy.EmptyIcon;
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -131,7 +172,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
       {isOpen && (
         <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] shadow-2xl z-50 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-200">
           <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200/80 dark:border-neutral-800/80">
-            <h3 className="text-xs font-bold text-neutral-900 dark:text-neutral-100">Notifications</h3>
+            <h3 className="text-xs font-bold text-neutral-900 dark:text-neutral-100">{copy.heading}</h3>
             {unread > 0 && (
               <button
                 onClick={handleMarkAllRead}
@@ -149,11 +190,13 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center px-4">
-                <BellIcon size={32} className="text-neutral-300 dark:text-neutral-600 mb-2" />
-                <p className="text-xs text-neutral-500">No notifications yet</p>
-                <p className="text-[11px] text-neutral-400 mt-1 max-w-[16rem] leading-relaxed">
-                  New messages, classwork, and requests will show up here.
+              <div className="flex flex-col items-center justify-center px-5 py-6 text-center">
+                <div className="mb-2 flex size-8 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                  <EmptyIcon className="size-4" />
+                </div>
+                <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{copy.emptyTitle}</p>
+                <p className="text-[11px] text-neutral-400 mt-1 max-w-[17rem] leading-relaxed">
+                  {copy.emptyBody}
                 </p>
               </div>
             ) : (
@@ -167,7 +210,9 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                       !n.isRead && 'bg-neutral-50/60 dark:bg-neutral-900/30'
                     )}
                   >
-                    <div className="mt-0.5 shrink-0">{getNotifIcon(n.type)}</div>
+                    <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                      {getNotifIcon(n.type)}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <p
@@ -178,7 +223,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                               : 'font-medium text-neutral-600 dark:text-neutral-400'
                           )}
                         >
-                          {n.title}
+                          {messagePreviewText(n.title, 'Notification')}
                         </p>
                         {!n.isRead && (
                           <span className="w-2 h-2 rounded-full bg-neutral-900 dark:bg-white shrink-0" />
@@ -186,7 +231,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                       </div>
                       {n.body && (
                         <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-0.5 line-clamp-2">
-                          {n.body}
+                          {messagePreviewText(n.body, 'Open this notification for details')}
                         </p>
                       )}
                       <p className="text-[10px] text-neutral-400 mt-1">

@@ -133,7 +133,7 @@ function requestApi(path: string, init: RequestInit): Promise<Response> {
         throw new Error("The server took too long to respond. Check your connection and try again.");
       }
       const reason = err instanceof Error ? err.message : String(err);
-      // Browser TypeError is usually just "Failed to fetch" — make it actionable.
+      // Browser TypeError is usually just "Failed to fetch" - make it actionable.
       if (/failed to fetch|networkerror|load failed|network request failed/i.test(reason)) {
         throw new Error(
           API_BASE_URL

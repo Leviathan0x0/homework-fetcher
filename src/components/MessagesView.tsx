@@ -1188,9 +1188,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                       userLabel(conv.otherUser).charAt(0).toUpperCase()
                     )}
                   </div>
-                  <div className="flex-1 min-w-0 transition-transform duration-200 ease-out group-hover/conv:-translate-x-7 group-focus-within/conv:-translate-x-7 motion-reduce:transform-none">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
-                      <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
                         <span
                           className={cn(
                             'text-[13px] truncate',
@@ -1205,11 +1205,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                           <BellOff className="w-3 h-3 text-neutral-400 shrink-0" />
                         )}
                       </div>
-                      {conv.lastMessageAt && (
-                        <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
-                          {formatChatListTime(conv.lastMessageAt)}
-                        </span>
-                      )}
+                      <div className="shrink-0 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
+                        {conv.lastMessageAt && (
+                          <span className="text-[10px] text-neutral-400 tabular-nums">
+                            {formatChatListTime(conv.lastMessageAt)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <p
@@ -1224,21 +1226,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                           ? (messagePreviewText(conv.lastMessagePreview || '', `${conv.memberCount || 0} classmates`))
                           : (messagePreviewText(conv.lastMessagePreview || '', 'No messages yet'))}
                       </p>
-                      {conv.type === 'section' && conv.memberCount ? (
-                        <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
-                          {conv.memberCount}
-                        </span>
-                      ) : null}
-                      {!isUnknownSection(conv.otherUser?.section) && conv.otherUser?.section && (
-                        <span className="text-[10px] text-neutral-400 shrink-0">
-                          {conv.otherUser.section}
-                        </span>
-                      )}
-                      {unread && (
-                        <span className="min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-[9px] font-bold flex items-center justify-center tabular-nums shrink-0">
-                          {conv.unreadCount! > 9 ? '9+' : conv.unreadCount}
-                        </span>
-                      )}
+                      <div className="flex shrink-0 items-center gap-2 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
+                        {conv.type === 'section' && conv.memberCount ? (
+                          <span className="text-[10px] text-neutral-400 tabular-nums">
+                            {conv.memberCount}
+                          </span>
+                        ) : null}
+                        {!isUnknownSection(conv.otherUser?.section) && conv.otherUser?.section && (
+                          <span className="text-[10px] text-neutral-400">
+                            {conv.otherUser.section}
+                          </span>
+                        )}
+                        {unread && (
+                          <span className="flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-bold tabular-nums text-white dark:bg-white dark:text-neutral-900">
+                            {conv.unreadCount! > 9 ? '9+' : conv.unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </button>

@@ -193,32 +193,14 @@ async function loginToEduSecure(studentId, password) {
         continue;
       }
 
-      const finalCookieString = mapToCookieString(trialCookieMap);
-
-      // Verify authentication by fetching Announcement.aspx
-      const verifyRes = await portalFetch("https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework", {
-        headers: {
-          "Cookie": finalCookieString,
-          "User-Agent": USER_AGENT
-        },
-        redirect: "manual"
-      }, "verifying the school session");
-
-      const verifySetCookies = verifyRes.headers.getSetCookie ? verifyRes.headers.getSetCookie() : [];
-      extractCookies(verifySetCookies, trialCookieMap);
-
-      const verifyHtml = await verifyRes.text();
-
       const sessionCookies = mapToCookieString(trialCookieMap);
       if (sessionCookies) {
-        let initialHomework = [];
-        try {
-          const { parseHomeworkHtml } = require("./htmlParser");
-          initialHomework = parseHomeworkHtml(verifyHtml, "https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework");
-        } catch (e) {
-          console.error("Failed to parse initial homework during login:", e.message);
-        }
-        return { sessionCookies, initialHomework };
+        // The POST response already confirms authentication (no "Invalid username"
+        // error above). The previous GET to Announcement.aspx was a redundant
+        // verification round-trip (~3 s) that has been removed to eliminate the
+        // consecutive-HTTP performance issue on login. Initial homework is now
+        // fetched asynchronously in the background after the session is saved.
+        return { sessionCookies };
       }
     } catch (err) {
       if (err instanceof EduSecureAuthError && err.code === "portal_unreachable") {

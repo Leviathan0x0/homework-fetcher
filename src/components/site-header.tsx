@@ -17,6 +17,7 @@ import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
 interface SiteHeaderProps {
   activeView: ViewType;
+  role: 'student' | 'teacher' | 'admin';
   theme: ThemeMode;
   onToggleTheme: () => void;
   onRefresh: () => void;
@@ -29,6 +30,7 @@ interface SiteHeaderProps {
 
 export function SiteHeader({
   activeView,
+  role,
   theme,
   onToggleTheme,
   onOpenSettings,
@@ -123,6 +125,7 @@ export function SiteHeader({
         <PWAInstallPrompt variant="button" />
 
         <NotificationPopover
+          role={role}
           unreadCount={unreadCount}
           onNavigate={onNavigate}
           onCountChange={onUnreadCountChange}
@@ -147,7 +150,7 @@ export function SiteHeader({
           onClick={onOpenSettings}
           onMouseEnter={() => setHoveredButton('settings')}
           onMouseLeave={() => setHoveredButton(null)}
-          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
+          className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50 max-[350px]:hidden"
           title="Settings"
           aria-label="Settings"
         >

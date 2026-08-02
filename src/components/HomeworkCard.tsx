@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
-import { Check, Eye, Plus, Pencil, Trash2, NotebookPen } from 'lucide-react';
+import { Check, Download, Eye, Pencil, Trash2, NotebookPen } from 'lucide-react';
 import { AnimatedPaperclip, AnimatedIcon } from './ui/animated-icon';
 import { cn } from '../utils/cn';
 
@@ -48,6 +48,9 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
       return 'Attachment File';
     }
   };
+  const attachmentLabel = item.attachment ? getAttachmentLabel(item.attachment) : '';
+  const isWordDocument = /\.(?:doc|docx)(?:$|[?#])/i.test(attachmentLabel) ||
+    /\.(?:doc|docx)(?:$|[?#])/i.test(item.attachment || '');
 
   const handleAttachmentClick = (e: React.MouseEvent) => {
     if (onOpenPreview && item.attachment && isValidUrl(item.attachment)) {
@@ -79,8 +82,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   return (
     <article
       className={cn(
-        'group relative bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 border-l rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
-        subjectInfo.accentBorderClass,
+        'group relative bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
         isCompleted && 'opacity-65 bg-neutral-50/60 dark:bg-[#101012]/60 border-neutral-200/40 dark:border-neutral-800/40 shadow-none'
       )}
     >
@@ -219,10 +221,10 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         ) : (
           <div className="flex items-center justify-between text-xs">
             {item.note ? (
-              <div className="group/note relative flex items-center justify-between gap-2 bg-[#fef9c3] dark:bg-[#3b3414] border border-[#fef08a] dark:border-[#544b1c] rounded-xl p-2 text-yellow-950 dark:text-yellow-100 w-full transition-colors duration-200 shadow-2xs hover:border-[#fde047] dark:hover:border-[#736526]">
+              <div className="group/note relative flex items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2 text-neutral-800 shadow-2xs transition-colors duration-200 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-200 dark:hover:border-neutral-700 w-full">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <NotebookPen className="w-3.5 h-3.5 text-yellow-800 dark:text-yellow-300 shrink-0 transition-transform duration-300 group-hover/note:rotate-12" />
-                  <p className="text-[11px] font-medium text-yellow-950 dark:text-yellow-100 whitespace-pre-wrap break-words leading-relaxed flex-1">
+                  <AnimatedIcon icon={NotebookPen} preset="shake" size={14} className="text-neutral-500 dark:text-neutral-400" />
+                  <p className="text-[11px] font-medium text-neutral-800 dark:text-neutral-200 whitespace-pre-wrap break-words leading-relaxed flex-1">
                     {item.note}
                   </p>
                 </div>
@@ -234,14 +236,14 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                         setNoteText(item.note || '');
                         setIsEditingNote(true);
                       }}
-                      className="group/pen p-1 rounded-md text-yellow-900 dark:text-yellow-200 hover:bg-yellow-200/60 dark:hover:bg-yellow-900/60 transition-colors duration-200 cursor-pointer active:scale-90"
+                      className="group/pen p-1 rounded-md text-neutral-500 dark:text-neutral-400 hover:bg-neutral-200/70 dark:hover:bg-neutral-800 transition-colors duration-200 cursor-pointer active:scale-90"
                       title="Edit note"
                     >
                       <Pencil className="w-3 h-3 transition-transform duration-200 group-hover/pen:rotate-12" />
                     </button>
                     <button
                       onClick={handleDeleteNote}
-                      className="group/trash p-1 rounded-md text-yellow-900/70 dark:text-yellow-300/70 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors duration-200 cursor-pointer active:scale-90"
+                      className="group/trash p-1 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-100/60 dark:hover:bg-rose-950/40 transition-colors duration-200 cursor-pointer active:scale-90"
                       title="Delete note"
                     >
                       <Trash2 className="w-3 h-3 transition-transform duration-200 group-hover/trash:rotate-12" />
@@ -255,7 +257,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                   onClick={() => setIsEditingNote(true)}
                   className="group/add inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors duration-200 cursor-pointer active:scale-95"
                 >
-                  <Plus className="w-3 h-3 text-neutral-400 dark:text-neutral-500 transition-transform duration-300 group-hover/add:rotate-90" />
+                  <AnimatedIcon icon={NotebookPen} preset="lift" size={12} className="text-neutral-400 dark:text-neutral-500" />
                   <span>Add note</span>
                 </button>
               )
@@ -268,16 +270,27 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-full sm:max-w-[65%]">
             <AnimatedPaperclip size={12} className="text-neutral-400 shrink-0" />
-            <span className="truncate">{getAttachmentLabel(item.attachment)}</span>
+            <span className="truncate">{attachmentLabel}</span>
           </div>
 
-          <button
-            onClick={handleAttachmentClick}
-            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
-          >
-            <span>Preview attachment</span>
-            <AnimatedIcon icon={Eye} preset="zoom" size={12} />
-          </button>
+          {isWordDocument ? (
+            <a
+              href={item.attachment}
+              download={attachmentLabel}
+              className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
+            >
+              <span>Download document</span>
+              <AnimatedIcon icon={Download} preset="lift" size={12} />
+            </a>
+          ) : (
+            <button
+              onClick={handleAttachmentClick}
+              className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
+            >
+              <span>Preview attachment</span>
+              <AnimatedIcon icon={Eye} preset="zoom" size={12} />
+            </button>
+          )}
         </div>
       )}
     </article>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat UI Redesign - Homework Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Light Mode Colors */
+      --bg-app: #f7f7f5;
+      --bg-surface: #ffffff;
+      --text-primary: #1c1c1e;
+      --text-secondary: #636366;
+      --text-tertiary: #8e8e93;
+      --border-subtle: #e5e5e2;
+      --accent-primary: #0066cc;
+      --accent-surface: #e8f2ff;
+      
+      --sub-math-bg: #eef2ff;
+      --sub-math-text: #3730a3;
+      --sub-science-bg: #ecfdf5;
+      --sub-science-text: #065f46;
+      --sub-english-bg: #faf5ff;
+      --sub-english-text: #6b21a8;
+      --sub-hindi-bg: #fff7ed;
+      --sub-hindi-text: #9a3412;
+      --sub-comp-bg: #f0f9ff;
+      --sub-comp-text: #075985;
+      --sub-sst-bg: #fdf2f8;
+      --sub-sst-text: #9d174d;
+    }
+
+    [data-theme="dark"] {
+      --bg-app: #121214;
+      --bg-surface: #1d1d1f;
+      --bg-surface-hover: #2a2a2d;
+      --text-primary: #f5f5f7;
+      --text-secondary: #a1a1a6;
+      --text-tertiary: #626267;
+      --border-subtle: #424245;
+      --accent-primary: #0a84ff;
+      --accent-surface: #0d3d99;
+      
+      --sub-math-bg: #1a1a3e;
+      --sub-math-text: #b4b4ff;
+      --sub-science-bg: #0d2818;
+      --sub-science-text: #5eead4;
+      --sub-english-bg: #1f0d3d;
+      --sub-english-text: #d8b4fe;
+      --sub-hindi-bg: #2d1810;
+      --sub-hindi-text: #ffb563;
+      --sub-comp-bg: #0d2d52;
+      --sub-comp-text: #7dd3fc;
+      --sub-sst-bg: #2d0d2d;
+      --sub-sst-text: #f472b6;
+    }
+
+    html.dark {
+      color-scheme: dark;
+      background-color: var(--bg-app);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background-color: var(--bg-app);
+      color: var(--text-primary);
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--text-secondary);
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chat-message-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .message-timestamp {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-tertiary);
+      text-align: center;
+      padding: 12px 0;
+      margin: 8px 0;
+      position: relative;
+    }
+
+    .message-timestamp::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background-color: var(--border-subtle);
+      z-index: 0;
+    }
+
+    .message-timestamp span {
+      background-color: var(--bg-app);
+      padding: 0 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .chat-message {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 8px;
+      align-items: flex-end;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-surface));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      flex-shrink: 0;
+    }
+
+    .message-bubble {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 70%;
+      animation: fadeInScale 0.3s ease-out;
+    }
+
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .bubble-content {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 14px 16px;
+      word-break: break-word;
+      white-space: pre-wrap;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    }
+
+    .bubble-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .bubble-subject {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
+
+    .bubble-subject.math { background-color: var(--sub-math-bg); color: var(--sub-math-text); }
+    .bubble-subject.science { background-color: var(--sub-science-bg); color: var(--sub-science-text); }
+    .bubble-subject.english { background-color: var(--sub-english-bg); color: var(--sub-english-text); }
+    .bubble-subject.hindi { background-color: var(--sub-hindi-bg); color: var(--sub-hindi-text); }
+    .bubble-subject.comp { background-color: var(--sub-comp-bg); color: var(--sub-comp-text); }
+    .bubble-subject.sst { background-color: var(--sub-sst-bg); color: var(--sub-sst-text); }
+
+    .bubble-type {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      font-weight: 500;
+    }
+
+    .bubble-body {
+      font-size: 14px;
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .bubble-attachment {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      padding: 6px 10px;
+      background-color: var(--accent-surface);
+      border: 1px solid var(--accent-primary);
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-primary);
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+
+    .bubble-attachment:hover {
+      opacity: 0.85;
+    }
+
+    .bubble-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      padding: 0 2px;
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()">🌙 Dark Mode</button>
+
+  <div class="container">
+    <h1>Chat UI Redesign</h1>
+    <p class="subtitle">Homework assignments as conversational message bubbles</p>
+
+    <div class="chat-messages">
+      <!-- Today's Assignments -->
+      <div class="chat-message-group">
+        <div class="message-timestamp"><span>Today</span></div>
+        
+        <div class="chat-message">
+          <div class="message-avatar">M</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject math">Math</span>
+                <span class="bubble-type">Homework</span>
+              </div>
+              <div class="bubble-body">Complete exercises 1-20 from Chapter 5 (Quadratic Equations). Focus on factorization and the quadratic formula.</div>
+              <a class="bubble-attachment" href="#" target="_blank">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 13px; height: 13px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                worksheet.pdf
+              </a>
+            </div>
+            <div class="bubble-time">Today at 9:30 AM</div>
+          </div>
+        </div>
+
+        <div class="chat-message">
+          <div class="message-avatar">E</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject english">English</span>
+                <span class="bubble-type">Assignment</span>
+              </div>
+              <div class="bubble-body">Read Chapter 3 of "To Kill a Mockingbird" and write a 500-word analysis on the symbolism of the mockingbird. Due by Friday.</div>
+            </div>
+            <div class="bubble-time">Today at 10:15 AM</div>
+          </div>
+        </div>
+
+        <div class="chat-message">
+          <div class="message-avatar">S</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject science">Science</span>
+                <span class="bubble-type">Project</span>
+              </div>
+              <div class="bubble-body">Biology Project: Create a detailed model of the human cell with all major organelles labeled. Can use any materials (clay, paper, 3D printing, etc.)</div>
+              <a class="bubble-attachment" href="#" target="_blank">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 13px; height: 13px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                rubric.pdf
+              </a>
+            </div>
+            <div class="bubble-time">Today at 11:45 AM</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tomorrow's Assignments -->
+      <div class="chat-message-group">
+        <div class="message-timestamp"><span>Tomorrow</span></div>
+        
+        <div class="chat-message">
+          <div class="message-avatar">C</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject comp">Computer Science</span>
+                <span class="bubble-type">Homework</span>
+              </div>
+              <div class="bubble-body">Build a Python program that implements a binary search algorithm. Include test cases and documentation.</div>
+            </div>
+            <div class="bubble-time">Tomorrow at 2:00 PM</div>
+          </div>
+        </div>
+
+        <div class="chat-message">
+          <div class="message-avatar">H</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject hindi">Hindi</span>
+                <span class="bubble-type">Assignment</span>
+              </div>
+              <div class="bubble-body">पाठ 12 को पढ़ें और 5 महत्वपूर्ण प्रश्नों के उत्तर लिखें। शब्द सीमा: 100-150 शब्द प्रति प्रश्न।</div>
+            </div>
+            <div class="bubble-time">Tomorrow at 3:30 PM</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next Week -->
+      <div class="chat-message-group">
+        <div class="message-timestamp"><span>Next Week</span></div>
+        
+        <div class="chat-message">
+          <div class="message-avatar">S</div>
+          <div class="message-bubble">
+            <div class="bubble-content">
+              <div class="bubble-header">
+                <span class="bubble-subject sst">History</span>
+                <span class="bubble-type">Project</span>
+              </div>
+              <div class="bubble-body">Research paper on the Industrial Revolution. 2000-2500 words. Include proper citations (MLA or APA format). Submit by next Monday.</div>
+              <a class="bubble-attachment" href="#" target="_blank">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width: 13px; height: 13px;">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                guidelines.pdf
+              </a>
+            </div>
+            <div class="bubble-time">Next Monday at 8:00 AM</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      const btn = document.querySelector('.theme-toggle');
+      btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+  </script>
+</body>
+</html>

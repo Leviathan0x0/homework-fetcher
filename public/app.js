@@ -413,55 +413,51 @@
 
     for (const group of grouped) {
       const groupEl = document.createElement('div');
-      groupEl.className = 'homework-group';
+      groupEl.className = 'chat-message-group';
 
       const headerEl = document.createElement('div');
-      headerEl.className = 'group-date-header';
-      headerEl.innerHTML = `
-        <span>${escapeHTML(group.date)}</span>
-        <span class="group-date-count">${group.entries.length} assignment${group.entries.length > 1 ? 's' : ''}</span>
-      `;
+      headerEl.className = 'message-timestamp';
+      headerEl.innerHTML = `<span>${escapeHTML(group.date)}</span>`;
       groupEl.appendChild(headerEl);
 
-      const listEl = document.createElement('div');
-      listEl.className = 'cards-list';
-
       for (const item of group.entries) {
-        listEl.appendChild(createHomeworkCard(item));
+        groupEl.appendChild(createChatMessage(item));
       }
 
-      groupEl.appendChild(listEl);
       elements.homeworkList.appendChild(groupEl);
     }
   }
 
-  function createHomeworkCard(item) {
-    const card = document.createElement('article');
-    card.className = 'homework-card';
+  function createChatMessage(item) {
+    const msgContainer = document.createElement('div');
+    msgContainer.className = 'chat-message';
 
     const subjectInfo = detectSubject(item.homework);
+    const avatarLetter = subjectInfo.name.charAt(0).toUpperCase();
 
-    card.innerHTML = `
-      <div class="card-top-row">
-        <span class="card-subject-pill ${subjectInfo.class}">${escapeHTML(subjectInfo.name)}</span>
-        <div class="card-meta-right">
-          <span class="card-type-badge">${escapeHTML(item.type || 'School Diary')}</span>
+    msgContainer.innerHTML = `
+      <div class="message-avatar">${avatarLetter}</div>
+      <div class="message-bubble">
+        <div class="bubble-content">
+          <div class="bubble-header">
+            <span class="bubble-subject ${subjectInfo.class}">${escapeHTML(subjectInfo.name)}</span>
+            <span class="bubble-type">${escapeHTML(item.type || 'School Diary')}</span>
+          </div>
+          <div class="bubble-body">${escapeHTML(item.homework)}</div>
+          ${item.attachment ? `
+            <a class="bubble-attachment" href="${escapeHTML(item.attachment)}" target="_blank" rel="noopener noreferrer">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+              Open attachment
+            </a>
+          ` : ''}
         </div>
+        <div class="bubble-time">${escapeHTML(item.date || '')}</div>
       </div>
-
-      <div class="card-body">${escapeHTML(item.homework)}</div>
-
-      ${item.attachment ? `
-        <a class="card-attachment-link" href="${escapeHTML(item.attachment)}" target="_blank" rel="noopener noreferrer">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-          </svg>
-          Open attachment
-        </a>
-      ` : ''}
     `;
 
-    return card;
+    return msgContainer;
   }
 
   function renderEmptyState() {

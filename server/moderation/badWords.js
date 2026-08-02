@@ -7,7 +7,7 @@
 const { isMessageDirty } = require("profanity-hindi");
 
 const GUIDELINE_MESSAGE =
-  "That message can't be sent — it doesn't follow school guidelines. Keep chats about homework only.";
+  "That message can't be sent - it doesn't follow school guidelines. Keep chats about homework only.";
 
 // Comprehensive English + Hinglish / Hindi / Punjabi profanity blocklist
 const BAD_WORDS = [

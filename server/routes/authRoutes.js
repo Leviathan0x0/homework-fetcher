@@ -10,7 +10,8 @@ const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
-  isTestTeacherLogin,
+  matchTestTeacherLogin,
+  TEST_TEACHER_MATCH,
   testTeacherUser,
   profileFromEnvironment,
   ensureTeacherProfile,
@@ -95,7 +96,28 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    if (isTestTeacherLogin(cleanStudentId, password)) {
+    const testTeacherMatch = matchTestTeacherLogin(cleanStudentId, password);
+
+    // The demo account owns its username, so answer for it here instead of
+    // letting the request fall through to EduSecure, which would reject the
+    // unknown ID and blame the student's credentials for a server setting.
+    if (testTeacherMatch === TEST_TEACHER_MATCH.DISABLED) {
+      return res.status(503).json({
+        authenticated: false,
+        error:
+          "The demo teacher account is not enabled on this deployment. " +
+          "An administrator needs to configure a password for it before it can be used.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.BAD_PASSWORD) {
+      return res.status(401).json({
+        authenticated: false,
+        error: "Invalid account ID or password.",
+      });
+    }
+
+    if (testTeacherMatch === TEST_TEACHER_MATCH.OK) {
       const testUser = testTeacherUser();
       const existing = await db
         .select()
@@ -155,7 +177,7 @@ router.post("/login", async (req, res) => {
         authenticated: false,
         error:
           authErr.code === "portal_unreachable"
-            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again — login needs a live connection to edusecure.in."
+            ? "The school portal (EduSecure) is slow or unreachable right now. Wait a moment and try again - login needs a live connection to edusecure.in."
             : authErr.message || "The school portal is currently unreachable. Please try again later.",
       });
     }
@@ -256,9 +278,11 @@ router.post("/login", async (req, res) => {
 
 // GET /api/auth/me
 router.get("/me", async (req, res) => {
+  const startedAt = Date.now();
   const activeSession = await getRequestSession(req);
 
   if (!activeSession) {
+    res.setHeader("Server-Timing", `session;dur=${Date.now() - startedAt}`);
     return res.json({
       authenticated: false
     });
@@ -273,40 +297,38 @@ router.get("/me", async (req, res) => {
   const isTeacher =
     activeSession.user.role === "teacher" ||
     activeSession.user.role === "class_teacher";
-  let teacherProfile = null;
-  if (isTeacher) {
-    try {
-      const { getTeacherProfile, normalizeTeacherProfile } = require("../teacher/teacherService");
-      teacherProfile = normalizeTeacherProfile(
-        await getTeacherProfile(activeSession.user.id)
-      );
-    } catch (err) {
-      console.error("Teacher profile refresh failed:", err.message);
-    }
-  }
-
-  if (!isAdmin && isUnknownSection(section)) {
-    try {
-      const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
-      if (eduSession) {
+  // A missing section used to make session validation wait for a live external
+  // school-profile page. That call can take 20 seconds and is not needed to
+  // validate the signed app session or its role. Repair the optional profile in
+  // the background and let the authenticated shell render immediately.
+  if (!isAdmin && !isTeacher && isUnknownSection(section)) {
+    void (async () => {
+      try {
+        const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
+        if (!eduSession) return;
         const profile = await fetchProfileFromEduSecure(eduSession.sessionCookies);
         const resolvedName = profile.displayName && !displayName ? profile.displayName : null;
         await sessionService.updateProfileFields(activeSession.user.id, {
           section: profile.section,
           displayName: resolvedName,
         });
-        if (profile.section) section = profile.section;
-        if (resolvedName) displayName = resolvedName;
+        if (profile.section) {
+          await joinClassGroupInBackground(
+            { id: activeSession.user.id, section: profile.section },
+            { force: true }
+          );
+        }
+      } catch (err) {
+        console.error("Background profile refresh failed:", err.message);
       }
-    } catch (err) {
-      console.error("Profile refresh failed:", err.message);
-    }
+    })();
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isTeacher && !isUnknownSection(section)) {
     joinClassGroupInBackground({ id: activeSession.user.id, section });
   }
 
+  res.setHeader("Server-Timing", `session;dur=${Date.now() - startedAt}`);
   return res.json({
     authenticated: true,
     user: {
@@ -317,7 +339,7 @@ router.get("/me", async (req, res) => {
       isAdmin,
       isTeacher,
       role: activeSession.user.role || (isAdmin ? "admin" : "student"),
-      teacherProfile,
+      teacherProfile: null,
     }
   });
 });
@@ -360,7 +382,7 @@ router.patch("/profile", async (req, res) => {
 // The school portal ends its own session within minutes, while the app session
 // lasts 30 days, so the normal case is being perfectly signed in here while the
 // scraper has nothing valid to talk to the school with. The password is
-// deliberately never stored, so the only way back is to ask for it again — but
+// deliberately never stored, so the only way back is to ask for it again - but
 // only the password, and without losing the app session, the cached homework or
 // whatever screen the student was on.
 router.post(

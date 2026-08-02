@@ -6,7 +6,7 @@ export interface ParsedHomeworkContent {
 export interface TaskHierarchy {
   /** Short action line that should visually dominate. */
   action: string;
-  /** Supporting detail — chapter range, notes, etc. */
+  /** Supporting detail - chapter range, notes, etc. */
   detail?: string;
 }
 

@@ -1,6 +1,6 @@
 /**
  * OpenAI Moderation API (omni-moderation-latest) for text + images.
- * Purpose-built for NSFW / hate / harassment — far cheaper than chat vision.
+ * Purpose-built for NSFW / hate / harassment - far cheaper than chat vision.
  *
  * Photos are stricter than text: missing API key, read failures, and borderline
  * sexual/violence scores all hard-block. Homework sharing must stay clean.
@@ -34,7 +34,7 @@ const BLOCK_CATEGORIES = [
 ];
 
 /**
- * Score ceilings for images — below OpenAI’s default flag thresholds so
+ * Score ceilings for images - below OpenAI’s default flag thresholds so
  * borderline NSFW is blocked for a school app. Tuned for homework photos.
  */
 const IMAGE_SCORE_LIMITS = {
@@ -74,7 +74,7 @@ function warnMissingKeyOnce() {
   if (missingKeyWarned) return;
   missingKeyWarned = true;
   console.warn(
-    "[moderation] OPENAI_API_KEY is not set — AI text checks are skipped; photo uploads are blocked until it is set."
+    "[moderation] OPENAI_API_KEY is not set - AI text checks are skipped; photo uploads are blocked until it is set."
   );
 }
 
@@ -162,7 +162,7 @@ async function callModeration(input, options = {}) {
 
   const result = Array.isArray(data.results) ? data.results[0] : null;
   if (shouldBlock(result, scoreLimits)) {
-    // Policy block (vulgar / NSFW / abuse) — counts toward staff strikes.
+    // Policy block (vulgar / NSFW / abuse) - counts toward staff strikes.
     return { ok: false, reason: failReason, strikeable: true };
   }
   return { ok: true };

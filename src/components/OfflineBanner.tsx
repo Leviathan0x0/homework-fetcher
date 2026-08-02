@@ -3,7 +3,7 @@ import { WifiOff } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 /**
- * Soft notice when the browser is offline — homework already loaded stays usable.
+ * Soft notice when the browser is offline - homework already loaded stays usable.
  */
 export const OfflineBanner: React.FC<{ className?: string }> = ({ className }) => {
   const [offline, setOffline] = useState(() =>

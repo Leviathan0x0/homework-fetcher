@@ -1,6 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { RefreshCw, AlertTriangle } from 'lucide-react';
-import { reportClientError } from '../newrelic';
 
 interface Props {
   children: ReactNode;
@@ -23,7 +22,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Unhandled React Error:', error, errorInfo);
-    reportClientError(error, errorInfo.componentStack || undefined);
   }
 
   private handleReload = () => {

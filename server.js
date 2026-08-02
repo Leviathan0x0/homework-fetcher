@@ -16,10 +16,6 @@ try {
   }
 } catch (e) {}
 
-if (process.env.NEW_RELIC_ENABLED === "true" && process.env.NEW_RELIC_LICENSE_KEY) {
-  require("newrelic");
-}
-
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 
@@ -88,14 +84,6 @@ function compressJsonResponses({ threshold = 1024 } = {}) {
 // Required so Secure cookies are honoured behind hosting platform TLS proxies
 app.set("trust proxy", 1);
 
-const newRelicBrowserEnabled = process.env.NEW_RELIC_BROWSER_ENABLED === "true";
-const corsRequestHeaders = [
-  "Content-Type",
-  "Accept",
-  "Authorization",
-  ...(newRelicBrowserEnabled ? ["newrelic", "traceparent", "tracestate"] : []),
-].join(", ");
-
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 // Allow a separately hosted frontend (e.g. Appwrite Sites, Expo Web) to call this API with cookies
@@ -105,13 +93,13 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
   } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
     res.setHeader("Access-Control-Allow-Origin", origin || "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
     return res.sendStatus(204);
   } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
     console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);

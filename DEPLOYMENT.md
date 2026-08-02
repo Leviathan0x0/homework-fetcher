@@ -164,44 +164,6 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
 
-## New Relic observability
-
-The application can send privacy-conscious telemetry to New Relic across the Express API and browser
-application. The Node agent captures APM transactions, supported datastore and outbound HTTP calls,
-errors, distributed traces, and application logs. The browser agent captures page views, load
-timing, resource timing, Ajax requests, user interactions, and frontend errors.
-
-The agents are disabled unless their respective enablement variables and required credentials are
-set. The browser agent has session replay disabled and the Node agent excludes request headers,
-parameters, and bodies to avoid collecting student content or credentials.
-
-Set these server variables where the Express API runs:
-
-```bash
-NEW_RELIC_ENABLED=true
-NEW_RELIC_LICENSE_KEY=<new-relic-license-key>
-NEW_RELIC_APP_NAME=homework-fetcher
-NEW_RELIC_BROWSER_ENABLED=true
-```
-
-Set these **build-time** frontend variables where Vite builds the static bundle:
-
-```bash
-VITE_NEW_RELIC_ENABLED=true
-VITE_NEW_RELIC_BROWSER_LICENSE_KEY=<browser-license-key>
-VITE_NEW_RELIC_APPLICATION_ID=<browser-application-id>
-VITE_NEW_RELIC_ACCOUNT_ID=<new-relic-account-id>
-VITE_NEW_RELIC_AGENT_ID=<browser-agent-id>
-VITE_NEW_RELIC_TRUST_KEY=<trust-key>
-VITE_NEW_RELIC_BEACON=<beacon-host>
-VITE_NEW_RELIC_ERROR_BEACON=<error-beacon-host>
-```
-
-Create or open the Browser application in New Relic and copy these values from its **Browser
-Application settings → Copy/Paste JavaScript** configuration. The browser license key and browser
-application identifiers are public browser configuration; never expose the server-side
-`NEW_RELIC_LICENSE_KEY` through a `VITE_*` variable.
-
 ## Demo teacher account
 
 `teacher_test` lets you open the teacher portal without a real EduSecure staff

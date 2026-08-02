@@ -367,7 +367,6 @@ router.post("/reports/resolve", requireAdmin, async (req, res) => {
 // GET /api/admin/settings
 router.get("/settings", requireAdmin, async (req, res) => {
   try {
-    await seedDefaultSettings();
     const settingsList = await db.select().from(schema.systemSettings).all();
     const settingsMap = { ...DEFAULT_SETTINGS };
 

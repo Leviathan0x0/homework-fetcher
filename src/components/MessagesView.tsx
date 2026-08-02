@@ -435,7 +435,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       requestAnimationFrame(() => {
         const el = textareaRef.current;
         if (el) {
-          el.style.height = 'auto';
+          el.style.height = '0px';
           el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
           el.focus();
         }
@@ -633,7 +633,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     setReplyingTo(null);
     setAttachedRequest(null);
     setFileError(null);
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    if (textareaRef.current) textareaRef.current.style.height = '';
     stickToBottomRef.current = true;
     const alreadyShowingConversation = loadedMessagesConvIdRef.current === convId;
     loadedMessagesConvIdRef.current = convId;
@@ -1777,7 +1777,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           </div>
         )}
 
-        <div className="flex items-end gap-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] px-1.5 py-1.5 shadow-2xs">
+        <div className="flex items-end gap-2 rounded-2xl border border-neutral-200 bg-white px-1.5 py-1 shadow-2xs dark:border-neutral-800 dark:bg-[#141417]">
           <input
             type="file"
             ref={fileInputRef}
@@ -1794,7 +1794,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             onMouseEnter={() => setHoveredAction('attach')}
             onMouseLeave={() => setHoveredAction(null)}
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer shrink-0"
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 cursor-pointer"
             title="Attach PDF or photo"
             aria-label="Attach PDF or photo"
           >
@@ -1807,18 +1807,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             value={inputText}
             onChange={(e) => {
               setInputText(e.target.value);
-              e.target.style.height = 'auto';
+              e.target.style.height = '0px';
               e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
             }}
             onKeyDown={handleKeyDown}
             placeholder="Message…"
-            className="flex-1 text-[13px] py-2 px-1 bg-transparent text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none resize-none max-h-32 leading-relaxed overflow-y-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
+            className="h-9 max-h-[120px] min-h-9 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-2 text-[13px] leading-5 text-neutral-900 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-100 [&::-webkit-scrollbar]:hidden [scrollbar-width:none]"
           />
 
           <button
             onClick={handleSend}
             disabled={(!inputText.trim() && !selectedFile) || sending}
-            className="p-2 rounded-xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 hover:opacity-90 transition-opacity disabled:opacity-25 cursor-pointer shrink-0 mb-0.5"
+            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
             {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedIcon icon={ArrowUp} preset="lift" size={16} />}
           </button>

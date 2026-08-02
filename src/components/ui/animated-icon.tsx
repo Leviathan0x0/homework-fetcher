@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   Calendar,
   Settings,
@@ -51,6 +51,7 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
   strokeWidth = 2,
   ...props
 }) => {
+  const prefersReducedMotion = useReducedMotion();
   const getMotionVariants = (): any => {
     switch (preset) {
       case 'gear':
@@ -124,12 +125,14 @@ export const AnimatedIcon: React.FC<AnimatedIconProps> = ({
     <motion.div
       className={cn('inline-flex items-center justify-center shrink-0 select-none', className)}
       initial="rest"
-      animate={isLoading ? { rotate: 360 } : isActive ? 'active' : 'rest'}
-      whileHover="hover"
-      whileTap="active"
+      animate={prefersReducedMotion ? 'rest' : isLoading ? { rotate: 360 } : isActive ? 'active' : 'rest'}
+      whileHover={prefersReducedMotion ? undefined : 'hover'}
+      whileTap={prefersReducedMotion ? undefined : 'active'}
       variants={variants}
       transition={
-        isLoading
+        prefersReducedMotion
+          ? { duration: 0 }
+          : isLoading
           ? { repeat: Infinity, duration: 1, ease: 'linear' }
           : { type: 'spring', stiffness: 300, damping: 15 }
       }

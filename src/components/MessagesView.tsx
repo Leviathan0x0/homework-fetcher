@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, apiUrl } from '../lib/api';
-import { messagingService, authService, homeworkService } from '../services/api';
+import { messagingService, homeworkService } from '../services/api';
+import { motion, useReducedMotion } from 'motion/react';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
@@ -18,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SearchIcon } from '@/components/ui/search';
 import { AttachFileIcon } from '@/components/ui/attach-file';
 import { MessageSquareIcon } from '@/components/ui/message-square';
+import { AnimatedIcon } from '@/components/ui/animated-icon';
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
@@ -49,6 +51,7 @@ import {
 
 interface MessagesViewProps {
   userSection?: string;
+  currentStudentId?: string;
 }
 
 /** Turns stored section codes into a clear class-group title, e.g. "9-C" → "Class 9-C". */
@@ -60,7 +63,7 @@ function classGroupLabel(section?: string | null) {
   return `Class ${cleaned}`;
 }
 
-/** Fake placeholder used before EduSecure section is known — never show it. */
+/** Fake placeholder used before EduSecure section is known - never show it. */
 function isUnknownSection(section?: string | null) {
   if (!section) return true;
   const cleaned = String(section).trim();
@@ -68,8 +71,9 @@ function isUnknownSection(section?: string | null) {
   return cleaned.toLowerCase() === 'section 10-a';
 }
 
-export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
+export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, currentStudentId: accountStudentId }) => {
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const prefersReducedMotion = useReducedMotion();
   // Seeded from the last load so the inbox paints immediately instead of
   // showing an empty list until the first request comes back.
   const [conversations, setConversations] = useState<Conversation[]>(
@@ -90,7 +94,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [reportingConv, setReportingConv] = useState(false);
-  const [currentStudentId, setCurrentStudentId] = useState<string>(() => sessionStorage.getItem('activeStudentId') || 'Student');
+  const currentStudentId = accountStudentId || sessionStorage.getItem('activeStudentId') || 'Student';
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [showPinPicker, setShowPinPicker] = useState(false);
@@ -108,14 +112,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
   // State for monitoring notice dialog
   const [showNoticeDialog, setShowNoticeDialog] = useState(false);
   const [pendingParticipant, setPendingParticipant] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    authService.getCurrentUser().then(u => {
-      if (u && u.studentId) {
-        setCurrentStudentId(u.studentId);
-      }
-    });
-  }, []);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('active_conv_changed', { detail: activeConvId }));
@@ -194,7 +190,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
 
   useEffect(() => {
     fetchConversations();
-    // Inbox list can refresh more slowly — active thread has its own poller.
+    // Inbox list can refresh more slowly - active thread has its own poller.
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchConversations();
     }, 12000);
@@ -287,14 +283,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         return;
       }
 
-      // Refresh in the background — never block the acknowledgement dialog on network.
+      // Refresh in the background - never block the acknowledgement dialog on network.
       void fetchConversations().then(() => {
         if (noticeConfirmingRef.current) return;
         const id = resolveConvId(conversationsRef.current, targetId);
         if (id) openResolvedChat(id, prefill, request);
       });
 
-      // Already acknowledged this browser session — create/open without waiting again.
+      // Already acknowledged this browser session - create/open without waiting again.
       if (hasMonitorAck()) {
         noticeConfirmingRef.current = true;
         try {
@@ -392,7 +388,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         return;
       }
       const key = `${targetId}:${request?.id || prefill || ''}`;
-      // Same Help handoff already handled — don't re-open the notice.
+      // Same Help handoff already handled - don't re-open the notice.
       if (helpProcessedKeyRef.current === key && (helpDialogShownRef.current || activeConvId)) {
         return;
       }
@@ -620,7 +616,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         id: replyToCopy.id,
         senderId: replyToCopy.senderId,
         senderName: replyToCopy.senderName,
-        content: replyToCopy.content.substring(0, 100),
+        content: messagePreviewText(
+          replyToCopy.displayContent ?? replyToCopy.content,
+          'Help request'
+        ).substring(0, 100),
         attachmentUrl: replyToCopy.attachmentUrl,
       } : null,
       readBy: [],
@@ -788,7 +787,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     try {
       const data = await messagingService.reportConversation(activeConvId);
       setFileError(null);
-      alert(typeof data?.message === 'string' ? data.message : 'Thanks — this chat was reported for school review.');
+      alert(typeof data?.message === 'string' ? data.message : 'Thanks - this chat was reported for school review.');
     } catch (err: any) {
       setFileError(friendlyContentError(err, 'Could not submit the report. Please try again.'));
     } finally {
@@ -1124,7 +1123,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                   </p>
                   <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                     {u.provisional
-                      ? 'Not on the app yet — message by student ID'
+                      ? 'Not on the app yet - message by student ID'
                       : u.displayName
                         ? u.studentId
                         : 'Start a conversation'}
@@ -1135,7 +1134,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             ))
           ) : (
             <p className="px-4 py-10 text-center text-[12px] text-neutral-400">
-              No match — type their full student ID to message them anyway.
+              No match - type their full student ID to message them anyway.
             </p>
           )
         ) : conversations.length === 0 ? (
@@ -1150,7 +1149,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 {loadError ? 'Couldn’t load chats' : 'No conversations yet'}
               </p>
               <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[18rem] leading-relaxed">
-                {loadError || 'Type a classmate’s student ID above to message them — they don’t need an account yet.'}
+                {loadError || 'Type a classmate’s student ID above to message them - they don’t need an account yet.'}
               </p>
             </div>
           )
@@ -1162,7 +1161,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
               <div
                 key={conv.id}
                 className={cn(
-                  'flex items-stretch group/conv border-l-2',
+                  'group/conv relative flex items-stretch overflow-hidden border-l-2',
                   active
                     ? 'bg-white dark:bg-[#141417] border-l-neutral-900 dark:border-l-neutral-100'
                     : 'border-l-transparent hover:bg-white/70 dark:hover:bg-white/[0.03]'
@@ -1173,7 +1172,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                     setAttachedRequest(null);
                     setActiveConvId(conv.id);
                   }}
-                  className="flex-1 min-w-0 text-left px-4 py-3 flex items-center gap-3 cursor-pointer"
+                  className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left cursor-pointer"
                 >
                   <div
                     className={cn(
@@ -1189,7 +1188,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                       userLabel(conv.otherUser).charAt(0).toUpperCase()
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 transition-transform duration-200 ease-out group-hover/conv:-translate-x-7 group-focus-within/conv:-translate-x-7 motion-reduce:transform-none">
                     <div className="flex items-baseline justify-between gap-2">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span
@@ -1222,8 +1221,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         )}
                       >
                         {conv.type === 'section'
-                          ? (conv.lastMessagePreview || `${conv.memberCount || 0} classmates`)
-                          : (conv.lastMessagePreview || 'No messages yet')}
+                          ? (messagePreviewText(conv.lastMessagePreview || '', `${conv.memberCount || 0} classmates`))
+                          : (messagePreviewText(conv.lastMessagePreview || '', 'No messages yet'))}
                       </p>
                       {conv.type === 'section' && conv.memberCount ? (
                         <span className="text-[10px] text-neutral-400 shrink-0 tabular-nums">
@@ -1248,7 +1247,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                   disabled={deletingConvId === conv.id}
                   title={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
                   aria-label={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
-                  className="px-2 self-center mr-2 p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50 opacity-0 group-hover/conv:opacity-100 focus-visible:opacity-100"
+                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-md bg-white/95 p-1.5 text-neutral-400 opacity-0 shadow-2xs transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:translate-x-0 focus-visible:opacity-100 disabled:opacity-50 group-hover/conv:translate-x-0 group-hover/conv:opacity-100 group-focus-within/conv:translate-x-0 group-focus-within/conv:opacity-100 dark:bg-[#141417]/95 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                 >
                   {deletingConvId === conv.id ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1761,7 +1760,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 Replying to {replyingTo.senderName || 'User'}
               </div>
               <div className="text-[11px] text-blue-700 dark:text-blue-400 truncate">
-                {replyingTo.content || '[attachment]'}
+                {messagePreviewText(replyingTo.displayContent ?? replyingTo.content, '[attachment]')}
               </div>
             </div>
             <button
@@ -1817,7 +1816,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
             disabled={(!inputText.trim() && !selectedFile) || sending}
             className="p-2 rounded-xl bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 hover:opacity-90 transition-opacity disabled:opacity-25 cursor-pointer shrink-0 mb-0.5"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowUp className="w-4 h-4" />}
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedIcon icon={ArrowUp} preset="lift" size={16} />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">
@@ -1831,7 +1830,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
     <div className="h-full w-full flex bg-white dark:bg-[#09090b] overflow-hidden min-h-0">
       <div className={cn(
         'w-full md:w-80 border-r border-neutral-200/80 dark:border-neutral-800/80 overflow-hidden shrink-0 min-h-0',
-        activeConvId ? 'hidden md:flex md:flex-col' : 'flex flex-col'
+        activeConvId ? 'hidden md:flex md:flex-col' : 'flex flex-col animate-in slide-in-from-left-2 duration-200'
       )}>
         {inboxContent}
       </div>
@@ -1839,14 +1838,24 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
         'flex-1 flex flex-col overflow-hidden min-h-0',
         !activeConvId ? 'hidden md:flex' : 'flex'
       )}>
-        {activeConvId ? threadContent : (
+        {activeConvId ? (
+          <motion.div
+            key={activeConvId}
+            initial={prefersReducedMotion ? false : { opacity: 0.92, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: prefersReducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full min-h-0"
+          >
+            {threadContent}
+          </motion.div>
+        ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-[#fafafa] dark:bg-[#09090b] px-6 text-center">
             <MessageSquareIcon size={28} className="text-neutral-300 dark:text-neutral-700" />
             <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
               Pick a conversation
             </p>
             <p className="text-[12px] text-neutral-400 max-w-[16rem] leading-relaxed">
-              Search a student ID in the sidebar — they don’t need to have logged in yet.
+              Search a student ID in the sidebar - they don’t need to have logged in yet.
             </p>
           </div>
         )}
@@ -1946,7 +1955,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                         <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{userLabel(u)}</span>
                         <span className="text-[10px] text-neutral-400 truncate">
                           {u.provisional
-                            ? 'Not on the app yet — tap to message'
+                            ? 'Not on the app yet - tap to message'
                             : u.displayName
                               ? u.studentId
                               : 'Start a conversation'}
@@ -1966,11 +1975,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection }) => {
                 ))
               ) : searchQuery.trim() ? (
                 <p className="text-xs text-neutral-400 text-center py-3">
-                  No match — type their full student ID to message them anyway.
+                  No match - type their full student ID to message them anyway.
                 </p>
               ) : (
                 <p className="text-xs text-neutral-400 text-center py-3">
-                  Type a name or student ID — they don’t need to be on the app yet.
+                  Type a name or student ID - they don’t need to be on the app yet.
                 </p>
               )}
             </div>

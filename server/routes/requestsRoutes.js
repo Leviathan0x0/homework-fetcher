@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const { eq, desc, and } = require("drizzle-orm");
+const { eq, desc, and, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
@@ -22,12 +22,26 @@ router.get("/requests", requireAuth, async (req, res) => {
     const section = req.user.section;
     if (!section) return res.json({ count: 0, requests: [] });
 
-    const records = await db
-      .select()
-      .from(schema.sectionRequests)
-      .where(eq(schema.sectionRequests.section, section))
-      .orderBy(desc(schema.sectionRequests.createdAt))
-      .all();
+    const [records, unseenNotifications] = await Promise.all([
+      db
+        .select()
+        .from(schema.sectionRequests)
+        .where(eq(schema.sectionRequests.section, section))
+        .orderBy(desc(schema.sectionRequests.createdAt))
+        .all(),
+      db
+        .select({ referenceId: schema.notifications.referenceId })
+        .from(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.userId, req.user.id),
+            eq(schema.notifications.type, "new_request"),
+            eq(schema.notifications.isRead, 0)
+          )
+        )
+        .all(),
+    ]);
+    const unseenIds = new Set(unseenNotifications.map((item) => item.referenceId).filter(Boolean));
 
     const result = records.map((item) => ({
       id: item.id,
@@ -40,12 +54,45 @@ router.get("/requests", requireAuth, async (req, res) => {
       createdAt: item.createdAt,
       creatorUserId: item.userId,
       isOwner: item.userId === req.user.id,
+      isSeen: item.userId === req.user.id || !unseenIds.has(item.id),
     }));
 
-    return res.json({ section, count: result.length, requests: result });
+    return res.json({
+      section,
+      count: result.length,
+      unseenCount: result.filter((item) => item.status === "open" && !item.isSeen).length,
+      requests: result,
+    });
   } catch (err) {
     console.error("Get Requests Error:", err);
     return res.status(500).json({ error: "Failed to fetch requests." });
+  }
+});
+
+// Opening the Requests tab acknowledges its current request notifications.
+// A request id list is accepted for direct links and future detail views.
+router.post("/requests/seen", requireAuth, async (req, res) => {
+  try {
+    const requestedIds = Array.isArray(req.body?.requestIds)
+      ? [...new Set(req.body.requestIds.map(String).filter(Boolean))].slice(0, 200)
+      : [];
+    const filters = [
+      eq(schema.notifications.userId, req.user.id),
+      eq(schema.notifications.type, "new_request"),
+      eq(schema.notifications.isRead, 0),
+    ];
+    if (requestedIds.length > 0) {
+      filters.push(inArray(schema.notifications.referenceId, requestedIds));
+    }
+    await db
+      .update(schema.notifications)
+      .set({ isRead: 1 })
+      .where(and(...filters))
+      .run();
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Acknowledge Requests Error:", err);
+    return res.status(500).json({ error: "Failed to acknowledge requests." });
   }
 });
 
@@ -128,13 +175,40 @@ router.post(
     await db.insert(schema.sectionRequests).values(newRequest).run();
 
     const sectionUsers = await db
-      .select({ id: schema.users.id })
+      .select({ id: schema.users.id, role: schema.users.role })
       .from(schema.users)
       .where(eq(schema.users.section, section))
       .all();
     const otherUserIds = sectionUsers
+      .filter((user) => user.role === "student")
       .map((u) => u.id)
       .filter((uid) => uid !== req.user.id);
+
+    const teacherProfiles = await db
+      .select({
+        userId: schema.teacherProfiles.userId,
+        assignedSections: schema.teacherProfiles.assignedSections,
+        classTeacherSections: schema.teacherProfiles.classTeacherSections,
+      })
+      .from(schema.teacherProfiles)
+      .all();
+    const relevantTeacherIds = teacherProfiles
+      .filter((profile) => {
+        const parseSections = (raw) => {
+          try {
+            const parsed = JSON.parse(raw || "[]");
+            return Array.isArray(parsed) ? parsed.map(String) : [];
+          } catch {
+            return [];
+          }
+        };
+        return [
+          ...parseSections(profile.assignedSections),
+          ...parseSections(profile.classTeacherSections),
+        ].includes(section);
+      })
+      .map((profile) => profile.userId)
+      .filter(Boolean);
 
     if (otherUserIds.length > 0) {
       await createNotifications(
@@ -145,6 +219,20 @@ router.post(
         "requests",
         id
       );
+    }
+    if (relevantTeacherIds.length > 0) {
+      try {
+        await createNotifications(
+          relevantTeacherIds,
+          "new_request",
+          `Student help request: ${title.substring(0, 60)}`,
+          `${req.user.studentId} posted in ${section}`,
+          "teacher-overview",
+          id
+        );
+      } catch (notificationErr) {
+        console.error("Teacher request notification failed:", notificationErr.message);
+      }
     }
 
     return res.status(201).json({

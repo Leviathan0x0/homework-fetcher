@@ -119,6 +119,25 @@ router.post("/assignments/:targetId/submit", async (req, res) => {
       .set({ status: "submitted", submissionText, submittedAt: now(), updatedAt: now() })
       .where(eq(schema.teacherAssignmentTargets.id, target.id))
       .run();
+    const assignment = await db
+      .select()
+      .from(schema.teacherAssignments)
+      .where(eq(schema.teacherAssignments.id, target.assignmentId))
+      .get();
+    if (assignment?.teacherUserId) {
+      try {
+        await createNotifications(
+          [assignment.teacherUserId],
+          "new_submission",
+          `New submission: ${assignment.title}`,
+          `${req.user.displayName || req.user.studentId} submitted work for review.`,
+          "teacher-assignments",
+          target.id
+        );
+      } catch (notificationErr) {
+        console.error("Teacher submission notification failed:", notificationErr.message);
+      }
+    }
     return res.json({ success: true, status: "submitted" });
   } catch (err) {
     console.error("Submit teacher assignment error:", err);
@@ -385,9 +404,12 @@ router.post("/assignments", async (req, res) => {
         updatedAt: stamped,
       }));
     if (targets.length) await db.insert(schema.teacherAssignmentTargets).values(targets).run();
-    if (students.length) {
+    const studentUserIds = students
+      .filter((student) => student.role === "student")
+      .map((student) => student.id);
+    if (studentUserIds.length) {
       await createNotifications(
-        students.map((student) => student.id),
+        studentUserIds,
         "teacher_assignment",
         `New assignment: ${assignment.title}`,
         `${assignment.subject} is due ${assignment.dueDate}.`,
@@ -591,7 +613,7 @@ router.post("/announcements", async (req, res) => {
   await db.insert(schema.teacherAnnouncements).values(announcement).run();
   const students = await db.select().from(schema.users).where(eq(schema.users.section, section)).all();
   const studentIds = students.filter((student) => student.role === "student").map((student) => student.id);
-  if (studentIds.length) await createNotifications(studentIds, "teacher_announcement", announcement.title, announcement.content, "teacher-announcements", announcement.id);
+  if (studentIds.length) await createNotifications(studentIds, "teacher_announcement", announcement.title, announcement.content, "today", announcement.id);
   return res.status(201).json({ success: true, announcement });
 });
 

@@ -187,7 +187,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           title={q ? 'Nothing matched' : 'No homework found'}
           subtitle={
             q
-              ? 'Try another word — search covers homework, classwork, and requests.'
+              ? 'Try another word - search covers homework, classwork, and requests.'
               : 'No homework entries match your filters.'
           }
         />
@@ -244,7 +244,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => {
-                      if (item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl);
+                      const filename = item.originalFilename || item.filename || '';
+                      const previewable = item.mimeType?.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|svg|pdf)$/i.test(filename);
+                      if (previewable && item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl);
                       else onNavigate?.('classwork');
                     }}
                     className={cn(

@@ -151,7 +151,7 @@ app.use("/api", (req, res, next) => {
   });
 });
 
-// GET /api/health — configuration diagnostics (no secrets), useful to check a deployment
+// GET /api/health - configuration diagnostics (no secrets), useful to check a deployment
 app.get("/api/health", async (req, res) => {
   const status = {
     ok: true,

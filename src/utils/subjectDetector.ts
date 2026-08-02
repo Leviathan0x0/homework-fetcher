@@ -172,7 +172,7 @@ const DEFAULT_SUBJECT: SubjectInfo = {
 };
 
 /** Separators school diaries use between the subject label and the task. */
-const LABEL_SEPARATORS = [':', '-', '–', '—', '|'];
+const LABEL_SEPARATORS = [':', '-', '–', '\u2014', '|'];
 
 /**
  * Reduces a subject label to a comparable key: casing, spacing and punctuation

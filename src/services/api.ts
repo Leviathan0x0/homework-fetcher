@@ -14,7 +14,13 @@ function readConversationCache(): any[] {
     const raw = localStorage.getItem(CONVERSATIONS_CACHE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((conversation: any) => ({
+      ...conversation,
+      lastMessagePreview: conversation?.lastMessagePreview
+        ? messagePreviewText(String(conversation.lastMessagePreview), 'Help request')
+        : conversation?.lastMessagePreview,
+    }));
   } catch {
     return [];
   }
@@ -57,21 +63,29 @@ function mapAuthUser(user: any) {
   };
 }
 
+const SESSION_CHECK_TIMEOUT_MS = 6_000;
+let currentUserRequest: Promise<ReturnType<typeof mapAuthUser> | null> | null = null;
+
 // --- AUTH SERVICE ---
 export const authService = {
-  async getCurrentUser() {
-    try {
+  getCurrentUser() {
+    if (currentUserRequest) return currentUserRequest;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), SESSION_CHECK_TIMEOUT_MS);
+    currentUserRequest = (async () => {
       const res = await apiFetch("/api/auth/me", {
-        headers: { "Accept": "application/json" }
+        headers: { "Accept": "application/json" },
+        signal: controller.signal,
       });
-      if (!res.ok) return null;
+      if (!res.ok) throw new Error(`Session validation failed (${res.status}).`);
       const data = await apiJson<any>(res);
       if (!data.authenticated || !data.user) return null;
       return mapAuthUser(data.user);
-    } catch (err) {
-      console.error("getCurrentUser error:", err);
-      return null;
-    }
+    })().finally(() => {
+      window.clearTimeout(timeout);
+      currentUserRequest = null;
+    });
+    return currentUserRequest;
   },
 
   async login(studentId: string, pass: string, _chosenSection?: string) {
@@ -260,7 +274,12 @@ function mapMessage(raw: any) {
     attachmentUrl: raw.attachmentUrl ? apiUrl(raw.attachmentUrl) : null,
     originalFilename: raw.originalFilename || null,
     mimeType: raw.mimeType || null,
-    replyTo: raw.replyTo || null,
+    replyTo: raw.replyTo
+      ? {
+          ...raw.replyTo,
+          content: messagePreviewText(String(raw.replyTo.content || ''), 'Help request'),
+        }
+      : null,
     readBy: raw.readBy || [],
     createdAt: raw.createdAt,
     isMine: !!raw.isMine,
@@ -549,14 +568,7 @@ export const requestService = {
     return data.requests || [];
   },
 
-  async createRequest(
-    _userId: string,
-    _studentId: string,
-    _section: string,
-    title?: string,
-    content?: string,
-    category?: string
-  ) {
+  async createRequest(title: string, content: string, category?: string) {
     const res = await apiFetch("/api/requests", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -565,6 +577,15 @@ export const requestService = {
     const data = await apiJson<any>(res);
     if (!res.ok || !data.request) throw new Error(data.error || "Failed to create request.");
     return data.request;
+  },
+
+  async markSeen(requestIds?: string[]) {
+    const res = await apiFetch("/api/requests/seen", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(requestIds?.length ? { requestIds } : {}),
+    });
+    if (!res.ok) throw new Error("Failed to acknowledge requests.");
   },
 
   async updateStatus(id: string, status: string) {

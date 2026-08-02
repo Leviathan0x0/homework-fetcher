@@ -164,7 +164,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       'h-12 w-full rounded-xl border border-white/20 bg-black/25 pl-11 pr-4 text-sm text-[#f8f5ee]',
                       'placeholder:text-[#f5f2eb]/35 outline-none transition-[border-color,background-color,box-shadow] duration-150',
                       'hover:border-white/30 hover:bg-black/30',
-                      'focus:border-sky-400/80 focus:bg-black/35 focus:ring-2 focus:ring-sky-400/25',
+                      'focus:border-[#58729b]/85 focus:bg-[#102440]/50 focus:ring-2 focus:ring-[#1e3a5f]/65',
                       'disabled:opacity-50'
                     )}
                   />
@@ -190,7 +190,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                       'h-12 w-full rounded-xl border border-white/20 bg-black/25 pl-11 pr-12 text-sm text-[#f8f5ee]',
                       'placeholder:text-[#f5f2eb]/35 outline-none transition-[border-color,background-color,box-shadow] duration-150',
                       'hover:border-white/30 hover:bg-black/30',
-                      'focus:border-sky-400/80 focus:bg-black/35 focus:ring-2 focus:ring-sky-400/25',
+                      'focus:border-[#58729b]/85 focus:bg-[#102440]/50 focus:ring-2 focus:ring-[#1e3a5f]/65',
                       'disabled:opacity-50'
                     )}
                   />

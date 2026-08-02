@@ -1706,7 +1706,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         )}
       </div>
 
-      <div className="px-3 sm:px-4 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 shrink-0 bg-[#fafafa] dark:bg-[#09090b] z-20">
+      <div className="px-3 sm:px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3 shrink-0 bg-[#fafafa] dark:bg-[#09090b] z-20">
         {fileError && (
           <div className="mb-2 px-3 py-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200/70 dark:border-rose-900/50 text-[12px] text-rose-800 dark:text-rose-200 leading-relaxed">
             {fileError}

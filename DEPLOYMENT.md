@@ -164,6 +164,39 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
 
+## Sentry observability
+
+The application can send privacy-conscious error and performance telemetry to separate Sentry
+projects for the Express API and browser application. Errors are always sent when Sentry is enabled;
+performance transactions are sampled at 10% by default.
+
+Sentry is disabled unless its enablement variables and DSNs are set. Both SDKs explicitly set
+`sendDefaultPii: false`, remove user context, cookies, headers, and request bodies before sending
+events, and keep session replay disabled.
+
+Set these server variables where the Express API runs:
+
+```bash
+SENTRY_ENABLED=true
+SENTRY_DSN=<api-project-dsn>
+SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=1.0.0
+SENTRY_BROWSER_ENABLED=true
+```
+
+Set these **build-time** frontend variables where Vite builds the static bundle:
+
+```bash
+VITE_SENTRY_ENABLED=true
+VITE_SENTRY_DSN=<browser-project-dsn>
+VITE_SENTRY_ENVIRONMENT=production
+VITE_SENTRY_RELEASE=1.0.0
+```
+
+Optionally set `SENTRY_TRACES_SAMPLE_RATE` and `VITE_SENTRY_TRACES_SAMPLE_RATE` to a number from
+`0` to `1` to override the default 10% performance sampling rate. The browser DSN is intended to
+be public; do not put a Sentry auth token in a `VITE_*` variable.
+
 ## Demo teacher account
 
 `teacher_test` lets you open the teacher portal without a real EduSecure staff

@@ -16,6 +16,8 @@ try {
   }
 } catch (e) {}
 
+const { setupExpressErrorHandler } = require("./server/sentry");
+
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 
@@ -35,6 +37,13 @@ const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/clien
 const { rateLimit } = require("./server/limits");
 
 const app = express();
+const sentryBrowserEnabled = process.env.SENTRY_BROWSER_ENABLED === "true";
+const corsRequestHeaders = [
+  "Content-Type",
+  "Accept",
+  "Authorization",
+  ...(sentryBrowserEnabled ? ["baggage", "sentry-trace"] : []),
+].join(", ");
 
 /**
  * Gzips JSON responses that are large enough to be worth it.
@@ -93,13 +102,13 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
   } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
     res.setHeader("Access-Control-Allow-Origin", origin || "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
     return res.sendStatus(204);
   } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
     console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);
@@ -205,6 +214,8 @@ app.use(express.static(path.join(__dirname, "public"), { maxAge: "1h" }));
 app.use("/api", (req, res) => {
   res.status(404).json({ error: `Unknown API endpoint: ${req.method} /api${req.path}` });
 });
+
+setupExpressErrorHandler(app);
 
 // Surface API failures as JSON instead of an opaque platform error page
 app.use("/api", (err, req, res, next) => {

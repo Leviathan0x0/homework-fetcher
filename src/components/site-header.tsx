@@ -105,20 +105,22 @@ export function SiteHeader({
     <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-2 border-b border-neutral-200/70 dark:border-neutral-800/70 bg-white/80 dark:bg-[#09090b]/80 backdrop-blur-xl px-4 lg:px-6 pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sticky top-0 z-20">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1 cursor-pointer" />
-        <Separator orientation="vertical" className="mr-2 h-4" />
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem className="hidden sm:inline-flex">
-              <span className="text-xs font-medium text-muted-foreground">Dashboard</span>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator className="hidden sm:inline-flex" />
-            <BreadcrumbItem>
-              <BreadcrumbPage className="font-semibold text-xs">
-                {getBreadcrumbTitle(activeView)}
-              </BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div className="hidden items-center gap-2 md:flex">
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem className="hidden sm:inline-flex">
+                <span className="text-xs font-medium text-muted-foreground">Dashboard</span>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator className="hidden sm:inline-flex" />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="font-semibold text-xs">
+                  {getBreadcrumbTitle(activeView)}
+                </BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

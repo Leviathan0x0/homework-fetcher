@@ -32,6 +32,17 @@ interface AdminViewProps {
   onNavigate?: (view: ViewType) => void;
 }
 
+type DirectoryLoadState = 'loading' | 'loaded' | 'error';
+
+function DirectoryLoading({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-32 items-center justify-center gap-2.5 p-8 text-xs text-neutral-500" role="status">
+      <Loader2 className="size-4 animate-spin text-neutral-400" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
 export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-overview', onNavigate }) => {
   const prefersReducedMotion = useReducedMotion();
   const [stats, setStats] = useState<any>(null);
@@ -46,6 +57,8 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     classwork_approval_required: false,
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [studentsLoadState, setStudentsLoadState] = useState<DirectoryLoadState>('loading');
+  const [teachersLoadState, setTeachersLoadState] = useState<DirectoryLoadState>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionIsError, setActionIsError] = useState(false);
@@ -65,19 +78,44 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
 
   const loadAdminData = async () => {
     setIsLoading(true);
+    setStudentsLoadState('loading');
+    setTeachersLoadState('loading');
     setLoadError(null);
     try {
+      const studentsRequest = adminService.getStudents().then(
+        (data) => {
+          setStudents(data?.students || []);
+          setStudentsLoadState('loaded');
+          return data;
+        },
+        (error) => {
+          setStudentsLoadState('error');
+          throw error;
+        }
+      );
+      const teachersRequest = adminService.getTeachers().then(
+        (data) => {
+          setTeachers(data?.teachers || []);
+          setTeachersLoadState('loaded');
+          return data;
+        },
+        (error) => {
+          setTeachersLoadState('error');
+          throw error;
+        }
+      );
+
       const results = await Promise.allSettled([
         adminService.getStats(),
-        adminService.getStudents(),
-        adminService.getTeachers(),
+        studentsRequest,
+        teachersRequest,
         adminService.getAlerts(),
         adminService.getReports(),
         adminService.getSettings(),
         adminService.getPendingClasswork(),
       ]);
 
-      const [statsData, studentsData, teachersData, alertsData, reportsData, settingsData, pendingData] =
+      const [statsData, , , alertsData, reportsData, settingsData, pendingData] =
         results.map((r) => (r.status === 'fulfilled' ? r.value : null)) as any[];
 
       const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
@@ -88,8 +126,6 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       }
 
       if (statsData?.stats) setStats(statsData.stats);
-      setStudents(studentsData?.students || []);
-      setTeachers(teachersData?.teachers || []);
       setAlerts(alertsData?.alerts || []);
       setReports(reportsData?.reports || []);
       setPendingClasswork(pendingData?.classwork || []);
@@ -464,7 +500,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
           </div>
 
           <div className="overflow-hidden rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0c0c0e] shadow-2xs">
-            {filteredStudents.length === 0 ? (
+            {studentsLoadState === 'loading' ? (
+              <DirectoryLoading label="Loading students..." />
+            ) : studentsLoadState === 'error' && students.length === 0 ? (
+              <div className="p-8 text-center text-xs text-neutral-400">Student accounts could not be loaded. Try refreshing.</div>
+            ) : filteredStudents.length === 0 ? (
               <div className="p-8 text-center text-xs text-neutral-400">No registered students found matching search.</div>
             ) : (
               <div className="overflow-x-auto">
@@ -534,7 +574,13 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
             <h3 className="text-sm font-semibold text-neutral-900 dark:text-white mb-2">Faculty Roster</h3>
             <p className="text-xs text-neutral-500 mb-4">Registered teachers and department section assignments.</p>
 
-            {teachers.length === 0 ? (
+            {teachersLoadState === 'loading' ? (
+              <DirectoryLoading label="Loading teachers..." />
+            ) : teachersLoadState === 'error' && teachers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-neutral-200 p-6 text-center text-xs text-neutral-400 dark:border-neutral-800">
+                Teacher accounts could not be loaded. Try refreshing.
+              </div>
+            ) : teachers.length === 0 ? (
               <div className="p-6 text-center text-xs text-neutral-400 border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
                 No teacher accounts registered in the database yet. When faculty members log in, their accounts will appear here automatically.
               </div>

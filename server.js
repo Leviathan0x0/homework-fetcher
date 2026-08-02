@@ -33,7 +33,13 @@ const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { isTestTeacherEnabled, testTeacherDiagnostics } = require("./server/teacher/teacherService");
-const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
+const { ensureDatabaseReady, isRemote, db, schema, ready: dbReady } = require("./server/db/client");
+const { seedDefaultSettings } = require("./server/admin/settingsService");
+
+// Seed default settings once at startup, after the database is ready.
+dbReady.then(() => seedDefaultSettings()).catch((err) => {
+  console.error("Failed to seed default settings on startup:", err.message);
+});
 const { rateLimit } = require("./server/limits");
 
 const app = express();

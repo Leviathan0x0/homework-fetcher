@@ -91,8 +91,17 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request);
+      .catch(async () => {
+        // caches.match() returns undefined on a miss. Passing that to
+        // respondWith() throws "Failed to convert value to 'Response'" and
+        // breaks SPA navigations like /teacher after login when offline.
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          const shell = await caches.match('/index.html');
+          if (shell) return shell;
+        }
+        return Response.error();
       })
   );
 });

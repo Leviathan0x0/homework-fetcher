@@ -4,6 +4,7 @@ import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
 import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor, KeyRound } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -56,6 +57,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [isInstalled, setIsInstalled] = useState(false);
   const [installTab, setInstallTab] = useState<'computer' | 'android' | 'ios'>('computer');
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   useEffect(() => {
     setNameDraft(user?.displayName || '');
@@ -182,6 +184,22 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </button>
             </div>
           )}
+
+          <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800">
+            <button
+              type="button"
+              onClick={() => setShowPasswordHelp(true)}
+              className="group/password inline-flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60 cursor-pointer"
+            >
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                <KeyRound className="h-3.5 w-3.5 text-neutral-500 transition-transform duration-200 group-hover/password:rotate-12" />
+                Forgot or change password
+              </span>
+              <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                Via school office
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -439,6 +457,12 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         </div>
       )}
+
+      <ForgotPasswordDialog
+        isOpen={showPasswordHelp}
+        onClose={() => setShowPasswordHelp(false)}
+        variant="change"
+      />
     </div>
   );
 };

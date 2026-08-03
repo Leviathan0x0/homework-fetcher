@@ -1,8 +1,8 @@
 const express = require("express");
-const { eq, desc, and, count } = require("drizzle-orm");
-const sessionService = require("../auth/sessionService");
+const { eq, desc, and } = require("drizzle-orm");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
+const { isPlaceholderTestText } = require("../admin/purgeTestContent");
 
 const router = express.Router();
 
@@ -17,16 +17,21 @@ router.get("/notifications", requireAuth, async (req, res) => {
       .limit(50)
       .all();
 
-    const result = records.map((n) => ({
-      id: n.id,
-      type: n.type,
-      title: n.title,
-      body: n.body,
-      link: n.link,
-      referenceId: n.referenceId,
-      isRead: n.isRead,
-      createdAt: n.createdAt,
-    }));
+    const result = records
+      .filter(
+        (n) =>
+          !isPlaceholderTestText(n.title) && !isPlaceholderTestText(n.body)
+      )
+      .map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        link: n.link,
+        referenceId: n.referenceId,
+        isRead: n.isRead,
+        createdAt: n.createdAt,
+      }));
 
     return res.json({ notifications: result });
   } catch (err) {
@@ -37,9 +42,13 @@ router.get("/notifications", requireAuth, async (req, res) => {
 
 router.get("/notifications/unread-count", requireAuth, async (req, res) => {
   try {
-    // Counted in SQL: the badge only needs a number, not every unread row.
-    const row = await db
-      .select({ total: count() })
+    // Badge count excludes placeholder "test" / "feed test" rows so a leftover
+    // trial notification cannot keep the bell lit after cleanup.
+    const rows = await db
+      .select({
+        title: schema.notifications.title,
+        body: schema.notifications.body,
+      })
       .from(schema.notifications)
       .where(
         and(
@@ -47,9 +56,14 @@ router.get("/notifications/unread-count", requireAuth, async (req, res) => {
           eq(schema.notifications.isRead, 0)
         )
       )
-      .get();
+      .all();
 
-    return res.json({ count: Number(row?.total) || 0 });
+    const total = rows.filter(
+      (row) =>
+        !isPlaceholderTestText(row.title) && !isPlaceholderTestText(row.body)
+    ).length;
+
+    return res.json({ count: total });
   } catch (err) {
     console.error("Unread Count Error:", err);
     return res.status(500).json({ error: "Failed to get unread count." });
@@ -108,7 +122,10 @@ router.get("/alerts/active", requireAuth, async (req, res) => {
       .all();
 
     const matchingAlerts = activeAlerts.filter(
-      (a) => a.targetSection === "All" || a.targetSection === userSection
+      (a) =>
+        (a.targetSection === "All" || a.targetSection === userSection) &&
+        !isPlaceholderTestText(a.title) &&
+        !isPlaceholderTestText(a.message)
     );
 
     return res.json({ alerts: matchingAlerts });

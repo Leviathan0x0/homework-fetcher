@@ -104,12 +104,22 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
     setIsLoading(true);
     notificationService
       .getNotifications()
-      .then((list) => setNotifications(list))
-      .catch(() => setNotifications([]))
-      .finally(() => setIsLoading(false));
+      .then((list) => {
+        if (!cancelled) setNotifications(list);
+      })
+      .catch(() => {
+        if (!cancelled) setNotifications([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -153,10 +163,18 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   const copy = roleCopy[role];
   const EmptyIcon = copy.EmptyIcon;
 
+  const toggleOpen = () => {
+    const willOpen = !isOpen;
+    // Effects run after paint. Set this synchronously with the click so the
+    // popover cannot render its empty verdict for a frame before fetching.
+    if (willOpen) setIsLoading(true);
+    setIsOpen(willOpen);
+  };
+
   return (
     <div className="relative" ref={popoverRef}>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className="relative p-2 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
         title="Notifications"
         aria-label="Notifications"

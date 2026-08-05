@@ -439,6 +439,7 @@ export const AppShell: React.FC = () => {
             <CalendarView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
@@ -451,6 +452,7 @@ export const AppShell: React.FC = () => {
             <ExamsView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
@@ -463,6 +465,7 @@ export const AppShell: React.FC = () => {
             <RecentView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
@@ -475,6 +478,7 @@ export const AppShell: React.FC = () => {
             <AllHomeworkView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -493,6 +497,7 @@ export const AppShell: React.FC = () => {
             <AttachmentsView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force) => fetchHomework(force)}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
@@ -505,6 +510,7 @@ export const AppShell: React.FC = () => {
             <CompletedView
               homework={homework}
               isLoading={isLoading}
+              isRefreshing={isRefreshing}
               onRefresh={(force?: boolean) => { fetchHomework(force); }}
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}

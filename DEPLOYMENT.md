@@ -172,7 +172,8 @@ performance transactions are sampled at 10% by default.
 
 Sentry is disabled unless its enablement variables and DSNs are set. Both SDKs explicitly set
 `sendDefaultPii: false`, remove user context, cookies, headers, and request bodies before sending
-events, and keep session replay disabled.
+events. The browser records replay context only when an error occurs: normal-session sampling is
+disabled, error replay sampling is 100%, and all text, inputs, and media remain masked or blocked.
 
 Set these server variables where the Express API runs:
 

@@ -10,6 +10,7 @@ import { RefreshButton } from './RefreshButton';
 interface AttachmentsViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: (force?: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
@@ -20,6 +21,7 @@ interface AttachmentsViewProps {
 export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   completedMap,
   onToggleCompleted,
@@ -28,6 +30,8 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
 }) => {
   const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
   const attachmentEntries = validHomework.filter((item) => Boolean(item?.attachment));
+  const isContentLoading =
+    isLoading || (Boolean(isRefreshing) && attachmentEntries.length === 0);
 
   const getEntryId = (item: HomeworkEntry) => {
     if (!item) return '';
@@ -41,11 +45,11 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
       <PageHeader
         title="Attachments"
         description="Downloadable files and resources"
-        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} />}
+        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />}
       />
 
-      {isLoading ? (
-        <LoadingSkeleton />
+      {isContentLoading ? (
+        <LoadingSkeleton label="Loading attachments…" />
       ) : attachmentEntries.length === 0 ? (
         <EmptyState type="attachments" />
       ) : (

@@ -13,6 +13,7 @@ import { cn } from '../utils/cn';
 interface ExamsViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: (forceRefresh: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
@@ -23,6 +24,7 @@ interface ExamsViewProps {
 export const ExamsView: React.FC<ExamsViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   completedMap,
   onToggleCompleted,
@@ -59,6 +61,8 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
     }
     return examItems;
   }, [examItems, selectedFilter]);
+  const isContentLoading =
+    isLoading || (Boolean(isRefreshing) && filteredExamItems.length === 0);
 
   // Group exam items by Subject
   const groupedBySubject = useMemo(() => {
@@ -79,7 +83,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
       <PageHeader
         title="Exam Mode"
         description="Automatically grouped revision, syllabus, and exam-related assignments."
-        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} compact />}
+        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} compact />}
       />
 
       {/* Subtle Exam Summary Bar */}
@@ -90,15 +94,15 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              {totalExamsCount} exam-related {totalExamsCount === 1 ? 'assignment' : 'assignments'}
+              {isContentLoading ? '…' : totalExamsCount} exam-related {totalExamsCount === 1 ? 'assignment' : 'assignments'}
             </h2>
             <div className="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
               <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                {completedCount} completed
+                {isContentLoading ? '…' : completedCount} completed
               </span>
               <span>·</span>
               <span className="text-neutral-700 dark:text-neutral-300 font-medium">
-                {remainingCount} remaining
+                {isContentLoading ? '…' : remainingCount} remaining
               </span>
             </div>
           </div>
@@ -115,7 +119,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
                 : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
             )}
           >
-            All ({totalExamsCount})
+            All ({isContentLoading ? '…' : totalExamsCount})
           </button>
           <button
             onClick={() => setSelectedFilter('high')}
@@ -143,8 +147,8 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
       </div>
 
       {/* Main Content Area */}
-      {isLoading ? (
-        <LoadingSkeleton count={3} />
+      {isContentLoading ? (
+        <LoadingSkeleton count={3} label="Loading exam assignments…" />
       ) : filteredExamItems.length > 0 ? (
         <div className="space-y-8">
           {Object.entries(groupedBySubject).map(([subjectName, items]) => (

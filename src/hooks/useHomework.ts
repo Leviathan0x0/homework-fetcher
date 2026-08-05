@@ -96,6 +96,7 @@ function usesSchoolPortal(account: UserAccount | null): boolean {
 
 export function useHomework() {
   const initialUser = useRef<UserAccount | null>(readCachedUser()).current;
+  const initialHomework = useRef<HomeworkEntry[]>(readCachedHomework(initialUser?.id)).current;
 
   const [user, setUser] = useState<UserAccount | null>(initialUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
@@ -105,7 +106,7 @@ export function useHomework() {
   // dock from flashing without bringing back a long startup delay.
   const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
 
-  const [homework, setHomework] = useState<HomeworkEntry[]>(() => readCachedHomework(initialUser?.id));
+  const [homework, setHomework] = useState<HomeworkEntry[]>(initialHomework);
 
   const [lastUpdated, setLastUpdated] = useState<string | null>(() => localStorage.getItem("lastUpdated") || null);
   const [activeView, setActiveView] = useState<ViewType>(
@@ -114,8 +115,16 @@ export function useHomework() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("All");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  // An authenticated student with no cached rows has not yet proved that the
+  // diary is empty. Keep every homework view in its loading state until the
+  // first request settles so an empty-state message never flashes as a false
+  // verdict between session validation and the fetch effect below.
+  const [isLoading, setIsLoading] = useState<boolean>(
+    Boolean(initialUser && usesSchoolPortal(initialUser) && initialHomework.length === 0)
+  );
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(
+    Boolean(initialUser && usesSchoolPortal(initialUser) && initialHomework.length > 0)
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialUser ? "connected" : "disconnected");
   // The school portal ends its own session long before the app session does, so
@@ -125,7 +134,7 @@ export function useHomework() {
 
   const [completedMap, setCompletedMap] = useState<Record<string, boolean>>(() => {
     const map: Record<string, boolean> = {};
-    readCachedHomework(initialUser?.id).forEach((item) => {
+    initialHomework.forEach((item) => {
       if (item.id && typeof item.completed === "boolean") map[item.id] = item.completed;
     });
     return map;
@@ -153,6 +162,17 @@ export function useHomework() {
     try {
       const currentUser = await authService.getCurrentUser();
       if (currentUser) {
+        const isSameAccount = initialUser?.id === currentUser.id;
+        const cachedHomework = isSameAccount
+          ? homeworkRef.current
+          : readCachedHomework(currentUser.id);
+        if (!isSameAccount) {
+          homeworkRef.current = cachedHomework;
+          setHomework(cachedHomework);
+        }
+        const willLoadHomework = usesSchoolPortal(currentUser);
+        setIsLoading(willLoadHomework && cachedHomework.length === 0);
+        setIsRefreshing(willLoadHomework && cachedHomework.length > 0);
         // Keeping the same object when nothing changed stops the revalidation
         // from re-triggering every effect that depends on the account.
         setUser((previous) =>
@@ -171,9 +191,12 @@ export function useHomework() {
         clearCachedAccount(initialUser?.id);
         setUser(null);
         setIsAuthenticated(false);
+        homeworkRef.current = [];
         setHomework([]);
         setErrorMessage(null);
         setSessionStatus("disconnected");
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
     } catch (err) {
       // A revalidation that could not reach the server must not sign a student
@@ -183,6 +206,8 @@ export function useHomework() {
         setUser(null);
         setIsAuthenticated(false);
         setSessionStatus("disconnected");
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
     } finally {
       setIsAuthChecking(false);
@@ -193,22 +218,21 @@ export function useHomework() {
     checkAuth();
   }, [checkAuth]);
 
-  const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
+  const fetchHomework = useCallback(async (_forceRefresh: boolean = false) => {
     if (!user || !usesSchoolPortal(user)) return;
-    if (forceRefresh) {
-      setIsRefreshing(true);
-    } else {
-      // Cached homework is already on screen, so a background refresh must not
-      // replace it with a loading skeleton.
-      const hasVisibleHomework = homeworkRef.current.length > 0;
-      setIsLoading(!hasVisibleHomework);
-      setIsRefreshing(hasVisibleHomework);
-    }
+    // Preserve useful cached rows during a refresh. When the page is empty,
+    // however, the centered loading state is the only honest status until the
+    // request completes; a spinner in the distant refresh button is too easy
+    // to miss and leaves the empty-state copy looking authoritative.
+    const hasVisibleHomework = homeworkRef.current.length > 0;
+    setIsLoading(!hasVisibleHomework);
+    setIsRefreshing(hasVisibleHomework);
     setErrorMessage(null);
 
     try {
       const { items, schoolSessionExpired: portalExpired } = await homeworkService.getHomework(user.id);
       const sortedList = sortHomeworkNewestFirst(items);
+      homeworkRef.current = sortedList;
       setHomework(sortedList);
       writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
       setSchoolSessionExpired(portalExpired);
@@ -308,7 +332,12 @@ export function useHomework() {
       setIsAuthenticated(true);
       setSessionStatus("connected");
       setSchoolSessionExpired(false);
-      setHomework(readCachedHomework(loggedUser.id));
+      const cachedHomework = readCachedHomework(loggedUser.id);
+      homeworkRef.current = cachedHomework;
+      setHomework(cachedHomework);
+      const willLoadHomework = usesSchoolPortal(loggedUser);
+      setIsLoading(willLoadHomework && cachedHomework.length === 0);
+      setIsRefreshing(willLoadHomework && cachedHomework.length > 0);
       writeJson(CACHED_USER_KEY, loggedUser);
       hasAppliedRoleView.current = true;
       setActiveView(defaultViewForUser(loggedUser));
@@ -316,9 +345,9 @@ export function useHomework() {
     } catch (err: any) {
       console.error("Login Error:", err);
       setErrorMessage(err.message || "Failed to authenticate.");
-      return false;
-    } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
+      return false;
     }
   }, [user]);
 
@@ -334,6 +363,7 @@ export function useHomework() {
       hasAppliedRoleView.current = false;
       setUser(null);
       setIsAuthenticated(false);
+      homeworkRef.current = [];
       setHomework([]);
       setLastUpdated(null);
       setErrorMessage(null);
@@ -343,6 +373,7 @@ export function useHomework() {
       setNotesMap({});
       localStorage.removeItem("lastUpdated");
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [user]);
 

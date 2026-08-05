@@ -25,11 +25,18 @@ if (enabled) {
     environment: env.VITE_SENTRY_ENVIRONMENT || env.MODE || "development",
     release: env.VITE_SENTRY_RELEASE,
     sendDefaultPii: false,
-    integrations: [Sentry.browserTracingIntegration()],
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        maskAllText: true,
+        maskAllInputs: true,
+        blockAllMedia: true,
+      }),
+    ],
     tracesSampleRate: sampleRate(env.VITE_SENTRY_TRACES_SAMPLE_RATE),
     tracePropagationTargets: apiOrigins(),
     replaysSessionSampleRate: 0,
-    replaysOnErrorSampleRate: 0,
+    replaysOnErrorSampleRate: 1.0,
     beforeSend(event) {
       delete event.user;
 

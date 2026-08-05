@@ -21,6 +21,7 @@ import { cn } from '../utils/cn';
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: (force?: boolean) => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
@@ -37,6 +38,7 @@ interface AllHomeworkViewProps {
 export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   searchQuery,
   onSearchChange,
@@ -53,9 +55,11 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [classwork, setClasswork] = useState<ClassworkEntry[]>([]);
   const [requests, setRequests] = useState<SectionRequest[]>([]);
+  const [isSupportingContentLoading, setIsSupportingContentLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    setIsSupportingContentLoading(true);
     (async () => {
       try {
         const [cw, reqs] = await Promise.all([
@@ -68,6 +72,8 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
         }
       } catch {
         // Search extras are best-effort.
+      } finally {
+        if (!cancelled) setIsSupportingContentLoading(false);
       }
     })();
     return () => {
@@ -159,13 +165,17 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
   const hasAnyResults =
     grouped.length > 0 || matchedClasswork.length > 0 || matchedRequests.length > 0;
+  const isResultLoading =
+    isLoading ||
+    (Boolean(isRefreshing) && !hasAnyResults) ||
+    (Boolean(q) && isSupportingContentLoading);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Search"
         description="Find homework, classwork, and requests in one place"
-        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} />}
+        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />}
       />
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -179,8 +189,10 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
         onSelectSubject={setSelectedSubject}
       />
 
-      {isLoading ? (
-        <LoadingSkeleton />
+      {isResultLoading ? (
+        <LoadingSkeleton
+          label={q ? 'Searching homework, classwork, and requests…' : 'Loading homework…'}
+        />
       ) : !hasAnyResults ? (
         <EmptyState
           type="search"

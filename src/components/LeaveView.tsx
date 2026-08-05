@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { CalendarDays, Send } from "lucide-react";
 import { PageHeader } from "./PageHeader";
+import { LoadingState } from "./LoadingState";
 import { leaveService } from "../services/api";
 
 const inputClass = "h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950";
@@ -10,9 +11,18 @@ export const LeaveView: React.FC = () => {
   const [form, setForm] = useState({ fromDate: "", toDate: "", reason: "" });
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const load = async () => {
-    try { setRequests((await leaveService.getMine()).requests || []); } catch (err: any) { setError(err.message || "Could not load leave requests."); }
+    setIsLoading(true);
+    setError(null);
+    try {
+      setRequests((await leaveService.getMine()).requests || []);
+    } catch (err: any) {
+      setError(err.message || "Could not load leave requests.");
+    } finally {
+      setIsLoading(false);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -41,7 +51,13 @@ export const LeaveView: React.FC = () => {
         </form>
         <div className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-2xs dark:border-neutral-800 dark:bg-[#0c0c0e]">
           <h2 className="mb-4 text-sm font-semibold">Your requests</h2>
-          {!requests.length ? <p className="text-xs text-neutral-400">No leave requests yet.</p> : <div className="space-y-2">{requests.map((request) => <div key={request.id} className="rounded-xl border border-neutral-100 p-3 dark:border-neutral-800"><div className="flex items-center justify-between gap-3"><p className="text-xs font-medium">{request.fromDate} → {request.toDate}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${request.status === "approved" ? "bg-emerald-100 text-emerald-700" : request.status === "rejected" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>{request.status}</span></div><p className="mt-1 text-xs text-neutral-500">{request.reason}</p>{request.reviewerNote && <p className="mt-2 text-[11px] text-neutral-400">Teacher note: {request.reviewerNote}</p>}</div>)}</div>}
+          {isLoading && requests.length === 0 ? (
+            <LoadingState label="Loading your leave requests…" className="min-h-32" />
+          ) : !requests.length ? (
+            <p className="text-xs text-neutral-400">No leave requests yet.</p>
+          ) : (
+            <div className="space-y-2">{requests.map((request) => <div key={request.id} className="rounded-xl border border-neutral-100 p-3 dark:border-neutral-800"><div className="flex items-center justify-between gap-3"><p className="text-xs font-medium">{request.fromDate} → {request.toDate}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${request.status === "approved" ? "bg-emerald-100 text-emerald-700" : request.status === "rejected" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>{request.status}</span></div><p className="mt-1 text-xs text-neutral-500">{request.reason}</p>{request.reviewerNote && <p className="mt-2 text-[11px] text-neutral-400">Teacher note: {request.reviewerNote}</p>}</div>)}</div>
+          )}
         </div>
       </div>
     </div>

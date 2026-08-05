@@ -10,7 +10,9 @@ const {
   ensureTeacherProfile,
   assertSectionAccess,
   assertClassTeacherAccess,
+  testTeacherUser,
 } = require("../teacher/teacherService");
+const { isPlaceholderTestText } = require("../admin/purgeTestContent");
 
 const router = express.Router();
 
@@ -79,20 +81,33 @@ router.get("/assignments/student", async (req, res) => {
       .where(inArray(schema.teacherAssignmentAttachments.assignmentId, assignmentIds))
       .all();
     const attachmentByAssignment = new Map(attachments.map((attachment) => [attachment.assignmentId, attachment]));
-    return res.json({
-      assignments: targets.map((target) => ({
-        ...byId.get(target.assignmentId),
-        targetId: target.id,
-        section: target.section,
-        status: target.status,
-        submittedAt: target.submittedAt,
-        attachmentUrl: attachmentByAssignment.has(target.assignmentId)
-          ? `/api/teacher/assignments/${target.assignmentId}/attachment`
-          : null,
-        attachmentFilename: attachmentByAssignment.get(target.assignmentId)?.filename || null,
-        attachmentMimeType: attachmentByAssignment.get(target.assignmentId)?.mimeType || null,
-      })),
-    });
+    const demoTeacherId = testTeacherUser().id;
+    const visible = targets
+      .map((target) => {
+        const assignment = byId.get(target.assignmentId);
+        if (!assignment) return null;
+        if (
+          assignment.teacherUserId === demoTeacherId ||
+          isPlaceholderTestText(assignment.title) ||
+          isPlaceholderTestText(assignment.content)
+        ) {
+          return null;
+        }
+        return {
+          ...assignment,
+          targetId: target.id,
+          section: target.section,
+          status: target.status,
+          submittedAt: target.submittedAt,
+          attachmentUrl: attachmentByAssignment.has(target.assignmentId)
+            ? `/api/teacher/assignments/${target.assignmentId}/attachment`
+            : null,
+          attachmentFilename: attachmentByAssignment.get(target.assignmentId)?.filename || null,
+          attachmentMimeType: attachmentByAssignment.get(target.assignmentId)?.mimeType || null,
+        };
+      })
+      .filter(Boolean);
+    return res.json({ assignments: visible });
   } catch (err) {
     console.error("Student teacher assignments error:", err);
     return res.status(500).json({ error: "Failed to load teacher assignments." });

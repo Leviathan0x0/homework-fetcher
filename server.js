@@ -35,11 +35,34 @@ const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { isTestTeacherEnabled, testTeacherDiagnostics } = require("./server/teacher/teacherService");
 const { ensureDatabaseReady, isRemote, db, schema, ready: dbReady } = require("./server/db/client");
 const { seedDefaultSettings } = require("./server/admin/settingsService");
+const { purgeTestContent } = require("./server/admin/purgeTestContent");
 
 // Seed default settings once at startup, after the database is ready.
 dbReady.then(() => seedDefaultSettings()).catch((err) => {
   console.error("Failed to seed default settings on startup:", err.message);
 });
+
+// Drop placeholder "test" / "feed test" assignments, alerts, and notification
+// feed rows left behind while trying the teacher portal.
+dbReady
+  .then(() => purgeTestContent())
+  .then((summary) => {
+    const removed =
+      summary.assignments +
+      summary.notifications +
+      summary.alerts +
+      summary.announcements;
+    if (removed > 0) {
+      console.log(
+        `[cleanup] Removed test content: ${summary.assignments} assignments, ` +
+          `${summary.notifications} notifications, ${summary.alerts} alerts, ` +
+          `${summary.announcements} announcements`
+      );
+    }
+  })
+  .catch((err) => {
+    console.error("Failed to purge test content on startup:", err.message);
+  });
 const { rateLimit } = require("./server/limits");
 
 const app = express();

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock, GraduationCap, UserRound } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { cn } from '../utils/cn';
+import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 
 interface LoginPageProps {
   onLogin: (studentId: string, pass: string) => Promise<boolean>;
@@ -22,6 +23,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [loginMode, setLoginMode] = useState<'student' | 'teacher'>('student');
   const [switchDirection, setSwitchDirection] = useState(1);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   const handleModeChange = (mode: 'student' | 'teacher') => {
@@ -172,9 +174,19 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="login-password" className="block text-sm font-medium text-[#f5f2eb]/80">
-                  Password
-                </label>
+                <div className="flex items-center justify-between gap-3">
+                  <label htmlFor="login-password" className="block text-sm font-medium text-[#f5f2eb]/80">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    disabled={isLoading}
+                    className="text-xs font-medium text-[#d5bd94]/90 transition-colors hover:text-[#e8d4b0] focus-visible:outline-none focus-visible:underline disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f5f2eb]/45" />
                   <input
@@ -242,6 +254,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         {/* Preserve the open-artwork half of the desktop split without extra copy. */}
         <div className="pointer-events-none relative hidden flex-1 md:block" aria-hidden />
       </div>
+
+      <ForgotPasswordDialog
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        variant="forgot"
+        appearance="login"
+      />
     </div>
   );
 };

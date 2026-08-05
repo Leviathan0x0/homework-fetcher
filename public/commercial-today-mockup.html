@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MMSS Mohali — Today (Commercial Mock)</title>
+  <meta name="description" content="Commercial mock of the MMSS Mohali Today page for Kiaan." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0f1115;
+      --ink-soft: #3a3f4a;
+      --ink-mute: #6b7280;
+      --paper: #f6f4ef;
+      --surface: rgba(255, 252, 247, 0.88);
+      --line: rgba(28, 30, 36, 0.08);
+      --brand: #1e3a5f;
+      --brand-soft: #58729b;
+      --gold: #c4a574;
+      --math-bg: #eef2ff;
+      --math-ink: #3730a3;
+      --sci-bg: #ecfdf5;
+      --sci-ink: #065f46;
+      --eng-bg: #f5f3ff;
+      --eng-ink: #5b21b6;
+      --hin-bg: #fff7ed;
+      --hin-ink: #9a3412;
+      --sst-bg: #fdf2f8;
+      --sst-ink: #9d174d;
+      --comp-bg: #f0f9ff;
+      --comp-ink: #075985;
+      --shadow: 0 18px 50px rgba(15, 17, 21, 0.18);
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      font-family: "Outfit", system-ui, sans-serif;
+      color: var(--ink);
+      background: #0b0d12;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    /* Atmospheric stage for commercial framing */
+    .stage {
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 32px 20px 48px;
+      position: relative;
+      isolation: isolate;
+      background:
+        radial-gradient(ellipse 80% 55% at 50% -10%, rgba(88, 114, 155, 0.35), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 85% 80%, rgba(196, 165, 116, 0.18), transparent 50%),
+        radial-gradient(ellipse 45% 35% at 10% 70%, rgba(30, 58, 95, 0.4), transparent 50%),
+        linear-gradient(165deg, #0a0c11 0%, #141822 45%, #0d1018 100%);
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, black, transparent);
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .stage-caption {
+      position: absolute;
+      top: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(245, 242, 235, 0.72);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 500;
+      z-index: 2;
+    }
+
+    .stage-caption img {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: #fff;
+      padding: 2px;
+      object-fit: contain;
+    }
+
+    .controls {
+      position: absolute;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 5;
+    }
+
+    .controls button {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: #f5f2eb;
+      font: 500 12px/1 "Outfit", sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      backdrop-filter: blur(10px);
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+
+    .controls button:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    .controls button:active { transform: scale(0.97); }
+
+    /* Phone device */
+    .phone {
+      width: min(var(--phone-w), calc(100vw - 40px));
+      height: min(var(--phone-h), calc(100dvh - 140px));
+      border-radius: 44px;
+      padding: 10px;
+      background:
+        linear-gradient(145deg, #2a2e38, #12141a 40%, #1a1d26);
+      box-shadow:
+        var(--shadow),
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 0 0 1px rgba(255,255,255,0.06);
+      position: relative;
+      z-index: 1;
+    }
+
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      border-radius: 36px;
+      overflow: hidden;
+      background: var(--paper);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .phone-screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 90% 50% at 0% 0%, rgba(88, 114, 155, 0.12), transparent 55%),
+        radial-gradient(ellipse 70% 40% at 100% 10%, rgba(196, 165, 116, 0.1), transparent 50%),
+        linear-gradient(180deg, #f8f5ef 0%, #f1eee7 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .notch {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 118px;
+      height: 28px;
+      background: #0b0d12;
+      border-radius: 20px;
+      z-index: 4;
+    }
+
+    .status-bar {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 22px 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .status-bar .icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      opacity: 0.75;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 4px 0 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 18px 10px;
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+
+    .brand-lockup {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-lockup img {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 3px;
+      object-fit: contain;
+    }
+
+    .brand-lockup .brand-name {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+    }
+
+    .brand-lockup .brand-sub {
+      font-size: 10px;
+      color: var(--ink-mute);
+      margin-top: 1px;
+    }
+
+    .bell {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.7);
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .bell svg { width: 15px; height: 15px; opacity: 0.7; }
+    .bell .dot {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #c2410c;
+      box-shadow: 0 0 0 2px #f6f4ef;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow: hidden;
+      padding: 0 16px 24px;
+    }
+
+    .hero {
+      padding: 6px 2px 18px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 16px;
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    .hero .date {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--ink-mute);
+      letter-spacing: 0.02em;
+      margin-bottom: 8px;
+    }
+
+    .hero h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+
+    .hero h1 .wave {
+      display: inline-block;
+      transform-origin: 70% 70%;
+    }
+
+    .hero h1 .wave.play {
+      animation: wave 1.4s 0.2s ease-in-out 2;
+    }
+
+    .hero .sub {
+      margin-top: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--ink-soft);
+      max-width: 32ch;
+    }
+
+    .glance {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .glance-item {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 10px 10px 9px;
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+    }
+
+    .glance-item .value {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      tabular-nums: true;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .glance-item .label {
+      font-size: 10px;
+      color: var(--ink-mute);
+      margin-top: 2px;
+    }
+
+    .progress {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 14px;
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      transform: translateY(14px);
+    }
+
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+
+    .progress-head h2 {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .progress-head span {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(15, 17, 21, 0.08);
+      overflow: hidden;
+    }
+
+    .bar > i {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #1e3a5f, #58729b 70%, #c4a574);
+    }
+
+    .progress p {
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--ink-mute);
+    }
+
+    .filters {
+      display: flex;
+      gap: 6px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    .chip {
+      flex: 0 0 auto;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 6px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.55);
+      color: var(--ink-soft);
+    }
+
+    .chip.active {
+      background: var(--ink);
+      color: #f8f5ee;
+      border-color: var(--ink);
+    }
+
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card {
+      background: rgba(255, 252, 247, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset;
+      opacity: 0;
+      transform: translateY(22px) scale(0.985);
+      will-change: transform, opacity;
+    }
+
+    .card.done {
+      opacity: 0.62 !important;
+    }
+
+    .card.done .task-title {
+      text-decoration: line-through;
+      text-decoration-color: rgba(107, 114, 128, 0.55);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .card-top-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .check {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      border: 1.5px solid rgba(28, 30, 36, 0.22);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      background: transparent;
+    }
+
+    .check.on {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: #fff;
+    }
+
+    .check svg { width: 10px; height: 10px; }
+
+    .badge {
+      font-size: 10px;
+      font-weight: 650;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+
+    .badge.math { background: var(--math-bg); color: var(--math-ink); border-color: rgba(55,48,163,0.12); }
+    .badge.science { background: var(--sci-bg); color: var(--sci-ink); border-color: rgba(6,95,70,0.12); }
+    .badge.english { background: var(--eng-bg); color: var(--eng-ink); border-color: rgba(91,33,182,0.12); }
+    .badge.hindi { background: var(--hin-bg); color: var(--hin-ink); border-color: rgba(154,52,18,0.12); }
+    .badge.sst { background: var(--sst-bg); color: var(--sst-ink); border-color: rgba(157,23,77,0.12); }
+    .badge.comp { background: var(--comp-bg); color: var(--comp-ink); border-color: rgba(7,89,133,0.12); }
+
+    .meta {
+      font-size: 10px;
+      color: var(--ink-mute);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--ink-mute);
+      background: rgba(15,17,21,0.05);
+      border-radius: 6px;
+      padding: 3px 5px;
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .task-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+
+    .task-detail {
+      margin-top: 3px;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--ink-mute);
+    }
+
+    .cw {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .cw .task-detail { margin-top: 0; }
+
+    .note {
+      margin-top: 10px;
+      border-top: 1px dashed rgba(28,30,36,0.1);
+      padding-top: 8px;
+      font-size: 11px;
+      color: var(--brand-soft);
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+
+    .home-indicator {
+      height: 22px;
+      display: grid;
+      place-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .home-indicator span {
+      width: 110px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(15,17,21,0.28);
+    }
+
+    @keyframes rise {
+      to { opacity: 1; transform: none; }
+    }
+
+    @keyframes wave {
+      0%, 100% { transform: rotate(0deg); }
+      20% { transform: rotate(16deg); }
+      40% { transform: rotate(-8deg); }
+      60% { transform: rotate(12deg); }
+      80% { transform: rotate(-4deg); }
+    }
+
+    @keyframes fillBar {
+      to { width: var(--target); }
+    }
+
+    @keyframes cardIn {
+      to { opacity: 1; transform: none; }
+    }
+
+    /* Replay state */
+    .is-reset .topbar,
+    .is-reset .hero,
+    .is-reset .glance-item,
+    .is-reset .progress,
+    .is-reset .filters,
+    .is-reset .card {
+      animation: none !important;
+      opacity: 0 !important;
+      transform: translateY(16px) !important;
+    }
+
+    .is-reset .bar > i {
+      animation: none !important;
+      width: 0 !important;
+    }
+
+    .is-reset .hero h1 .wave {
+      animation: none !important;
+    }
+
+    /* Wide commercial framing: keep phone centered with soft glow */
+    @media (min-width: 900px) {
+      .phone {
+        box-shadow:
+          var(--shadow),
+          0 0 80px rgba(88, 114, 155, 0.22),
+          inset 0 1px 0 rgba(255,255,255,0.12),
+          0 0 0 1px rgba(255,255,255,0.06);
+      }
+    }
+
+    @media (max-height: 760px) {
+      .phone { height: min(var(--phone-h), calc(100dvh - 110px)); }
+      .hero h1 { font-size: 24px; }
+      .stage-caption { top: 14px; }
+      .controls { bottom: 12px; }
+    }
+
+    /* Full-bleed capture mode: hide chrome for screen recording */
+    body.capture .stage-caption,
+    body.capture .controls,
+    body.capture .notch,
+    body.capture .status-bar,
+    body.capture .home-indicator {
+      display: none !important;
+    }
+
+    body.capture .stage {
+      padding: 0;
+      background: var(--paper);
+    }
+
+    body.capture .stage::before { display: none; }
+
+    body.capture .phone {
+      width: 100%;
+      height: 100dvh;
+      border-radius: 0;
+      padding: 0;
+      box-shadow: none;
+      background: transparent;
+    }
+
+    body.capture .phone-screen {
+      border-radius: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="stage-caption">
+      <img src="/logo.png" alt="" />
+      <span>MMSS Mohali · Today</span>
+    </div>
+
+    <div class="phone" id="phone">
+      <div class="phone-screen" id="screen">
+        <div class="notch" aria-hidden="true"></div>
+        <div class="status-bar">
+          <span>9:41</span>
+          <div class="icons" aria-hidden="true">
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><rect x="0" y="7" width="2.5" height="4" rx="0.5"/><rect x="4" y="5" width="2.5" height="6" rx="0.5"/><rect x="8" y="2.5" width="2.5" height="8.5" rx="0.5"/><rect x="12" y="0" width="2.5" height="11" rx="0.5"/></svg>
+            <svg width="15" height="11" viewBox="0 0 15 11" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 7.5a7 7 0 0 1 13 0"/><path d="M3.2 5.6a4.2 4.2 0 0 1 8.6 0"/><circle cx="7.5" cy="9.2" r="1.1" fill="currentColor" stroke="none"/></svg>
+            <svg width="23" height="11" viewBox="0 0 23 11" fill="none"><rect x="0.5" y="0.5" width="19" height="10" rx="2.5" stroke="currentColor"/><rect x="2" y="2" width="14" height="7" rx="1.2" fill="currentColor"/><path d="M21 3.5v4a1.8 1.8 0 0 0 0-4Z" fill="currentColor" opacity=".45"/></svg>
+          </div>
+        </div>
+
+        <div class="app">
+          <header class="topbar">
+            <div class="brand-lockup">
+              <img src="/logo.png" alt="MMSS Mohali" />
+              <div>
+                <div class="brand-name">MMSS Mohali</div>
+                <div class="brand-sub">Student portal</div>
+              </div>
+            </div>
+            <div class="bell" aria-label="Notifications">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5"/><path d="M9.5 17a2.5 2.5 0 0 0 5 0"/></svg>
+              <span class="dot"></span>
+            </div>
+          </header>
+
+          <div class="scroll">
+            <section class="hero">
+              <p class="date" id="dateLabel">Monday, 3 August</p>
+              <h1><span class="wave" aria-hidden="true">👋</span> Hello, Kiaan</h1>
+              <p class="sub">Here is your plan for today — six assignments, formatted and ready.</p>
+            </section>
+
+            <div class="glance" id="glance">
+              <div class="glance-item">
+                <div class="value">5</div>
+                <div class="label">tasks</div>
+              </div>
+              <div class="glance-item">
+                <div class="value">2</div>
+                <div class="label">chats</div>
+              </div>
+              <div class="glance-item">
+                <div class="value">1</div>
+                <div class="label">request</div>
+              </div>
+            </div>
+
+            <section class="progress" id="progress">
+              <div class="progress-head">
+                <h2>Today’s Progress</h2>
+                <span>17% complete</span>
+              </div>
+              <div class="bar"><i style="--target: 17%"></i></div>
+              <p>Start with one — momentum builds fast.</p>
+            </section>
+
+            <div class="filters" id="filters">
+              <span class="chip active">All</span>
+              <span class="chip">Mathematics</span>
+              <span class="chip">Science</span>
+              <span class="chip">English</span>
+              <span class="chip">Hindi</span>
+              <span class="chip">S.St</span>
+            </div>
+
+            <div class="cards" id="cards">
+              <!-- Homework cards injected for commercial choreography -->
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="replay">Replay</button>
+      <button type="button" id="captureToggle">Capture mode</button>
+    </div>
+  </div>
+
+  <script>
+    const HOMEWORK = [
+      {
+        subject: "Mathematics",
+        badge: "math",
+        done: true,
+        title: "Complete Ex 7.2 — Q1 to Q8",
+        detail: "Linear equations in two variables. Show full working in the fair notebook.",
+        cw: "Class discussion: graphing solutions on the coordinate plane.",
+      },
+      {
+        subject: "Science",
+        badge: "science",
+        done: false,
+        title: "Revise Chapter 9: Force & Laws of Motion",
+        detail: "Learn Newton’s three laws with one real-life example each.",
+        note: "Diagram of free-body forces for tomorrow’s viva.",
+      },
+      {
+        subject: "English",
+        badge: "english",
+        done: false,
+        title: "Write a diary entry (150–180 words)",
+        detail: "Topic: “A morning that changed my week.” Focus on sensory detail.",
+        cw: "Shared reading: poem stanza analysis.",
+      },
+      {
+        subject: "Hindi",
+        badge: "hindi",
+        done: false,
+        title: "पाठ 4 — प्रश्न / उत्तर लिखो",
+        detail: "पाठ्यपुस्तक के अंत में दिए गए सभी लघु उत्तरीय प्रश्न पूरे करें।",
+      },
+      {
+        subject: "Social Science",
+        badge: "sst",
+        done: false,
+        title: "Map work: Mark 8 major ports of India",
+        detail: "Use the outline map from the atlas. Label neatly in pencil first.",
+      },
+      {
+        subject: "Computer",
+        badge: "comp",
+        done: false,
+        title: "Finish the HTML form practice page",
+        detail: "Include name, class, and a submit button. Save as form.html.",
+      },
+    ];
+
+    const cardsEl = document.getElementById("cards");
+    const dateLabel = document.getElementById("dateLabel");
+
+    function formatDateLabel(d = new Date()) {
+      return d.toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+    }
+
+    dateLabel.textContent = formatDateLabel();
+
+    function checkSvg(on) {
+      return on
+        ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>`
+        : "";
+    }
+
+    function renderCards() {
+      cardsEl.innerHTML = HOMEWORK.map((item, index) => `
+        <article class="card${item.done ? " done" : ""}" data-i="${index}">
+          <div class="card-top">
+            <div class="card-top-left">
+              <div class="check${item.done ? " on" : ""}">${checkSvg(item.done)}</div>
+              <span class="badge ${item.badge}">${item.subject}</span>
+            </div>
+            <span class="meta">Today</span>
+          </div>
+          <div class="row">
+            <span class="tag">HW</span>
+            <div>
+              <p class="task-title">${item.title}</p>
+              ${item.detail ? `<p class="task-detail">${item.detail}</p>` : ""}
+            </div>
+          </div>
+          ${item.cw ? `
+            <div class="cw">
+              <span class="tag">CW</span>
+              <p class="task-detail">${item.cw}</p>
+            </div>` : ""}
+          ${item.note ? `
+            <div class="note">
+              <span aria-hidden="true">✎</span>
+              <span>${item.note}</span>
+            </div>` : ""}
+        </article>
+      `).join("");
+    }
+
+    function runSequence() {
+      const screen = document.getElementById("screen");
+      screen.classList.remove("is-reset");
+
+      // Force reflow so animations restart cleanly for filming.
+      void screen.offsetWidth;
+
+      const topbar = document.querySelector(".topbar");
+      const hero = document.querySelector(".hero");
+      const wave = document.querySelector(".hero h1 .wave");
+      const glanceItems = [...document.querySelectorAll(".glance-item")];
+      const progress = document.getElementById("progress");
+      const filters = document.getElementById("filters");
+      const bar = document.querySelector(".bar > i");
+      const cards = [...document.querySelectorAll(".card")];
+
+      topbar.style.animation = `rise 0.7s 0.15s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      hero.style.animation = `rise 0.85s 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+
+      if (wave) {
+        wave.classList.remove("play");
+        void wave.offsetWidth;
+        wave.classList.add("play");
+      }
+
+      glanceItems.forEach((el, i) => {
+        el.style.animation = `rise 0.65s ${0.55 + i * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      });
+
+      progress.style.animation = `rise 0.7s 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      bar.style.animation = `fillBar 1.1s 1.15s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      filters.style.animation = `rise 0.65s 1.05s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+
+      cards.forEach((el, i) => {
+        const delay = 1.25 + i * 0.18;
+        el.style.animation = `cardIn 0.7s ${delay}s cubic-bezier(0.22, 1, 0.36, 1) forwards`;
+      });
+    }
+
+    function replay() {
+      const screen = document.getElementById("screen");
+      screen.classList.add("is-reset");
+      [...document.querySelectorAll(".topbar, .hero, .glance-item, .progress, .filters, .card, .bar > i")].forEach((el) => {
+        el.style.animation = "none";
+      });
+      requestAnimationFrame(() => {
+        requestAnimationFrame(runSequence);
+      });
+    }
+
+    renderCards();
+    runSequence();
+
+    document.getElementById("replay").addEventListener("click", replay);
+    document.getElementById("captureToggle").addEventListener("click", () => {
+      document.body.classList.toggle("capture");
+    });
+
+    // Keyboard helpers for commercial capture
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "r" || e.key === "R") replay();
+      if (e.key === "c" || e.key === "C") document.body.classList.toggle("capture");
+    });
+  </script>
+</body>
+</html>

@@ -13,6 +13,7 @@ import { LoadMoreButton } from './LoadMoreButton';
 interface CompletedViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: () => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
@@ -23,6 +24,7 @@ interface CompletedViewProps {
 export const CompletedView: React.FC<CompletedViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   completedMap,
   onToggleCompleted,
@@ -53,6 +55,8 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
     selectedSubject === 'All'
       ? completedEntries
       : completedEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
+  const isContentLoading =
+    isLoading || (Boolean(isRefreshing) && filteredEntries.length === 0);
 
   const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 
@@ -61,7 +65,7 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
       <PageHeader
         title="Completed homework"
         description="Assignments you have marked as complete"
-        actions={<RefreshButton onRefresh={() => onRefresh()} isRefreshing={isLoading} />}
+        actions={<RefreshButton onRefresh={() => onRefresh()} isRefreshing={isLoading || isRefreshing} />}
       />
 
       {/* Subject Filter Pills */}
@@ -71,8 +75,8 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
         onSelectSubject={setSelectedSubject}
       />
 
-      {isLoading ? (
-        <LoadingSkeleton />
+      {isContentLoading ? (
+        <LoadingSkeleton label="Loading completed homework…" />
       ) : filteredEntries.length === 0 ? (
         <EmptyState
           type="all"

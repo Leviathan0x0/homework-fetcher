@@ -163,14 +163,21 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const doneCount = todayAllEntries.filter(isEntryDone).length;
   const totalCount = todayAllEntries.length;
   const progressPct = totalCount === 0 ? 0 : Math.round((doneCount / totalCount) * 100);
+  // Holidays can replace the homework empty state, so an empty diary is not a
+  // final answer until both requests have settled. Existing homework remains
+  // visible while holidays refresh in the background.
+  const isContentLoading =
+    isLoading ||
+    (totalCount === 0 && Boolean(isRefreshing)) ||
+    (totalCount === 0 && holidaysLoading && calendarEvents.length === 0);
 
   const greeting = getTimeGreeting();
   const name = firstNameFrom(displayName, studentId);
   const dateStr = formatContextualDate();
   const pendingCount = Math.max(totalCount - doneCount, 0);
-  const allDone = !isLoading && totalCount > 0 && doneCount >= totalCount;
+  const allDone = !isContentLoading && totalCount > 0 && doneCount >= totalCount;
 
-  const subtitle = isLoading
+  const subtitle = isContentLoading
     ? 'Preparing your dashboard...'
     : hasHolidayToday && totalCount === 0
       ? 'School holiday today. No homework is expected.'
@@ -186,7 +193,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     {
       key: 'homework',
       label: pendingCount === 1 ? 'task' : 'tasks',
-      value: isLoading ? '...' : String(pendingCount),
+      value: isContentLoading ? '...' : String(pendingCount),
       icon: ClipboardList,
       onClick: undefined as undefined | (() => void),
     },
@@ -364,7 +371,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         })}
       </div>
 
-      {!isLoading && totalCount > 0 && (
+      {!isContentLoading && totalCount > 0 && (
         <section
           className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#141417] p-4 sm:p-5 shadow-2xs animate-in fade-in-0 duration-300"
           aria-label="Today's progress"
@@ -406,8 +413,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
         />
       )}
 
-      {isLoading ? (
-        <LoadingSkeleton />
+      {isContentLoading ? (
+        <LoadingSkeleton label="Loading today’s homework…" />
       ) : todayEntries.length === 0 ? (
         hasHolidayToday ? null : <EmptyState type="today" />
       ) : (

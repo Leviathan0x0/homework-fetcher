@@ -16,6 +16,7 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 interface RecentViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: (force?: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
@@ -26,6 +27,7 @@ interface RecentViewProps {
 export const RecentView: React.FC<RecentViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   completedMap,
   onToggleCompleted,
@@ -73,13 +75,15 @@ export const RecentView: React.FC<RecentViewProps> = ({
     }
     map.get(d)!.entries.push(item);
   }
+  const isContentLoading =
+    isLoading || (Boolean(isRefreshing) && filteredEntries.length === 0);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Recent homework"
         description="Assignments from the last 7 days"
-        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading} />}
+        actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />}
       />
 
       {/* Subject Filter Pills */}
@@ -89,8 +93,8 @@ export const RecentView: React.FC<RecentViewProps> = ({
         onSelectSubject={setSelectedSubject}
       />
 
-      {isLoading ? (
-        <LoadingSkeleton />
+      {isContentLoading ? (
+        <LoadingSkeleton label="Loading recent homework…" />
       ) : grouped.length === 0 ? (
         <EmptyState type="recent" title="No recent homework" subtitle="There are no homework assignments matching your filter from the last 7 days." />
       ) : (

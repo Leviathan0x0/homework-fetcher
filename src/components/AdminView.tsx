@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { PageHeader } from './PageHeader';
+import { LoadingState } from './LoadingState';
 import { adminService } from '../services/api';
 import { ViewType } from '../types/homework';
 import { cn } from '../utils/cn';
@@ -57,6 +58,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     classwork_approval_required: false,
   });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = useState(false);
   const [studentsLoadState, setStudentsLoadState] = useState<DirectoryLoadState>('loading');
   const [teachersLoadState, setTeachersLoadState] = useState<DirectoryLoadState>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -144,6 +146,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       setLoadError(err?.message || 'Failed to load admin data');
     } finally {
       setIsLoading(false);
+      setHasLoadedInitialData(true);
     }
   };
 
@@ -295,6 +298,15 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
   ]
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
     .slice(0, 6);
+
+  if (!hasLoadedInitialData) {
+    return (
+      <div className="max-w-6xl space-y-6 pb-12">
+        <PageHeader title={currentInfo.title} description={currentInfo.desc} />
+        <LoadingState label="Loading the admin dashboard…" className="min-h-64" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl pb-12">

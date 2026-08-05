@@ -18,6 +18,7 @@ import { cn } from '../utils/cn';
 interface CalendarViewProps {
   homework: HomeworkEntry[];
   isLoading: boolean;
+  isRefreshing?: boolean;
   onRefresh: (forceRefresh: boolean) => void;
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
@@ -117,6 +118,7 @@ const DayCell = memo(function DayCell({
 export const CalendarView: React.FC<CalendarViewProps> = ({
   homework,
   isLoading,
+  isRefreshing,
   onRefresh,
   completedMap,
   onToggleCompleted,
@@ -204,6 +206,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const selectedEntries = homeworkByDate[selectedYmd] || [];
   const selectedHolidays = holidaysByDate[selectedYmd] || [];
+  const isSelectedDateLoading =
+    isLoading ||
+    (Boolean(isRefreshing) && selectedEntries.length === 0 && selectedHolidays.length === 0) ||
+    (eventsLoading && selectedEntries.length === 0 && selectedHolidays.length === 0);
 
   const handleSelect = useCallback((ymd: string) => {
     setSelectedYmd(ymd);
@@ -255,7 +261,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
             <RefreshButton
               onRefresh={handleRefreshAll}
-              isRefreshing={isLoading || eventsLoading}
+              isRefreshing={isLoading || Boolean(isRefreshing) || eventsLoading}
               compact
             />
           </>
@@ -397,8 +403,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             />
           ))}
 
-          {isLoading ? (
-            <LoadingSkeleton count={2} />
+          {isSelectedDateLoading ? (
+            <LoadingSkeleton count={2} label="Loading this day’s schedule…" />
           ) : selectedEntries.length > 0 ? (
             <div className="space-y-3">
               {selectedEntries.map((item, idx) => (

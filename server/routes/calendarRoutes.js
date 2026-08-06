@@ -6,6 +6,7 @@ const {
 } = require("../edusecure/calendarService");
 const { SchoolSessionExpiredError } = require("../edusecure/homeworkService");
 const calendarCacheService = require("../calendar/calendarCacheService");
+const { isDemoStudentUser, getDemoCalendar } = require("../demo/demoStudentService");
 
 const router = express.Router();
 
@@ -22,6 +23,15 @@ async function refreshFromEduSecure(userId) {
 // GET /api/calendar — school holidays & events from EduSecure (cached)
 router.get("/calendar", requireAuth, async (req, res) => {
   const userId = req.user.id;
+
+  if (isDemoStudentUser(req.user)) {
+    const events = await getDemoCalendar(userId);
+    return res.json({
+      count: events.length,
+      events,
+      isStale: false,
+    });
+  }
 
   try {
     // Cache read and staleness check are independent; run them together so a
@@ -73,6 +83,11 @@ router.get("/calendar", requireAuth, async (req, res) => {
 // POST /api/calendar/refresh — force refresh from EduSecure
 router.post("/calendar/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
+  if (isDemoStudentUser(req.user)) {
+    const events = await getDemoCalendar(userId, { force: true });
+    return res.json({ count: events.length, events, isStale: false });
+  }
+
   try {
     const events = await refreshFromEduSecure(userId);
     return res.json({ count: events.length, events, isStale: false });

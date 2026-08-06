@@ -52,6 +52,7 @@ function mapAuthUser(user: any) {
     section: unknown ? null : section,
     isAdmin,
     isTeacher: Boolean(user?.isTeacher || user?.role === "teacher" || user?.role === "class_teacher"),
+    isDemo: Boolean(user?.isDemo),
     role: user.role || (isAdmin ? "admin" : "student"),
     teacherProfile: user?.teacherProfile || null,
   };

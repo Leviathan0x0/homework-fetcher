@@ -163,6 +163,25 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
 
+## Demo student account
+
+The app includes an isolated student account for school walkthroughs. It uses
+synthetic homework, calendar events, classmates, and clean sample messages; it
+never logs into EduSecure and never joins a real class roster.
+
+Default credentials:
+
+```text
+Student ID: demo_student
+Password:  DemoStudent#2026
+```
+
+Set `DEMO_STUDENT_ID` and `DEMO_STUDENT_PASSWORD` to replace them on a
+deployment. The account's refresh action regenerates a current-date homework
+feed, so the Today view remains populated during a demonstration. Its section
+is intentionally named `Demo 9-C` so the sample users cannot mix with real
+students.
+
 ## Importing a complete class roster
 
 An administrator can pre-register students before they sign in, so teacher

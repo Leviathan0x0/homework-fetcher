@@ -22,6 +22,7 @@ interface SiteHeaderProps {
   onRefresh: () => void;
   onOpenSettings: () => void;
   isLoading: boolean;
+  isDemo?: boolean;
   unreadCount: number;
   onNavigate: (view: string) => void;
   onUnreadCountChange: (count: number) => void;
@@ -32,6 +33,7 @@ export function SiteHeader({
   theme,
   onToggleTheme,
   onOpenSettings,
+  isDemo = false,
   unreadCount,
   onNavigate,
   onUnreadCountChange,
@@ -117,6 +119,11 @@ export function SiteHeader({
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+        {isDemo && (
+          <span className="rounded-full border border-amber-300/70 bg-amber-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/30 dark:text-amber-300">
+            Demo account
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

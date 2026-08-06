@@ -334,6 +334,7 @@ export const AppShell: React.FC = () => {
           onRefresh={() => fetchHomework(true)}
           onOpenSettings={handleOpenSettings}
           isLoading={isLoading || isRefreshing}
+          isDemo={Boolean(user?.isDemo)}
           unreadCount={unreadCount}
           onNavigate={handleNavigate}
           onUnreadCountChange={setUnreadCount}

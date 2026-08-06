@@ -10,6 +10,7 @@ export interface UserAccount {
   section?: string;
   isAdmin?: boolean;
   isTeacher?: boolean;
+  isDemo?: boolean;
   role?: string;
   teacherProfile?: {
     subjects: string[];

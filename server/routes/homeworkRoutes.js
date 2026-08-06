@@ -4,6 +4,7 @@ const { isAdminAccount } = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { fetchHomeworkForSession, SchoolSessionExpiredError } = require("../edusecure/homeworkService");
 const homeworkCacheService = require("../homework/homeworkCacheService");
+const { isDemoStudentUser, getDemoHomework } = require("../demo/demoStudentService");
 
 const router = express.Router();
 
@@ -43,6 +44,17 @@ function refreshFromSchool(userId, sessionCookies) {
 // Returns cached homework immediately from SQLite (<10ms). If cache is stale, triggers background EduSecure refresh.
 router.get("/homework", requireAuth, async (req, res) => {
   const userId = req.user.id;
+
+  if (isDemoStudentUser(req.user)) {
+    const demoHomework = await getDemoHomework(userId);
+    return res.json({
+      count: demoHomework.length,
+      homework: demoHomework,
+      isStale: false,
+      isRefreshing: false,
+      schoolSessionExpired: false,
+    });
+  }
 
   // Administrators have no EduSecure account behind them, so there is no diary
   // to scrape and no school session that could expire. Falling through would
@@ -143,6 +155,16 @@ router.get("/homework", requireAuth, async (req, res) => {
 // Explicitly forces a fresh fetch from EduSecure, upserts to SQLite, and returns updated list.
 router.post("/homework/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
+
+  if (isDemoStudentUser(req.user)) {
+    const demoHomework = await getDemoHomework(userId, { force: true });
+    return res.json({
+      count: demoHomework.length,
+      homework: demoHomework,
+      isStale: false,
+      schoolSessionExpired: false,
+    });
+  }
 
   if (isAdminAccount(req.user)) {
     return res.json({ count: 0, homework: [], isStale: false });

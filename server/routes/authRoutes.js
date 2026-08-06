@@ -10,6 +10,12 @@ const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
+  getDemoStudentCredentials,
+  isDemoStudentLogin,
+  isDemoStudentUser,
+  ensureDemoStudentData,
+} = require("../demo/demoStudentService");
+const {
   ensureTeacherProfile,
   normalizeTeacherProfile,
 } = require("../teacher/teacherService");
@@ -88,6 +94,31 @@ router.post("/login", async (req, res) => {
           isAdmin: true,
           role: "admin",
         }
+      });
+    }
+
+    if (isDemoStudentLogin(cleanStudentId, password)) {
+      const demoUser = await ensureDemoStudentData();
+      const appToken = await sessionService.createAppSession(demoUser.id, demoUser);
+      const demoCredentials = getDemoStudentCredentials();
+
+      res.cookie("app_session", appToken, sessionCookieOptions({
+        maxAge: sessionService.SESSION_TTL_MS,
+      }));
+
+      return res.json({
+        authenticated: true,
+        token: appToken,
+        user: {
+          id: demoUser.id,
+          studentId: demoCredentials.studentId,
+          displayName: demoUser.displayName,
+          section: demoUser.section,
+          isAdmin: false,
+          isTeacher: false,
+          isDemo: true,
+          role: "student",
+        },
       });
     }
 
@@ -231,6 +262,7 @@ router.get("/me", async (req, res) => {
   const isTeacher =
     activeSession.user.role === "teacher" ||
     activeSession.user.role === "class_teacher";
+  const isDemo = isDemoStudentUser(activeSession.user);
   let teacherProfile = null;
   if (isTeacher) {
     try {
@@ -243,7 +275,7 @@ router.get("/me", async (req, res) => {
     }
   }
 
-  if (!isAdmin && isUnknownSection(section)) {
+  if (!isAdmin && !isDemo && isUnknownSection(section)) {
     try {
       const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
       if (eduSession) {
@@ -261,7 +293,7 @@ router.get("/me", async (req, res) => {
     }
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !isDemo) {
     joinClassGroupInBackground({ id: activeSession.user.id, section });
   }
 
@@ -274,6 +306,7 @@ router.get("/me", async (req, res) => {
       section: isUnknownSection(section) ? (isAdmin ? "Admin" : null) : section,
       isAdmin,
       isTeacher,
+      isDemo,
       role: activeSession.user.role || (isAdmin ? "admin" : "student"),
       teacherProfile,
     }

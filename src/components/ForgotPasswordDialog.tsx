@@ -189,8 +189,8 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
             <span className="inline-flex items-start gap-1.5">
               <School className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
               <span>
-                Admin and demo teacher accounts use deployment passwords — those
-                are rotated by whoever hosts this app, not by EduSecure.
+                Admin accounts use deployment passwords — those are rotated by
+                whoever hosts this app, not by EduSecure.
               </span>
             </span>
           </li>

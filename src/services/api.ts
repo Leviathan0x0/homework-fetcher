@@ -1,5 +1,6 @@
 import { apiFetch, apiJson, apiUrl } from "../lib/api";
 import { messagePreviewText, parseMessageRequestRef } from "../utils/pendingMessageOpen";
+import { getHomeworkRequest } from "./homeworkLoader";
 
 /**
  * Conversations from the last successful load.
@@ -161,10 +162,9 @@ export const authService = {
 
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
-  async getHomework(userId: string) {
-    const res = await apiFetch("/api/homework", {
-      headers: { "Accept": "application/json" }
-    });
+  async getHomework(userId: string, forceRefresh = false) {
+    const request = getHomeworkRequest(forceRefresh);
+    const res = await apiFetch(request.path, request.options);
     if (!res.ok) {
       const errData = await apiJson<any>(res).catch(() => ({} as any));
       const error: any = new Error(errData.message || errData.error || "Failed to fetch homework.");
@@ -196,7 +196,11 @@ export const homeworkService = {
     }
     // The school session can be dead while cached homework still renders, so
     // the flag travels with the list rather than only as an error.
-    return { items: deduplicated, schoolSessionExpired: Boolean(data.schoolSessionExpired) };
+    return {
+      items: deduplicated,
+      schoolSessionExpired: Boolean(data.schoolSessionExpired),
+      isStale: data.isStale === true,
+    };
   },
 
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {

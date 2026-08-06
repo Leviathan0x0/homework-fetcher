@@ -30,6 +30,19 @@ function isDemoStudentUser(user) {
   );
 }
 
+function isDemoStudentId(studentId) {
+  const normalized = String(studentId || "").trim().toLowerCase();
+  return normalized === DEMO_STUDENT_ID.toLowerCase() || normalized.startsWith("demo_");
+}
+
+function isDemoScopedUser(user) {
+  return (
+    isDemoStudentUser(user) ||
+    String(user?.id || "").startsWith("demo-") ||
+    isDemoStudentId(user?.studentId)
+  );
+}
+
 function getDemoStudentCredentials() {
   return {
     studentId: DEMO_STUDENT_ID,
@@ -71,6 +84,9 @@ async function ensureDemoUser() {
     .get();
 
   if (user) {
+    if (user.id !== "demo-student-account") {
+      throw new Error(`Reserved demo student ID is already used by account ${user.id}.`);
+    }
     await db
       .update(schema.users)
       .set({
@@ -197,6 +213,9 @@ async function upsertDemoContact(contact) {
     .get();
 
   if (user) {
+    if (user.id !== contact.id) {
+      throw new Error(`Reserved demo contact ID is already used by account ${user.id}.`);
+    }
     await db
       .update(schema.users)
       .set({
@@ -397,6 +416,8 @@ async function ensureDemoStudentData() {
 module.exports = {
   getDemoStudentCredentials,
   isDemoStudentLogin,
+  isDemoStudentId,
+  isDemoScopedUser,
   isDemoStudentUser,
   ensureDemoStudentData,
   getDemoHomework,

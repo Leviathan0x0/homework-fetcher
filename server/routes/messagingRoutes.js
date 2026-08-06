@@ -23,6 +23,11 @@ const { checkContent } = require("../moderation/checkContent");
 const { recordProfanityStrike, reportConversation, withStrikeWarning } = require("../moderation/flagLogService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const { isUnknownSection } = require("../auth/sessionService");
+const {
+  isDemoStudentUser,
+  isDemoStudentId,
+  isDemoScopedUser,
+} = require("../demo/demoStudentService");
 
 const router = express.Router();
 
@@ -95,7 +100,7 @@ router.get(
 
       // Matching happens in SQL so a search never reads the whole user table.
       const needle = `%${q.toLowerCase().replace(/[%_]/g, "")}%`;
-      const matched = await db
+      let matched = await db
         .select()
         .from(schema.users)
         .where(
@@ -111,6 +116,12 @@ router.get(
         .limit(20)
         .all();
 
+      if (!isDemoStudentUser(req.user)) {
+        matched = matched.filter((user) => !isDemoScopedUser(user));
+      } else {
+        matched = matched.filter((user) => isDemoScopedUser(user));
+      }
+
       const users = matched.map((u) => toPublicUser(u));
 
       // Allow messaging by student ID even if they have never opened the app.
@@ -118,6 +129,7 @@ router.get(
       const selfId = cleanStudentId(req.user.studentId).toLowerCase();
       if (
         isPlausibleStudentId(typedId) &&
+        (isDemoStudentUser(req.user) ? isDemoStudentId(typedId) : !isDemoStudentId(typedId)) &&
         typedId.toLowerCase() !== selfId
       ) {
         const exactInResults = users.some(
@@ -166,8 +178,14 @@ router.post(
       if (typedId.toLowerCase() === cleanStudentId(req.user.studentId).toLowerCase()) {
         return res.status(400).json({ error: "You cannot message yourself." });
       }
+      if (isDemoStudentUser(req.user) !== isDemoStudentId(typedId)) {
+        return res.status(403).json({ error: "That account is outside this demo workspace." });
+      }
 
       const user = await sessionService.findOrCreateUser(typedId);
+      if (isDemoStudentUser(req.user) && !isDemoScopedUser(user)) {
+        return res.status(403).json({ error: "That account is outside this demo workspace." });
+      }
       return res.json({ user: toPublicUser(user) });
     } catch (err) {
       console.error("User Resolve Error:", err);
@@ -294,6 +312,9 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
       if (!isPlausibleStudentId(typedId)) {
         return res.status(400).json({ error: "Enter a valid student ID." });
       }
+      if (isDemoStudentUser(req.user) !== isDemoStudentId(typedId)) {
+        return res.status(403).json({ error: "That account is outside this demo workspace." });
+      }
       const resolved = await sessionService.findOrCreateUser(typedId);
       participantId = resolved.id;
     }
@@ -301,6 +322,16 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
     if (!participantId || typeof participantId !== "string") {
       return res.status(400).json({ error: "Participant ID is required." });
     }
+    const participant = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, participantId))
+      .get();
+    if (!participant) return res.status(404).json({ error: "User not found." });
+    if (isDemoStudentUser(req.user) !== isDemoScopedUser(participant)) {
+      return res.status(403).json({ error: "That account is outside this demo workspace." });
+    }
+
     const token = crypto.randomUUID();
     const now = Date.now();
     await db
@@ -334,6 +365,9 @@ router.post("/conversations", requireAuth, async (req, res) => {
       if (typedId.toLowerCase() === cleanStudentId(req.user.studentId).toLowerCase()) {
         return res.status(400).json({ error: "Cannot start a conversation with yourself." });
       }
+      if (isDemoStudentUser(req.user) !== isDemoStudentId(typedId)) {
+        return res.status(403).json({ error: "That account is outside this demo workspace." });
+      }
       const resolved = await sessionService.findOrCreateUser(typedId);
       participantId = resolved.id;
     }
@@ -351,6 +385,9 @@ router.post("/conversations", requireAuth, async (req, res) => {
       .where(eq(schema.users.id, participantId))
       .get();
     if (!otherUser) return res.status(404).json({ error: "User not found." });
+    if (isDemoStudentUser(req.user) !== isDemoScopedUser(otherUser)) {
+      return res.status(403).json({ error: "That account is outside this demo workspace." });
+    }
 
     // Existing 1:1 DMs never need the monitoring notice again.
     // Do NOT match section class-group threads — every classmate is a participant there.

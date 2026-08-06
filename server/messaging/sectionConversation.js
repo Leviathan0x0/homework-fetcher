@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and } = require("drizzle-orm");
+const { eq, and, inArray } = require("drizzle-orm");
 const { db, schema, runBatch } = require("../db/client");
 
 /**
@@ -18,6 +18,15 @@ function wasReconciledRecently(section) {
   return !!at && Date.now() - at < RECONCILE_INTERVAL_MS;
 }
 
+function isDemoScopedStudent(student) {
+  const studentId = String(student?.studentId || "").trim().toLowerCase();
+  return (
+    String(student?.id || "").startsWith("demo-") ||
+    studentId === "demo_student" ||
+    studentId.startsWith("demo_")
+  );
+}
+
 /**
  * Ensures the user is in their section's shared class group chat.
  * Creates the group if it does not exist yet, and adds every classmate
@@ -32,6 +41,8 @@ async function ensureSectionConversation(user, options = {}) {
   if (!user?.id || !section) return null;
   // Never create/join a group under the fake placeholder section.
   if (/^section\s*10-a$/i.test(section)) return null;
+  const isDemoSection = /^demo\b/i.test(section);
+  if (isDemoSection && !isDemoScopedStudent(user)) return null;
 
   const membershipKey = `${section}\u0000${user.id}`;
   if (!options.force && wasReconciledRecently(membershipKey)) return null;
@@ -59,15 +70,43 @@ async function ensureSectionConversation(user, options = {}) {
         .where(eq(schema.users.section, section))
         .all(),
       db
-        .select({ userId: schema.conversationParticipants.userId })
+        .select({
+          userId: schema.conversationParticipants.userId,
+          studentId: schema.users.studentId,
+        })
         .from(schema.conversationParticipants)
+        .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
         .where(eq(schema.conversationParticipants.conversationId, existing.id))
         .all(),
     ]);
 
-    const inGroup = new Set(current.map((r) => r.userId));
+    const staleDemoMembers = isDemoSection
+      ? current
+          .filter((student) => !isDemoScopedStudent(student))
+          .map((student) => student.userId)
+      : [];
+    if (staleDemoMembers.length > 0) {
+      await db
+        .delete(schema.conversationParticipants)
+        .where(
+          and(
+            eq(schema.conversationParticipants.conversationId, existing.id),
+            inArray(schema.conversationParticipants.userId, staleDemoMembers)
+          )
+        )
+        .run();
+    }
+
+    const inGroup = new Set(
+      current
+        .filter((student) => !staleDemoMembers.includes(student.userId))
+        .map((r) => r.userId)
+    );
     const missing = new Set(
-      studentsInSection.map((student) => student.id).filter((id) => !inGroup.has(id))
+      studentsInSection
+        .filter((student) => !isDemoSection || isDemoScopedStudent(student))
+        .map((student) => student.id)
+        .filter((id) => !inGroup.has(id))
     );
     if (!inGroup.has(user.id)) missing.add(user.id);
 
@@ -91,12 +130,16 @@ async function ensureSectionConversation(user, options = {}) {
 
   const convId = crypto.randomUUID();
   const studentsInSection = await db
-    .select({ id: schema.users.id })
+    .select({ id: schema.users.id, studentId: schema.users.studentId })
     .from(schema.users)
     .where(eq(schema.users.section, section))
     .all();
 
-  const ids = new Set(studentsInSection.map((s) => s.id));
+  const ids = new Set(
+    studentsInSection
+      .filter((student) => !isDemoSection || isDemoScopedStudent(student))
+      .map((student) => student.id)
+  );
   ids.add(user.id);
 
   await runBatch([

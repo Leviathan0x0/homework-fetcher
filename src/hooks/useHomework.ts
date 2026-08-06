@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst } from "../utils/dateUtils";
 import { authService, homeworkService } from "../services/api";
+import { loadHomeworkWithRevalidation } from "../services/homeworkLoader";
 
 export interface UserAccount {
   id: string;
@@ -218,7 +219,7 @@ export function useHomework() {
     checkAuth();
   }, [checkAuth]);
 
-  const fetchHomework = useCallback(async (_forceRefresh: boolean = false) => {
+  const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
     if (!user || !usesSchoolPortal(user)) return;
     // Preserve useful cached rows during a refresh. When the page is empty,
     // however, the centered loading state is the only honest status until the
@@ -230,32 +231,44 @@ export function useHomework() {
     setErrorMessage(null);
 
     try {
-      const { items, schoolSessionExpired: portalExpired } = await homeworkService.getHomework(user.id);
-      const sortedList = sortHomeworkNewestFirst(items);
-      homeworkRef.current = sortedList;
-      setHomework(sortedList);
-      writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
-      setSchoolSessionExpired(portalExpired);
-      if (portalExpired) {
-        setErrorMessage("Your school session has expired.");
-      }
-
-      const newCompletedMap: Record<string, boolean> = {};
-      const newNotesMap: Record<string, string> = {};
-
-      sortedList.forEach((item) => {
-        if (item.id) {
-          if (typeof item.completed === "boolean") {
-            newCompletedMap[item.id] = item.completed;
-          }
-          if (item.note) {
-            newNotesMap[item.id] = item.note;
-          }
+      const applyResult = (items: HomeworkEntry[], portalExpired: boolean) => {
+        const sortedList = sortHomeworkNewestFirst(items);
+        homeworkRef.current = sortedList;
+        setHomework(sortedList);
+        writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
+        setSchoolSessionExpired(portalExpired);
+        if (portalExpired) {
+          setErrorMessage("Your school session has expired.");
         }
-      });
 
-      setCompletedMap(newCompletedMap);
-      setNotesMap(newNotesMap);
+        const newCompletedMap: Record<string, boolean> = {};
+        const newNotesMap: Record<string, string> = {};
+
+        sortedList.forEach((item) => {
+          if (item.id) {
+            if (typeof item.completed === "boolean") {
+              newCompletedMap[item.id] = item.completed;
+            }
+            if (item.note) {
+              newNotesMap[item.id] = item.note;
+            }
+          }
+        });
+
+        setCompletedMap(newCompletedMap);
+        setNotesMap(newNotesMap);
+      };
+
+      const result = await loadHomeworkWithRevalidation(
+        (refresh) => homeworkService.getHomework(user.id, refresh),
+        forceRefresh,
+        (staleResult) => {
+          applyResult(staleResult.items, staleResult.schoolSessionExpired);
+          setIsLoading(false);
+          setIsRefreshing(true);
+        },
+      );
+      applyResult(result.items, result.schoolSessionExpired);
 
       const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setLastUpdated(timeNow);

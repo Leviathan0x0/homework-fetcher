@@ -157,35 +157,30 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `ENCRYPTION_KEY` | **Required.** 32+ character root secret for session cookie signing and EduSecure session encryption |
 | `OPENAI_API_KEY` | See **Content safety** below |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Administrator sign-in. Both fall back to the values in the source, so set them on any real deployment |
-| `TEACHER_TEST_USERNAME` / `TEACHER_TEST_PASSWORD` | Demo teacher sign-in. See **Demo teacher account** below |
 | `EDUSECURE_TEACHER_IDS` | Comma-separated EduSecure IDs that get the teacher portal on login |
 
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |
 | `NOTIFICATION_RETENTION_DAYS` | How long read notifications are kept (default 30) |
 
-## Demo teacher account
+## Importing a complete class roster
 
-`teacher_test` lets you open the teacher portal without a real EduSecure staff
-login. It works in production, but only after the deployment picks its own
-password:
+An administrator can pre-register students before they sign in, so teacher
+rosters include the full class rather than only students who have opened the
+app. From **Admin → Students**, upload an authorized CSV with this header:
 
+```csv
+studentId,displayName,section
+stu001,Aarav Singh,9-C
+stu002,Mehak Kaur,9-C
 ```
-TEACHER_TEST_PASSWORD=<something only you know>
-```
 
-Without that variable the account is available in local development (using the
-default password in `server/teacher/teacherService.js`) and refused in
-production. That default is public in this repository, and the teacher portal
-exposes class rosters, attendance and teacher notes about named students, so a
-live deployment must not accept it.
-
-Optional: `TEACHER_TEST_USERNAME` (default `teacher_test`), `TEACHER_TEST_NAME`,
-`TEACHER_TEST_SUBJECTS`, `TEACHER_TEST_SECTIONS`,
-`TEACHER_TEST_CLASS_TEACHER_SECTIONS`.
-
-`GET /api/health` reports `testTeacherEnabled` so you can confirm the variable
-reached the running deployment.
+`displayName` is optional, but `studentId` and `section` are required. Existing
+student records are updated by student ID; new records are created without a
+password or stored school-portal session. When a student later signs in, the
+login matches the pre-created record and attaches that student's own
+EduSecure session. The import is administrator-only and does not import
+passwords.
 
 ## Content safety (`OPENAI_API_KEY`)
 

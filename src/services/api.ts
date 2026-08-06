@@ -180,6 +180,42 @@ export const homeworkService = {
     return { items: deduplicated, schoolSessionExpired: Boolean(data.schoolSessionExpired) };
   },
 
+  async refreshHomework(userId: string) {
+    const res = await apiFetch("/api/homework/refresh", {
+      method: "POST",
+      headers: { "Accept": "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) {
+      const error: any = new Error(data.message || data.error || "Failed to refresh homework.");
+      error.code = data.code || (res.status === 401 ? "UNAUTHENTICATED" : undefined);
+      throw error;
+    }
+
+    const rawList = data.homework || [];
+    const seen = new Set<string>();
+    const deduplicated: any[] = [];
+    for (const doc of rawList) {
+      if (!doc) continue;
+      const text = (doc.homework || doc.content || "").trim();
+      const key = `${(doc.date || "").trim()}:${text}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduplicated.push({
+        id: doc.id,
+        type: doc.type || "School Diary",
+        date: doc.date || "",
+        subject: doc.subject || "School Diary",
+        homework: text,
+        attachment: doc.attachment || doc.attachmentUrl || null,
+        completed: !!doc.completed,
+        note: doc.note || null,
+        updatedAt: doc.updatedAt,
+      });
+    }
+    return { items: deduplicated, schoolSessionExpired: false };
+  },
+
   async toggleCompleted(userId: string, homeworkId: string, completed: boolean) {
     const res = await apiFetch(`/api/homework/${encodeURIComponent(homeworkId)}/status`, {
       method: "PATCH",
@@ -642,6 +678,15 @@ export const adminService = {
   async getStudents() {
     const res = await apiFetch("/api/admin/students");
     return adminJson<{ students: any[] }>(res);
+  },
+  async importRoster(file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await apiFetch("/api/admin/students/import", {
+      method: "POST",
+      body,
+    });
+    return adminJson<{ success: boolean; imported: number; updated: number; total: number; message: string }>(res);
   },
   async muteStudent(studentId: string, mute: boolean, reason?: string) {
     const res = await apiFetch("/api/admin/students/mute", {

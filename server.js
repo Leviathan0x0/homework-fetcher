@@ -30,7 +30,6 @@ const adminRoutes = require("./server/routes/adminRoutes");
 const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
-const { isTestTeacherEnabled } = require("./server/teacher/teacherService");
 const { ensureDatabaseReady, isRemote, db, schema } = require("./server/db/client");
 const { rateLimit } = require("./server/limits");
 
@@ -150,7 +149,6 @@ app.get("/api/health", async (req, res) => {
     persistent: isRemote || !process.env.VERCEL,
     encryptionKeyConfigured: isConfigured(),
     uploadsDirConfigured: !!process.env.UPLOADS_DIR,
-    testTeacherEnabled: isTestTeacherEnabled(),
   };
 
   if (!status.encryptionKeyConfigured) {

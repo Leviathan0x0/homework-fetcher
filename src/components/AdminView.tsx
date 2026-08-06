@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   UserX,
   UserCheck,
+  Upload,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PageHeader } from './PageHeader';
@@ -57,6 +58,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
   const [newAlertLevel, setNewAlertLevel] = useState<'info' | 'warning' | 'urgent'>('info');
   const [newAlertSection, setNewAlertSection] = useState('All');
   const [isSubmittingAlert, setIsSubmittingAlert] = useState(false);
+  const [isImportingRoster, setIsImportingRoster] = useState(false);
 
   const loadAdminData = async () => {
     setIsLoading(true);
@@ -119,6 +121,23 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       showToast(res.message || `Student ${studentId} ${!currentMuted ? 'muted' : 'unmuted'}.`);
     } catch (err: any) {
       showToast(err.message || 'Action failed', true);
+    }
+  };
+
+  const handleImportRoster = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsImportingRoster(true);
+    try {
+      const result = await adminService.importRoster(file);
+      await loadAdminData();
+      showToast(`${result.imported} students added, ${result.updated} existing students updated.`);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to import roster.', true);
+    } finally {
+      setIsImportingRoster(false);
     }
   };
 
@@ -353,6 +372,29 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
       {/* VIEW: STUDENTS */}
       {activeSubView === 'admin-students' && (
         <div className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4 dark:bg-sky-500/10 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Import class roster</h3>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">
+                Pre-register students before they sign in. CSV columns: <code>studentId</code>, <code>displayName</code>, <code>section</code>.
+              </p>
+            </div>
+            <label className={cn(
+              'inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500',
+              isImportingRoster && 'cursor-not-allowed opacity-50'
+            )}>
+              {isImportingRoster ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+              <span>{isImportingRoster ? 'Importing...' : 'Choose CSV'}</span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={handleImportRoster}
+                disabled={isImportingRoster}
+                className="hidden"
+              />
+            </label>
+          </div>
+
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0c0c0e] shadow-2xs">
             <div className="relative w-full sm:w-72">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-400" />

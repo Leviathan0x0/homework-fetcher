@@ -10,11 +10,7 @@ const { eq } = require("drizzle-orm");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
-  isTestTeacherLogin,
-  testTeacherUser,
-  profileFromEnvironment,
   ensureTeacherProfile,
-  saveTeacherProfile,
   normalizeTeacherProfile,
 } = require("../teacher/teacherService");
 
@@ -92,44 +88,6 @@ router.post("/login", async (req, res) => {
           isAdmin: true,
           role: "admin",
         }
-      });
-    }
-
-    if (isTestTeacherLogin(cleanStudentId, password)) {
-      const testUser = testTeacherUser();
-      const existing = await db
-        .select()
-        .from(schema.users)
-        .where(eq(schema.users.studentId, testUser.studentId))
-        .get();
-      const user = existing || await sessionService.findOrCreateUser(testUser.studentId);
-      await db
-        .update(schema.users)
-        .set({
-          displayName: testUser.displayName,
-          role: "teacher",
-          section: "Staff",
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(schema.users.id, user.id));
-      const profile = await ensureTeacherProfile(user.id, profileFromEnvironment());
-      const appToken = await sessionService.createAppSession(user.id);
-      res.cookie("app_session", appToken, sessionCookieOptions({
-        maxAge: sessionService.SESSION_TTL_MS,
-      }));
-      return res.json({
-        authenticated: true,
-        token: appToken,
-        user: {
-          id: user.id,
-          studentId: testUser.studentId,
-          displayName: testUser.displayName,
-          section: "Staff",
-          isTeacher: true,
-          role: "teacher",
-          teacherProfile: normalizeTeacherProfile(profile),
-          testAccount: true,
-        },
       });
     }
 

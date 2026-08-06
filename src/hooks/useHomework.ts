@@ -137,6 +137,7 @@ export function useHomework() {
   // changes: fetchHomework is a dependency of the effect that calls it, so a
   // changing identity would make it fetch itself in a loop.
   const homeworkRef = useRef<HomeworkEntry[]>(homework);
+  const homeworkRequestInFlightRef = useRef(false);
   useEffect(() => {
     homeworkRef.current = homework;
   }, [homework]);
@@ -189,19 +190,24 @@ export function useHomework() {
 
   const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
     if (!user || !usesSchoolPortal(user)) return;
+    if (homeworkRequestInFlightRef.current) return;
+    homeworkRequestInFlightRef.current = true;
+    const hasVisibleHomework = homeworkRef.current.length > 0;
     if (forceRefresh) {
-      setIsRefreshing(true);
+      setIsLoading(!hasVisibleHomework);
+      setIsRefreshing(hasVisibleHomework);
     } else {
       // Cached homework is already on screen, so a background refresh must not
       // replace it with a loading skeleton.
-      const hasVisibleHomework = homeworkRef.current.length > 0;
       setIsLoading(!hasVisibleHomework);
       setIsRefreshing(hasVisibleHomework);
     }
     setErrorMessage(null);
 
     try {
-      const { items, schoolSessionExpired: portalExpired } = await homeworkService.getHomework(user.id);
+      const { items, schoolSessionExpired: portalExpired } = forceRefresh
+        ? await homeworkService.refreshHomework(user.id)
+        : await homeworkService.getHomework(user.id);
       const sortedList = sortHomeworkNewestFirst(items);
       setHomework(sortedList);
       writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
@@ -244,6 +250,7 @@ export function useHomework() {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+      homeworkRequestInFlightRef.current = false;
     }
   }, [user]);
 
@@ -342,9 +349,32 @@ export function useHomework() {
 
   useEffect(() => {
     if (isAuthenticated && !isAuthChecking && usesSchoolPortal(user)) {
-      fetchHomework(false);
+      // Revalidate against EduSecure on every app open/login so today's
+      // homework does not remain stuck on an older local cache.
+      fetchHomework(true);
     }
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isAuthChecking || !usesSchoolPortal(user)) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchHomework(true);
+    };
+    const refreshWhenOnline = () => fetchHomework(true);
+    // EduSecure has no push/webhook integration, so poll while the app is
+    // visible. This keeps new homework within roughly one minute without
+    // generating requests for hidden tabs.
+    const interval = window.setInterval(refreshWhenVisible, 60 * 1000);
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("online", refreshWhenOnline);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("online", refreshWhenOnline);
+    };
+  }, [isAuthenticated, isAuthChecking, user, fetchHomework]);
 
   return {
     user,

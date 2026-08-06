@@ -5,32 +5,51 @@ export function parseHomeworkDate(dateStr?: string | null): Date | null {
   const str = String(dateStr).trim();
   if (!str) return null;
 
-  // 1. Try standard JS Date parse (e.g. "Feb 24, 2026", "2026-02-24", "Jul 22 2026")
-  let parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) {
+  const makeLocalDate = (year: number, month: number, day: number): Date | null => {
+    const parsed = new Date(year, month - 1, day);
+    if (
+      parsed.getFullYear() !== year ||
+      parsed.getMonth() !== month - 1 ||
+      parsed.getDate() !== day
+    ) {
+      return null;
+    }
     return parsed;
   }
 
-  // 2. Match DD/MM/YYYY, DD-MM-YYYY, or DD.MM.YYYY (e.g. "24/02/2026", "24-02-2026")
+  // EduSecure uses Indian day-first dates. Parse these before native Date,
+  // whose "06/08/2026" interpretation is month-first in many browsers.
   const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
-    const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed month
+    const month = parseInt(dmyMatch[2], 10);
     const year = parseInt(dmyMatch[3], 10);
-    parsed = new Date(year, month, day);
+    return makeLocalDate(year, month, day);
+  }
+
+  // Parse ISO dates as local calendar dates so timezone conversion cannot move
+  // an entry across midnight before the Today view compares it.
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (ymdMatch) {
+    return makeLocalDate(
+      parseInt(ymdMatch[1], 10),
+      parseInt(ymdMatch[2], 10),
+      parseInt(ymdMatch[3], 10)
+    );
+  }
+
+  // Match DD-MMM-YYYY or DD MMM YYYY (e.g. "24-Feb-2026", "24 Feb 2026")
+  const dMmmYMatch = str.match(/^(\d{1,2})[\s\-]+([A-Za-z]+)[\s\-]+(\d{4})$/);
+  if (dMmmYMatch) {
+    const parsed = new Date(`${dMmmYMatch[2]} ${dMmmYMatch[1]}, ${dMmmYMatch[3]}`);
     if (!isNaN(parsed.getTime())) {
       return parsed;
     }
   }
 
-  // 3. Match DD-MMM-YYYY or DD MMM YYYY (e.g. "24-Feb-2026", "24 Feb 2026")
-  const dMmmYMatch = str.match(/^(\d{1,2})[\s\-]+([A-Za-z]+)[\s\-]+(\d{4})$/);
-  if (dMmmYMatch) {
-    parsed = new Date(`${dMmmYMatch[2]} ${dMmmYMatch[1]}, ${dMmmYMatch[3]}`);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
-    }
-  }
+  // Finally support longer natural-language dates such as "Feb 24, 2026".
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) return parsed;
 
   return null;
 }

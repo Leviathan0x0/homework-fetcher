@@ -1,4 +1,6 @@
 const express = require("express");
+const multer = require("multer");
+const crypto = require("crypto");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { eq, desc, count, ne, inArray } = require("drizzle-orm");
@@ -12,8 +14,97 @@ const { saveTeacherProfile } = require("../teacher/teacherService");
 const { invalidateCachedSessionsForUser } = require("../auth/sessionService");
 
 const router = express.Router();
+const rosterUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+});
 
 const ALLOWED_SETTING_KEYS = new Set(Object.keys(DEFAULT_SETTINGS));
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+
+    if (character === '"') {
+      if (inQuotes && next === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (character === "," && !inQuotes) {
+      row.push(field.trim());
+      field = "";
+    } else if ((character === "\n" || character === "\r") && !inQuotes) {
+      if (character === "\r" && next === "\n") index += 1;
+      row.push(field.trim());
+      if (row.some(Boolean)) rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += character;
+    }
+  }
+
+  if (inQuotes) throw new Error("The CSV contains an unfinished quoted field.");
+  if (field || row.length) {
+    row.push(field.trim());
+    if (row.some(Boolean)) rows.push(row);
+  }
+  return rows;
+}
+
+function normalizeCsvHeader(value) {
+  return String(value || "").replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function parseRosterCsv(buffer) {
+  const rows = parseCsv(buffer.toString("utf8"));
+  if (rows.length < 2) {
+    throw new Error("The CSV must contain a header row and at least one student.");
+  }
+
+  const headers = rows.shift().map(normalizeCsvHeader);
+  const studentIdIndex = headers.findIndex((header) =>
+    ["student_id", "studentid", "id", "username"].includes(header)
+  );
+  const nameIndex = headers.findIndex((header) =>
+    ["display_name", "displayname", "name", "student_name", "studentname"].includes(header)
+  );
+  const sectionIndex = headers.findIndex((header) =>
+    ["section", "class_section", "classsection", "class"].includes(header)
+  );
+
+  if (studentIdIndex === -1 || sectionIndex === -1) {
+    throw new Error("The CSV must include studentId and section columns.");
+  }
+
+  const seen = new Set();
+  return rows.map((values, rowIndex) => {
+    const studentId = String(values[studentIdIndex] || "").trim().replace(/@manavmangalschool\.com$/i, "");
+    const displayName = nameIndex === -1 ? "" : String(values[nameIndex] || "").trim();
+    const section = String(values[sectionIndex] || "").trim();
+    const key = studentId.toLowerCase();
+
+    if (!studentId || !section) {
+      throw new Error(`Row ${rowIndex + 2} must include a student ID and section.`);
+    }
+    if (studentId.length > 120 || section.length > 120 || displayName.length > 160) {
+      throw new Error(`Row ${rowIndex + 2} contains a value that is too long.`);
+    }
+    if (seen.has(key)) {
+      throw new Error(`Student ID ${studentId} appears more than once in the CSV.`);
+    }
+    seen.add(key);
+    return { studentId, displayName, section };
+  });
+}
 
 async function requireAdmin(req, res, next) {
   const activeSession = await getRequestSession(req);
@@ -103,6 +194,101 @@ router.get("/students", requireAdmin, async (req, res) => {
     console.error("Admin students error:", err);
     return res.status(500).json({ error: "Failed to fetch student directory." });
   }
+});
+
+// POST /api/admin/students/import — pre-register students from an authorized CSV roster
+router.post("/students/import", requireAdmin, (req, res) => {
+  rosterUpload.single("file")(req, res, async (uploadError) => {
+    if (uploadError) {
+      const tooLarge = uploadError.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({
+        error: tooLarge
+          ? "Roster files must be smaller than 2 MB."
+          : uploadError.message || "Roster upload failed.",
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Please select a CSV roster file." });
+    }
+    if (!req.file.originalname.toLowerCase().endsWith(".csv")) {
+      return res.status(400).json({ error: "Roster imports must be CSV files." });
+    }
+
+    let roster;
+    try {
+      roster = parseRosterCsv(req.file.buffer);
+    } catch (err) {
+      return res.status(400).json({ error: err.message || "Could not parse roster CSV." });
+    }
+    if (roster.length > 5000) {
+      return res.status(400).json({ error: "A single roster import cannot contain more than 5,000 students." });
+    }
+
+    try {
+      const existingUsers = await db.select().from(schema.users).all();
+      const existingByStudentId = new Map(
+        existingUsers.map((user) => [String(user.studentId).trim().toLowerCase(), user])
+      );
+      for (const student of roster) {
+        const existing = existingByStudentId.get(student.studentId.toLowerCase());
+        if (existing && (isAdminUser(existing) || existing.role === "teacher" || existing.role === "class_teacher")) {
+          return res.status(400).json({
+            error: `Student ID ${student.studentId} belongs to a staff or administrator account.`,
+          });
+        }
+      }
+
+      const now = new Date().toISOString();
+      let imported = 0;
+      let updated = 0;
+
+      for (const student of roster) {
+        const existing = existingByStudentId.get(student.studentId.toLowerCase());
+        if (existing) {
+          await db
+            .update(schema.users)
+            .set({
+              displayName: student.displayName || existing.displayName || student.studentId,
+              section: student.section,
+              role: "student",
+              updatedAt: now,
+            })
+            .where(eq(schema.users.id, existing.id))
+            .run();
+          updated += 1;
+          continue;
+        }
+
+        const newUser = {
+          id: crypto.randomUUID(),
+          studentId: student.studentId,
+          displayName: student.displayName || student.studentId,
+          section: student.section,
+          isMuted: 0,
+          mutedReason: null,
+          mutedAt: null,
+          role: "student",
+          createdAt: now,
+          updatedAt: now,
+        };
+        await db.insert(schema.users).values(newUser).run();
+        existingByStudentId.set(student.studentId.toLowerCase(), newUser);
+        imported += 1;
+      }
+
+      return res.json({
+        success: true,
+        imported,
+        updated,
+        total: roster.length,
+        message: `${imported} students added and ${updated} existing students updated.`,
+      });
+    } catch (err) {
+      console.error("Admin roster import error:", err);
+      return res.status(500).json({ error: "Could not save the roster. Please try again." });
+    }
+  });
 });
 
 // POST /api/admin/students/mute

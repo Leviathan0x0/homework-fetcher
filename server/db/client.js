@@ -143,6 +143,13 @@ CREATE TABLE IF NOT EXISTS users (
 
     CREATE INDEX IF NOT EXISTS idx_users_student_id ON users(student_id);
 
+    CREATE TABLE IF NOT EXISTS profile_pictures (
+      user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data TEXT NOT NULL,
+      mime_type TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS edusecure_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,

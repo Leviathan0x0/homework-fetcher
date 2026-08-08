@@ -2,8 +2,13 @@ const express = require("express");
 const crypto = require("crypto");
 const { eq, and, desc, inArray } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
+const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { createNotifications } = require("../notifications/notificationService");
+const {
+  fetchAttendanceForSession,
+  AttendanceUnavailableError,
+} = require("../edusecure/attendanceService");
 const {
   isTeacher,
   getTeacherProfile,
@@ -56,6 +61,36 @@ function normalizeAttachment(raw) {
 }
 
 router.use(requireAuth);
+
+router.get("/attendance/student", async (req, res) => {
+  try {
+    const eduSession = await sessionService.getEduSecureSession(req.user.id);
+    if (!eduSession?.sessionCookies) {
+      return res.status(401).json({
+        code: "SCHOOL_SESSION_EXPIRED",
+        error: "Your school session has expired. Reconnect to load attendance.",
+      });
+    }
+
+    const attendance = await fetchAttendanceForSession(eduSession.sessionCookies);
+    return res.json(attendance);
+  } catch (err) {
+    if (err?.code === "SCHOOL_SESSION_EXPIRED") {
+      await sessionService.removeEduSecureSession(req.user.id);
+      return res.status(401).json({
+        code: "SCHOOL_SESSION_EXPIRED",
+        error: "Your school session has expired. Reconnect to load attendance.",
+      });
+    }
+    if (err instanceof AttendanceUnavailableError) {
+      return res.status(502).json({ code: err.code, error: err.message });
+    }
+    console.error("Student EduSecure attendance error:", err);
+    return res.status(502).json({
+      error: "EduSecure attendance is temporarily unavailable. Try again shortly.",
+    });
+  }
+});
 
 // Student-facing assignment feed.
 router.get("/assignments/student", async (req, res) => {

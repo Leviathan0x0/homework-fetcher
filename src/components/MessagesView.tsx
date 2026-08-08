@@ -15,6 +15,7 @@ import {
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { ProfileAvatar } from './ProfileAvatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SearchIcon } from '@/components/ui/search';
 import { AttachFileIcon } from '@/components/ui/attach-file';
@@ -105,7 +106,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const [askClassBusy, setAskClassBusy] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [sectionMembers, setSectionMembers] = useState<
-    Array<{ id: string; studentId: string; displayName?: string | null; section?: string | null }>
+    Array<{ id: string; studentId: string; displayName?: string | null; profilePictureUrl?: string | null; section?: string | null }>
   >([]);
   const [membersLoading, setMembersLoading] = useState(false);
 
@@ -126,6 +127,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       id: string | null;
       studentId: string;
       displayName?: string | null;
+      profilePictureUrl?: string | null;
       name?: string;
       section?: string | null;
       provisional?: boolean;
@@ -148,7 +150,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   activeConvIdRef.current = activeConvId;
 
   const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
-    u?.displayName || u?.studentId || 'Unknown';
+    u?.displayName || 'Student';
 
   const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
@@ -918,7 +920,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   }) => {
     let target: {
       id: string;
-      studentId: string;
+      studentId?: string;
       displayName?: string | null;
       section?: string | null;
     };
@@ -941,7 +943,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       };
     }
 
-    const name = target.displayName || target.studentId;
+    const name = target.displayName || 'Student';
     const existing = conversations.find((c) => c.otherUser?.id === target.id);
     if (existing) {
       setShowNewModal(false);
@@ -1114,19 +1116,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                 onClick={() => handleInitiateChat(u)}
                 className="w-full text-left px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-neutral-200/50 dark:hover:bg-white/[0.03] transition-colors"
               >
-                <div className="w-10 h-10 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200 flex items-center justify-center text-[13px] font-semibold shrink-0">
-                  {(u.displayName || u.studentId).charAt(0).toUpperCase()}
-                </div>
+                <ProfileAvatar
+                  src={u.profilePictureUrl}
+                  name={u.displayName || 'Student'}
+                  className="size-10 text-[13px]"
+                />
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                    {u.displayName || u.studentId}
+                    {u.displayName || 'Student'}
                   </p>
                   <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                     {u.provisional
                       ? 'Not on the app yet - message by student ID'
-                      : u.displayName
-                        ? u.studentId
-                        : 'Start a conversation'}
+                      : 'Start a conversation'}
                     {!u.provisional && u.section ? ` · ${u.section}` : ''}
                   </p>
                 </div>
@@ -1174,20 +1176,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                   }}
                   className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left cursor-pointer"
                 >
-                  <div
-                    className={cn(
-                      'w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-semibold shrink-0',
+                  {conv.type === 'section' ? (
+                    <div className={cn(
+                      'flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
                       unread
                         ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                        : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-200'
-                    )}
-                  >
-                    {conv.type === 'section' ? (
+                        : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
+                    )}>
                       <Users className="w-5 h-5" />
-                    ) : (
-                      userLabel(conv.otherUser).charAt(0).toUpperCase()
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <ProfileAvatar
+                      src={conv.otherUser?.profilePictureUrl}
+                      name={userLabel(conv.otherUser)}
+                      className="size-10 text-[13px]"
+                    />
+                  )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-2">
                       <div className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -1279,13 +1283,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div className="w-8 h-8 rounded-full bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-100 flex items-center justify-center text-[12px] font-semibold shrink-0">
-            {activeConv?.type === 'section' ? (
+          {activeConv?.type === 'section' ? (
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
               <Users className="w-4 h-4" />
-            ) : (
-              otherName.charAt(0).toUpperCase()
-            )}
-          </div>
+            </div>
+          ) : (
+            <ProfileAvatar
+              src={activeConv?.otherUser?.profilePictureUrl}
+              name={otherName}
+              className="size-8 text-[12px]"
+            />
+          )}
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-50 truncate leading-tight">
               {otherName}
@@ -1486,7 +1494,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               });
               const senderLabel =
                 m.senderName?.trim() ||
-                m.senderStudentId?.trim() ||
                 'Student';
               const showSenderName = isSectionChat && !isMine && !clusteredWithPrev;
 
@@ -1507,9 +1514,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                     )}
                   >
                     {showSenderName && (
-                      <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 mb-1 px-1 truncate max-w-[78%] sm:max-w-[62%]">
-                        {senderLabel}
-                      </span>
+                      <div className="mb-1 flex max-w-[78%] items-center gap-1.5 px-1 sm:max-w-[62%]">
+                        <ProfileAvatar
+                          src={m.senderProfilePictureUrl}
+                          name={senderLabel}
+                          className="size-5 text-[8px]"
+                        />
+                        <span className="truncate text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+                          {senderLabel}
+                        </span>
+                      </div>
                     )}
                     <div
                       className={cn(
@@ -1874,7 +1888,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                   {classGroupLabel(activeConv?.section || userSection)}
                 </h3>
                 <p className="text-[11px] text-neutral-400 mt-0.5">
-                  Classmates on the app · name and student ID
+                  Classmates on the app
                 </p>
               </div>
               <button
@@ -1906,15 +1920,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                         }}
                         className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                       >
-                        <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-[12px] font-semibold text-neutral-700 dark:text-neutral-200 shrink-0">
-                          {(m.displayName || m.studentId).charAt(0).toUpperCase()}
-                        </div>
+                        <ProfileAvatar
+                          src={m.profilePictureUrl}
+                          name={m.displayName || 'Classmate'}
+                          className="size-9 text-[12px]"
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">
-                            {m.displayName || m.studentId}
+                            {m.displayName || 'Classmate'}
                           </p>
                           <p className="text-[11px] text-neutral-500 truncate mt-0.5">
-                            {m.displayName ? m.studentId : 'Student ID'}
+                            Classmate
                           </p>
                         </div>
                         <span className="text-[10px] font-medium text-neutral-400 shrink-0">Message</span>
@@ -1952,17 +1968,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                   <button key={u.id || `prov-${u.studentId}`} onClick={() => handleInitiateChat(u)}
                     className="w-full text-left flex items-center justify-between px-3 py-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer group">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-7 h-7 rounded-xl bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center text-xs font-bold text-neutral-700 dark:text-neutral-300 shrink-0">
-                        {userLabel(u).charAt(0).toUpperCase()}
-                      </div>
+                      <ProfileAvatar
+                        src={u.profilePictureUrl}
+                        name={userLabel(u)}
+                        className="size-7 rounded-xl text-[10px]"
+                      />
                       <div className="flex flex-col min-w-0">
                         <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{userLabel(u)}</span>
                         <span className="text-[10px] text-neutral-400 truncate">
                           {u.provisional
                             ? 'Not on the app yet - tap to message'
-                            : u.displayName
-                              ? u.studentId
-                              : 'Start a conversation'}
+                            : 'Start a conversation'}
                         </span>
                       </div>
                     </div>

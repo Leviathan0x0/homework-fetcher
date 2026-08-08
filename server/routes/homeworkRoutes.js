@@ -2,7 +2,10 @@ const express = require("express");
 const sessionService = require("../auth/sessionService");
 const { isAdminAccount } = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
-const { fetchHomeworkForSession, SchoolSessionExpiredError } = require("../edusecure/homeworkService");
+const {
+  fetchHomeworkForSession,
+  SchoolSessionExpiredError,
+} = require("../edusecure/homeworkService");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 
 const router = express.Router();
@@ -133,8 +136,8 @@ router.get("/homework", requireAuth, async (req, res) => {
 
     console.error("Homework Fetch Error:", err);
 
-    return res.status(500).json({
-      error: "Failed to fetch homework."
+    return res.status(err?.statusCode === 502 ? 502 : 500).json({
+      error: err?.message || "Failed to fetch homework."
     });
   }
 });
@@ -174,9 +177,26 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
       });
     }
 
+    let cachedHomework = [];
+    try {
+      cachedHomework = await homeworkCacheService.getCachedHomework(userId);
+    } catch (cacheErr) {
+      console.error("Homework fallback cache read failed:", cacheErr.message);
+    }
+    if (cachedHomework.length > 0) {
+      console.error("Homework Refresh Error; serving cached homework:", err);
+      return res.json({
+        count: cachedHomework.length,
+        homework: cachedHomework,
+        isStale: true,
+        refreshFailed: true,
+        refreshError: err?.message || "EduSecure could not be reached. Cached homework is still shown.",
+      });
+    }
+
     console.error("Homework Refresh Error:", err);
-    return res.status(500).json({
-      error: "Failed to refresh homework from school server."
+    return res.status(err?.statusCode === 502 ? 502 : 500).json({
+      error: err?.message || "Failed to refresh homework from school server."
     });
   }
 });

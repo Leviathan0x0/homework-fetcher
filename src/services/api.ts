@@ -56,6 +56,7 @@ function mapAuthUser(user: any) {
     id: user.id,
     studentId: user.studentId,
     displayName: user.displayName || null,
+    profilePictureUrl: user.profilePictureUrl || null,
     section: unknown ? null : section,
     isAdmin,
     isTeacher: Boolean(user?.isTeacher || user?.role === "teacher" || user?.role === "class_teacher"),
@@ -126,6 +127,27 @@ export const authService = {
     const data = await apiJson<any>(res);
     if (!res.ok || !data.user) throw new Error(data.error || "Failed to save your name.");
     return mapAuthUser(data.user);
+  },
+  async uploadProfilePicture(file: File) {
+    const formData = new FormData();
+    formData.append("picture", file);
+    const res = await apiFetch("/api/auth/profile/picture", {
+      method: "POST",
+      body: formData,
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Could not save your profile picture.");
+    }
+    return data.profilePictureUrl as string | null;
+  },
+  async deleteProfilePicture() {
+    const res = await apiFetch("/api/auth/profile/picture", { method: "DELETE" });
+    const data = await apiJson<any>(res);
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || "Could not remove your profile picture.");
+    }
+    return null;
   },
 
   /**
@@ -270,8 +292,9 @@ function mapMessage(raw: any) {
     id: raw.id,
     conversationId: raw.conversationId,
     senderId: raw.senderId,
-    senderStudentId: raw.senderStudentId || raw.senderId,
+    senderStudentId: undefined,
     senderName: raw.senderName || null,
+    senderProfilePictureUrl: raw.senderProfilePictureUrl || null,
     content,
     displayContent: body,
     requestRef: request,
@@ -489,7 +512,7 @@ export const messagingService = {
     return { conversationId: data.conversationId, section: data.section || null };
   },
 
-  /** Classmates in the signed-in student's section (name + student ID). */
+  /** Classmates in the signed-in student's section (IDs stay server-side). */
   async getSectionMembers() {
     const res = await apiFetch("/api/section/members", { headers: { Accept: "application/json" } });
     const data = await apiJson<any>(res);
@@ -879,6 +902,14 @@ export const teacherService = {
 export const leaveService = {
   async getMine() {
     return teacherJson<{ requests: any[] }>(await apiFetch("/api/teacher/leave/my"));
+  },
+  async getAttendance() {
+    return teacherJson<{
+      records: any[];
+      counts: Record<string, number>;
+      total: number;
+      attendanceRate: number | null;
+    }>(await apiFetch("/api/teacher/attendance/student"));
   },
   async create(data: { fromDate: string; toDate: string; reason: string }) {
     return teacherJson<any>(await apiFetch("/api/teacher/leave/my", {

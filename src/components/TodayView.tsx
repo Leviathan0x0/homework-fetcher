@@ -27,6 +27,7 @@ interface TodayViewProps {
   onOpenPreview?: (url: string) => void;
   displayName?: string | null;
   studentId?: string | null;
+  hasHomeworkError?: boolean;
   unreadMessages?: number;
   openRequests?: number;
   onNavigate?: (view: ViewType) => void;
@@ -77,6 +78,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onOpenPreview,
   displayName,
   studentId,
+  hasHomeworkError = false,
   unreadMessages = 0,
   openRequests = 0,
   onNavigate,
@@ -177,14 +179,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const pendingCount = Math.max(totalCount - doneCount, 0);
   const allDone = !isContentLoading && totalCount > 0 && doneCount >= totalCount;
 
-  const subtitle = isContentLoading
+  const subtitle = hasHomeworkError
+    ? 'We could not check today’s homework yet. Try again in a moment.'
+    : isContentLoading
     ? 'Preparing your dashboard...'
     : hasHolidayToday && totalCount === 0
       ? 'School holiday today. No homework is expected.'
       : hasHolidayToday && totalCount > 0
         ? 'A few assigned tasks still need your attention today.'
         : totalCount === 0
-          ? 'No homework assigned for today.'
+          ? 'No homework posted today.'
           : allDone
             ? 'Everything assigned for today is complete.'
             : 'Here is your plan for today.';
@@ -416,7 +420,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {isContentLoading ? (
         <LoadingSkeleton label="Loading today’s homework…" />
       ) : todayEntries.length === 0 ? (
-        hasHolidayToday ? null : <EmptyState type="today" />
+        hasHolidayToday || hasHomeworkError
+          ? null
+          : <EmptyState
+              type="today"
+              title="No homework posted today"
+              subtitle="Nothing has been sent yet. Check back later or refresh when your school posts it."
+            />
       ) : (
         <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {todayEntries.map((item, index) => {

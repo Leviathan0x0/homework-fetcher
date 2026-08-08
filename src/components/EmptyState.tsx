@@ -26,8 +26,8 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   let defaultIcon: any = Inbox;
 
   if (type === 'today') {
-    defaultTitle = 'No homework for today';
-    defaultSubtitle = 'Enjoy the free time.';
+    defaultTitle = 'No homework posted today';
+    defaultSubtitle = 'Nothing has been sent yet. Check back later.';
     defaultIcon = CalendarCheck2;
   } else if (type === 'attachments') {
     defaultTitle = 'No attachments found';

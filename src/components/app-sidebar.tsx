@@ -27,6 +27,7 @@ import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
+import { ProfileAvatar } from "./ProfileAvatar"
 import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, CalendarDays, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
@@ -244,9 +245,16 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="p-2.5 flex flex-col gap-2 rounded-2xl bg-sidebar-accent/40 text-sidebar-accent-foreground text-xs border border-sidebar-border/40 group-data-[collapsible=icon]:hidden">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold truncate text-xs">{user?.displayName || user?.studentId || (isAdmin ? "Administrator" : isTeacher ? "Teacher" : "Student")}</span>
-                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <ProfileAvatar
+                    src={user?.profilePictureUrl}
+                    name={user?.displayName || user?.studentId}
+                    className="size-8 text-[10px]"
+                  />
+                  <span className="truncate font-semibold text-xs">{user?.displayName || user?.studentId || (isAdmin ? "Administrator" : isTeacher ? "Teacher" : "Student")}</span>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                   <CircleCheckIcon size={14} /> {isAdmin ? "Admin" : isTeacher ? "Teacher" : "Active"}
                 </span>
               </div>

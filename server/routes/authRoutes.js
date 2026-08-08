@@ -1,4 +1,5 @@
 const express = require("express");
+const multer = require("multer");
 const sessionService = require("../auth/sessionService");
 const { fetchProfileFromEduSecure, isUnknownSection, isAdminAccount } = require("../auth/sessionService");
 const { loginToEduSecure } = require("../edusecure/edusecureAuth");
@@ -8,6 +9,8 @@ const { getRequestSession, getRequestToken, requireAuth } = require("../auth/req
 const { rateLimit } = require("../limits");
 const { db, schema } = require("../db/client");
 const { eq } = require("drizzle-orm");
+const { resolveUploadType, matchesMagicBytes } = require("../files/fileTypes");
+const { moderateImage } = require("../moderation/openaiModeration");
 const homeworkCacheService = require("../homework/homeworkCacheService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
@@ -21,6 +24,33 @@ const {
 } = require("../teacher/teacherService");
 
 const router = express.Router();
+const PROFILE_PICTURE_MAX_BYTES = 2 * 1024 * 1024;
+const profilePictureUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: PROFILE_PICTURE_MAX_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    const resolved = resolveUploadType(file.originalname);
+    if (!resolved?.contentType?.startsWith("image/")) {
+      return cb(new Error("Only JPG, PNG, and WebP profile pictures are allowed."));
+    }
+    return cb(null, true);
+  },
+});
+
+async function profilePictureUrlFor(userId) {
+  if (!userId) return null;
+  const picture = await db
+    .select({
+      userId: schema.profilePictures.userId,
+      updatedAt: schema.profilePictures.updatedAt,
+    })
+    .from(schema.profilePictures)
+    .where(eq(schema.profilePictures.userId, userId))
+    .get();
+  return picture
+    ? `/api/auth/profile/picture/${encodeURIComponent(userId)}?v=${encodeURIComponent(picture.updatedAt)}`
+    : null;
+}
 
 async function joinClassGroupInBackground(user, { force = false } = {}) {
   if (!user?.id || isUnknownSection(user.section)) return;
@@ -91,6 +121,7 @@ router.post("/login", async (req, res) => {
           studentId: user.studentId,
           displayName: user.displayName || "Administrator",
           section: "Admin",
+          profilePictureUrl: await profilePictureUrlFor(user.id),
           isAdmin: true,
           role: "admin",
         }
@@ -148,6 +179,7 @@ router.post("/login", async (req, res) => {
           studentId: testUser.studentId,
           displayName: testUser.displayName,
           section: "Staff",
+          profilePictureUrl: await profilePictureUrlFor(user.id),
           isTeacher: true,
           role: "teacher",
           teacherProfile: normalizeTeacherProfile(profile),
@@ -271,6 +303,7 @@ router.post("/login", async (req, res) => {
         studentId: user.studentId,
         displayName: displayName || null,
         section: isUnknownSection(section) ? null : section,
+        profilePictureUrl: await profilePictureUrlFor(user.id),
         isAdmin: role === "admin" || user.studentId === "admin_mmss" || user.section === "Admin",
         isTeacher: role === "teacher" || role === "class_teacher",
         role,
@@ -309,11 +342,10 @@ router.get("/me", async (req, res) => {
   const isTeacher =
     activeSession.user.role === "teacher" ||
     activeSession.user.role === "class_teacher";
-  // A missing section used to make session validation wait for a live external
-  // school-profile page. That call can take 20 seconds and is not needed to
-  // validate the signed app session or its role. Repair the optional profile in
-  // the background and let the authenticated shell render immediately.
-  if (!isAdmin && !isTeacher && isUnknownSection(section)) {
+  // A missing name or section is optional profile data, not an authentication
+  // requirement. Repair it in the background so session validation stays fast,
+  // while the client can retry this endpoint until the name is available.
+  if (!isAdmin && !isTeacher && (isUnknownSection(section) || !displayName)) {
     void (async () => {
       try {
         const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
@@ -348,12 +380,102 @@ router.get("/me", async (req, res) => {
       studentId: activeSession.user.studentId,
       displayName: displayName || (isAdmin ? "Administrator" : null),
       section: isUnknownSection(section) ? (isAdmin ? "Admin" : null) : section,
+      profilePictureUrl: await profilePictureUrlFor(activeSession.user.id),
       isAdmin,
       isTeacher,
       role: activeSession.user.role || (isAdmin ? "admin" : "student"),
       teacherProfile: null,
     }
   });
+});
+
+router.post(
+  "/profile/picture",
+  rateLimit({ name: "profile-picture", windowMs: 60 * 1000, max: 6 }),
+  async (req, res) => {
+  const activeSession = await getRequestSession(req);
+  if (!activeSession) return res.status(401).json({ error: "Not authenticated." });
+
+  profilePictureUpload.single("picture")(req, res, async (uploadError) => {
+    if (uploadError) {
+      return res.status(400).json({
+        error: uploadError.code === "LIMIT_FILE_SIZE"
+          ? "That profile picture is too large. Please choose an image under 2 MB."
+          : uploadError.message || "Please select a JPG, PNG, or WebP image.",
+      });
+    }
+    if (!req.file?.buffer) {
+      return res.status(400).json({ error: "Please select a profile picture." });
+    }
+
+    const resolved = resolveUploadType(req.file.originalname);
+    if (!resolved || !matchesMagicBytes(req.file.buffer.subarray(0, 16), resolved.contentType)) {
+      return res.status(400).json({ error: "That file is not a valid JPG, PNG, or WebP image." });
+    }
+
+    const moderation = await moderateImage({
+      buffer: req.file.buffer,
+      mimeType: resolved.contentType,
+      text: "Student profile picture",
+    });
+    if (!moderation.ok) {
+      return res.status(422).json({
+        error: moderation.reason || "That image could not be approved for a school profile.",
+      });
+    }
+
+    try {
+      const updatedAt = new Date().toISOString();
+      await db.delete(schema.profilePictures)
+        .where(eq(schema.profilePictures.userId, activeSession.user.id))
+        .run();
+      await db.insert(schema.profilePictures).values({
+        userId: activeSession.user.id,
+        data: req.file.buffer.toString("base64"),
+        mimeType: resolved.contentType,
+        updatedAt,
+      }).run();
+      return res.json({
+        success: true,
+        profilePictureUrl: await profilePictureUrlFor(activeSession.user.id),
+      });
+    } catch (err) {
+      console.error("Save profile picture error:", err);
+      return res.status(500).json({ error: "Could not save your profile picture." });
+    }
+  });
+  }
+);
+
+router.get("/profile/picture/:userId", async (req, res) => {
+  const activeSession = await getRequestSession(req);
+  if (!activeSession) return res.status(401).json({ error: "Not authenticated." });
+
+  const picture = await db
+    .select()
+    .from(schema.profilePictures)
+    .where(eq(schema.profilePictures.userId, req.params.userId))
+    .get();
+  if (!picture) return res.status(404).json({ error: "Profile picture not found." });
+
+  const buffer = Buffer.from(picture.data, "base64");
+  if (!matchesMagicBytes(buffer.subarray(0, 16), picture.mimeType)) {
+    return res.status(404).json({ error: "Profile picture is unavailable." });
+  }
+  res.setHeader("Content-Type", picture.mimeType);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  return res.send(buffer);
+});
+
+router.delete("/profile/picture", async (req, res) => {
+  const activeSession = await getRequestSession(req);
+  if (!activeSession) return res.status(401).json({ error: "Not authenticated." });
+  await db.delete(schema.profilePictures)
+    .where(eq(schema.profilePictures.userId, activeSession.user.id))
+    .run();
+  return res.json({ success: true, profilePictureUrl: null });
 });
 
 // PATCH /api/auth/profile
@@ -384,6 +506,7 @@ router.patch("/profile", async (req, res) => {
       studentId: activeSession.user.studentId,
       displayName: cleaned,
       section: isUnknownSection(activeSession.user.section) ? null : activeSession.user.section,
+      profilePictureUrl: await profilePictureUrlFor(activeSession.user.id),
     },
   });
 });

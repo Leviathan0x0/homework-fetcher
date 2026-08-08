@@ -131,7 +131,7 @@ export interface PinnedHomework {
 export interface Conversation {
   id: string;
   type?: 'dm' | 'section';
-  otherUser: { id: string; studentId: string; displayName?: string | null; section: string } | null;
+  otherUser: { id: string; studentId?: string; displayName?: string | null; profilePictureUrl?: string | null; section: string } | null;
   section?: string | null;
   memberCount?: number;
   lastMessagePreview?: string;
@@ -148,6 +148,7 @@ export interface Message {
   senderId: string;
   senderStudentId?: string;
   senderName?: string | null;
+  senderProfilePictureUrl?: string | null;
   content: string;
   /** Display body with request marker stripped (set by mapMessage). */
   displayContent?: string;

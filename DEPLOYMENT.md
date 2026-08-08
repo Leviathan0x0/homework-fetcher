@@ -159,6 +159,7 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Administrator sign-in. Both fall back to the values in the source, so set them on any real deployment |
 | `TEACHER_TEST_USERNAME` / `TEACHER_TEST_PASSWORD` | Demo teacher sign-in. See **Demo teacher account** below |
 | `EDUSECURE_TEACHER_IDS` | Comma-separated EduSecure IDs that get the teacher portal on login |
+| `EDUSECURE_ATTENDANCE_URL` | Optional comma-separated EduSecure attendance page URL(s); defaults to Manav Mangal’s `/Parents/studentAttendance.aspx` and checks common fallback page names |
 
 | `ALLOWED_ORIGINS` | Comma-separated origins allowed to call the API with cookies |
 | `VITE_API_BASE_URL` | Only when the frontend is hosted separately from the API |

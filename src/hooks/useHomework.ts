@@ -8,6 +8,7 @@ export interface UserAccount {
   id: string;
   studentId: string;
   displayName?: string | null;
+  profilePictureUrl?: string | null;
   section?: string;
   isAdmin?: boolean;
   isTeacher?: boolean;
@@ -151,6 +152,7 @@ export function useHomework() {
   // changes: fetchHomework is a dependency of the effect that calls it, so a
   // changing identity would make it fetch itself in a loop.
   const homeworkRef = useRef<HomeworkEntry[]>(homework);
+  const homeworkRequestInFlightRef = useRef(false);
   useEffect(() => {
     homeworkRef.current = homework;
   }, [homework]);
@@ -219,8 +221,42 @@ export function useHomework() {
     checkAuth();
   }, [checkAuth]);
 
+  useEffect(() => {
+    if (
+      !isAuthenticated ||
+      isAuthChecking ||
+      !user ||
+      !usesSchoolPortal(user) ||
+      user.displayName
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    const syncMissingDisplayName = async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        if (!cancelled && currentUser?.displayName) {
+          setUser(currentUser);
+          writeJson(CACHED_USER_KEY, currentUser);
+        }
+      } catch {
+        // The server keeps retrying the optional EduSecure profile lookup.
+      }
+    };
+
+    syncMissingDisplayName();
+    const interval = window.setInterval(syncMissingDisplayName, 30 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [isAuthenticated, isAuthChecking, user, user?.displayName]);
+
   const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
     if (!user || !usesSchoolPortal(user)) return;
+    if (homeworkRequestInFlightRef.current) return;
+    homeworkRequestInFlightRef.current = true;
     // Preserve useful cached rows during a refresh. When the page is empty,
     // however, the centered loading state is the only honest status until the
     // request completes; a spinner in the distant refresh button is too easy
@@ -270,9 +306,11 @@ export function useHomework() {
       );
       applyResult(result.items, result.schoolSessionExpired);
 
-      const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setLastUpdated(timeNow);
-      localStorage.setItem("lastUpdated", timeNow);
+      if (!result.isStale) {
+        const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        setLastUpdated(timeNow);
+        localStorage.setItem("lastUpdated", timeNow);
+      }
     } catch (err: any) {
       // Keep whatever is already on screen rather than blanking the dashboard.
       console.error("Fetch Homework Error:", err);
@@ -281,12 +319,13 @@ export function useHomework() {
       if (err?.code === "SCHOOL_SESSION_EXPIRED") {
         setSchoolSessionExpired(true);
         setErrorMessage(err.message || "Your school session has expired.");
-      } else if (err?.code !== "UNAUTHENTICATED") {
+      } else if (err?.code !== "UNAUTHENTICATED" && homeworkRef.current.length === 0) {
         setErrorMessage(err.message || "Failed to fetch homework.");
       }
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+      homeworkRequestInFlightRef.current = false;
     }
   }, [user]);
 
@@ -395,6 +434,24 @@ export function useHomework() {
       fetchHomework(false);
     }
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);
+
+  useEffect(() => {
+    if (!isAuthenticated || isAuthChecking || !usesSchoolPortal(user) || schoolSessionExpired) return;
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") fetchHomework(true);
+    };
+    const refreshWhenOnline = () => fetchHomework(true);
+    const interval = window.setInterval(refreshWhenVisible, 60 * 1000);
+
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("online", refreshWhenOnline);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("online", refreshWhenOnline);
+    };
+  }, [isAuthenticated, isAuthChecking, user, schoolSessionExpired, fetchHomework]);
 
   return {
     user,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { notificationService, messagingService, requestService } from '../services/api';
 import { cn } from '../utils/cn';
-import { useHomework } from '../hooks/useHomework';
+import { useHomework, UserAccount } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useIsMobile } from '../hooks/use-mobile';
@@ -41,6 +41,7 @@ const AdminView = lazy(() => import('./AdminView').then((m) => ({ default: m.Adm
 const TeacherView = lazy(() => import('./TeacherView').then((m) => ({ default: m.TeacherView })));
 const FilePreviewSidebar = lazy(() => import('./FilePreviewSidebar').then((m) => ({ default: m.FilePreviewSidebar })));
 const ReconnectSchoolDialog = lazy(() => import('./ReconnectSchoolDialog').then((m) => ({ default: m.ReconnectSchoolDialog })));
+const DisplayNamePrompt = lazy(() => import('./DisplayNamePrompt').then((m) => ({ default: m.DisplayNamePrompt })));
 
 /** Placeholder shown while a screen's code is still downloading. */
 const ViewFallback: React.FC = () => (
@@ -91,12 +92,28 @@ export const AppShell: React.FC = () => {
   const viewBeforeSettings = useRef<typeof activeView>('today');
   const activeViewRef = useRef(activeView);
   const prefersReducedMotion = useReducedMotion();
+  const handleUserChange = useCallback((updated: UserAccount) => {
+    const merged = user ? { ...user, ...updated } : updated;
+    setUser(merged);
+    try {
+      localStorage.setItem('cachedUser', JSON.stringify(merged));
+    } catch {}
+  }, [setUser, user]);
 
   const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin' || user?.studentId === 'admin_mmss');
   const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
   const appRole: AppRole = isAdmin ? 'admin' : isTeacher ? 'teacher' : 'student';
   const roleHome: ViewType = isAdmin ? 'admin-overview' : isTeacher ? 'teacher-overview' : 'today';
   const portalPath = isAdmin ? '/admin' : isTeacher ? '/teacher' : '/student';
+  const isHomeworkView = new Set<ViewType>([
+    'today',
+    'calendar',
+    'exams',
+    'recent',
+    'all',
+    'attachments',
+    'completed',
+  ]).has(activeView);
 
   const isViewAllowed = useCallback((view: ViewType) => {
     if (view === 'settings' || view === 'developers') return true;
@@ -376,13 +393,16 @@ export const AppShell: React.FC = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            "flex-1 w-full mx-auto min-h-0",
+            "flex-1 w-full min-w-0 mx-auto min-h-0 overflow-x-hidden",
             activeView === 'messages'
               ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
               : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
           )}
         >
-          {errorMessage && (
+          {user && !isAdmin && !isTeacher && !user.displayName && (
+            <DisplayNamePrompt onSaved={handleUserChange} />
+          )}
+          {errorMessage && isHomeworkView && (
             <ErrorBanner
               message={errorMessage}
               isSchoolSessionExpired={schoolSessionExpired}
@@ -409,6 +429,7 @@ export const AppShell: React.FC = () => {
               onOpenPreview={handleOpenPreview}
               displayName={user?.displayName}
               studentId={user?.studentId}
+              hasHomeworkError={Boolean(errorMessage)}
               unreadMessages={messagesUnread}
               openRequests={unseenRequestsCount}
               onNavigate={(view: ViewType) => handleViewChange(view)}
@@ -523,7 +544,7 @@ export const AppShell: React.FC = () => {
             <SettingsView
               user={user}
               onLogout={logout}
-              onUserChange={setUser}
+              onUserChange={handleUserChange}
               sessionStatus={sessionStatus}
               schoolSessionExpired={schoolSessionExpired}
               onReconnect={() => setIsReconnectOpen(true)}
@@ -560,7 +581,7 @@ export const AppShell: React.FC = () => {
               onClose={handleCloseSettings}
               user={user}
               onLogout={logout}
-              onUserChange={setUser}
+              onUserChange={handleUserChange}
               sessionStatus={sessionStatus}
               schoolSessionExpired={schoolSessionExpired}
               onReconnect={() => setIsReconnectOpen(true)}

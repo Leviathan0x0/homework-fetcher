@@ -41,6 +41,100 @@ function normalizeClassSection(raw) {
  * @param {string} sessionCookies - EduSecure session cookies
  * @returns {Promise<{section: string|null, displayName: string|null, role: string|null, subjects: string[], assignedSections: string[], classTeacherSections: string[]}>}
  */
+const PROFILE_TIMEOUT_MS = 12_000;
+const PROFILE_ATTEMPTS = 2;
+
+async function fetchProfilePage(url, sessionCookies) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= PROFILE_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROFILE_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          Cookie: sessionCookies,
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        },
+        redirect: "manual",
+        signal: controller.signal,
+      });
+
+      if (response.status === 429 || response.status >= 500) {
+        await response.text().catch(() => {});
+        throw new Error(`EduSecure returned HTTP ${response.status}.`);
+      }
+      if (!response.ok && response.status !== 301 && response.status !== 302) {
+        await response.text().catch(() => {});
+        throw new Error(`EduSecure returned HTTP ${response.status}.`);
+      }
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < PROFILE_ATTEMPTS) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  const reason = lastError?.name === "AbortError"
+    ? `EduSecure did not respond within ${PROFILE_TIMEOUT_MS / 1000} seconds.`
+    : lastError?.message || "EduSecure profile request failed.";
+  throw new Error(reason);
+}
+
+function cleanProfileName(raw) {
+  const value = String(raw || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[|:–—-]+|[|:–—-]+$/g, "")
+    .trim();
+  if (!value || value.length < 2 || value.length > 80) return null;
+  if (/^(student\s+)?name$|^(profile|student)$/i.test(value)) return null;
+  return value;
+}
+
+function extractProfileName($, bodyText) {
+  const selectors = [
+    "#ctl00_ContentPlaceHolder1_sStudentName",
+    "#ctl00_ContentPlaceHolder1_sName",
+    "#ctl00_ContentPlaceHolder1_lblStudentName",
+    "#ctl00_ContentPlaceHolder1_lblName",
+    "[id*='StudentName']",
+    "[id*='studentname']",
+    "[id*='FullName']",
+    "[id*='fullName']",
+    "input[name*='Name']",
+  ];
+
+  for (const selector of selectors) {
+    const node = $(selector).first();
+    const value = cleanProfileName(node.attr("value") || node.attr("data-name") || node.text());
+    if (value) return value;
+  }
+
+  let tableName = null;
+  $("tr").each((_, row) => {
+    const cells = $(row).find("th,td");
+    cells.each((index, cell) => {
+      if (tableName || index >= cells.length - 1) return;
+      const label = $(cell).text().replace(/\s+/g, " ").trim();
+      if (/^(student\s+)?name$/i.test(label)) {
+        tableName = cleanProfileName($(cells[index + 1]).text());
+      }
+    });
+  });
+  if (tableName) return tableName;
+
+  const labelledName = bodyText.match(
+    /(?:student\s+name|full\s+name)\s*[:–—-]\s*([A-Za-z][A-Za-z.' -]{1,79}?)(?=\s+(?:class|section|roll|father|mother|gender|date)\b|$)/i
+  );
+  return cleanProfileName(labelledName?.[1]);
+}
+
 async function fetchProfileFromEduSecure(sessionCookies) {
   const empty = {
     section: null,
@@ -53,20 +147,14 @@ async function fetchProfileFromEduSecure(sessionCookies) {
   try {
     const cheerio = require("cheerio");
     const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
-    const res = await fetch(url, {
-      headers: {
-        Cookie: sessionCookies,
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      },
-      redirect: "manual",
-    });
-    if (res.status === 302) {
+    const res = await fetchProfilePage(url, sessionCookies);
+    if (res.status === 301 || res.status === 302) {
       console.error("Profile fetch redirected (session likely expired)");
       return empty;
     }
     const html = await res.text();
-    if (html.includes("txtusername") || html.includes("Login.aspx")) {
+    const lowerHtml = html.toLowerCase();
+    if (lowerHtml.includes("txtusername") || lowerHtml.includes("login.aspx")) {
       console.error("Profile page returned login form (session expired)");
       return empty;
     }
@@ -84,20 +172,7 @@ async function fetchProfileFromEduSecure(sessionCookies) {
       console.error("Section selector returned empty. Body preview:", bodyText.substring(0, 200));
     }
 
-    const nameSelectors = [
-      "#ctl00_ContentPlaceHolder1_sStudentName",
-      "#ctl00_ContentPlaceHolder1_sName",
-      "#ctl00_ContentPlaceHolder1_lblStudentName",
-      "#ctl00_ContentPlaceHolder1_lblName",
-    ];
-    let displayName = null;
-    for (const selector of nameSelectors) {
-      const value = $(selector).first().text().trim();
-      if (value) {
-        displayName = value.replace(/\s+/g, " ");
-        break;
-      }
-    }
+    const displayName = extractProfileName($, bodyText);
 
     const roleSelectors = [
       "#ctl00_ContentPlaceHolder1_sRole",
@@ -664,6 +739,8 @@ class SessionService {
    */
   async updateDisplayName(userId, displayName) {
     if (!userId || !displayName) return;
+    const cached = memUsers.get(userId);
+    if (cached) cached.displayName = displayName;
     invalidateCachedSessionsForUser(userId);
     await db.update(schema.users)
       .set({ displayName, updatedAt: new Date().toISOString() })

@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor, KeyRound } from 'lucide-react';
+import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor, KeyRound, ImagePlus, Trash2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
+import { ProfileAvatar } from './ProfileAvatar';
+import { compressImage, formatBytes } from '../utils/imageCompression';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -51,6 +53,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [savingName, setSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
+  const [pictureBusy, setPictureBusy] = useState(false);
+  const [pictureError, setPictureError] = useState<string | null>(null);
+  const [pictureSaved, setPictureSaved] = useState(false);
+  const pictureInputRef = useRef<HTMLInputElement>(null);
 
   // PWA Install state inside settings
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -116,6 +122,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onDone?.();
   };
 
+  const handlePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPictureBusy(true);
+    setPictureError(null);
+    setPictureSaved(false);
+    try {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
+        throw new Error('Choose a JPG, PNG, or WebP image.');
+      }
+      const prepared = await compressImage(file, {
+        maxDimension: 512,
+        quality: 0.86,
+        skipBelowBytes: 0,
+      });
+      if (prepared.size > 2 * 1024 * 1024) {
+        throw new Error(`That image is ${formatBytes(prepared.size)}. Please choose a smaller image.`);
+      }
+      const profilePictureUrl = await authService.uploadProfilePicture(prepared);
+      if (user) onUserChange?.({ ...user, profilePictureUrl });
+      setPictureSaved(true);
+    } catch (err: any) {
+      setPictureError(typeof err?.message === 'string' ? err.message : 'Could not save that profile picture.');
+    } finally {
+      setPictureBusy(false);
+    }
+  };
+
+  const handleRemovePicture = async () => {
+    setPictureBusy(true);
+    setPictureError(null);
+    setPictureSaved(false);
+    try {
+      await authService.deleteProfilePicture();
+      if (user) onUserChange?.({ ...user, profilePictureUrl: null });
+      setPictureSaved(true);
+    } catch (err: any) {
+      setPictureError(typeof err?.message === 'string' ? err.message : 'Could not remove your profile picture.');
+    } finally {
+      setPictureBusy(false);
+    }
+  };
+
   return (
     <div className={cn('p-5 sm:p-6 space-y-6', className)}>
       {/* Section 1: User Account & Session Status */}
@@ -144,9 +194,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
-                <User className="w-4 h-4" />
-              </div>
+              <ProfileAvatar
+                src={user?.profilePictureUrl}
+                name={user?.displayName || user?.studentId}
+                className="size-9"
+              />
               <div>
                 <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
                 <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -203,7 +255,55 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
       </div>
 
-      {/* Section 2: Display name shown to other students */}
+      {/* Section 2: Profile picture and display name shown to other students */}
+      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+          Profile picture
+        </h3>
+        <div className="flex items-center gap-3">
+          <ProfileAvatar
+            src={user?.profilePictureUrl}
+            name={user?.displayName || user?.studentId}
+            className="size-14 text-sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Use a clear, school-appropriate photo. Every upload is checked for NSFW, violence, hate, and other unsafe content before it is saved.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <input
+                ref={pictureInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handlePictureChange}
+              />
+              <button
+                type="button"
+                disabled={pictureBusy}
+                onClick={() => pictureInputRef.current?.click()}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+              >
+                <ImagePlus className="size-3.5" />
+                {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
+              </button>
+              {user?.profilePictureUrl && (
+                <button
+                  type="button"
+                  disabled={pictureBusy}
+                  onClick={handleRemovePicture}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:border-rose-900 dark:hover:text-rose-400"
+                >
+                  <Trash2 className="size-3.5" /> Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        {pictureError && <p className="text-xs text-rose-600 dark:text-rose-400">{pictureError}</p>}
+        {pictureSaved && !pictureError && <p className="text-xs text-emerald-600 dark:text-emerald-400">Profile picture updated.</p>}
+      </div>
+
       <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
           Your name in messages

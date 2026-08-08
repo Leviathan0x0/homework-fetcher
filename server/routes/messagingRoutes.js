@@ -101,16 +101,49 @@ function isPlausibleStudentId(raw) {
   return /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
 }
 
+/** Display-only alias: remove login digits and punctuation before sharing it. */
+function alphabeticStudentAlias(studentId) {
+  const letters = String(studentId || "").replace(/[^a-zA-Z]/g, "");
+  if (!letters) return null;
+  return letters.charAt(0).toUpperCase() + letters.slice(1).toLowerCase();
+}
+
 function toPublicUser(user, extra = {}) {
   if (!user) return null;
-  return {
+  const displayName = user.displayName || alphabeticStudentAlias(user.studentId);
+  const result = {
     id: user.id,
-    studentId: user.studentId,
-    displayName: user.displayName || null,
-    name: user.displayName || user.studentId,
+    displayName: displayName || null,
+    name: displayName || "Student",
+    profilePictureUrl: user.profilePictureUpdatedAt
+      ? profilePictureUrlFor(user.id, user.profilePictureUpdatedAt)
+      : null,
     section: isUnknownSection(user.section) ? null : user.section,
     ...extra,
   };
+  // A student ID is only needed for a provisional result that the current
+  // user explicitly typed. Never include stored EduSecure IDs for known users.
+  if (extra.provisional && user.studentId) result.studentId = user.studentId;
+  return result;
+}
+
+function profilePictureUrlFor(userId, updatedAt) {
+  return userId
+    ? `/api/auth/profile/picture/${encodeURIComponent(userId)}${updatedAt ? `?v=${encodeURIComponent(updatedAt)}` : ""}`
+    : null;
+}
+
+async function toPublicUserWithPicture(user) {
+  if (!user) return null;
+  const picture = await db
+    .select({ updatedAt: schema.profilePictures.updatedAt })
+    .from(schema.profilePictures)
+    .where(eq(schema.profilePictures.userId, user.id))
+    .get();
+  return toPublicUser({
+    ...user,
+    profilePictureUpdatedAt: picture?.updatedAt || null,
+  });
 }
 
 router.get(
@@ -125,8 +158,15 @@ router.get(
       // Matching happens in SQL so a search never reads the whole user table.
       const needle = `%${q.toLowerCase().replace(/[%_]/g, "")}%`;
       const matched = await db
-        .select()
+        .select({
+          id: schema.users.id,
+          studentId: schema.users.studentId,
+          displayName: schema.users.displayName,
+          section: schema.users.section,
+          profilePictureUpdatedAt: schema.profilePictures.updatedAt,
+        })
         .from(schema.users)
+        .leftJoin(schema.profilePictures, eq(schema.profilePictures.userId, schema.users.id))
         .where(
           and(
             ne(schema.users.id, req.user.id),
@@ -140,8 +180,6 @@ router.get(
         .limit(20)
         .all();
 
-      const users = matched.map((u) => toPublicUser(u));
-
       // Allow messaging by student ID even if they have never opened the app.
       const typedId = cleanStudentId(q);
       const selfId = cleanStudentId(req.user.studentId).toLowerCase();
@@ -149,11 +187,11 @@ router.get(
         isPlausibleStudentId(typedId) &&
         typedId.toLowerCase() !== selfId
       ) {
-        const exactInResults = users.some(
+        const exactInResults = matched.some(
           (u) => cleanStudentId(u.studentId).toLowerCase() === typedId.toLowerCase()
         );
         if (!exactInResults) {
-          users.unshift(
+          matched.unshift(
             toPublicUser(
               {
                 id: null,
@@ -167,6 +205,9 @@ router.get(
         }
       }
 
+      const users = matched.map((u) => (
+        u.provisional ? u : toPublicUser(u)
+      ));
       return res.json({ users });
     } catch (err) {
       console.error("User Search Error:", err);
@@ -197,7 +238,7 @@ router.post(
       }
 
       const user = await sessionService.findOrCreateUser(typedId);
-      return res.json({ user: toPublicUser(user) });
+      return res.json({ user: await toPublicUserWithPicture(user) });
     } catch (err) {
       console.error("User Resolve Error:", err);
       return res.status(500).json({ error: "Could not look up that student ID." });
@@ -240,10 +281,12 @@ router.get("/conversations", requireAuth, async (req, res) => {
           id: schema.users.id,
           studentId: schema.users.studentId,
           displayName: schema.users.displayName,
+          profilePictureUpdatedAt: schema.profilePictures.updatedAt,
           section: schema.users.section,
         })
         .from(schema.conversationParticipants)
         .innerJoin(schema.users, eq(schema.users.id, schema.conversationParticipants.userId))
+        .leftJoin(schema.profilePictures, eq(schema.profilePictures.userId, schema.users.id))
         .where(inArray(schema.conversationParticipants.conversationId, convIds))
         .all(),
       db
@@ -412,7 +455,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
           conversationId: match.conversationId,
           existing: true,
           type: "dm",
-          otherUser: toPublicUser(otherUser),
+          otherUser: await toPublicUserWithPicture(otherUser),
         });
       }
     }
@@ -476,7 +519,7 @@ router.post("/conversations", requireAuth, async (req, res) => {
       conversationId: convId,
       existing: false,
       type: "dm",
-      otherUser: toPublicUser(otherUser),
+      otherUser: await toPublicUserWithPicture(otherUser),
     });
   } catch (err) {
     console.error("Create Conversation Error:", err);
@@ -551,7 +594,7 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
 
     // Senders, read receipts and quoted messages do not depend on each other,
     // so the thread opens after one round trip instead of three.
-    const [senders, receipts, parentMessages] = await Promise.all([
+    const [senders, receipts, parentMessages, senderPictures] = await Promise.all([
       senderIds.length
         ? db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
         : [],
@@ -564,6 +607,9 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
         : [],
       replyToIds.length
         ? db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
+        : [],
+      senderIds.length
+        ? db.select().from(schema.profilePictures).where(inArray(schema.profilePictures.userId, senderIds)).all()
         : [],
     ]);
 
@@ -581,6 +627,8 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
 
     const parentMap = {};
     for (const parent of parentMessages) parentMap[parent.id] = parent;
+    const senderPictureMap = {};
+    for (const picture of senderPictures) senderPictureMap[picture.userId] = picture;
 
     const result = msgs.map((m) => {
       const sender = senderMap[m.senderId];
@@ -590,8 +638,12 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
         id: m.id,
         conversationId: m.conversationId,
         senderId: m.senderId,
-        senderStudentId: sender ? sender.studentId : m.senderId,
-        senderName: sender ? sender.displayName || sender.studentId : null,
+        senderName: sender
+          ? sender.displayName || alphabeticStudentAlias(sender.studentId) || "Student"
+          : "Student",
+        senderProfilePictureUrl: senderPictureMap[m.senderId]
+          ? profilePictureUrlFor(m.senderId, senderPictureMap[m.senderId].updatedAt)
+          : null,
         content: m.content,
         attachmentUrl: m.attachmentUrl,
         originalFilename: m.originalFilename,
@@ -600,7 +652,9 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
           ? {
               id: parent.id,
               senderId: parent.senderId,
-              senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
+              senderName: parentSender
+                ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
+                : "Student",
               content: parent.content.substring(0, 100),
               attachmentUrl: parent.attachmentUrl,
             }
@@ -779,7 +833,8 @@ router.post(
           .from(schema.conversations)
           .where(eq(schema.conversations.id, convId))
           .get();
-        const fromName = req.user.displayName || req.user.studentId;
+        const fromName =
+          req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "Student";
         const isSection = convMeta?.type === "section";
         const title = isSection
           ? `Class ${convMeta.section || "group"}`
@@ -814,7 +869,9 @@ router.post(
           replyTo = {
             id: parent.id,
             senderId: parent.senderId,
-            senderName: parentSender ? parentSender.displayName || parentSender.studentId : null,
+            senderName: parentSender
+              ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
+              : "Student",
             content: parent.content.substring(0, 100),
             attachmentUrl: parent.attachmentUrl,
           };
@@ -827,8 +884,7 @@ router.post(
           id,
           conversationId: convId,
           senderId: req.user.id,
-          senderStudentId: req.user.studentId,
-          senderName: req.user.displayName || req.user.studentId,
+          senderName: req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "You",
           content: trimmed,
           attachmentUrl,
           originalFilename,
@@ -1374,7 +1430,7 @@ router.post(
   }
 );
 
-/** Classmates in the current user's section (name + student ID). */
+/** Classmates in the current user's section (display names only). */
 router.get("/section/members", requireAuth, async (req, res) => {
   try {
     const section = req.user.section;
@@ -1385,9 +1441,11 @@ router.get("/section/members", requireAuth, async (req, res) => {
         id: schema.users.id,
         studentId: schema.users.studentId,
         displayName: schema.users.displayName,
+        profilePictureUpdatedAt: schema.profilePictures.updatedAt,
         section: schema.users.section,
       })
       .from(schema.users)
+      .leftJoin(schema.profilePictures, eq(schema.profilePictures.userId, schema.users.id))
       .where(eq(schema.users.section, section))
       .orderBy(asc(schema.users.displayName), asc(schema.users.studentId))
       .all();

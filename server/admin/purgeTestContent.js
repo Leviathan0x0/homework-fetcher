@@ -7,10 +7,10 @@ const { testTeacherUser } = require("../teacher/teacherService");
  * Kept tight so genuine homework about "unit test" / "class test" is left alone.
  */
 const PLACEHOLDER_TITLE =
-  /^(?:test|testing|feed\s*test|test\s*(?:assignment|feed|alert|notification|announce(?:ment)?)|asdf+|hello\s*world|sample|dummy|foo|bar)(?:[!.\s#-]*\d*)?$/i;
+  /^(?:test|testing|feed\s*test|student\s+feed\s*test|test\s*(?:assignment|feed|alert|notification|announce(?:ment)?)|asdf+|hello\s*world|sample|dummy|foo|bar)(?:[!.\s#-]*\d*)?$/i;
 
 const PLACEHOLDER_NOTIFICATION =
-  /^new assignment:\s*(?:test|testing|feed\s*test|sample|dummy)\b/i;
+  /^new assignment:\s*(?:test|testing|feed\s*test|student\s+feed\s*test|sample|dummy)\b/i;
 
 function isPlaceholderTestText(value) {
   const text = String(value || "").trim();

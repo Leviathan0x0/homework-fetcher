@@ -19,6 +19,18 @@ const users = sqliteTable(
   ]
 );
 
+const profilePictures = sqliteTable(
+  "profile_pictures",
+  {
+    userId: text("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    data: text("data").notNull(),
+    mimeType: text("mime_type").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  }
+);
+
 const edusecureSessions = sqliteTable(
   "edusecure_sessions",
   {
@@ -547,6 +559,7 @@ const schoolCalendarEvents = sqliteTable(
 
 module.exports = {
   users,
+  profilePictures,
   edusecureSessions,
   appSessions,
   homework,

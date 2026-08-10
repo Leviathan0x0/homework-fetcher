@@ -64,7 +64,7 @@ const DayCell = memo(function DayCell({
       aria-label={`${dayNumber}${hasHoliday ? ', holiday' : ''}${hwCount ? `, ${hwCount} homework` : ''}`}
       aria-pressed={isSelected}
       className={cn(
-        'group relative flex h-12 flex-col items-center justify-center rounded-[1.35rem] text-[13px] tabular-nums select-none touch-manipulation sm:h-14',
+        'group relative flex h-10 flex-col items-center justify-center rounded-xl text-xs tabular-nums select-none touch-manipulation sm:h-11',
         'transition-[transform,background-color,box-shadow] duration-200 ease-out',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50',
         !isCurrentMonth && 'text-neutral-300/60 dark:text-neutral-700/70',
@@ -78,14 +78,14 @@ const DayCell = memo(function DayCell({
     >
       <span
         className={cn(
-          'flex h-8 w-8 items-center justify-center rounded-full leading-none transition-transform duration-200 group-hover:scale-105',
+          'flex size-7 items-center justify-center rounded-full leading-none transition-transform duration-200 group-hover:scale-105',
           isToday && !isSelected && 'bg-sky-400/10 dark:bg-sky-300/10'
         )}
       >
         {dayNumber}
       </span>
       {(hwCount > 0 || hasHoliday) && (
-        <span className="absolute bottom-1.5 flex items-center gap-1">
+        <span className="absolute bottom-1 flex items-center gap-1">
           {hasHoliday && (
             <span
               className={cn(
@@ -245,10 +245,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   }, [onRefresh, reload]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader
         title="Calendar"
         description="Homework and school holidays from EduSecure."
+        className="pb-4"
         actions={
           <>
             <button
@@ -262,80 +263,81 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               onRefresh={handleRefreshAll}
               isRefreshing={isLoading || Boolean(isRefreshing) || eventsLoading}
               compact
+              label="calendar"
             />
           </>
         }
       />
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-        <div className="space-y-4 lg:sticky lg:top-4 lg:col-span-5">
-          <div className="relative overflow-hidden rounded-[2.25rem] border border-black/[0.06] bg-white/85 p-3 shadow-[0_24px_70px_-38px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/90 dark:shadow-[0_28px_90px_-42px_rgba(0,0,0,0.95)] sm:p-5">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12 lg:gap-5">
+        <div className="space-y-3 lg:sticky lg:top-4 lg:col-span-4">
+          <div className="relative overflow-hidden rounded-[1.6rem] border border-black/[0.06] bg-white/85 p-3 shadow-[0_18px_55px_-36px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/90 dark:shadow-[0_24px_70px_-40px_rgba(0,0,0,0.95)] sm:p-4">
             <div className="pointer-events-none absolute -right-24 -top-28 size-64 rotate-12 rounded-[44%_56%_62%_38%] bg-fuchsia-300/25 blur-3xl dark:bg-fuchsia-500/10" />
             <div className="pointer-events-none absolute -bottom-32 -left-24 size-64 -rotate-12 rounded-[63%_37%_42%_58%] bg-sky-300/25 blur-3xl dark:bg-sky-400/10" />
             <div className="relative">
-              <div className="mb-5 flex items-center justify-between gap-3 px-1">
-              <h2 className="text-lg font-semibold tracking-[-0.03em] text-neutral-950 dark:text-neutral-50 sm:text-xl">
-                {monthTitle}
-              </h2>
-              <div className="flex items-center gap-1 rounded-full border border-black/[0.06] bg-black/[0.025] p-1 dark:border-white/[0.08] dark:bg-white/[0.04]">
-                <button
-                  type="button"
-                  onClick={handlePrevMonth}
-                  className="flex size-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
-                  aria-label="Previous month"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNextMonth}
-                  className="flex size-8 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
-                  aria-label="Next month"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-              </div>
-
-            <div className="mb-2 grid grid-cols-7">
-              {WEEKDAYS.map((name) => (
-                <div
-                  key={name}
-                  className="py-1 text-center text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500"
-                >
-                  {name}
+              <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
+                <h2 className="text-base font-semibold tracking-[-0.03em] text-neutral-950 dark:text-neutral-50">
+                  {monthTitle}
+                </h2>
+                <div className="flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-black/[0.025] p-0.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                  <button
+                    type="button"
+                    onClick={handlePrevMonth}
+                    className="flex size-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="flex size-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
-              {calendarDays.map((dayItem) => (
-                <DayCell
-                  key={dayItem.ymd}
-                  ymd={dayItem.ymd}
-                  dayNumber={dayItem.date.getDate()}
-                  isCurrentMonth={dayItem.isCurrentMonth}
-                  isToday={dayItem.ymd === todayYmd}
-                  isSelected={dayItem.ymd === selectedYmd}
-                  meta={dayMeta[dayItem.ymd]}
-                  onSelect={handleSelect}
-                />
-              ))}
-            </div>
+              <div className="mb-1 grid grid-cols-7">
+                {WEEKDAYS.map((name) => (
+                  <div
+                    key={name}
+                    className="py-0.5 text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500"
+                  >
+                    {name}
+                  </div>
+                ))}
+              </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-black/[0.06] px-1 pt-4 text-[10px] font-medium text-neutral-500 dark:border-white/[0.08] dark:text-neutral-400">
-              <span className="inline-flex items-center gap-2 rounded-full bg-rose-500/[0.08] px-2.5 py-1.5 text-rose-600 dark:bg-rose-400/[0.1] dark:text-rose-300">
-                <span className="size-1.5 rounded-full bg-rose-500" /> Holiday
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.04] px-2.5 py-1.5 dark:bg-white/[0.06]">
-                <span className="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" /> Homework
-              </span>
-            </div>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((dayItem) => (
+                  <DayCell
+                    key={dayItem.ymd}
+                    ymd={dayItem.ymd}
+                    dayNumber={dayItem.date.getDate()}
+                    isCurrentMonth={dayItem.isCurrentMonth}
+                    isToday={dayItem.ymd === todayYmd}
+                    isSelected={dayItem.ymd === selectedYmd}
+                    meta={dayMeta[dayItem.ymd]}
+                    onSelect={handleSelect}
+                  />
+                ))}
+              </div>
+
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-black/[0.06] px-0.5 pt-3 text-[9px] font-medium text-neutral-500 dark:border-white/[0.08] dark:text-neutral-400">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/[0.08] px-2 py-1 text-rose-600 dark:bg-rose-400/[0.1] dark:text-rose-300">
+                  <span className="size-1.5 rounded-full bg-rose-500" /> Holiday
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2 py-1 dark:bg-white/[0.06]">
+                  <span className="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" /> Homework
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="rounded-[1.75rem] border border-black/[0.06] bg-white/75 p-4 shadow-[0_18px_50px_-36px_rgba(15,23,42,0.7)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/80 sm:p-5">
-            <div className="mb-3 flex items-center justify-between gap-2 px-0.5">
+          <div className="rounded-[1.35rem] border border-black/[0.06] bg-white/75 p-3 shadow-[0_16px_42px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/80 sm:p-4">
+            <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
               <h3 className="text-sm font-semibold tracking-[-0.02em] text-neutral-950 dark:text-neutral-100">
                 Holidays · {monthTitle.split(' ')[0]}
               </h3>
@@ -351,9 +353,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </div>
 
             {eventsLoading && events.length === 0 ? (
-              <p className="rounded-2xl bg-black/[0.025] px-3 py-4 text-xs text-neutral-400 dark:bg-white/[0.04]">Loading from EduSecure…</p>
+              <p className="rounded-xl bg-black/[0.025] px-3 py-3 text-xs text-neutral-400 dark:bg-white/[0.04]">Loading from EduSecure…</p>
             ) : monthHolidays.length === 0 ? (
-              <p className="rounded-2xl bg-black/[0.025] px-3 py-4 text-xs text-neutral-400 dark:bg-white/[0.04]">
+              <p className="rounded-xl bg-black/[0.025] px-3 py-3 text-xs text-neutral-400 dark:bg-white/[0.04]">
                 {eventsError || 'No school holidays listed for this month.'}
               </p>
             ) : (
@@ -376,7 +378,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
 
-        <div ref={detailRef} className="lg:col-span-7 space-y-3 scroll-mt-4">
+        <div ref={detailRef} className="space-y-3 scroll-mt-4 lg:col-span-8">
           <div className="flex items-baseline justify-between gap-3">
             <h3 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
               {selectedDateLabel}

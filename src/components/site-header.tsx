@@ -54,6 +54,10 @@ export function SiteHeader({
         return "Messages";
       case "calendar":
         return "Calendar view";
+      case "circulars":
+        return "School circulars";
+      case "important":
+        return "Important updates";
       case "exams":
         return "Exam Mode";
       case "recent":

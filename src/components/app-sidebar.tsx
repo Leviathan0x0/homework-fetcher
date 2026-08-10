@@ -12,6 +12,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { CalendarCheckIcon } from "@/components/ui/calendar-check"
 import { CalendarDaysIcon } from "@/components/ui/calendar-days"
@@ -28,7 +29,7 @@ import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
 import { ProfileAvatar } from "./ProfileAvatar"
-import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, CalendarDays, type LucideIcon } from "lucide-react"
+import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, CalendarDays, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
   function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
@@ -45,6 +46,8 @@ const FileTextNavIcon = makeNavIcon(FileText, "lift");
 const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
 const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
 const CalendarNavIcon = makeNavIcon(CalendarDays, "bounce");
+const CircularsNavIcon = makeNavIcon(ScrollText, "lift");
+const ImportantNavIcon = makeNavIcon(Megaphone, "bounce");
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
@@ -67,6 +70,12 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const selectView = React.useCallback((view: ViewType) => {
+    onViewChange(view);
+    if (isMobile) setOpenMobile(false);
+  }, [isMobile, onViewChange, setOpenMobile]);
 
   const isAdmin = Boolean(user?.isAdmin || user?.studentId === 'admin_mmss' || user?.role === 'admin');
   const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
@@ -83,6 +92,13 @@ export function AppSidebar({
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
         { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarNavIcon },
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
+      ],
+    },
+    {
+      label: "School updates",
+      items: [
+        { id: "circulars" as ViewType, title: "Circulars", IconComponent: CircularsNavIcon },
+        { id: "important" as ViewType, title: "Important", IconComponent: ImportantNavIcon },
       ],
     },
     {
@@ -181,7 +197,7 @@ export function AppSidebar({
                   return (
                     <SidebarMenuItem key={item.id}>
                       <SidebarMenuButton
-                        onClick={() => onViewChange(item.id)}
+                        onClick={() => selectView(item.id)}
                         onMouseEnter={() => setHoveredId(item.id)}
                         onMouseLeave={() => setHoveredId(null)}
                         isActive={isActive}
@@ -212,7 +228,7 @@ export function AppSidebar({
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onViewChange("developers")}
+                  onClick={() => selectView("developers")}
                   onMouseEnter={() => setHoveredId("developers")}
                   onMouseLeave={() => setHoveredId(null)}
                   isActive={activeView === "developers"}
@@ -225,7 +241,7 @@ export function AppSidebar({
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => onViewChange("settings")}
+                  onClick={() => selectView("settings")}
                   onMouseEnter={() => setHoveredId("settings")}
                   onMouseLeave={() => setHoveredId(null)}
                   isActive={activeView === "settings"}

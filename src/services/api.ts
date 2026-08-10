@@ -283,6 +283,26 @@ export const calendarService = {
   },
 };
 
+// --- SCHOOL UPDATES (EduSecure circulars and important messages) ---
+export const schoolNoticeService = {
+  async getNotices(kind: "circulars" | "important", forceRefresh = false) {
+    const suffix = forceRefresh ? "/refresh" : "";
+    const res = await apiFetch(`/api/school-updates/${kind}${suffix}`, {
+      method: forceRefresh ? "POST" : "GET",
+      headers: { Accept: "application/json" },
+    });
+    const data = await apiJson<any>(res);
+    if (!res.ok) {
+      const error = new Error(data.error || "Failed to load school updates.") as Error & {
+        code?: string;
+      };
+      error.code = data.code;
+      throw error;
+    }
+    return Array.isArray(data.notices) ? data.notices : [];
+  },
+};
+
 // --- MESSAGING SERVICE ---
 /** Maps an API message payload to the UI message shape. */
 function mapMessage(raw: any) {

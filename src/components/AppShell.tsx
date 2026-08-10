@@ -25,6 +25,7 @@ type AppRole = 'student' | 'teacher' | 'admin';
 // fetched the first time a student actually opens that screen, which keeps the
 // startup download (and every subsequent interaction) small.
 const CalendarView = lazy(() => import('./CalendarView').then((m) => ({ default: m.CalendarView })));
+const SchoolNoticesView = lazy(() => import('./SchoolNoticesView').then((m) => ({ default: m.SchoolNoticesView })));
 const ExamsView = lazy(() => import('./ExamsView').then((m) => ({ default: m.ExamsView })));
 const RecentView = lazy(() => import('./RecentView').then((m) => ({ default: m.RecentView })));
 const AllHomeworkView = lazy(() => import('./AllHomeworkView').then((m) => ({ default: m.AllHomeworkView })));
@@ -465,6 +466,13 @@ export const AppShell: React.FC = () => {
               completedMap={completedMap}
               onToggleCompleted={toggleTaskCompleted}
               onUpdateNote={updateHomeworkNote}
+              onOpenPreview={handleOpenPreview}
+            />
+          )}
+
+          {(activeView === 'circulars' || activeView === 'important') && (
+            <SchoolNoticesView
+              kind={activeView}
               onOpenPreview={handleOpenPreview}
             />
           )}

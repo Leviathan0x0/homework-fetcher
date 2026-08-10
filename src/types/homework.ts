@@ -54,11 +54,34 @@ export interface SchoolCalendarEvent {
   updatedAt?: string;
 }
 
+export type SchoolNoticeKind = 'circulars' | 'important';
+
+export interface SchoolNoticeAttachment {
+  url: string;
+  name?: string | null;
+}
+
+/** Circular or important message pulled from the matching EduSecure page. */
+export interface SchoolNotice {
+  id: string;
+  kind: SchoolNoticeKind;
+  type: string;
+  date: string;
+  title?: string | null;
+  content: string;
+  attachments?: SchoolNoticeAttachment[];
+  /** Legacy first-attachment fields kept for cached responses. */
+  attachment?: string | null;
+  attachmentName?: string | null;
+}
+
 export type ViewType =
   | 'today'
   | 'recent'
   | 'all'
   | 'calendar'
+  | 'circulars'
+  | 'important'
   | 'exams'
   | 'attachments'
   | 'completed'

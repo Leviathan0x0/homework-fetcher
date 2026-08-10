@@ -28,6 +28,7 @@ const requestsRoutes = require("./server/routes/requestsRoutes");
 const messagingRoutes = require("./server/routes/messagingRoutes");
 const notificationsRoutes = require("./server/routes/notificationsRoutes");
 const calendarRoutes = require("./server/routes/calendarRoutes");
+const schoolNoticesRoutes = require("./server/routes/schoolNoticesRoutes");
 const adminRoutes = require("./server/routes/adminRoutes");
 const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
@@ -224,6 +225,7 @@ app.use("/api", requestsRoutes);
 app.use("/api", messagingRoutes);
 app.use("/api", notificationsRoutes);
 app.use("/api", calendarRoutes);
+app.use("/api", schoolNoticesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/teacher", teacherRoutes);
 

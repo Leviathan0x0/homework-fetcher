@@ -56,6 +56,11 @@ export interface SchoolCalendarEvent {
 
 export type SchoolNoticeKind = 'circulars' | 'important';
 
+export interface SchoolNoticeAttachment {
+  url: string;
+  name?: string | null;
+}
+
 /** Circular or important message pulled from the matching EduSecure page. */
 export interface SchoolNotice {
   id: string;
@@ -64,6 +69,8 @@ export interface SchoolNotice {
   date: string;
   title?: string | null;
   content: string;
+  attachments?: SchoolNoticeAttachment[];
+  /** Legacy first-attachment fields kept for cached responses. */
   attachment?: string | null;
   attachmentName?: string | null;
 }

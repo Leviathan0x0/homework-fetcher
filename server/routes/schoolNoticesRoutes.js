@@ -2,7 +2,10 @@ const express = require("express");
 const { requireAuth } = require("../auth/requireAuth");
 const sessionService = require("../auth/sessionService");
 const { SchoolSessionExpiredError } = require("../edusecure/homeworkService");
+const { applyDownloadHeaders, resolveUploadType } = require("../files/fileTypes");
 const {
+  allowedAttachmentUrl,
+  fetchSchoolNoticeAttachment,
   fetchSchoolNoticesForSession,
   getNoticeSource,
 } = require("../edusecure/schoolNoticesService");
@@ -27,6 +30,35 @@ function isStale(cached) {
   return !cached || Date.now() - cached.updatedAt > CACHE_MAX_AGE_MS;
 }
 
+function attachmentProxyUrl(url) {
+  return `/api/school-updates/attachment?url=${encodeURIComponent(url)}`;
+}
+
+function clientNotice(notice) {
+  const rawAttachments =
+    Array.isArray(notice.attachments) && notice.attachments.length > 0
+      ? notice.attachments
+      : notice.attachment
+        ? [{ url: notice.attachment, name: notice.attachmentName || null }]
+        : [];
+  const attachments = rawAttachments
+    .filter((attachment) => allowedAttachmentUrl(attachment?.url))
+    .map((attachment) => ({
+      url: attachmentProxyUrl(attachment.url),
+      name: attachment.name || null,
+    }));
+
+  return {
+    ...notice,
+    attachments,
+    attachment: attachments[0]?.url || null,
+    attachmentName: attachments[0]?.name || null,
+  };
+}
+
+function clientNotices(notices) {
+  return (notices || []).map(clientNotice);
+}
 async function refreshFromEduSecure(userId, kind) {
   const key = cacheKey(userId, kind);
   const running = refreshesInFlight.get(key);
@@ -53,14 +85,50 @@ function invalidKind(res) {
 }
 
 function expiredResponse(res, notices = []) {
+  const visibleNotices = clientNotices(notices);
   return res.status(401).json({
     error: "Your school session has expired. Reconnect with your school password to continue.",
     code: "SCHOOL_SESSION_EXPIRED",
-    count: notices.length,
-    notices,
+    count: visibleNotices.length,
+    notices: visibleNotices,
   });
 }
 
+// GET /api/school-updates/attachment - authenticated proxy for EduSecure files.
+router.get("/school-updates/attachment", requireAuth, async (req, res) => {
+  const targetUrl = typeof req.query.url === "string" ? req.query.url : "";
+  if (!allowedAttachmentUrl(targetUrl)) {
+    return res.status(400).json({ error: "Invalid school attachment URL." });
+  }
+
+  const eduSession = await sessionService.getEduSecureSession(req.user.id);
+  if (!eduSession?.sessionCookies) return expiredResponse(res);
+
+  try {
+    const attachment = await fetchSchoolNoticeAttachment(
+      eduSession.sessionCookies,
+      targetUrl
+    );
+    const previewType = resolveUploadType(attachment.filename)?.contentType;
+    applyDownloadHeaders(res, {
+      contentType: previewType || attachment.contentType,
+      filename: attachment.filename,
+      head: attachment.buffer.subarray(0, 16),
+    });
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("Content-Length", String(attachment.buffer.length));
+    return res.end(attachment.buffer);
+  } catch (err) {
+    if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
+      await sessionService.removeEduSecureSession(req.user.id).catch(() => {});
+      return expiredResponse(res);
+    }
+    console.error("GET /school-updates/attachment:", err);
+    return res.status(err?.statusCode || 502).json({
+      error: err?.message || "Unable to load this school attachment.",
+    });
+  }
+});
 // GET /api/school-updates/:kind - cached Circulars or Important messages.
 router.get("/school-updates/:kind", requireAuth, async (req, res) => {
   const source = getNoticeSource(req.params.kind);
@@ -75,16 +143,18 @@ router.get("/school-updates/:kind", requireAuth, async (req, res) => {
         console.error(`Background ${source.kind} refresh error:`, err.message);
       });
     }
+    const notices = clientNotices(cached.notices);
     return res.json({
-      count: cached.notices.length,
-      notices: cached.notices,
+      count: notices.length,
+      notices,
       isStale: stale,
     });
   }
 
   try {
     const fresh = await refreshFromEduSecure(userId, source.kind);
-    return res.json({ count: fresh.notices.length, notices: fresh.notices, isStale: false });
+    const notices = clientNotices(fresh.notices);
+    return res.json({ count: notices.length, notices, isStale: false });
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
       return expiredResponse(res);
@@ -106,7 +176,8 @@ router.post("/school-updates/:kind/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
   try {
     const fresh = await refreshFromEduSecure(userId, source.kind);
-    return res.json({ count: fresh.notices.length, notices: fresh.notices, isStale: false });
+    const notices = clientNotices(fresh.notices);
+    return res.json({ count: notices.length, notices, isStale: false });
   } catch (err) {
     const cached = cachedFor(userId, source.kind);
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
@@ -114,9 +185,10 @@ router.post("/school-updates/:kind/refresh", requireAuth, async (req, res) => {
     }
     if (cached) {
       console.error(`POST /school-updates/${source.kind}/refresh; serving cache:`, err);
+      const notices = clientNotices(cached.notices);
       return res.json({
-        count: cached.notices.length,
-        notices: cached.notices,
+        count: notices.length,
+        notices,
         isStale: true,
         refreshFailed: true,
       });

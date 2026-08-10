@@ -64,22 +64,22 @@ const DayCell = memo(function DayCell({
       aria-label={`${dayNumber}${hasHoliday ? ', holiday' : ''}${hwCount ? `, ${hwCount} homework` : ''}`}
       aria-pressed={isSelected}
       className={cn(
-        'group relative flex h-10 flex-col items-center justify-center rounded-xl text-xs tabular-nums select-none touch-manipulation sm:h-11',
-        'transition-[transform,background-color,box-shadow] duration-200 ease-out',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50',
+        'group relative flex h-10 flex-col items-center justify-center rounded-lg text-xs tabular-nums select-none touch-manipulation sm:h-11',
+        'transition-[transform,background-color,color] duration-150 ease-out',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
         !isCurrentMonth && 'text-neutral-300/60 dark:text-neutral-700/70',
-        isCurrentMonth && !isSelected && !hasHoliday && 'text-neutral-700 hover:bg-black/[0.035] dark:text-neutral-300 dark:hover:bg-white/[0.055]',
-        isCurrentMonth && !isSelected && hasHoliday && 'text-rose-600 hover:bg-rose-500/[0.08] dark:text-rose-300 dark:hover:bg-rose-400/[0.08]',
+        isCurrentMonth && !isSelected && !hasHoliday && 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/70',
+        isCurrentMonth && !isSelected && hasHoliday && 'text-rose-600 hover:bg-neutral-100 dark:text-rose-300 dark:hover:bg-neutral-800/70',
         isToday && !isSelected && 'font-semibold',
-        isToday && !isSelected && 'ring-1 ring-inset ring-sky-400/55 dark:ring-sky-300/45',
-        isSelected && 'bg-[#ff2d55] text-white font-semibold shadow-[0_10px_24px_-12px_rgba(255,45,85,0.95)]',
-        !isSelected && 'cursor-pointer active:scale-[0.94]'
+        isToday && !isSelected && 'ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700',
+        isSelected && 'bg-neutral-900 text-white font-semibold dark:bg-white dark:text-neutral-900',
+        !isSelected && 'cursor-pointer active:scale-[0.96]'
       )}
     >
       <span
         className={cn(
           'flex size-7 items-center justify-center rounded-full leading-none transition-transform duration-200 group-hover:scale-105',
-          isToday && !isSelected && 'bg-sky-400/10 dark:bg-sky-300/10'
+          isToday && !isSelected && 'bg-neutral-100 dark:bg-neutral-800'
         )}
       >
         {dayNumber}
@@ -90,7 +90,7 @@ const DayCell = memo(function DayCell({
             <span
               className={cn(
                 'size-1.5 rounded-full',
-                isSelected ? 'bg-white' : 'bg-rose-500'
+                isSelected ? 'bg-white dark:bg-rose-500' : 'bg-rose-500'
               )}
             />
           )}
@@ -100,8 +100,8 @@ const DayCell = memo(function DayCell({
                 'size-1 rounded-full',
                 isSelected
                   ? allDone
-                    ? 'bg-emerald-200'
-                    : 'bg-white/75'
+                    ? 'bg-emerald-200 dark:bg-emerald-600'
+                    : 'bg-white/75 dark:bg-neutral-700'
                   : allDone
                     ? 'bg-emerald-500'
                     : 'bg-neutral-400 dark:bg-neutral-500'
@@ -255,7 +255,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <button
               type="button"
               onClick={handleJumpToToday}
-              className="h-9 rounded-full border border-black/[0.06] bg-white/75 px-4 text-xs font-medium text-neutral-700 shadow-2xs backdrop-blur-xl transition-all hover:-translate-y-0.5 hover:border-black/[0.12] hover:bg-white dark:border-white/[0.08] dark:bg-white/[0.06] dark:text-neutral-200 dark:hover:border-white/[0.14] dark:hover:bg-white/[0.1]"
+              className="h-9 rounded-xl border border-neutral-200 bg-white px-4 text-xs font-medium text-neutral-700 shadow-2xs transition-colors hover:border-neutral-300 hover:text-neutral-950 dark:border-neutral-800 dark:bg-[#141417] dark:text-neutral-300 dark:hover:border-neutral-700 dark:hover:text-white"
             >
               Today
             </button>
@@ -271,19 +271,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12 lg:gap-5">
         <div className="space-y-3 lg:sticky lg:top-4 lg:col-span-4">
-          <div className="relative overflow-hidden rounded-[1.6rem] border border-black/[0.06] bg-white/85 p-3 shadow-[0_18px_55px_-36px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/90 dark:shadow-[0_24px_70px_-40px_rgba(0,0,0,0.95)] sm:p-4">
-            <div className="pointer-events-none absolute -right-24 -top-28 size-64 rotate-12 rounded-[44%_56%_62%_38%] bg-fuchsia-300/25 blur-3xl dark:bg-fuchsia-500/10" />
-            <div className="pointer-events-none absolute -bottom-32 -left-24 size-64 -rotate-12 rounded-[63%_37%_42%_58%] bg-sky-300/25 blur-3xl dark:bg-sky-400/10" />
-            <div className="relative">
+          <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4">
+            <div>
               <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
                 <h2 className="text-base font-semibold tracking-[-0.03em] text-neutral-950 dark:text-neutral-50">
                   {monthTitle}
                 </h2>
-                <div className="flex items-center gap-0.5 rounded-full border border-black/[0.06] bg-black/[0.025] p-0.5 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                <div className="flex items-center gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-neutral-800/70">
                   <button
                     type="button"
                     onClick={handlePrevMonth}
-                    className="flex size-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
+                    className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Previous month"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -291,7 +289,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   <button
                     type="button"
                     onClick={handleNextMonth}
-                    className="flex size-7 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-white/10 dark:hover:text-white"
+                    className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Next month"
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -325,18 +323,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-black/[0.06] px-0.5 pt-3 text-[9px] font-medium text-neutral-500 dark:border-white/[0.08] dark:text-neutral-400">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/[0.08] px-2 py-1 text-rose-600 dark:bg-rose-400/[0.1] dark:text-rose-300">
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-100 px-0.5 pt-3 text-[9px] font-medium text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+                <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-300">
                   <span className="size-1.5 rounded-full bg-rose-500" /> Holiday
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black/[0.04] px-2 py-1 dark:bg-white/[0.06]">
+                <span className="inline-flex items-center gap-1.5">
                   <span className="size-1.5 rounded-full bg-neutral-400 dark:bg-neutral-500" /> Homework
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-[1.35rem] border border-black/[0.06] bg-white/75 p-3 shadow-[0_16px_42px_-34px_rgba(15,23,42,0.7)] backdrop-blur-xl dark:border-white/[0.08] dark:bg-[#151519]/80 sm:p-4">
+          <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4">
             <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
               <h3 className="text-sm font-semibold tracking-[-0.02em] text-neutral-950 dark:text-neutral-100">
                 Holidays · {monthTitle.split(' ')[0]}

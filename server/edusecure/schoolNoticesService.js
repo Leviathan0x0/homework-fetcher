@@ -11,8 +11,12 @@ const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 const PORTAL_TIMEOUT_MS = 20_000;
 const PORTAL_ATTEMPTS = 2;
-const ATTACHMENT_TIMEOUT_MS = 30_000;
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
+const ATTACHMENT_TIMEOUT_MS =
+  Math.max(
+    parseInt(process.env.SCHOOL_ATTACHMENT_TIMEOUT_MS || "120000", 10) || 120_000,
+    1_000
+  );
+const ATTACHMENT_HEAD_BYTES = 32 * 1024;
 
 const NOTICE_SOURCES = Object.freeze({
   circulars: Object.freeze({
@@ -241,39 +245,80 @@ function filenameFromUrl(value) {
   }
 }
 
-function attachmentTooLargeError() {
-  const error = new Error("This school attachment is too large to preview.");
-  error.statusCode = 413;
-  error.code = "ATTACHMENT_TOO_LARGE";
-  return error;
-}
-
-async function readAttachmentBody(response) {
-  if (!response.body) return Buffer.alloc(0);
+/**
+ * Reads only enough of an attachment to verify its type and detect an expired
+ * portal session. The complete response stays on the upstream stream instead
+ * of being buffered in server memory.
+ */
+async function readAttachmentHead(response) {
+  if (!response.body) {
+    return { reader: null, chunks: [], head: Buffer.alloc(0), done: true };
+  }
   const reader = response.body.getReader();
   const chunks = [];
   let total = 0;
+  let done = false;
 
   try {
-    while (true) {
-      const { done, value } = await reader.read();
+    while (total < ATTACHMENT_HEAD_BYTES) {
+      const next = await reader.read();
+      done = next.done;
       if (done) break;
-      const chunk = Buffer.from(value);
+      const chunk = Buffer.from(next.value);
       total += chunk.length;
-      if (total > MAX_ATTACHMENT_BYTES) {
-        await reader.cancel().catch(() => {});
-        throw attachmentTooLargeError();
-      }
       chunks.push(chunk);
     }
-  } finally {
+  } catch (err) {
+    await reader.cancel().catch(() => {});
     reader.releaseLock();
+    throw err;
   }
 
-  return Buffer.concat(chunks, total);
+  return {
+    reader,
+    chunks,
+    head: Buffer.concat(chunks, total).subarray(0, ATTACHMENT_HEAD_BYTES),
+    done,
+  };
 }
 
-/** Fetches a school attachment with the student's server-side EduSecure session. */
+/**
+ * Replays the bytes used for header inspection, then forwards the rest. The
+ * upstream request is cancelled when the browser closes the preview so large
+ * attachments do not continue downloading in the background.
+ */
+function streamAttachmentBody(prefetched, controller, timeout) {
+  return (async function* attachmentStream() {
+    let complete = prefetched.done;
+    try {
+      for (const chunk of prefetched.chunks) {
+        yield chunk;
+      }
+      while (!complete && prefetched.reader) {
+        const next = await prefetched.reader.read();
+        complete = next.done;
+        if (!complete) yield Buffer.from(next.value);
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        throw new EduSecurePortalError("EduSecure took too long to load this attachment.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+      if (prefetched.reader) {
+        if (!complete) await prefetched.reader.cancel().catch(() => {});
+        prefetched.reader.releaseLock();
+      }
+      if (!complete) controller.abort();
+    }
+  })();
+}
+
+/**
+ * Opens a school attachment with the student's server-side EduSecure session.
+ * The returned async iterable must be consumed or closed by the caller.
+ */
 async function fetchSchoolNoticeAttachment(sessionCookies, targetUrl) {
   if (!sessionCookies) throw new SchoolSessionExpiredError();
   if (!allowedAttachmentUrl(targetUrl)) {
@@ -286,6 +331,7 @@ async function fetchSchoolNoticeAttachment(sessionCookies, targetUrl) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), ATTACHMENT_TIMEOUT_MS);
   let currentUrl = new URL(targetUrl).href;
+  let streamOpened = false;
 
   try {
     for (let redirects = 0; redirects <= 2; redirects += 1) {
@@ -319,26 +365,30 @@ async function fetchSchoolNoticeAttachment(sessionCookies, targetUrl) {
       }
 
       const declaredLength = Number(response.headers.get("content-length") || 0);
-      if (declaredLength > MAX_ATTACHMENT_BYTES) {
-        await response.body?.cancel().catch(() => {});
-        throw attachmentTooLargeError();
-      }
-
-      const buffer = await readAttachmentBody(response);
-
+      const isEncoded = Boolean(response.headers.get("content-encoding"));
+      const prefetched = await readAttachmentHead(response);
       const contentType = (response.headers.get("content-type") || "application/octet-stream")
         .split(";")[0]
         .trim()
         .toLowerCase();
       if (contentType === "text/html") {
-        const html = buffer.subarray(0, 32 * 1024).toString("utf8");
+        const html = prefetched.head.toString("utf8");
         if (/txtusername|login\.aspx|loginwrapper/i.test(html)) {
+          await prefetched.reader?.cancel().catch(() => {});
+          prefetched.reader?.releaseLock();
           throw new SchoolSessionExpiredError();
         }
       }
 
+      const body = streamAttachmentBody(prefetched, controller, timeout);
+      streamOpened = true;
       return {
-        buffer,
+        body,
+        head: prefetched.head,
+        contentLength:
+          !isEncoded && Number.isSafeInteger(declaredLength) && declaredLength > 0
+            ? declaredLength
+            : null,
         contentType,
         filename:
           filenameFromDisposition(response.headers.get("content-disposition")) ||
@@ -352,7 +402,7 @@ async function fetchSchoolNoticeAttachment(sessionCookies, targetUrl) {
     }
     throw err;
   } finally {
-    clearTimeout(timeout);
+    if (!streamOpened) clearTimeout(timeout);
   }
 
   throw new EduSecurePortalError("EduSecure could not load this attachment.");

@@ -110,7 +110,7 @@ test("only allows attachments from the configured EduSecure school path", () => 
   );
 });
 
-test("loads attachment bytes with the server-side EduSecure session", async (t) => {
+test("streams attachment bytes with the server-side EduSecure session", async (t) => {
   const previousFetch = global.fetch;
   const calls = [];
   global.fetch = async (url, options) => {
@@ -136,5 +136,50 @@ test("loads attachment bytes with the server-side EduSecure session", async (t) 
   assert.equal(calls[0].options.headers.Cookie, "ASP.NET_SessionId=test-session");
   assert.equal(attachment.filename, "school-note.pdf");
   assert.equal(attachment.contentType, "application/pdf");
-  assert.equal(attachment.buffer.toString(), "%PDF-1.7\nmock");
+  assert.equal(attachment.head.toString(), "%PDF-1.7\nmock");
+
+  const chunks = [];
+  for await (const chunk of attachment.body) chunks.push(chunk);
+  assert.equal(Buffer.concat(chunks).toString(), "%PDF-1.7\nmock");
+});
+
+test("streams school attachments beyond the previous preview limit", async (t) => {
+  const previousFetch = global.fetch;
+  const chunkSize = 1024 * 1024;
+  const chunkCount = 21;
+  global.fetch = async () => {
+    let sent = 0;
+    return new Response(
+      new ReadableStream({
+        pull(controller) {
+          if (sent >= chunkCount) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(new Uint8Array(chunkSize));
+          sent += 1;
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Length": String(chunkSize * chunkCount),
+        },
+      }
+    );
+  };
+  t.after(() => {
+    global.fetch = previousFetch;
+  });
+
+  const attachment = await fetchSchoolNoticeAttachment(
+    "ASP.NET_SessionId=test-session",
+    "https://edusecure.in/ManavMangalMohali/Files/large-circular.pdf"
+  );
+
+  let received = 0;
+  for await (const chunk of attachment.body) received += chunk.length;
+  assert.equal(received, chunkSize * chunkCount);
+  assert.equal(attachment.contentLength, chunkSize * chunkCount);
 });

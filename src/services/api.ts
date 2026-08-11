@@ -299,7 +299,22 @@ export const schoolNoticeService = {
       error.code = data.code;
       throw error;
     }
-    return Array.isArray(data.notices) ? data.notices : [];
+    const notices = Array.isArray(data.notices) ? data.notices : [];
+    return notices.map((notice: any) => {
+      const attachments = Array.isArray(notice.attachments)
+        ? notice.attachments.map((attachment: any) => ({
+            ...attachment,
+            url: attachment?.url ? apiUrl(attachment.url) : attachment?.url,
+          }))
+        : [];
+      return {
+        ...notice,
+        attachments,
+        attachment: notice.attachment
+          ? apiUrl(notice.attachment)
+          : attachments[0]?.url || null,
+      };
+    });
   },
 };
 

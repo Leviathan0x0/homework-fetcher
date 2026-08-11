@@ -1,4 +1,6 @@
 const express = require("express");
+const { Readable } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 const { requireAuth } = require("../auth/requireAuth");
 const sessionService = require("../auth/sessionService");
 const { SchoolSessionExpiredError } = require("../edusecure/homeworkService");
@@ -113,17 +115,28 @@ router.get("/school-updates/attachment", requireAuth, async (req, res) => {
     applyDownloadHeaders(res, {
       contentType: previewType || attachment.contentType,
       filename: attachment.filename,
-      head: attachment.buffer.subarray(0, 16),
+      head: attachment.head.subarray(0, 16),
     });
     res.setHeader("Cache-Control", "private, no-store");
-    res.setHeader("Content-Length", String(attachment.buffer.length));
-    return res.end(attachment.buffer);
+    if (attachment.contentLength) {
+      res.setHeader("Content-Length", String(attachment.contentLength));
+    }
+    await pipeline(Readable.from(attachment.body), res);
+    return;
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
       await sessionService.removeEduSecureSession(req.user.id).catch(() => {});
+      if (res.headersSent) {
+        if (!res.destroyed) res.destroy(err);
+        return;
+      }
       return expiredResponse(res);
     }
     console.error("GET /school-updates/attachment:", err);
+    if (res.headersSent) {
+      if (!res.destroyed) res.destroy(err);
+      return;
+    }
     return res.status(err?.statusCode || 502).json({
       error: err?.message || "Unable to load this school attachment.",
     });

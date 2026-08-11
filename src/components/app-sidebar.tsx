@@ -97,8 +97,8 @@ export function AppSidebar({
     {
       label: "School updates",
       items: [
-        { id: "circulars" as ViewType, title: "Circulars", IconComponent: CircularsNavIcon },
-        { id: "important" as ViewType, title: "Important", IconComponent: ImportantNavIcon },
+        { id: "circulars" as ViewType, title: "Announcements", IconComponent: CircularsNavIcon },
+        { id: "important" as ViewType, title: "Important messages", IconComponent: ImportantNavIcon },
       ],
     },
     {

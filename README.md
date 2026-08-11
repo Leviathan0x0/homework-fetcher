@@ -15,7 +15,7 @@
 
 ## 🔗 Try the Live App
 
-Open the deployed app at **[homework-fetcher.vercel.app](https://homework-fetcher.vercel.app)**.
+Open the deployed app at **[mmss64.vercel.app](https://mmss64.vercel.app)**.
 The portal requires a valid MMSS student or teacher account. A private demo-teacher account is
 enabled for reviewers; request its credentials separately rather than publishing the password.
 

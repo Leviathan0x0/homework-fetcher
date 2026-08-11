@@ -13,6 +13,23 @@
 
 ---
 
+## 🔗 Try the Live App
+
+Open the deployed app at **[homework-fetcher.vercel.app](https://homework-fetcher.vercel.app)**.
+The portal requires a valid MMSS student or teacher account. A private demo-teacher account is
+enabled for reviewers; request its credentials separately rather than publishing the password.
+
+![MMSS Mohali login screen](public/demo-screenshot.png)
+
+## 🤖 AI Use Disclosure
+
+The app uses OpenAI's **Moderation API** (`omni-moderation-latest`) to check text and uploaded
+images in Messages, Requests, and Classwork for abusive, unsafe, or NSFW content. This is a
+content-safety filter, not a chatbot or a homework-generation feature. Deterministic profanity
+and file-type checks run locally as a second layer.
+
+---
+
 ## ✨ Core Product Showcase
 
 ### ⚡ Sub-Second Instant Homework Engine

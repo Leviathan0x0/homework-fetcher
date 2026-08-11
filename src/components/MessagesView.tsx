@@ -88,7 +88,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [inputText, setInputText] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [sending, setSending] = useState(false);
+  const [pendingSendCount, setPendingSendCount] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
   const [attachedRequest, setAttachedRequest] = useState<PendingRequestContext | null>(null);
   const pendingPrefillRef = useRef<string | null>(null);
@@ -147,7 +147,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const messagesRequestIdRef = useRef(0);
   const newestServerAtRef = useRef<string | null>(null);
   const loadedMessagesConvIdRef = useRef<string | null>(null);
+  const lastMarkReadAtRef = useRef(0);
+  const MESSAGE_POLL_MS = 2000;
+  const MARK_READ_THROTTLE_MS = 15000;
   activeConvIdRef.current = activeConvId;
+
+  const markConversationRead = useCallback((convId: string, force = false) => {
+    const now = Date.now();
+    if (!force && now - lastMarkReadAtRef.current < MARK_READ_THROTTLE_MS) return;
+    lastMarkReadAtRef.current = now;
+    messagingService.markAsRead(convId);
+  }, []);
 
   const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
     u?.displayName || 'Student';
@@ -490,6 +500,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       );
       if (newestAt > 0) newestServerAtRef.current = new Date(newestAt).toISOString();
       const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
+      const hasIncomingFromOthers = msgs.some((m: Message) => !m.isMine);
+      if (hasIncomingFromOthers && activeConvIdRef.current === convId) {
+        markConversationRead(convId);
+      }
       setMessages((prev) => {
         const map = new Map<string, Message>();
         if (after) {
@@ -545,7 +559,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         setMessagesLoading(false);
       }
     }
-  }, []);
+  }, [markConversationRead]);
 
   useEffect(() => {
     if (!activeConvId) {
@@ -566,7 +580,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     setMessagesConvId(null);
     setMessagesLoading(true);
     fetchMessages(activeConvId, false, controller.signal);
-    messagingService.markAsRead(activeConvId);
+    markConversationRead(activeConvId, true);
     setConversations((prev) =>
       prev.map((c) => (c.id === activeConvId ? { ...c, unreadCount: 0 } : c))
     );
@@ -577,15 +591,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         if (loadedMessagesConvIdRef.current === activeConvId) {
           fetchMessages(activeConvId, true, controller.signal, newestServerAtRef.current);
         }
-        messagingService.markAsRead(activeConvId);
       }
-    }, 5000);
+    }, MESSAGE_POLL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (loadedMessagesConvIdRef.current === activeConvId) {
+        fetchMessages(activeConvId, true, controller.signal, newestServerAtRef.current);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       controller.abort();
       clearInterval(messageInterval);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [activeConvId, fetchMessages]);
+  }, [activeConvId, fetchMessages, markConversationRead]);
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
@@ -602,7 +624,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   }, [previewMedia]);
 
   const handleSend = async () => {
-    if ((!inputText.trim() && !selectedFile) || !activeConvId || sending) return;
+    if ((!inputText.trim() && !selectedFile) || !activeConvId) return;
 
     const convId = activeConvId;
     const textCopy = inputText;
@@ -652,7 +674,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       isMine: true,
     };
 
-    setSending(true);
+    setPendingSendCount((n) => n + 1);
     setInputText('');
     setSelectedFile(null);
     setReplyingTo(null);
@@ -695,6 +717,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           if (withoutTemp.some((m) => m.id === sentMessage.id)) return withoutTemp;
           return [...withoutTemp, sentMessage];
         });
+        newestServerAtRef.current = sentMessage.createdAt;
+        void fetchMessages(convId, true, undefined, newestServerAtRef.current);
       }
       setConversations((prev) =>
         prev.map((c) =>
@@ -722,7 +746,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         setFileError(friendlyContentError(err, 'Message could not be sent. Try again.'));
       }
     } finally {
-      setSending(false);
+      setPendingSendCount((n) => Math.max(0, n - 1));
     }
   };
 
@@ -1854,10 +1878,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
 
           <button
             onClick={handleSend}
-            disabled={(!inputText.trim() && !selectedFile) || sending}
+            disabled={!inputText.trim() && !selectedFile}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedIcon icon={ArrowUp} preset="lift" size={16} />}
+            {pendingSendCount > 0 ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <AnimatedIcon icon={ArrowUp} preset="lift" size={16} />
+            )}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">

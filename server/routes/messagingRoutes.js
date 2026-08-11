@@ -712,22 +712,28 @@ router.post(
 
     try {
       const convId = req.params.id;
-      if (!await isParticipant(convId, req.user.id)) {
+      const { isSettingEnabled } = require("../admin/settingsService");
+
+      // Participant, mute, and feature-toggle checks are independent - run together
+      // so the send path does not pay three sequential round trips before work starts.
+      const [allowed, dbUser, chatEnabled] = await Promise.all([
+        isParticipant(convId, req.user.id),
+        db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get(),
+        isSettingEnabled("global_chat_enabled"),
+      ]);
+
+      if (!allowed) {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
         return res.status(403).json({ error: "Access denied." });
       }
 
-      // Enforce Admin Mute Status
-      const dbUser = await db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get();
       if (dbUser && dbUser.isMuted === 1) {
         if (req.file?.path) fs.unlink(req.file.path, () => {});
         return res.status(403).json({ error: "Your account has been muted by an administrator." });
       }
 
-      // Enforce Global Section Chat Toggle (default enabled when unset)
-      const { isSettingEnabled } = require("../admin/settingsService");
       if (
-        !(await isSettingEnabled("global_chat_enabled")) &&
+        !chatEnabled &&
         req.user.studentId !== "admin_mmss" &&
         req.user.role !== "admin"
       ) {
@@ -747,7 +753,8 @@ router.post(
         });
       }
 
-      // Validate replyToId if provided
+      // Validate replyToId if provided and build the response shape in one pass.
+      let replyTo = null;
       if (replyToId) {
         const parentMsg = await db
           .select()
@@ -758,6 +765,20 @@ router.post(
           if (req.file?.path) fs.unlink(req.file.path, () => {});
           return res.status(400).json({ error: "Invalid reply reference." });
         }
+        const parentSender = await db
+          .select()
+          .from(schema.users)
+          .where(eq(schema.users.id, parentMsg.senderId))
+          .get();
+        replyTo = {
+          id: parentMsg.id,
+          senderId: parentMsg.senderId,
+          senderName: parentSender
+            ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
+            : "Student",
+          content: parentMsg.content.substring(0, 100),
+          attachmentUrl: parentMsg.attachmentUrl,
+        };
       }
 
       const id = req.messageId || crypto.randomUUID();
@@ -819,87 +840,72 @@ router.post(
         })
         .run();
 
-      if (req.file && STORE_ATTACHMENTS_IN_DB) {
-        await db
-          .insert(schema.messageAttachments)
-          .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
-          .run();
-      }
-
       const previewText = req.file
         ? `[Attachment] ${originalFilename}`
         : messagePreviewText(trimmed).substring(0, 80);
 
-      await db.update(schema.conversations)
-        .set({
-          lastMessagePreview: previewText,
-          lastMessageAt: now,
-          updatedAt: now,
-        })
-        .where(eq(schema.conversations.id, convId))
-        .run();
-
-      const participants = await db
-        .select()
-        .from(schema.conversationParticipants)
-        .where(eq(schema.conversationParticipants.conversationId, convId))
-        .all();
-
-      // Skip muted recipients - mute means no notification, unread still updates in inbox.
-      const otherUserIds = participants
-        .filter((p) => p.userId !== req.user.id && !p.muted)
-        .map((p) => p.userId);
-
-      if (otherUserIds.length > 0) {
-        const convMeta = await db
-          .select()
-          .from(schema.conversations)
+      await Promise.all([
+        db.update(schema.conversations)
+          .set({
+            lastMessagePreview: previewText,
+            lastMessageAt: now,
+            updatedAt: now,
+          })
           .where(eq(schema.conversations.id, convId))
-          .get();
-        const fromName =
-          req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "Student";
-        const isSection = convMeta?.type === "section";
-        const title = isSection
-          ? `Class ${convMeta.section || "group"}`
-          : fromName;
-        const body = isSection
-          ? `${fromName}: ${previewText}`
-          : previewText || "Sent an attachment";
-        await createNotifications(
-          otherUserIds,
-          "new_message",
-          title,
-          body,
-          `messages:${convId}`,
-          convId
-        );
-      }
+          .run(),
+        req.file && STORE_ATTACHMENTS_IN_DB
+          ? db
+              .insert(schema.messageAttachments)
+              .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
+              .run()
+          : Promise.resolve(),
+      ]);
 
-      // Fetch parent message if replying
-      let replyTo = null;
-      if (replyToId) {
-        const parent = await db
-          .select()
-          .from(schema.messages)
-          .where(eq(schema.messages.id, replyToId))
-          .get();
-        if (parent) {
-          const parentSender = await db
-            .select()
-            .from(schema.users)
-            .where(eq(schema.users.id, parent.senderId))
-            .get();
-          replyTo = {
-            id: parent.id,
-            senderId: parent.senderId,
-            senderName: parentSender
-              ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
-              : "Student",
-            content: parent.content.substring(0, 100),
-            attachmentUrl: parent.attachmentUrl,
-          };
-        }
-      }
+      // Push notifications after the HTTP response so the sender is not blocked
+      // on inbox writes for every classmate in a section thread.
+      const senderId = req.user.id;
+      const senderDisplay =
+        req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "Student";
+      setImmediate(() => {
+        void (async () => {
+          try {
+            const participants = await db
+              .select()
+              .from(schema.conversationParticipants)
+              .where(eq(schema.conversationParticipants.conversationId, convId))
+              .all();
+
+            const otherUserIds = participants
+              .filter((p) => p.userId !== senderId && !p.muted)
+              .map((p) => p.userId);
+
+            if (otherUserIds.length === 0) return;
+
+            const convMeta = await db
+              .select()
+              .from(schema.conversations)
+              .where(eq(schema.conversations.id, convId))
+              .get();
+            const isSection = convMeta?.type === "section";
+            const title = isSection
+              ? `Class ${convMeta.section || "group"}`
+              : senderDisplay;
+            const body = isSection
+              ? `${senderDisplay}: ${previewText}`
+              : previewText || "Sent an attachment";
+            await createNotifications(
+              otherUserIds,
+              "new_message",
+              title,
+              body,
+              `messages:${convId}`,
+              convId
+            );
+          } catch (notifyErr) {
+            console.error("Deferred message notifications failed:", notifyErr.message);
+          }
+        })();
+      });
 
       return res.status(201).json({
         success: true,

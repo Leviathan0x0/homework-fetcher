@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and, desc, inArray, sql } = require("drizzle-orm");
+const { eq, and, inArray, sql } = require("drizzle-orm");
 const { db, schema, runBatch } = require("../db/client");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
@@ -99,56 +99,73 @@ function generateHomeworkId(userId, date, content) {
   return crypto.createHash("sha256").update(rawKey).digest("hex");
 }
 
-/**
- * Purges duplicate entries for the same user, date, and content.
- *
- * Only worth running after a fetch from EduSecure has written new rows: reads
- * already collapse duplicates in memory, and doing this on every read turned a
- * cache hit into a full table scan plus one delete round trip per duplicate.
- *
- * @param {string} userId
- * @param {Array} [rows] already-loaded homework rows for this user
- */
-async function cleanDuplicateHomework(userId, rows) {
-  if (!userId) return;
-  try {
-    const all = rows || (await db
-      .select({
-        id: schema.homework.id,
-        date: schema.homework.date,
-        content: schema.homework.content,
-        subject: schema.homework.subject,
-      })
-      .from(schema.homework)
-      .where(eq(schema.homework.userId, userId))
-      .all());
+function hasPersonalState(row) {
+  return (row.completed !== null && row.completed !== undefined) || Boolean(row.note);
+}
 
-    const seen = new Map();
-    const toDeleteIds = [];
+function preferDuplicateCandidate(candidate, existing) {
+  const candidateHasState = hasPersonalState(candidate);
+  const existingHasState = hasPersonalState(existing);
+  return (
+    (candidateHasState && !existingHasState) ||
+    (candidateHasState === existingHasState &&
+      candidate.subject === "History" && existing.subject !== "History")
+  );
+}
 
-    for (const r of all) {
-      const normContent = normalizeContentForHashing(r.content);
-      const key = `${(r.date || "").trim()}:${normContent}`;
-      if (seen.has(key)) {
-        const existing = seen.get(key);
-        if (r.subject === "History" && existing.subject !== "History") {
-          toDeleteIds.push(existing.id);
-          seen.set(key, r);
-        } else {
-          toDeleteIds.push(r.id);
-        }
-      } else {
-        seen.set(key, r);
-      }
+/** Returns duplicate row ids so their delete can share the upsert pipeline. */
+function duplicateHomeworkIds(rows) {
+  const seen = new Map();
+  const duplicateIds = [];
+
+  for (const row of rows) {
+    const normalizedContent = normalizeContentForHashing(row.content);
+    const key = `${(row.date || "").trim()}:${normalizedContent}`;
+    if (!seen.has(key)) {
+      seen.set(key, row);
+      continue;
     }
 
-    if (toDeleteIds.length > 0) {
-      // One statement instead of one round trip per duplicate row.
-      await db.delete(schema.homework).where(inArray(schema.homework.id, toDeleteIds)).run();
+    const existing = seen.get(key);
+    if (preferDuplicateCandidate(row, existing)) {
+      duplicateIds.push(existing.id);
+      seen.set(key, row);
+    } else {
+      duplicateIds.push(row.id);
     }
-  } catch (err) {
-    console.error("Cleanup Duplicate Homework Error:", err);
   }
+
+  return duplicateIds;
+}
+
+/** Converts raw joined rows into the stable client-facing homework shape. */
+function clientHomeworkRows(rows) {
+  const unique = new Map();
+
+  for (const row of rows) {
+    const normalizedContent = normalizeContentForHashing(row.content);
+    const key = `${(row.date || "").trim()}:${normalizedContent}`;
+    const resolvedSubject = detectSubjectFromText(row.content, row.subject, row.type);
+    if (
+      !unique.has(key) ||
+      (resolvedSubject !== "School Diary" && unique.get(key).subject === "School Diary") ||
+      (resolvedSubject === "Social Science" && unique.get(key).subject !== "Social Science")
+    ) {
+      unique.set(key, {
+        id: row.id,
+        type: row.type,
+        date: row.date,
+        subject: resolvedSubject,
+        homework: row.content,
+        attachment: row.attachmentUrl,
+        completed: row.completed === 1 || row.completed === true,
+        note: row.note || null,
+        updatedAt: row.updatedAt,
+      });
+    }
+  }
+
+  return Array.from(unique.values());
 }
 
 class HomeworkCacheService {
@@ -164,24 +181,46 @@ class HomeworkCacheService {
 
     const now = new Date().toISOString();
 
-    // Everything the loop needs is read once. Querying per entry meant one
-    // network round trip per homework item before a single row was written.
+    // Read both homework and personal state once. Besides avoiding per-entry
+    // lookups, retaining these joined rows lets us return the refreshed list
+    // without a second SELECT after the write pipeline.
     const existingRows = await db
       .select({
         id: schema.homework.id,
+        userId: schema.homework.userId,
+        type: schema.homework.type,
         date: schema.homework.date,
         content: schema.homework.content,
         subject: schema.homework.subject,
+        attachmentUrl: schema.homework.attachmentUrl,
+        createdAt: schema.homework.createdAt,
+        updatedAt: schema.homework.updatedAt,
+        completed: schema.homeworkUserState.completed,
+        note: schema.homeworkUserState.note,
       })
       .from(schema.homework)
+      .leftJoin(
+        schema.homeworkUserState,
+        and(
+          eq(schema.homework.id, schema.homeworkUserState.homeworkId),
+          eq(schema.homeworkUserState.userId, userId)
+        )
+      )
       .where(eq(schema.homework.userId, userId))
       .all();
 
     const byId = new Map();
     const byDateContent = new Map();
+    const byNormalizedDateContent = new Map();
     for (const row of existingRows) {
       byId.set(row.id, row);
       byDateContent.set(`${(row.date || "").trim()}\u0000${row.content || ""}`, row);
+      const normalizedKey =
+        `${(row.date || "").trim()}\u0000${normalizeContentForHashing(row.content)}`;
+      const current = byNormalizedDateContent.get(normalizedKey);
+      if (!current || preferDuplicateCandidate(row, current)) {
+        byNormalizedDateContent.set(normalizedKey, row);
+      }
     }
 
     const writes = [];
@@ -195,15 +234,28 @@ class HomeworkCacheService {
 
       const attachmentUrl = item.attachment || null;
       const subject = detectSubjectFromText(content, item.subject || "", type);
-      const homeworkId = generateHomeworkId(userId, date, content);
+      const generatedId = generateHomeworkId(userId, date, content);
 
-      const existing = byId.get(homeworkId) || byDateContent.get(`${date}\u0000${content}`);
+      const normalizedKey = `${date}\u0000${normalizeContentForHashing(content)}`;
+      const candidates = [
+        byId.get(generatedId),
+        byDateContent.get(`${date}\u0000${content}`),
+        byNormalizedDateContent.get(normalizedKey),
+      ].filter(Boolean);
+      const existing = candidates.reduce(
+        (preferred, candidate) =>
+          !preferred || preferDuplicateCandidate(candidate, preferred) ? candidate : preferred,
+        null
+      );
+      // Keep a legacy row's primary key when its exact content already exists.
+      // Updating a referenced primary key before homework_user_state would
+      // violate SQLite's foreign key constraint and can discard personal state.
+      const homeworkId = existing?.id || generatedId;
 
       if (existing) {
         writes.push(
           db.update(schema.homework)
             .set({
-              id: homeworkId,
               date,
               subject,
               content,
@@ -213,18 +265,6 @@ class HomeworkCacheService {
             })
             .where(eq(schema.homework.id, existing.id))
         );
-
-        if (existing.id !== homeworkId) {
-          writes.push(
-            db.update(schema.homeworkUserState)
-              .set({ homeworkId })
-              .where(and(
-                eq(schema.homeworkUserState.homeworkId, existing.id),
-                eq(schema.homeworkUserState.userId, userId)
-              ))
-          );
-          resultRows.delete(existing.id);
-        }
       } else {
         writes.push(
           db.insert(schema.homework)
@@ -243,16 +283,39 @@ class HomeworkCacheService {
         );
       }
 
-      const merged = { id: homeworkId, date, content, subject };
+      const merged = {
+        ...existing,
+        id: homeworkId,
+        userId,
+        type,
+        date,
+        content,
+        subject,
+        attachmentUrl,
+        createdAt: existing?.createdAt || now,
+        updatedAt: now,
+        completed: existing?.completed ?? null,
+        note: existing?.note ?? null,
+      };
+      byId.set(generatedId, merged);
       byId.set(homeworkId, merged);
       byDateContent.set(`${date}\u0000${content}`, merged);
+      byNormalizedDateContent.set(normalizedKey, merged);
       resultRows.set(homeworkId, merged);
     }
 
-    await runBatch(writes);
-    await cleanDuplicateHomework(userId, Array.from(resultRows.values()));
+    const duplicateIds = duplicateHomeworkIds(Array.from(resultRows.values()));
+    if (duplicateIds.length > 0) {
+      writes.push(
+        db.delete(schema.homework).where(inArray(schema.homework.id, duplicateIds))
+      );
+      duplicateIds.forEach((id) => resultRows.delete(id));
+    }
 
-    return await this.getCachedHomework(userId);
+    // Remote writes and duplicate cleanup are all executed in one Turso
+    // pipeline. The local driver keeps the same ordering in process.
+    await runBatch(writes);
+    return clientHomeworkRows(Array.from(resultRows.values()));
   }
 
   /**
@@ -272,8 +335,8 @@ class HomeworkCacheService {
         type: schema.homework.type,
         date: schema.homework.date,
         subject: schema.homework.subject,
-        homework: schema.homework.content,
-        attachment: schema.homework.attachmentUrl,
+        content: schema.homework.content,
+        attachmentUrl: schema.homework.attachmentUrl,
         createdAt: schema.homework.createdAt,
         updatedAt: schema.homework.updatedAt,
         completed: schema.homeworkUserState.completed,
@@ -290,31 +353,7 @@ class HomeworkCacheService {
       .where(eq(schema.homework.userId, userId))
       .all();
 
-    const uniqueMap = new Map();
-    for (const row of rows) {
-      const normContent = normalizeContentForHashing(row.homework);
-      const key = `${(row.date || "").trim()}:${normContent}`;
-      const resolvedSubject = detectSubjectFromText(row.homework, row.subject, row.type);
-      if (
-        !uniqueMap.has(key) ||
-        (resolvedSubject !== "School Diary" && uniqueMap.get(key).subject === "School Diary") ||
-        (resolvedSubject === "Social Science" && uniqueMap.get(key).subject !== "Social Science")
-      ) {
-        uniqueMap.set(key, {
-          id: row.id,
-          type: row.type,
-          date: row.date,
-          subject: resolvedSubject,
-          homework: row.homework,
-          attachment: row.attachment,
-          completed: row.completed === 1,
-          note: row.note || null,
-          updatedAt: row.updatedAt,
-        });
-      }
-    }
-
-    return Array.from(uniqueMap.values());
+    return clientHomeworkRows(rows);
   }
 
   /**

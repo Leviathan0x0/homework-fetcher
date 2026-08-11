@@ -697,8 +697,23 @@ async function runBatch(statements) {
   const queries = (statements || []).filter(Boolean);
   if (queries.length === 0) return [];
 
-  if (isRemote && typeof db.batch === "function") {
-    return db.batch(queries);
+  if (isRemote) {
+    if (typeof db.batch === "function") {
+      return db.batch(queries);
+    }
+
+    // sqlite-proxy normally exposes db.batch(), but keep the hosted fallback
+    // pipelined as well. Falling through to the local loop here would turn one
+    // logical write into one HTTPS request per statement if a Drizzle release
+    // or test adapter omitted the batch helper.
+    const compiled = queries.map((query) => {
+      if (typeof query?.toSQL !== "function") {
+        throw new TypeError("Remote batch statements must be Drizzle query builders.");
+      }
+      const statement = query.toSQL();
+      return { sql: statement.sql, args: statement.params || [] };
+    });
+    return remoteClient.executeBatch(compiled);
   }
 
   const results = [];

@@ -7,7 +7,7 @@ interface MonitoringNoticeDialogProps {
   isOpen: boolean;
   participantId: string;
   participantName?: string;
-  onConfirm: (noticeToken: string) => void;
+  onConfirm: (noticeToken: string, resolvedParticipantId: string) => void;
   onCancel: () => void;
 }
 
@@ -21,19 +21,24 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
 }) => {
   const [secondsLeft, setSecondsLeft] = useState(COUNTDOWN_SEC);
   const [noticeToken, setNoticeToken] = useState<string | null>(null);
+  const [resolvedParticipantId, setResolvedParticipantId] = useState<string | null>(null);
   const [isLoadingToken, setIsLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   useEffect(() => {
     if (!isOpen || !participantId) {
       setSecondsLeft(COUNTDOWN_SEC);
       setNoticeToken(null);
+      setResolvedParticipantId(null);
       setTokenError(null);
+      setIsLoadingToken(false);
       return;
     }
 
     setSecondsLeft(COUNTDOWN_SEC);
     setNoticeToken(null);
+    setResolvedParticipantId(null);
     setTokenError(null);
     setIsLoadingToken(true);
 
@@ -49,6 +54,11 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
         if (!isMounted) return;
         if (data.noticeToken) {
           setNoticeToken(data.noticeToken);
+          setResolvedParticipantId(
+            typeof data.participantId === 'string' && data.participantId
+              ? data.participantId
+              : participantId
+          );
         } else {
           setTokenError(data.error || 'Failed to initialize session notice.');
         }
@@ -75,11 +85,12 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [isOpen, participantId]);
+  }, [isOpen, participantId, retryNonce]);
 
   if (!isOpen) return null;
 
-  const isReady = secondsLeft === 0 && Boolean(noticeToken) && !isLoadingToken;
+  const isReady =
+    secondsLeft === 0 && Boolean(noticeToken) && Boolean(resolvedParticipantId) && !isLoadingToken;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -101,8 +112,17 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
         </p>
 
         {tokenError && (
-          <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-700 dark:text-rose-300">
-            {tokenError}
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-[11px] text-rose-700 dark:text-rose-300">
+              {tokenError}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRetryNonce((n) => n + 1)}
+              className="text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 underline underline-offset-2 cursor-pointer"
+            >
+              Try again
+            </button>
           </div>
         )}
 
@@ -118,7 +138,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
           <button
             type="button"
             disabled={!isReady}
-            onClick={() => noticeToken && onConfirm(noticeToken)}
+            onClick={() => noticeToken && resolvedParticipantId && onConfirm(noticeToken, resolvedParticipantId)}
             className={cn(
               'min-w-[4.5rem] px-5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 flex items-center justify-center shadow-2xs',
               isReady

@@ -292,11 +292,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         if (id) openResolvedChat(id, prefill, request);
       });
 
+      // Resolve student-ID deep links to a real user id before the notice dialog
+      // mints a token keyed to that peer.
+      let resolvedId = targetId;
+      let resolvedName =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          targetId
+        )
+          ? 'Student'
+          : targetId;
+      if (
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          targetId
+        )
+      ) {
+        try {
+          const user = await messagingService.resolveUser(targetId);
+          resolvedId = user.id;
+          resolvedName = user.displayName || user.studentId || 'Student';
+        } catch {
+          // Server notice-token / startConversation can still resolve student IDs.
+        }
+      }
+
       // Already acknowledged this browser session - create/open without waiting again.
       if (hasMonitorAck()) {
         noticeConfirmingRef.current = true;
         try {
-          const data = await messagingService.startConversation(currentStudentId, targetId, null);
+          const data = await messagingService.startConversation(currentStudentId, resolvedId, null);
           if (data.type === 'section') {
             throw new Error('Could not open a direct chat with this student. Try again.');
           }
@@ -319,8 +342,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           noticeConfirmingRef.current = false;
           if (err?.needsNotice) {
             showMonitorNotice({
-              id: targetId,
-              name: targetId.startsWith('usr_') ? 'Student' : targetId,
+              id: resolvedId,
+              name: resolvedName,
             });
             return;
           }
@@ -331,8 +354,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       }
 
       showMonitorNotice({
-        id: targetId,
-        name: targetId.startsWith('usr_') ? 'Student' : targetId,
+        id: resolvedId,
+        name: resolvedName,
       });
     },
     [
@@ -989,9 +1012,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     showMonitorNotice({ id: target.id, name });
   };
 
-  const handleConfirmNotice = async (noticeToken: string) => {
+  const handleConfirmNotice = async (noticeToken: string, resolvedParticipantId: string) => {
     if (!pendingParticipant || noticeConfirmingRef.current) return;
-    const participantId = pendingParticipant.id;
+    const participantId = resolvedParticipantId || pendingParticipant.id;
     const help = pendingHelpRef.current;
     noticeConfirmingRef.current = true;
     setShowNoticeDialog(false);

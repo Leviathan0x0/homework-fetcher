@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const { eq, desc, asc, and, or, sql, lt, gt, ne, inArray } = require("drizzle-orm");
+const { eq, desc, asc, and, or, sql, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema, isRemote } = require("../db/client");
@@ -23,6 +23,11 @@ const { checkContent } = require("../moderation/checkContent");
 const { recordProfanityStrike, reportConversation, withStrikeWarning } = require("../moderation/flagLogService");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const { isUnknownSection } = require("../auth/sessionService");
+const {
+  mintNoticeToken,
+  verifyNoticeToken,
+  looksLikeUuid,
+} = require("../messaging/noticeToken");
 
 const router = express.Router();
 
@@ -99,6 +104,37 @@ function isPlausibleStudentId(raw) {
   const id = cleanStudentId(raw);
   if (id.length < 3 || id.length > 64) return false;
   return /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(id);
+}
+
+/**
+ * Resolves a chat peer from either a user id or an EduSecure student id.
+ * Returns the users-table row (or findOrCreate shape) or null.
+ */
+async function resolveParticipantUser({ participantId, studentId }) {
+  const pid = typeof participantId === "string" ? participantId.trim() : "";
+  const sid = typeof studentId === "string" ? cleanStudentId(studentId) : "";
+
+  if (pid) {
+    const byId = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, pid))
+      .get();
+    if (byId) return byId;
+
+    // Help deep-links and typed searches sometimes send a student ID in the
+    // participantId field. Never treat a UUID-shaped value as a student ID.
+    if (!looksLikeUuid(pid) && isPlausibleStudentId(pid)) {
+      return sessionService.findOrCreateUser(cleanStudentId(pid));
+    }
+  }
+
+  if (sid) {
+    if (!isPlausibleStudentId(sid)) return null;
+    return sessionService.findOrCreateUser(sid);
+  }
+
+  return null;
 }
 
 /** Display-only alias: remove login digits and punctuation before sharing it. */
@@ -359,34 +395,22 @@ router.get("/conversations", requireAuth, async (req, res) => {
 
 router.post("/conversations/notice-token", requireAuth, async (req, res) => {
   try {
-    let { participantId, studentId } = req.body || {};
-
-    if ((!participantId || typeof participantId !== "string") && studentId) {
-      const typedId = cleanStudentId(studentId);
-      if (!isPlausibleStudentId(typedId)) {
-        return res.status(400).json({ error: "Enter a valid student ID." });
-      }
-      const resolved = await sessionService.findOrCreateUser(typedId);
-      participantId = resolved.id;
+    const { participantId, studentId } = req.body || {};
+    const participant = await resolveParticipantUser({ participantId, studentId });
+    if (!participant?.id) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    if (participant.id === req.user.id) {
+      return res.status(400).json({ error: "Cannot start a conversation with yourself." });
     }
 
-    if (!participantId || typeof participantId !== "string") {
-      return res.status(400).json({ error: "Participant ID is required." });
-    }
-    const token = crypto.randomUUID();
-    const now = Date.now();
-    await db
-      .delete(schema.monitoringNoticeTokens)
-      .where(lt(schema.monitoringNoticeTokens.expiresAt, now))
-      .run();
-    await db.insert(schema.monitoringNoticeTokens).values({
-      token,
+    // Signed tokens avoid the previous DB insert path, which failed whenever the
+    // participant row was missing (FK) or the token table was unavailable.
+    const minted = mintNoticeToken({
       userId: req.user.id,
-      participantId,
-      validAfter: now + 3000,
-      expiresAt: now + 5 * 60 * 1000,
-    }).run();
-    return res.json({ noticeToken: token, validAfter: now + 3000, participantId });
+      participantId: participant.id,
+    });
+    return res.json(minted);
   } catch (err) {
     console.error("Notice Token Error:", err);
     return res.status(500).json({ error: "Failed to generate notice token." });
@@ -397,32 +421,17 @@ router.post("/conversations", requireAuth, async (req, res) => {
   try {
     let { participantId, studentId, noticeToken } = req.body || {};
 
-    // Allow starting a DM by EduSecure student ID when the peer has never logged in.
-    if ((!participantId || typeof participantId !== "string") && studentId) {
-      const typedId = cleanStudentId(studentId);
-      if (!isPlausibleStudentId(typedId)) {
-        return res.status(400).json({ error: "Enter a valid student ID." });
-      }
-      if (typedId.toLowerCase() === cleanStudentId(req.user.studentId).toLowerCase()) {
-        return res.status(400).json({ error: "Cannot start a conversation with yourself." });
-      }
-      const resolved = await sessionService.findOrCreateUser(typedId);
-      participantId = resolved.id;
+    const resolvedParticipant = await resolveParticipantUser({ participantId, studentId });
+    if (!resolvedParticipant?.id) {
+      return res.status(404).json({ error: "User not found." });
     }
+    participantId = resolvedParticipant.id;
 
-    if (!participantId || typeof participantId !== "string") {
-      return res.status(400).json({ error: "Participant ID is required." });
-    }
     if (participantId === req.user.id) {
       return res.status(400).json({ error: "Cannot start a conversation with yourself." });
     }
 
-    const otherUser = await db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, participantId))
-      .get();
-    if (!otherUser) return res.status(404).json({ error: "User not found." });
+    const otherUser = resolvedParticipant;
 
     // Existing 1:1 DMs never need the monitoring notice again.
     // Do NOT match section class-group threads - every classmate is a participant there.
@@ -467,28 +476,42 @@ router.post("/conversations", requireAuth, async (req, res) => {
         needsNotice: true,
       });
     }
-    const tokenData = await db
-      .select()
-      .from(schema.monitoringNoticeTokens)
-      .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
-      .get();
-    if (
-      !tokenData ||
-      tokenData.userId !== req.user.id ||
-      tokenData.participantId !== participantId ||
-      Date.now() > tokenData.expiresAt
-    ) {
-      return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
-    }
-    if (Date.now() < tokenData.validAfter) {
+
+    const signed = verifyNoticeToken(noticeToken, {
+      userId: req.user.id,
+      participantId,
+    });
+    if (signed.ok) {
+      // Preferred path: HMAC token minted by /conversations/notice-token.
+    } else if (signed.tooEarly) {
       return res.status(403).json({
         error: "Monitoring notice countdown must be completed before starting a conversation.",
       });
+    } else {
+      // Legacy UUID tokens stored in monitoring_notice_tokens (pre-signed-token).
+      const tokenData = await db
+        .select()
+        .from(schema.monitoringNoticeTokens)
+        .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
+        .get();
+      if (
+        !tokenData ||
+        tokenData.userId !== req.user.id ||
+        tokenData.participantId !== participantId ||
+        Date.now() > tokenData.expiresAt
+      ) {
+        return res.status(403).json({ error: "Invalid or expired monitoring notice confirmation." });
+      }
+      if (Date.now() < tokenData.validAfter) {
+        return res.status(403).json({
+          error: "Monitoring notice countdown must be completed before starting a conversation.",
+        });
+      }
+      await db
+        .delete(schema.monitoringNoticeTokens)
+        .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
+        .run();
     }
-    await db
-      .delete(schema.monitoringNoticeTokens)
-      .where(eq(schema.monitoringNoticeTokens.token, noticeToken))
-      .run();
 
     const convId = crypto.randomUUID();
     const now = new Date().toISOString();

@@ -36,4 +36,17 @@ function setupExpressErrorHandler(app) {
   if (Sentry) Sentry.setupExpressErrorHandler(app);
 }
 
-module.exports = { setupExpressErrorHandler };
+/**
+ * Runs an expected external protocol step without generating automatic child
+ * spans. The enclosing Express transaction is still measured and errors are
+ * still reported; this only prevents structurally dependent requests from
+ * being misidentified as avoidable consecutive HTTP calls.
+ */
+function withoutPerformanceTracing(callback) {
+  if (Sentry && typeof Sentry.suppressTracing === "function") {
+    return Sentry.suppressTracing(callback);
+  }
+  return callback();
+}
+
+module.exports = { setupExpressErrorHandler, withoutPerformanceTracing };

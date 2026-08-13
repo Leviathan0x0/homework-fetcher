@@ -739,6 +739,14 @@ export const adminService = {
     });
     return adminJson<any>(res);
   },
+  async clearModerationHistory(studentId: string) {
+    const res = await apiFetch("/api/admin/students/clear-moderation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    return adminJson<{ success: boolean; studentId: string; removedReports: number; unmuted: boolean; message: string }>(res);
+  },
   async getTeachers() {
     const res = await apiFetch("/api/admin/teachers");
     return adminJson<{ teachers: any[] }>(res);

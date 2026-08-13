@@ -1,4 +1,5 @@
 const cheerio = require("cheerio");
+const { withoutPerformanceTracing } = require("../sentry");
 
 const LOGIN_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/Login.aspx";
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -37,7 +38,13 @@ async function portalFetch(url, options, step) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PORTAL_TIMEOUT_MS);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    // Login is an ASP.NET WebForms handshake: its POST cannot exist until the
+    // preceding GET supplies ViewState and EventValidation. Hide only these
+    // automatic child spans from the consecutive-HTTP detector while the
+    // enclosing login transaction continues to record the total latency.
+    return await withoutPerformanceTracing(() =>
+      fetch(url, { ...options, signal: controller.signal })
+    );
   } catch (err) {
     const reason = err?.name === "AbortError"
       ? `it did not answer within ${PORTAL_TIMEOUT_MS / 1000}s`
@@ -110,7 +117,9 @@ async function loginToEduSecure(studentId, password) {
 
   const cookieMap = new Map();
 
-  // Step 1: Initial GET to fetch ASP.NET viewstate and session tokens
+  // Step 1: Initial GET to fetch ASP.NET ViewState and session tokens. This
+  // must finish before Step 2; caching these short-lived values risks sending
+  // another student's state or an expired anti-forgery token.
   const getRes = await portalFetch(LOGIN_URL, {
     headers: {
       "User-Agent": USER_AGENT,

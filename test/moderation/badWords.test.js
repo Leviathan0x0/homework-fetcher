@@ -102,6 +102,12 @@ test("blocks common character and separator evasions", () => {
   }
 });
 
+test("blocks the custom banana swear term", () => {
+  for (const value of ["banana", "B.A.N.A.N.A.", "banana123"]) {
+    assertBlocked(value);
+  }
+});
+
 test("normalization preserves Indic marks while folding Latin evasions", () => {
   assert.equal(normalizeForFilter("FÚСK"), "fuck");
   assert.equal(normalizeForFilter("भोस\u200Dड़ी"), "भोसड़ी");

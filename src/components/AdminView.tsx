@@ -166,6 +166,31 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     }
   };
 
+  const handleClearModerationHistory = async (studentId: string, displayName: string) => {
+    if (
+      !window.confirm(
+        `Clear all moderation reports, strike history, and mute state for ${displayName || studentId}?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await adminService.clearModerationHistory(studentId);
+      setStudents((prev) =>
+        prev.map((student) =>
+          student.studentId === studentId
+            ? { ...student, muted: false, mutedReason: null, mutedAt: null }
+            : student
+        )
+      );
+      setReports((prev) => prev.filter((report) => report.studentId !== studentId));
+      showToast(res.message);
+    } catch (err: any) {
+      showToast(err.message || 'Failed to clear moderation history', true);
+    }
+  };
+
   const handleToggleSetting = async (key: string, currentValue: boolean) => {
     const nextVal = !currentValue;
     setSettings((prev) => ({ ...prev, [key]: nextVal }));
@@ -556,18 +581,27 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => handleMuteStudent(st.studentId, st.muted)}
-                            className={cn(
-                              'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium border transition-colors cursor-pointer',
-                              st.muted
-                                ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
-                                : 'border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
-                            )}
-                          >
-                            {st.muted ? <UserCheck className="size-3" /> : <UserX className="size-3" />}
-                            <span>{st.muted ? 'Unmute' : 'Mute Account'}</span>
-                          </button>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <button
+                              onClick={() => handleMuteStudent(st.studentId, st.muted)}
+                              className={cn(
+                                'inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium border transition-colors cursor-pointer',
+                                st.muted
+                                  ? 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                                  : 'border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                              )}
+                            >
+                              {st.muted ? <UserCheck className="size-3" /> : <UserX className="size-3" />}
+                              <span>{st.muted ? 'Unmute' : 'Mute Account'}</span>
+                            </button>
+                            <button
+                              onClick={() => handleClearModerationHistory(st.studentId, st.displayName)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 dark:border-neutral-800 px-2.5 py-1 text-[11px] font-medium text-neutral-600 dark:text-neutral-300 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-900 cursor-pointer"
+                            >
+                              <Trash2 className="size-3" />
+                              <span>Clear History</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -20,6 +20,7 @@ const GUIDELINE_MESSAGE =
 
 // Gaps in the package's English list, including common school-chat shorthand.
 const LOCAL_ENGLISH_TERMS = [
+  "banana",
   "dumbass",
   "jackass",
   "bullshit",

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { X, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { AnimatedIcon } from './ui/animated-icon';
+import { ExternalLinkIcon } from './ui/external-link';
 import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 import { DownloadIcon } from './ui/download';
 
@@ -26,6 +26,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const handlePreviewLoaded = () => setLoading(false);
 
   useEffect(() => {
     setZoom(1);
@@ -137,11 +138,15 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Open full PDF"
-                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                onMouseEnter={() => setHoveredAction('open')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('open')}
+                onBlur={() => setHoveredAction(null)}
+                aria-label="Open full PDF in a new tab"
+                className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                 title="Open full PDF"
               >
-                <AnimatedIcon icon={ExternalLink} preset="lift" size={16} />
+                <ExternalLinkIcon size={16} isAnimated={hoveredAction === 'open'} aria-hidden />
               </a>
             )}
 

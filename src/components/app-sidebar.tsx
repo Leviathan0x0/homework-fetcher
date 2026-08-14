@@ -32,7 +32,7 @@ import { ScrollTextIcon } from "@/components/ui/scroll-text"
 import { MegaphoneIcon } from "@/components/ui/megaphone"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
 import { ProfileAvatar } from "./ProfileAvatar"
-import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
+import { Activity, Users, VolumeX, Flag, ShieldCheck, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
   function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
@@ -44,11 +44,6 @@ const UsersNavIcon = makeNavIcon(Users);
 const ModerationNavIcon = makeNavIcon(VolumeX, "shake");
 const FlagNavIcon = makeNavIcon(Flag, "lift");
 const ShieldNavIcon = makeNavIcon(ShieldCheck, "scale");
-const FileTextNavIcon = makeNavIcon(FileText, "lift");
-const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
-const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
-const CircularsNavIcon = makeNavIcon(ScrollText, "lift");
-const ImportantNavIcon = makeNavIcon(Megaphone, "bounce");
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;

@@ -16,6 +16,8 @@
   }
   html {
     @apply font-sans;
+    /* Keep the viewport width fixed when calendar details add or remove a page scrollbar. */
+    scrollbar-gutter: stable;
   }
 }
 

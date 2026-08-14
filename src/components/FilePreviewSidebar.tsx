@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, ExternalLink, Download, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { AnimatedIcon } from './ui/animated-icon';
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -65,6 +66,9 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
 
   const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(fileExt);
   const isPdf = fileExt === 'pdf';
+  const isWordDocument = ['doc', 'docx'].includes(fileExt);
+  const absoluteFileUrl = new URL(fileUrl, window.location.origin).href;
+  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteFileUrl)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -79,7 +83,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             <div className="w-9 h-9 rounded-2xl bg-white/80 dark:bg-neutral-800/80 border border-white/50 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0 shadow-2xs">
               {isImage ? (
                 <ImageIcon className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
-              ) : isPdf ? (
+              ) : isPdf || isWordDocument ? (
                 <FileText className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
               ) : (
                 <File className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
@@ -98,7 +102,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 )}
               </div>
               <p className="text-xs text-neutral-400 font-medium truncate mt-0.5">
-                Attachment File
+                {isWordDocument ? 'Word Document' : 'Attachment File'}
               </p>
             </div>
           </div>
@@ -123,6 +127,19 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               </>
             )}
 
+            {isPdf && (
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open full PDF"
+                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                title="Open full PDF"
+              >
+                <AnimatedIcon icon={ExternalLink} preset="lift" size={16} />
+              </a>
+            )}
+
             <a
               href={fileUrl}
               download={fileName}
@@ -144,7 +161,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
 
         {/* Content Viewer Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50/40 dark:bg-neutral-950/40 relative flex flex-col items-center justify-center min-h-0">
-          {loading && (isImage || isPdf) && (
+          {loading && (isImage || isPdf || isWordDocument) && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-[#141417]/60 backdrop-blur-xs">
               <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
             </div>
@@ -163,27 +180,24 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               />
             </div>
           ) : isPdf ? (
-            <div className="w-full h-full flex flex-col gap-3 min-h-0">
-              {/* Quick Action Pill for Liquid Glass PDF Viewer */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/80 border border-white/60 dark:border-white/10 backdrop-blur-md shadow-xs shrink-0">
-                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">PDF Reader View</span>
-                <a
-                  href={fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-3.5 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-bold shadow-2xs flex items-center gap-1.5"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Full PDF</span>
-                </a>
-              </div>
-
+            <div className="w-full h-full min-h-0">
               <div className="flex-1 w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white overflow-y-scroll -webkit-overflow-scrolling-touch touch-pan-y shadow-2xs min-h-[65vh]">
                 <iframe
                   src={fileUrl}
                   title={fileName}
                   onLoad={() => setLoading(false)}
                   className="w-full h-full min-h-[65vh] border-0"
+                />
+              </div>
+            </div>
+          ) : isWordDocument ? (
+            <div className="w-full h-full min-h-0">
+              <div className="h-full w-full rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-neutral-950 min-h-[65vh] overflow-hidden">
+                <iframe
+                  src={officeViewerUrl}
+                  title={`Preview of ${fileName}`}
+                  onLoad={() => setLoading(false)}
+                  className="h-full min-h-[65vh] w-full border-0"
                 />
               </div>
             </div>

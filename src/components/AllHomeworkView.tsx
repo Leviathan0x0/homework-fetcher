@@ -257,8 +257,8 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
                     type="button"
                     onClick={() => {
                       const filename = item.originalFilename || item.filename || '';
-                      const previewable = item.mimeType?.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|svg|pdf)$/i.test(filename);
-                      if (previewable && item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl);
+                      const previewable = item.mimeType?.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|svg|pdf|docx?)$/i.test(filename);
+                      if (previewable && item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl, filename);
                       else onNavigate?.('classwork');
                     }}
                     className={cn(

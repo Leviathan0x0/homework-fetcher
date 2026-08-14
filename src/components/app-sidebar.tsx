@@ -90,7 +90,6 @@ export function AppSidebar({
         { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon },
         { id: "classwork" as ViewType, title: "Classwork", IconComponent: UploadIcon },
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
-        { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarNavIcon },
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
       ],
     },
@@ -155,7 +154,6 @@ export function AppSidebar({
         { id: "teacher-announcements", title: "Announcements", IconComponent: BellNavIcon },
         { id: "teacher-parents", title: "Parent connections", IconComponent: MessageNavIcon },
         { id: "teacher-students", title: "Student profiles", IconComponent: UsersNavIcon },
-        { id: "teacher-leave", title: "Leave approvals", IconComponent: CalendarNavIcon },
       ],
     },
   ];

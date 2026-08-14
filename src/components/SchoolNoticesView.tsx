@@ -74,6 +74,46 @@ function attachmentDetails(name: string, url: string) {
   }
   return { extension, Icon: File };
 }
+
+// The school uses many casing and punctuation variants for the same greeting.
+// This compact pattern covers those combinations without maintaining a brittle
+// list of every capitalization, space, and hyphen permutation.
+const NOTICE_GREETING = /^(\s*)(?:\*+\s*)?((?:dear\s+(?:students?|parents?|guardians?|families|teachers?|staff|members|everyone|all(?:\s+(?:students?|parents?|guardians?|members))?|students?\s+and\s+parents?|parents?\s+and\s+students?)|team\s+manav\s+mangal\s*(?:[-–—]\s*)?64)\s*[,;:!]*)/i;
+
+function NoticeContent({ content }: { content: string }) {
+  let canHighlightGreeting = true;
+  const lines = content.split('\n');
+
+  return (
+    <>
+      {lines.map((line, index) => {
+        const match = canHighlightGreeting ? line.match(NOTICE_GREETING) : null;
+        if (line.trim()) canHighlightGreeting = false;
+
+        if (!match) {
+          return (
+            <React.Fragment key={index}>
+              {line}
+              {index < lines.length - 1 && '\n'}
+            </React.Fragment>
+          );
+        }
+
+        const greeting = match[2];
+        const remainder = line.slice(match[0].length);
+        return (
+          <React.Fragment key={index}>
+            {match[1]}
+            <strong className="font-bold text-neutral-950 dark:text-white">{greeting}</strong>
+            {remainder}
+            {index < lines.length - 1 && '\n'}
+          </React.Fragment>
+        );
+      })}
+    </>
+  );
+}
+
 function NoticeCard({
   notice,
   kind,
@@ -109,11 +149,11 @@ function NoticeCard({
         )}
         <p
           className={cn(
-            'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-600 dark:text-neutral-300 sm:text-[13px]',
+            'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-800 dark:text-neutral-100 sm:text-[13px]',
             notice.title ? 'mt-1' : 'mt-2.5'
           )}
         >
-          {notice.content}
+          <NoticeContent content={notice.content} />
         </p>
       </div>
 

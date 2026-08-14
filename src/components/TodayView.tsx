@@ -28,7 +28,7 @@ interface TodayViewProps {
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
   displayName?: string | null;
   studentId?: string | null;
   hasHomeworkError?: boolean;
@@ -305,7 +305,18 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   assignment.attachmentMimeType?.startsWith('audio/') ? (
                     <audio className="mt-3 w-full" controls src={assignment.attachmentUrl} />
                   ) : (
-                    <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><AttachFileIcon size={12} />{assignment.attachmentFilename || 'Open attachment'}</a>
+                    onOpenPreview ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenPreview(assignment.attachmentUrl, assignment.attachmentFilename)}
+                        className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"
+                      >
+                        <AttachFileIcon size={12} />
+                        {assignment.attachmentFilename || 'Open attachment'}
+                      </button>
+                    ) : (
+                      <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><AttachFileIcon size={12} />{assignment.attachmentFilename || 'Open attachment'}</a>
+                    )
                   )
                 )}
               </div>
@@ -332,8 +343,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
               {upcomingHoliday.daysAway === 1
-                ? 'Holiday tomorrow'
-                : `Holiday in ${upcomingHoliday.daysAway} days`}
+                ? 'Holiday Tomorrow'
+                : `Holiday After ${upcomingHoliday.daysAway} Days`}
             </p>
             <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mt-0.5">
               {upcomingHoliday.event.title}

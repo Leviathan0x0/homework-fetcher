@@ -12,7 +12,7 @@ interface HomeworkCardProps {
   isCompleted?: boolean;
   onToggleCompleted?: () => void;
   onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
 }
 
 const isValidUrl = (url: string | null | undefined): boolean => {
@@ -50,13 +50,13 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
     }
   };
   const attachmentLabel = item.attachment ? getAttachmentLabel(item.attachment) : '';
-  const isWordDocument = /\.(?:doc|docx)(?:$|[?#])/i.test(attachmentLabel) ||
-    /\.(?:doc|docx)(?:$|[?#])/i.test(item.attachment || '');
+  const isLegacyWordDocument = /\.doc(?:$|[?#])/i.test(attachmentLabel) ||
+    /\.doc(?:$|[?#])/i.test(item.attachment || '');
 
   const handleAttachmentClick = (e: React.MouseEvent) => {
     if (onOpenPreview && item.attachment && isValidUrl(item.attachment)) {
       e.preventDefault();
-      onOpenPreview(item.attachment);
+      onOpenPreview(item.attachment, attachmentLabel);
     }
   };
 
@@ -130,7 +130,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         {parsed.homeWork && (
           <div className="flex items-start gap-2">
             <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              Homework
+              HW
             </span>
             <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
               <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
@@ -148,7 +148,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         {parsed.classWork && (
           <div className="flex items-start gap-2">
             <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              Classwork
+              CW
             </span>
             <span
               className={cn(
@@ -274,7 +274,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             <span className="truncate">{attachmentLabel}</span>
           </div>
 
-          {isWordDocument ? (
+          {isLegacyWordDocument ? (
             <a
               href={item.attachment}
               download={attachmentLabel}

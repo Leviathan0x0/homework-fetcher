@@ -2,14 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import {
-  Bell,
-  ClipboardList,
-  FileText,
   Flag,
-  GraduationCap,
   LayoutDashboard,
-  Megaphone,
-  Settings,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -20,6 +14,9 @@ import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
 import { MessageSquareIcon } from '@/components/ui/message-square';
 import { SearchIcon } from '@/components/ui/search';
 import { SettingsIcon } from '@/components/ui/settings';
+import { AttachFileIcon } from '@/components/ui/attach-file';
+import { BellIcon } from '@/components/ui/bell';
+import { GraduationCapIcon } from '@/components/ui/graduation-cap';
 import { AnimatedIcon, type AnimationPreset } from '@/components/ui/animated-icon';
 import { cn } from '../utils/cn';
 
@@ -111,19 +108,19 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   ];
   const teacherItems: NavItem[] = [
     { id: 'teacher-overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'teacher-assignments', label: 'Tasks', icon: FileText, preset: 'lift' },
-    { id: 'teacher-attendance', label: 'Roll', icon: ClipboardList },
-    { id: 'teacher-announcements', label: 'Updates', icon: Megaphone, preset: 'bounce' },
+    { id: 'teacher-assignments', label: 'Tasks', IconComponent: AttachFileIcon },
+    { id: 'teacher-attendance', label: 'Roll', IconComponent: CalendarCheckIcon },
+    { id: 'teacher-announcements', label: 'Updates', IconComponent: BellIcon },
     { id: 'teacher-students', label: 'Students', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+    { id: 'settings', label: 'Settings', IconComponent: SettingsIcon },
   ];
   const adminItems: NavItem[] = [
     { id: 'admin-overview', label: 'Overview', icon: LayoutDashboard },
     { id: 'admin-students', label: 'Students', icon: Users },
-    { id: 'admin-teachers', label: 'Staff', icon: GraduationCap },
+    { id: 'admin-teachers', label: 'Staff', IconComponent: GraduationCapIcon },
     { id: 'admin-reports', label: 'Reports', icon: Flag, preset: 'lift' },
-    { id: 'admin-alerts', label: 'Alerts', icon: Bell, preset: 'ring' },
-    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+    { id: 'admin-alerts', label: 'Alerts', IconComponent: BellIcon },
+    { id: 'settings', label: 'Settings', IconComponent: SettingsIcon },
   ];
   const items = role === 'admin' ? adminItems : role === 'teacher' ? teacherItems : studentItems;
 

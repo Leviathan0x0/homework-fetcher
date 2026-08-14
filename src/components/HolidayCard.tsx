@@ -28,7 +28,7 @@ function formatShortDate(ymd: string): string {
 }
 
 function typeLabel(type?: string) {
-  return isHolidayType(type) ? 'School holiday' : type || 'School event';
+  return isHolidayType(type) ? 'School Holiday' : type || 'School Event';
 }
 
 interface HolidayCardProps {

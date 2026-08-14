@@ -18,6 +18,8 @@ import {
   ArrowRight,
   FileUp,
   Megaphone,
+  MessageCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { PageHeader } from './PageHeader';
@@ -305,6 +307,36 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
   const activeReports = reports.filter((report) => report.status === 'pending');
   const resolvedReports = reports.filter((report) => report.status !== 'pending');
   const visibleReports = showResolvedReports ? reports : activeReports;
+  const mutedStudents = students.filter(
+    (student) => (student.role || 'student') === 'student' && student.muted
+  );
+  const moderationControls = [
+    {
+      key: 'global_chat_enabled' as const,
+      title: 'Section chat',
+      description: 'Allow students to communicate in section-wide channels.',
+      icon: MessageCircle,
+    },
+    {
+      key: 'auto_mute_strikes_enabled' as const,
+      title: 'Automatic strike mutes',
+      description: 'Restrict accounts after three blocked vulgarity attempts.',
+      icon: ShieldCheck,
+    },
+    {
+      key: 'section_requests_enabled' as const,
+      title: 'Homework requests',
+      description: 'Allow students to open help threads for their section.',
+      icon: Users,
+    },
+    {
+      key: 'classwork_approval_required' as const,
+      title: 'Classwork approval',
+      description: 'Review student uploads before classmates can access them.',
+      icon: FileUp,
+    },
+  ];
+  const enabledModerationControls = moderationControls.filter((control) => settings[control.key]).length;
   const recentActivity = [
     ...reports.map((report) => ({
       id: `report-${report.id}`,
@@ -376,7 +408,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
           disabled={isLoading}
           className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0c0c0e] px-3 py-2 text-xs font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/80 transition-colors shadow-2xs self-start sm:self-auto cursor-pointer"
         >
-          <RefreshCw className={cn('size-3.5', isLoading && 'animate-spin')} />
+          <AnimatedIcon icon={RefreshCw} preset="spin" size={14} isLoading={isLoading} />
           <span>Refresh</span>
         </button>
       </div>
@@ -647,87 +679,157 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
 
       {/* VIEW: MODERATION & TOGGLE SWITCH SLIDERS */}
       {activeSubView === 'admin-moderation' && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#0c0c0e] p-5 space-y-5 shadow-2xs">
-            <div>
-              <h3 className="text-sm font-semibold text-neutral-900 dark:text-white flex items-center gap-2">
-                <AnimatedIcon icon={VolumeX} preset="shake" size={16} className="text-neutral-500 dark:text-neutral-400" />
-                Real-Time Feature Controls & Moderation Toggles
-              </h3>
-              <p className="text-xs text-neutral-500 mt-1">
-                Toggle sliders below directly enable or disable live backend features across all student accounts.
-              </p>
-            </div>
-
-            <div className="space-y-4 divide-y divide-neutral-100 dark:divide-neutral-800">
-              {/* Slider 1: Global Section Chat */}
-              <div className="flex items-center justify-between pt-4 first:pt-0">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Global Section Chat Messaging</p>
-                  <p className="text-[11px] text-neutral-500">Allow students to communicate in section-wide channels.</p>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              {
+                label: 'Muted accounts',
+                value: mutedStudents.length,
+                detail: mutedStudents.length ? 'Communication restricted' : 'No active restrictions',
+                icon: VolumeX,
+                tone: 'text-rose-600 bg-rose-500/10 dark:text-rose-300',
+              },
+              {
+                label: 'Reports waiting',
+                value: activeReports.length,
+                detail: activeReports.length ? 'Needs review' : 'Queue is clear',
+                icon: Flag,
+                tone: 'text-amber-700 bg-amber-500/10 dark:text-amber-300',
+              },
+              {
+                label: 'Safeguards enabled',
+                value: `${enabledModerationControls}/${moderationControls.length}`,
+                detail: 'Live platform controls',
+                icon: ShieldCheck,
+                tone: 'text-emerald-700 bg-emerald-500/10 dark:text-emerald-300',
+              },
+            ].map((metric) => (
+              <div key={metric.label} className="rounded-2xl border border-neutral-200/80 bg-white p-4 shadow-2xs dark:border-neutral-800 dark:bg-[#0c0c0e]">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{metric.label}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tracking-tight text-neutral-950 dark:text-white">{metric.value}</p>
+                  </div>
+                  <span className={cn('flex size-9 items-center justify-center rounded-xl', metric.tone)}>
+                    <AnimatedIcon icon={metric.icon} preset={metric.icon === VolumeX ? 'shake' : 'scale'} size={17} />
+                  </span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.global_chat_enabled}
-                    onChange={() => handleToggleSetting('global_chat_enabled', settings.global_chat_enabled)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-neutral-600 peer-checked:bg-emerald-600"></div>
-                </label>
+                <p className="mt-2 text-[10px] text-neutral-500">{metric.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
+            <section className="rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-2xs dark:border-neutral-800 dark:bg-[#0c0c0e]">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
+                  <AnimatedIcon icon={ShieldCheck} preset="scale" size={17} />
+                </span>
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">Platform safeguards</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-neutral-500">Changes take effect for student accounts immediately.</p>
+                </div>
               </div>
 
-              {/* Slider 2: Auto-Mute on 3 Strikes */}
-              <div className="flex items-center justify-between pt-4">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Auto-Mute on Vulgarity Strikes</p>
-                  <p className="text-[11px] text-neutral-500">Automatically restrict accounts when vulgar language is attempted 3 times.</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {moderationControls.map((control) => {
+                  const enabled = settings[control.key];
+                  return (
+                    <div
+                      key={control.key}
+                      className={cn(
+                        'rounded-xl border p-3.5 transition-colors',
+                        enabled
+                          ? 'border-emerald-200/80 bg-emerald-50/45 dark:border-emerald-900/60 dark:bg-emerald-950/15'
+                          : 'border-neutral-200 bg-neutral-50/60 dark:border-neutral-800 dark:bg-neutral-950/30'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className={cn(
+                          'flex size-8 shrink-0 items-center justify-center rounded-lg',
+                          enabled
+                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-neutral-200/70 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                        )}>
+                          <AnimatedIcon icon={control.icon} preset={control.icon === MessageCircle ? 'bounce' : 'scale'} size={15} />
+                        </span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={enabled}
+                          aria-label={`${enabled ? 'Disable' : 'Enable'} ${control.title}`}
+                          onClick={() => handleToggleSetting(control.key, enabled)}
+                          className={cn(
+                            'relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50',
+                            enabled ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-neutral-700'
+                          )}
+                        >
+                          <span className={cn(
+                            'block size-5 rounded-full bg-white shadow-sm transition-transform',
+                            enabled && 'translate-x-5'
+                          )} />
+                        </button>
+                      </div>
+                      <p className="mt-3 text-xs font-semibold text-neutral-900 dark:text-white">{control.title}</p>
+                      <p className="mt-1 min-h-8 text-[11px] leading-4 text-neutral-500">{control.description}</p>
+                      <span className={cn(
+                        'mt-2 inline-flex rounded-full px-2 py-0.5 text-[9px] font-semibold',
+                        enabled
+                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                          : 'bg-neutral-200/70 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
+                      )}>
+                        {enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0c0c0e]">
+              <div className="flex items-start justify-between gap-3 border-b border-neutral-100 p-4 dark:border-neutral-800">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">Active mutes</h3>
+                  <p className="mt-1 text-[11px] text-neutral-500">Accounts currently unable to post.</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.auto_mute_strikes_enabled}
-                    onChange={() => handleToggleSetting('auto_mute_strikes_enabled', settings.auto_mute_strikes_enabled)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-neutral-600 peer-checked:bg-emerald-600"></div>
-                </label>
+                <span className="flex min-w-7 items-center justify-center rounded-lg bg-rose-500/10 px-2 py-1 text-[11px] font-semibold text-rose-600 dark:text-rose-300">{mutedStudents.length}</span>
               </div>
 
-              {/* Slider 3: Section Requests */}
-              <div className="flex items-center justify-between pt-4">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Section Homework Requests</p>
-                  <p className="text-[11px] text-neutral-500">Allow students to post homework request threads.</p>
+              {mutedStudents.length === 0 ? (
+                <div className="flex flex-col items-center px-5 py-10 text-center">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
+                    <AnimatedIcon icon={ShieldCheck} preset="scale" size={18} />
+                  </span>
+                  <p className="mt-3 text-xs font-semibold text-neutral-800 dark:text-neutral-200">No students are muted</p>
+                  <p className="mt-1 text-[11px] text-neutral-500">New restrictions will appear here.</p>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.section_requests_enabled}
-                    onChange={() => handleToggleSetting('section_requests_enabled', settings.section_requests_enabled)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-neutral-600 peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
-
-              {/* Slider 4: Classwork Approval Requirement */}
-              <div className="flex items-center justify-between pt-4">
-                <div className="space-y-0.5">
-                  <p className="text-xs font-semibold text-neutral-900 dark:text-white">Classwork Admin Approval</p>
-                  <p className="text-[11px] text-neutral-500">Require administrator or teacher review before uploaded files appear to class.</p>
+              ) : (
+                <div className="max-h-[28rem] divide-y divide-neutral-100 overflow-y-auto dark:divide-neutral-800">
+                  {mutedStudents.map((student) => (
+                    <div key={student.id || student.studentId} className="p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-rose-500/10 text-[10px] font-bold text-rose-700 dark:text-rose-300">
+                          {String(student.displayName || student.studentId).slice(0, 2).toUpperCase()}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-neutral-900 dark:text-white">{student.displayName || student.studentId}</p>
+                          <p className="mt-0.5 truncate text-[10px] text-neutral-500">{student.studentId} · {student.section || 'Unassigned'}</p>
+                        </div>
+                      </div>
+                      <p className="mt-2 line-clamp-2 text-[10px] leading-4 text-neutral-500">{student.mutedReason || 'Muted by an administrator'}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleMuteStudent(student.studentId, true)}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[10px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
+                      >
+                        <AnimatedIcon icon={UserCheck} preset="scale" size={12} />
+                        Unmute account
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={settings.classwork_approval_required}
-                    onChange={() => handleToggleSetting('classwork_approval_required', settings.classwork_approval_required)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-neutral-200 peer-focus:outline-none rounded-full peer dark:bg-neutral-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:after:border-neutral-600 peer-checked:bg-emerald-600"></div>
-                </label>
-              </div>
-            </div>
+              )}
+            </section>
           </div>
 
           {settings.classwork_approval_required && (

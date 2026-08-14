@@ -109,9 +109,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   const acceptFile = async (file: File) => {
     setModalError(null);
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.docx'];
     if (!allowed.includes(ext)) {
-      setModalError('Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.');
+      setModalError('Only homework PDFs, DOCX files, and photos (JPG, PNG, or WebP) can be shared here.');
       return;
     }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
@@ -358,6 +358,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             const isPdf =
               item.mimeType === 'application/pdf' ||
               Boolean(item.originalFilename?.match(/\.pdf$/i));
+            const isDocx =
+              item.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+              Boolean(item.originalFilename?.match(/\.docx$/i));
 
             return (
               <div
@@ -437,7 +440,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
-                    {(isImage || isPdf) && (
+                    {(isImage || isPdf || isDocx) && (
                       <button
                         onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
                         className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
@@ -601,7 +604,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                    accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.jpg,.jpeg,.png,.webp,.pdf,.docx"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
 
@@ -629,7 +632,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                           Click to choose a file or drag & drop here
                         </p>
                         <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Images, PDFs, Word, Excel, PowerPoint, Text (photos are compressed automatically)
+                          JPG, PNG, WebP, PDF, or DOCX (photos are compressed automatically)
                         </p>
                       </div>
                     </div>

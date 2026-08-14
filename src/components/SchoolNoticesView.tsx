@@ -16,6 +16,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { AttachFileIcon } from './ui/attach-file';
 import { CalendarDaysIcon } from './ui/calendar-days';
 import { AnimatedIcon } from './ui/animated-icon';
+import { formatNoticeContent } from '../utils/noticeFormatting';
 
 interface SchoolNoticesViewProps {
   kind: SchoolNoticeKind;
@@ -64,12 +65,6 @@ function attachmentDetails(name: string, url: string) {
   return extension === 'FILE' ? 'School attachment' : `${extension} file`;
 }
 
-function formatNoticeContent(content: string) {
-  return content
-    .replace(/(^|\n)(Dear\s+Parents?\s*,?)(?!\*)/gi, '$1**$2**')
-    .replace(/(^|\n|\s)(Team\s+manav\s+mangal\b[.,]?)(?!\*)/gi, '$1**$2**');
-}
-
 function NoticeCard({
   notice,
   kind,
@@ -111,7 +106,7 @@ function NoticeCard({
         <MarkdownRenderer
           content={formatNoticeContent(notice.content)}
           className={cn(
-            'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-600 dark:text-neutral-300 sm:text-[13px]',
+            'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-900 dark:text-neutral-100 sm:text-[13px]',
             notice.title ? 'mt-1' : 'mt-2.5'
           )}
         />

@@ -29,7 +29,7 @@ import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
 import { ProfileAvatar } from "./ProfileAvatar"
-import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, CalendarDays, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
+import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
   function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
@@ -45,7 +45,6 @@ const ShieldNavIcon = makeNavIcon(ShieldCheck, "scale");
 const FileTextNavIcon = makeNavIcon(FileText, "lift");
 const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
 const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
-const CalendarNavIcon = makeNavIcon(CalendarDays, "bounce");
 const CircularsNavIcon = makeNavIcon(ScrollText, "lift");
 const ImportantNavIcon = makeNavIcon(Megaphone, "bounce");
 
@@ -90,7 +89,6 @@ export function AppSidebar({
         { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon },
         { id: "classwork" as ViewType, title: "Classwork", IconComponent: UploadIcon },
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
-        { id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarNavIcon },
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
       ],
     },
@@ -155,7 +153,6 @@ export function AppSidebar({
         { id: "teacher-announcements", title: "Announcements", IconComponent: BellNavIcon },
         { id: "teacher-parents", title: "Parent connections", IconComponent: MessageNavIcon },
         { id: "teacher-students", title: "Student profiles", IconComponent: UsersNavIcon },
-        { id: "teacher-leave", title: "Leave approvals", IconComponent: CalendarNavIcon },
       ],
     },
   ];

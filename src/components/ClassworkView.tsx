@@ -359,6 +359,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             const isPdf =
               item.mimeType === 'application/pdf' ||
               Boolean(item.originalFilename?.match(/\.pdf$/i));
+            const isWordDocument =
+              Boolean(item.mimeType?.includes('word')) ||
+              Boolean(item.originalFilename?.match(/\.docx?$/i));
 
             return (
               <div
@@ -438,7 +441,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
 
                   {/* Actions */}
                   <div className="flex items-center gap-1">
-                    {(isImage || isPdf) && (
+                    {(isImage || isPdf || isWordDocument) && (
                       <button
                         onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
                         className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"

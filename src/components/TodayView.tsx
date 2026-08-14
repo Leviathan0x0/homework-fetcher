@@ -29,7 +29,7 @@ interface TodayViewProps {
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
   displayName?: string | null;
   studentId?: string | null;
   hasHomeworkError?: boolean;
@@ -333,8 +333,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
               {upcomingHoliday.daysAway === 1
-                ? 'Holiday tomorrow'
-                : `Holiday in ${upcomingHoliday.daysAway} days`}
+                ? 'Holiday Tomorrow'
+                : `Holiday After ${upcomingHoliday.daysAway} Days`}
             </p>
             <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mt-0.5">
               {upcomingHoliday.event.title}

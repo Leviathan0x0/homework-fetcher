@@ -573,7 +573,7 @@ export const messagingService = {
    * Polls a conversation for messages the client has not seen yet.
    * Returns an unsubscribe function, mirroring a realtime subscription.
    */
-  subscribeToMessages(convId: string, onMessageReceived: (message: any) => void, intervalMs = 2500) {
+  subscribeToMessages(convId: string, onMessageReceived: (message: any) => void, intervalMs = 2000) {
     let stopped = false;
     const seen = new Set<string>();
     let primed = false;

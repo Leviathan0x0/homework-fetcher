@@ -192,24 +192,24 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               />
             </div>
           ) : isPdf ? (
-            <div className="w-full h-full min-h-0">
-              <div className="flex-1 w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white overflow-y-scroll -webkit-overflow-scrolling-touch touch-pan-y shadow-2xs min-h-[65vh]">
+            <div className="flex min-h-0 w-full flex-1">
+              <div className="h-full min-h-0 w-full overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800">
                 <iframe
                   src={fileUrl}
                   title={fileName}
                   onLoad={() => setLoading(false)}
-                  className="w-full h-full min-h-[65vh] border-0"
+                  className="h-full min-h-0 w-full border-0"
                 />
               </div>
             </div>
           ) : isWordDocument ? (
-            <div className="w-full h-full min-h-0">
-              <div className="h-full w-full rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-neutral-950 min-h-[65vh] overflow-hidden">
+            <div className="flex min-h-0 w-full flex-1">
+              <div className="h-full min-h-0 w-full overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-neutral-950">
                 <iframe
                   src={officeViewerUrl}
                   title={`Preview of ${fileName}`}
                   onLoad={() => setLoading(false)}
-                  className="h-full min-h-[65vh] w-full border-0"
+                  className="h-full min-h-0 w-full border-0"
                 />
               </div>
             </div>

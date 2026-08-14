@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   AlertCircle,
   BellRing,
-  Eye,
   FileText,
 } from 'lucide-react';
 import { EmptyState } from './EmptyState';
@@ -13,10 +12,9 @@ import { useSchoolNotices } from '../hooks/useSchoolNotices';
 import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { AttachFileIcon } from './ui/attach-file';
 import { CalendarDaysIcon } from './ui/calendar-days';
-import { AnimatedIcon } from './ui/animated-icon';
 import { formatNoticeContent } from '../utils/noticeFormatting';
+import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 
 interface SchoolNoticesViewProps {
   kind: SchoolNoticeKind;
@@ -53,18 +51,6 @@ function attachmentList(notice: SchoolNotice) {
     : [];
 }
 
-function attachmentDetails(name: string, url: string) {
-  let searchable = `${name} ${url}`;
-  try {
-    searchable = decodeURIComponent(searchable);
-  } catch {}
-  const extension = searchable.match(/\.([a-z0-9]{1,8})(?:$|[?#\s])/i)?.[1]?.toUpperCase() || 'FILE';
-  if (/^(?:PNG|JPG|JPEG|WEBP|GIF)$/.test(extension)) {
-    return `${extension} image`;
-  }
-  return extension === 'FILE' ? 'School attachment' : `${extension} file`;
-}
-
 function NoticeCard({
   notice,
   kind,
@@ -76,12 +62,6 @@ function NoticeCard({
 }) {
   const config = VIEW_CONFIG[kind];
   const attachments = attachmentList(notice);
-  const [animatedAttachment, setAnimatedAttachment] = useState<number | null>(null);
-
-  const replayAttachmentAnimation = (index: number) => {
-    setAnimatedAttachment(null);
-    requestAnimationFrame(() => setAnimatedAttachment(index));
-  };
 
   return (
     <article className="group/card overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-2xs transition-[border-color,box-shadow] duration-200 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800/80 dark:bg-[#141417] dark:hover:border-neutral-700">
@@ -117,39 +97,15 @@ function NoticeCard({
           <div className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
             {attachments.map((attachment, index) => {
               const name = attachment.name || `Attachment ${index + 1}`;
-              const detail = attachmentDetails(name, attachment.url);
               return (
-                <button
+                <AttachmentPreviewRow
                   key={`${attachment.url}-${index}`}
-                  type="button"
-                  onClick={() => {
-                    replayAttachmentAnimation(index);
-                    onOpenPreview(attachment.url, name);
-                  }}
-                  onMouseEnter={() => setAnimatedAttachment(index)}
-                  onMouseLeave={() => setAnimatedAttachment(null)}
-                  onFocus={() => setAnimatedAttachment(index)}
-                  onBlur={() => setAnimatedAttachment(null)}
-                  onPointerDown={() => replayAttachmentAnimation(index)}
-                  aria-label={`Open attachment: ${name}`}
-                  className="group/file flex w-full min-w-0 items-center gap-2.5 py-2 text-left transition-colors hover:text-neutral-950 active:bg-neutral-50 dark:hover:text-white dark:active:bg-neutral-900/40"
-                >
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">
-                    <AttachFileIcon size={15} isAnimated={animatedAttachment === index} aria-hidden />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-neutral-800 dark:text-neutral-200">
-                      {name}
-                    </span>
-                    <span className="mt-0.5 block text-[10px] font-medium text-neutral-400 dark:text-neutral-500">
-                      {detail}
-                    </span>
-                  </span>
-                  <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold dark:bg-neutral-800', config.actionClass)}>
-                    Preview
-                    <AnimatedIcon icon={Eye} preset="zoom" size={12} isActive={animatedAttachment === index} aria-hidden />
-                  </span>
-                </button>
+                  url={attachment.url}
+                  name={name}
+                  onOpenPreview={onOpenPreview}
+                  actionClassName={config.actionClass}
+                  fallbackDetail="School attachment"
+                />
               );
             })}
           </div>

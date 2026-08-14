@@ -1,14 +1,28 @@
 {
   "name": "homework-fetcher",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "description": "Clean, minimal, calm consumer homework dashboard",
+  "homepage": "https://mmss64.vercel.app",
   "main": "server.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run check:bundle",
     "preview": "vite preview",
     "start": "node server.js",
-    "test": "node --test"
+    "lint": "eslint src server api test e2e scripts server.js drizzle.config.js vite.config.ts vitest.config.ts playwright.config.ts eslint.config.mjs --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:server && npm run test:frontend",
+    "test:server": "node --test test/**/*.test.js",
+    "test:frontend": "vitest run",
+    "test:frontend:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "audit": "npm audit --audit-level=high",
+    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run audit && npm run audit:production"
   },
   "keywords": [],
   "author": "",
@@ -53,7 +67,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/vite": "^4.0.7",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.13.4",
@@ -61,8 +80,14 @@
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
     "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^4.0.7",
     "typescript": "^5.7.3",
-    "vite": "^6.1.0"
+    "typescript-eslint": "^8.67.0",
+    "vite": "^6.1.0",
+    "vitest": "^3.2.7"
   }
 }

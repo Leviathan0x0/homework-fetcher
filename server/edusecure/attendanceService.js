@@ -47,7 +47,7 @@ function parseDate(raw) {
   const value = String(raw || "").replace(/\s+/g, " ").trim();
   if (!value) return null;
 
-  const dmy = value.match(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})\b/);
+  const dmy = value.match(/\b(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})\b/);
   if (dmy) {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]);
@@ -140,7 +140,7 @@ function parseAttendanceHtml(html, sourceUrl) {
   // rendering the visual grid with script/CSS. Read only a short window after
   // each date so unrelated page text cannot be mistaken for attendance.
   const bodyText = $("body").text().replace(/\s+/g, " ").trim();
-  const datePattern = /\b(?:\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|\d{4}-\d{1,2}-\d{1,2})\b/g;
+  const datePattern = /\b(?:\d{1,2}[/\-.]\d{1,2}[/\-.]\d{4}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|\d{4}-\d{1,2}-\d{1,2})\b/g;
   for (const match of bodyText.matchAll(datePattern)) {
     const date = parseDate(match[0]);
     const start = match.index ?? 0;

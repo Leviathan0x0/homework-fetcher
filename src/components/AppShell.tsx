@@ -219,11 +219,11 @@ export const AppShell: React.FC = () => {
     }
   };
 
-  const handleLeaveSettings = () => {
+  const handleLeaveSettings = useCallback(() => {
     setActiveView(viewBeforeSettings.current === 'settings' ? 'today' : viewBeforeSettings.current);
-  };
+  }, [setActiveView]);
 
-  function handleViewChange(view: typeof activeView) {
+  const handleViewChange = useCallback((view: typeof activeView) => {
     if (!isViewAllowed(view)) {
       setActiveView(roleHome);
       return;
@@ -245,9 +245,8 @@ export const AppShell: React.FC = () => {
       return;
     }
     setActiveView(view);
-  }
+  }, [activeView, isMobile, isViewAllowed, roleHome, setActiveView]);
 
-  // A settings page left over from a narrow viewport becomes the modal again.
   useEffect(() => {
     if (activeView !== 'settings') return;
     // Checked directly so the first render, before the media query resolves,
@@ -255,7 +254,7 @@ export const AppShell: React.FC = () => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) return;
     handleLeaveSettings();
     setIsSettingsOpen(true);
-  }, [isMobile, activeView]);
+  }, [isMobile, activeView, handleLeaveSettings]);
 
   useEffect(() => {
     if (isAuthChecking || isAuthenticated) return;

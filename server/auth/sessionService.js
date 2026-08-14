@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, and, gt, sql } = require("drizzle-orm");
+const { eq, sql } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 const { deriveKey } = require("./secrets");
@@ -102,6 +102,59 @@ function cleanProfileName(raw) {
   return value;
 }
 
+function extractNameFromLabeledRows($) {
+  let name = null;
+  $("tr").each((_, row) => {
+    if (name) return;
+    const cells = $(row).find("th,td");
+    cells.each((index, cell) => {
+      if (name) return;
+      const label = $(cell).text().replace(/\s+/g, " ").trim();
+      if (!/^(?:student\s+)?name\s*:?$/i.test(label)) return;
+
+      for (let valueIndex = index + 1; valueIndex < cells.length; valueIndex += 1) {
+        const value = cleanProfileName($(cells[valueIndex]).text());
+        if (value) {
+          name = value;
+          break;
+        }
+      }
+    });
+  });
+  return name;
+}
+
+function extractVirtualCardName(html) {
+  if (!html) return null;
+  const cheerio = require("cheerio");
+  const $ = cheerio.load(html);
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+  const selectors = [
+    "#ctl00_ContentPlaceHolder1_lblStudentName",
+    "#ctl00_ContentPlaceHolder1_lblName",
+    "#ctl00_ContentPlaceHolder1_sStudentName",
+    "#ctl00_ContentPlaceHolder1_sName",
+    "[id$='_lblStudentName']",
+    "[id$='_lblName']",
+    "[id$='_sStudentName']",
+    "[id$='_sName']",
+  ];
+
+  for (const selector of selectors) {
+    const node = $(selector).first();
+    const value = cleanProfileName(node.attr("value") || node.attr("data-name") || node.text());
+    if (value) return value;
+  }
+
+  const rowName = extractNameFromLabeledRows($);
+  if (rowName) return rowName;
+
+  const labelledName = bodyText.match(
+    /\bname\s*[:–—-]\s*([A-Za-z][A-Za-z.' -]{1,79}?)(?=\s+(?:admission|class|section|roll|father|mother|gender|date|birth)\b|$)/i
+  );
+  return cleanProfileName(labelledName?.[1]);
+}
+
 function extractProfileName($, bodyText) {
   const selectors = [
     "#ctl00_ContentPlaceHolder1_sStudentName",
@@ -143,17 +196,7 @@ function extractProfileName($, bodyText) {
   });
   if (labelledElementName) return labelledElementName;
 
-  let tableName = null;
-  $("tr").each((_, row) => {
-    const cells = $(row).find("th,td");
-    cells.each((index, cell) => {
-      if (tableName || index >= cells.length - 1) return;
-      const label = $(cell).text().replace(/\s+/g, " ").trim();
-      if (/^(student\s+)?name$/i.test(label)) {
-        tableName = cleanProfileName($(cells[index + 1]).text());
-      }
-    });
-  });
+  const tableName = extractNameFromLabeledRows($);
   if (tableName) return tableName;
 
   const labelledName = bodyText.match(
@@ -849,6 +892,7 @@ module.exports.SESSION_TTL_MS = SESSION_TTL_MS;
 module.exports.invalidateCachedSessionsForUser = invalidateCachedSessionsForUser;
 module.exports.fetchSectionFromEduSecure = fetchSectionFromEduSecure;
 module.exports.fetchProfileFromEduSecure = fetchProfileFromEduSecure;
+module.exports.extractVirtualCardName = extractVirtualCardName;
 module.exports.isUnknownSection = isUnknownSection;
 module.exports.UNKNOWN_SECTION_SENTINEL = UNKNOWN_SECTION_SENTINEL;
 module.exports.normalizeClassSection = normalizeClassSection;

@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
-import { Check, Download, Eye, Pencil, Trash2, NotebookPen } from 'lucide-react';
+import { Check, Pencil, Trash2, NotebookPen } from 'lucide-react';
 import { AnimatedIcon } from './ui/animated-icon';
-import { AttachFileIcon } from './ui/attach-file';
 import { cn } from '../utils/cn';
+import { AttachFileIcon } from './ui/attach-file';
+import { CircleCheckIcon } from './ui/circle-check';
+import { EyeIcon } from './ui/eye';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 
 interface HomeworkCardProps {
   item: HomeworkEntry;
@@ -50,8 +53,13 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
     }
   };
   const attachmentLabel = item.attachment ? getAttachmentLabel(item.attachment) : '';
-  const isLegacyWordDocument = /\.doc(?:$|[?#])/i.test(attachmentLabel) ||
-    /\.doc(?:$|[?#])/i.test(item.attachment || '');
+  const isWordDocument = /\.(?:doc|docx)(?:$|[?#])/i.test(attachmentLabel) ||
+    /\.(?:doc|docx)(?:$|[?#])/i.test(item.attachment || '');
+  const workTypeLabel = /^(?:home\s*work|homework)$/i.test(item.type)
+    ? 'HW'
+    : /^(?:class\s*work|classwork)$/i.test(item.type)
+      ? 'CW'
+      : item.type;
 
   const handleAttachmentClick = (e: React.MouseEvent) => {
     if (onOpenPreview && item.attachment && isValidUrl(item.attachment)) {
@@ -101,7 +109,14 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               )}
               title={isCompleted ? 'Mark as pending' : 'Mark as done'}
             >
-              {isCompleted && <Check className="w-3 h-3 stroke-[3] animate-pop-bounce" />}
+              <InteractiveAnimatedIcon
+                icon={CircleCheckIcon}
+                size={12}
+                className={cn(
+                  'w-3 h-3 stroke-[3] transition-opacity duration-200',
+                  isCompleted ? 'opacity-100' : 'opacity-0'
+                )}
+              />
             </button>
           )}
 
@@ -117,8 +132,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
         <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
           {item.type && (
-            <span className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full">
-              {item.type}
+            <span
+              className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full"
+              title={item.type}
+            >
+              {workTypeLabel}
             </span>
           )}
           {item.date && <span>{item.date}</span>}
@@ -270,28 +288,17 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
       {item.attachment && isValidUrl(item.attachment) && (
         <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-full sm:max-w-[65%]">
-            <AttachFileIcon size={12} className="text-neutral-400 shrink-0" />
+            <InteractiveAnimatedIcon icon={AttachFileIcon} size={12} className="text-neutral-400 shrink-0" />
             <span className="truncate">{attachmentLabel}</span>
           </div>
 
-          {isLegacyWordDocument ? (
-            <a
-              href={item.attachment}
-              download={attachmentLabel}
-              className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
-            >
-              <span>Download document</span>
-              <AnimatedIcon icon={Download} preset="lift" size={12} />
-            </a>
-          ) : (
-            <button
-              onClick={handleAttachmentClick}
-              className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
-            >
-              <span>Preview attachment</span>
-              <AnimatedIcon icon={Eye} preset="zoom" size={12} />
-            </button>
-          )}
+          <button
+            onClick={handleAttachmentClick}
+            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
+          >
+            <span>{isWordDocument ? 'Preview document' : 'Preview attachment'}</span>
+            <InteractiveAnimatedIcon icon={EyeIcon} size={12} />
+          </button>
         </div>
       )}
     </article>

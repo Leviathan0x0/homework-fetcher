@@ -53,6 +53,8 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 900,
+    // Keep this aligned with scripts/check-bundle-size.mjs so regressions are
+    // visible during local builds as well as enforced in CI.
+    chunkSizeWarningLimit: 700,
   },
 });

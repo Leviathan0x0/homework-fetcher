@@ -30,6 +30,7 @@ if (enabled) {
       Sentry.replayIntegration({
         maskAllText: false,
         maskAllInputs: false,
+        mask: ['input[type="password"]'],
         blockAllMedia: true,
       }),
     ],

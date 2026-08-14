@@ -32,8 +32,7 @@ import { ScrollTextIcon } from "@/components/ui/scroll-text"
 import { MegaphoneIcon } from "@/components/ui/megaphone"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
 import { ProfileAvatar } from "./ProfileAvatar"
-import { Activity, Users, VolumeX, Flag, ShieldCheck, CalendarDays, type LucideIcon } from "lucide-react"
-import { SHOW_LEAVE_AND_ABSENCE } from "../utils/features"
+import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
   function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
@@ -45,7 +44,12 @@ const UsersNavIcon = makeNavIcon(Users);
 const ModerationNavIcon = makeNavIcon(VolumeX, "shake");
 const FlagNavIcon = makeNavIcon(Flag, "lift");
 const ShieldNavIcon = makeNavIcon(ShieldCheck, "scale");
-const CalendarNavIcon = makeNavIcon(CalendarDays, "bounce");
+const FileTextNavIcon = makeNavIcon(FileText, "lift");
+const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
+const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
+const CircularsNavIcon = makeNavIcon(ScrollText, "lift");
+const ImportantNavIcon = makeNavIcon(Megaphone, "bounce");
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
@@ -60,10 +64,10 @@ export function AppSidebar({
   activeView,
   onViewChange,
   user,
-  sessionStatus,
+  sessionStatus: _sessionStatus,
   onLogout,
-  onRefresh,
-  isLoading,
+  onRefresh: _onRefresh,
+  isLoading: _isLoading,
   ...props
 }: AppSidebarProps) {
   const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);
@@ -87,9 +91,6 @@ export function AppSidebar({
         { id: "today" as ViewType, title: "Today", IconComponent: CalendarCheckIcon },
         { id: "classwork" as ViewType, title: "Classwork", IconComponent: UploadIcon },
         { id: "requests" as ViewType, title: "Requests", IconComponent: HeartHandshakeIcon },
-        ...(SHOW_LEAVE_AND_ABSENCE
-          ? [{ id: "leave" as ViewType, title: "Leave & absence", IconComponent: CalendarNavIcon }]
-          : []),
         { id: "messages" as ViewType, title: "Messages", IconComponent: MessageSquareIcon },
       ],
     },
@@ -154,9 +155,6 @@ export function AppSidebar({
         { id: "teacher-announcements", title: "Announcements", IconComponent: BellIcon },
         { id: "teacher-parents", title: "Parent connections", IconComponent: MessageSquareIcon },
         { id: "teacher-students", title: "Student profiles", IconComponent: UsersNavIcon },
-        ...(SHOW_LEAVE_AND_ABSENCE
-          ? [{ id: "teacher-leave" as ViewType, title: "Leave approvals", IconComponent: CalendarDaysIcon }]
-          : []),
       ],
     },
   ];

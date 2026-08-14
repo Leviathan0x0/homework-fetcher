@@ -17,6 +17,7 @@ import { LoadMoreButton } from './LoadMoreButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
 import { cn } from '../utils/cn';
 import { HeartHandshakeIcon } from './ui/heart-handshake';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 import { UploadIcon } from './ui/upload';
 
 interface AllHomeworkViewProps {
@@ -31,7 +32,7 @@ interface AllHomeworkViewProps {
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
   userSection?: string;
   onNavigate?: (view: string) => void;
 }
@@ -247,9 +248,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
           {matchedClasswork.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <UploadIcon size={14} /> Classwork
-                <span className="tabular-nums font-medium">({matchedClasswork.length})</span>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <InteractiveAnimatedIcon icon={UploadIcon} size={14} className="w-3.5 h-3.5" /> Classwork
+                <span className="tabular-nums normal-case tracking-normal font-medium">({matchedClasswork.length})</span>
               </h2>
               <div className="space-y-2">
                 {matchedClasswork.map((item) => (
@@ -258,8 +259,8 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
                     type="button"
                     onClick={() => {
                       const filename = item.originalFilename || item.filename || '';
-                      const previewable = item.mimeType?.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|svg|pdf)$/i.test(filename);
-                      if (previewable && item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl);
+                      const previewable = item.mimeType?.startsWith('image/') || /\.(?:png|jpe?g|webp|gif|svg|pdf|docx?)$/i.test(filename);
+                      if (previewable && item.fileUrl && onOpenPreview) onOpenPreview(item.fileUrl, filename);
                       else onNavigate?.('classwork');
                     }}
                     className={cn(
@@ -279,9 +280,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
           {matchedRequests.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <HeartHandshakeIcon size={14} /> Requests
-                <span className="tabular-nums font-medium">({matchedRequests.length})</span>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <InteractiveAnimatedIcon icon={HeartHandshakeIcon} size={14} className="w-3.5 h-3.5" /> Requests
+                <span className="tabular-nums normal-case tracking-normal font-medium">({matchedRequests.length})</span>
               </h2>
               <div className="space-y-2">
                 {matchedRequests.map((item) => (

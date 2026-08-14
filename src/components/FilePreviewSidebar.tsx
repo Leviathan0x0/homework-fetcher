@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { X, Download, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, ExternalLink, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { DocxPreview } from './DocxPreview';
-import { ExternalLinkIcon } from './ui/external-link';
-import { cn } from '../utils/cn';
+import { AnimatedIcon } from './ui/animated-icon';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { DownloadIcon } from './ui/download';
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -69,8 +69,9 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
 
   const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(fileExt);
   const isPdf = fileExt === 'pdf';
-  const isDocx = fileExt === 'docx';
-  const handlePreviewLoaded = useCallback(() => setLoading(false), []);
+  const isWordDocument = ['doc', 'docx'].includes(fileExt);
+  const absoluteFileUrl = new URL(fileUrl, window.location.origin).href;
+  const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(absoluteFileUrl)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
@@ -85,7 +86,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             <div className="w-9 h-9 rounded-2xl bg-white/80 dark:bg-neutral-800/80 border border-white/50 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0 shadow-2xs">
               {isImage ? (
                 <ImageIcon className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
-              ) : isPdf || isDocx ? (
+              ) : isPdf || isWordDocument ? (
                 <FileText className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
               ) : (
                 <File className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
@@ -104,7 +105,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 )}
               </div>
               <p className="text-xs text-neutral-400 font-medium truncate mt-0.5">
-                Attachment File
+                {isWordDocument ? 'Word Document' : 'Attachment File'}
               </p>
             </div>
           </div>
@@ -136,15 +137,11 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onMouseEnter={() => setHoveredAction('open')}
-                onMouseLeave={() => setHoveredAction(null)}
-                onFocus={() => setHoveredAction('open')}
-                onBlur={() => setHoveredAction(null)}
-                className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                aria-label="Open full PDF"
+                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                 title="Open full PDF"
-                aria-label="Open full PDF in a new tab"
               >
-                <ExternalLinkIcon size={16} isAnimated={hoveredAction === 'open'} aria-hidden />
+                <AnimatedIcon icon={ExternalLink} preset="lift" size={16} />
               </a>
             )}
 
@@ -155,7 +152,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               title="Download file"
               aria-label="Download file"
             >
-              <Download className="w-4 h-4" />
+              <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
             </a>
 
             <button
@@ -170,16 +167,8 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
         </div>
 
         {/* Content Viewer Area */}
-        <div
-          className={cn(
-            'relative flex min-h-0 flex-1 flex-col bg-neutral-50/40 dark:bg-neutral-950/40',
-            isImage && 'items-center justify-center overflow-auto p-4 sm:p-6',
-            isPdf && 'overflow-hidden p-3 sm:p-4',
-            isDocx && 'overflow-y-auto p-3 sm:p-5',
-            !isImage && !isPdf && !isDocx && 'items-center justify-center overflow-y-auto p-4 sm:p-6'
-          )}
-        >
-          {loading && (isImage || isPdf || isDocx) && (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50/40 dark:bg-neutral-950/40 relative flex flex-col items-center justify-center min-h-0">
+          {loading && (isImage || isPdf || isWordDocument) && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-[#141417]/60 backdrop-blur-xs">
               <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
             </div>
@@ -198,16 +187,27 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               />
             </div>
           ) : isPdf ? (
-            <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800">
-              <iframe
-                src={fileUrl}
-                title={fileName}
-                onLoad={handlePreviewLoaded}
-                className="absolute inset-0 size-full border-0"
-              />
+            <div className="w-full h-full min-h-0">
+              <div className="flex-1 w-full rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white overflow-y-scroll -webkit-overflow-scrolling-touch touch-pan-y shadow-2xs min-h-[65vh]">
+                <iframe
+                  src={fileUrl}
+                  title={fileName}
+                  onLoad={() => setLoading(false)}
+                  className="w-full h-full min-h-[65vh] border-0"
+                />
+              </div>
             </div>
-          ) : isDocx ? (
-            <DocxPreview fileUrl={fileUrl} fileName={fileName} onLoadEnd={handlePreviewLoaded} />
+          ) : isWordDocument ? (
+            <div className="w-full h-full min-h-0">
+              <div className="h-full w-full rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-neutral-950 min-h-[65vh] overflow-hidden">
+                <iframe
+                  src={officeViewerUrl}
+                  title={`Preview of ${fileName}`}
+                  onLoad={() => setLoading(false)}
+                  className="h-full min-h-[65vh] w-full border-0"
+                />
+              </div>
+            </div>
           ) : (
             <div className="w-full max-w-md p-8 rounded-3xl bg-white/80 dark:bg-[#18181c]/80 border border-white/60 dark:border-white/10 backdrop-blur-xl text-center space-y-4 shadow-lg my-auto">
               <div className="w-14 h-14 rounded-3xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 mx-auto">
@@ -234,7 +234,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   download={fileName}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent text-neutral-700 dark:text-neutral-300 text-xs font-semibold"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
                   <span>Download</span>
                 </a>
               </div>

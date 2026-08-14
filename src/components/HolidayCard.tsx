@@ -1,7 +1,10 @@
 import React from 'react';
 import { SchoolCalendarEvent } from '../types/homework';
 import { cn } from '../utils/cn';
-import { PartyPopper, Sparkles, EyeOff, Eye } from 'lucide-react';
+import { Sparkles, EyeOff } from 'lucide-react';
+import { EyeIcon } from './ui/eye';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { PartyPopperIcon } from './ui/party-popper';
 
 function isHolidayType(type?: string) {
   return /holiday|vacation|break|off/i.test(type || '');
@@ -75,7 +78,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
 
         <div className="relative flex items-start gap-3.5">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-500/25">
-            <PartyPopper className="h-5 w-5" strokeWidth={1.75} />
+            <InteractiveAnimatedIcon icon={PartyPopperIcon} size={20} className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -156,7 +159,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
                 : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'
             )}
           >
-            {visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+            {visible ? <InteractiveAnimatedIcon icon={EyeIcon} size={12} className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
             {visible ? 'On' : 'Off'}
           </button>
         )}
@@ -176,7 +179,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
     >
       <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/20">
-          <PartyPopper className="h-4 w-4" strokeWidth={1.75} />
+          <InteractiveAnimatedIcon icon={PartyPopperIcon} size={16} className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">

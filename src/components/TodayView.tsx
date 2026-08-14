@@ -12,11 +12,12 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
-import { ClipboardList, MessageSquare, Handshake, X } from 'lucide-react';
-import { AnimatedIcon } from './ui/animated-icon';
+import { X } from 'lucide-react';
 import { AttachFileIcon } from './ui/attach-file';
 import { BellIcon } from './ui/bell';
+import { CalendarCheckIcon } from './ui/calendar-check';
 import { HeartHandshakeIcon } from './ui/heart-handshake';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 import { MessageSquareIcon } from './ui/message-square';
 
 interface TodayViewProps {
@@ -201,21 +202,21 @@ export const TodayView: React.FC<TodayViewProps> = ({
       key: 'homework',
       label: pendingCount === 1 ? 'task' : 'tasks',
       value: isContentLoading ? '...' : String(pendingCount),
-      icon: ClipboardList,
+      icon: CalendarCheckIcon,
       onClick: undefined as undefined | (() => void),
     },
     {
       key: 'messages',
       label: unreadMessages === 1 ? 'chat' : 'chats',
       value: String(unreadMessages),
-      icon: MessageSquare,
+      icon: MessageSquareIcon,
       onClick: onNavigate ? () => onNavigate('messages') : undefined,
     },
     {
       key: 'requests',
       label: openRequests === 1 ? 'request' : 'requests',
       value: String(openRequests),
-      icon: Handshake,
+      icon: HeartHandshakeIcon,
       onClick: onNavigate ? () => onNavigate('requests') : undefined,
     },
   ];
@@ -263,7 +264,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               : 'bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200'
           )}
         >
-          <BellIcon size={16} className="mt-0.5 shrink-0" />
+          <InteractiveAnimatedIcon icon={BellIcon} size={16} className="size-4 shrink-0 mt-0.5" />
           <div className="space-y-0.5 min-w-0 flex-1">
             <p className="font-semibold">{alt.title}</p>
             <p className="leading-relaxed opacity-90">{alt.message}</p>
@@ -305,18 +306,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   assignment.attachmentMimeType?.startsWith('audio/') ? (
                     <audio className="mt-3 w-full" controls src={assignment.attachmentUrl} />
                   ) : (
-                    onOpenPreview ? (
-                      <button
-                        type="button"
-                        onClick={() => onOpenPreview(assignment.attachmentUrl, assignment.attachmentFilename)}
-                        className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"
-                      >
-                        <AttachFileIcon size={12} />
-                        {assignment.attachmentFilename || 'Open attachment'}
-                      </button>
-                    ) : (
-                      <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><AttachFileIcon size={12} />{assignment.attachmentFilename || 'Open attachment'}</a>
-                    )
+                    <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><InteractiveAnimatedIcon icon={AttachFileIcon} size={12} className="size-3" />{assignment.attachmentFilename || 'Open attachment'}</a>
                   )
                 )}
               </div>
@@ -358,7 +348,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {glance.map((item) => {
-          const Icon = item.icon;
           const interactive = Boolean(item.onClick);
           const Comp: 'button' | 'div' = interactive ? 'button' : 'div';
           return (
@@ -382,12 +371,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
               )}
             >
               <span className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/80 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 max-[359px]:hidden">
-                {item.key === 'messages' ? (
+                {item.key === 'homework' ? (
+                  <CalendarCheckIcon size={14} isAnimated={animatedGlance === item.key} />
+                ) : item.key === 'messages' ? (
                   <MessageSquareIcon size={14} isAnimated={animatedGlance === item.key} />
-                ) : item.key === 'requests' ? (
-                  <HeartHandshakeIcon size={14} isAnimated={animatedGlance === item.key} />
                 ) : (
-                  <AnimatedIcon icon={Icon} preset="scale" size={14} isActive={animatedGlance === item.key} />
+                  <HeartHandshakeIcon size={14} isAnimated={animatedGlance === item.key} />
                 )}
               </span>
               <span className="flex min-w-0 items-baseline gap-1">

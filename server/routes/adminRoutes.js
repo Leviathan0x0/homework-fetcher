@@ -6,7 +6,6 @@ const {
   DEFAULT_SETTINGS,
   getSetting,
   invalidateSettingsCache,
-  seedDefaultSettings,
 } = require("../admin/settingsService");
 const { saveTeacherProfile } = require("../teacher/teacherService");
 const { invalidateCachedSessionsForUser } = require("../auth/sessionService");

@@ -2,11 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { X, User, LogOut, CheckCircle2, AlertTriangle, ShieldCheck, Download, Smartphone, Moon, Sun, Monitor, KeyRound, ImagePlus, Trash2 } from 'lucide-react';
+import { X, User, CheckCircle2, AlertTriangle, ShieldCheck, Smartphone, Monitor, KeyRound, Trash2 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { DownloadIcon } from './ui/download';
+import { LogoutIcon } from './ui/logout';
+import { UploadIcon } from './ui/upload';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -212,7 +216,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onClick={handleSignOut}
               className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
             >
-              <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover/logout:-translate-x-0.5" />
+              <InteractiveAnimatedIcon icon={LogoutIcon} size={14} className="w-3.5 h-3.5" />
               <span>Sign out</span>
             </button>
           </div>
@@ -284,7 +288,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 onClick={() => pictureInputRef.current?.click()}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
               >
-                <ImagePlus className="size-3.5" />
+                <InteractiveAnimatedIcon icon={UploadIcon} size={14} className="size-3.5" />
                 {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
               </button>
               {user?.profilePictureUrl && (
@@ -361,7 +365,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onClick={handleInstallClick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer active:scale-95 transition-transform"
             >
-              <Download className="w-3.5 h-3.5" />
+              <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
               <span>Install</span>
             </button>
           )}
@@ -542,7 +546,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   }}
                   className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                 >
-                  <Download className="w-4 h-4" />
+                  <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
                   <span>Install Instantly (1-Click)</span>
                 </button>
               )}

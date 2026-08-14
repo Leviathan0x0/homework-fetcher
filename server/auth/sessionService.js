@@ -36,13 +36,18 @@ function normalizeClassSection(raw) {
 }
 
 /**
- * Fetches the student's profile (display name and class/section) from the
- * EduSecure StudentProfile page.
+ * Fetches the student's profile from EduSecure. The Student Profile page
+ * supplies class and role data, while the Virtual Card has the authoritative
+ * full name.
  * @param {string} sessionCookies - EduSecure session cookies
  * @returns {Promise<{section: string|null, displayName: string|null, role: string|null, subjects: string[], assignedSections: string[], classTeacherSections: string[]}>}
  */
 const PROFILE_TIMEOUT_MS = 12_000;
 const PROFILE_ATTEMPTS = 2;
+const STUDENT_PROFILE_URL =
+  "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
+const VIRTUAL_CARD_URL =
+  "https://edusecure.in/ManavMangalMohali/ParentApp/VirtualCard.aspx";
 
 async function fetchProfilePage(url, sessionCookies) {
   let lastError = null;
@@ -90,7 +95,7 @@ function cleanProfileName(raw) {
   const value = String(raw || "")
     .replace(/\s+/g, " ")
     .trim()
-    .replace(/^[|:–—-]+|[|:–—-]+$/g, "")
+    .replace(/^[|:–\u2014-]+|[|:–\u2014-]+$/g, "")
     .trim();
   if (!value || value.length < 2 || value.length > 80) return null;
   if (/^(student\s+)?name$|^(profile|student)$/i.test(value)) return null;
@@ -116,6 +121,28 @@ function extractProfileName($, bodyText) {
     if (value) return value;
   }
 
+  let labelledElementName = null;
+  $("th,td,label,span").each((_, element) => {
+    if (labelledElementName) return;
+    const label = $(element).clone().children().remove().end().text().trim();
+    if (!/^(?:student\s+)?name$/i.test(label)) return;
+    const candidates = [
+      $(element).next(),
+      $(element).parent().next(),
+      $(element).parent().children().eq($(element).index() + 1),
+    ];
+    for (const candidate of candidates) {
+      const value = cleanProfileName(
+        candidate.attr("value") || candidate.attr("data-name") || candidate.text()
+      );
+      if (value) {
+        labelledElementName = value;
+        break;
+      }
+    }
+  });
+  if (labelledElementName) return labelledElementName;
+
   let tableName = null;
   $("tr").each((_, row) => {
     const cells = $(row).find("th,td");
@@ -130,9 +157,21 @@ function extractProfileName($, bodyText) {
   if (tableName) return tableName;
 
   const labelledName = bodyText.match(
-    /(?:student\s+name|full\s+name)\s*[:–—-]\s*([A-Za-z][A-Za-z.' -]{1,79}?)(?=\s+(?:class|section|roll|father|mother|gender|date)\b|$)/i
+    /(?:student\s+name|full\s+name)\s*[:–\u2014-]\s*([A-Za-z][A-Za-z.' -]{1,79}?)(?=\s+(?:class|section|roll|father|mother|gender|date)\b|$)/i
   );
   return cleanProfileName(labelledName?.[1]);
+}
+
+async function fetchProfileDocument(url, sessionCookies) {
+  const response = await fetchProfilePage(url, sessionCookies);
+  if (response.status === 301 || response.status === 302) return "";
+
+  const html = await response.text();
+  const lowerHtml = html.toLowerCase();
+  if (lowerHtml.includes("txtusername") || lowerHtml.includes("login.aspx")) {
+    return "";
+  }
+  return html;
 }
 
 async function fetchProfileFromEduSecure(sessionCookies) {
@@ -146,20 +185,25 @@ async function fetchProfileFromEduSecure(sessionCookies) {
   };
   try {
     const cheerio = require("cheerio");
-    const url = "https://edusecure.in/ManavMangalMohali/ParentApp/StudentProfile.aspx";
-    const res = await fetchProfilePage(url, sessionCookies);
-    if (res.status === 301 || res.status === 302) {
-      console.error("Profile fetch redirected (session likely expired)");
-      return empty;
+    const [profileResult, cardResult] = await Promise.allSettled([
+      fetchProfileDocument(STUDENT_PROFILE_URL, sessionCookies),
+      fetchProfileDocument(VIRTUAL_CARD_URL, sessionCookies),
+    ]);
+    const profileHtml = profileResult.status === "fulfilled" ? profileResult.value : "";
+    const cardHtml = cardResult.status === "fulfilled" ? cardResult.value : "";
+    if (!profileHtml && !cardHtml) {
+      const error = profileResult.status === "rejected"
+        ? profileResult.reason
+        : cardResult.status === "rejected"
+          ? cardResult.reason
+          : new Error("EduSecure profile pages returned the login form.");
+      throw error;
     }
-    const html = await res.text();
-    const lowerHtml = html.toLowerCase();
-    if (lowerHtml.includes("txtusername") || lowerHtml.includes("login.aspx")) {
-      console.error("Profile page returned login form (session expired)");
-      return empty;
-    }
-    const $ = cheerio.load(html);
+
+    const $ = cheerio.load(profileHtml || "<html><body></body></html>");
+    const card$ = cheerio.load(cardHtml || "<html><body></body></html>");
     const bodyText = $("body").text().replace(/\s+/g, " ").trim();
+    const cardBodyText = card$("body").text().replace(/\s+/g, " ").trim();
 
     const rawSection = $("#ctl00_ContentPlaceHolder1_sClassSection").first().text().trim();
     let section = null;
@@ -168,11 +212,12 @@ async function fetchProfileFromEduSecure(sessionCookies) {
       if (!section) {
         console.error("Could not normalize raw section string:", JSON.stringify(rawSection));
       }
-    } else {
+    } else if (profileHtml) {
       console.error("Section selector returned empty. Body preview:", bodyText.substring(0, 200));
     }
 
-    const displayName = extractProfileName($, bodyText);
+    const displayName =
+      extractProfileName(card$, cardBodyText) || extractProfileName($, bodyText);
 
     const roleSelectors = [
       "#ctl00_ContentPlaceHolder1_sRole",

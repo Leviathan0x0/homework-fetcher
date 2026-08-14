@@ -119,7 +119,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
         if (part.type === 'codeblock') {
           return (
             <div key={index} className="my-1.5 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-neutral-900 text-neutral-100 p-2.5 text-[11px]">
-              <div className="text-[9px] uppercase tracking-wider text-neutral-400 mb-1 select-none font-sans font-semibold">{part.lang}</div>
+              <div className="text-[9px] text-neutral-400 mb-1 select-none font-sans font-semibold">{part.lang}</div>
               <pre className="overflow-x-auto whitespace-pre">{part.code}</pre>
             </div>
           );

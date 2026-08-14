@@ -15,8 +15,9 @@ import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
-import { Handshake, Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { HeartHandshakeIcon } from './ui/heart-handshake';
+import { UploadIcon } from './ui/upload';
 
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
@@ -208,9 +209,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {grouped.length > 0 && (
             <div className="space-y-6">
               {q && (
-                <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
                   Homework
-                  <span className="tabular-nums normal-case tracking-normal font-medium">({filtered.length})</span>
+                  <span className="tabular-nums font-medium">({filtered.length})</span>
                 </h2>
               )}
               {grouped.map((group, gIdx) => (
@@ -246,9 +247,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
           {matchedClasswork.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5" /> Classwork
-                <span className="tabular-nums normal-case tracking-normal font-medium">({matchedClasswork.length})</span>
+              <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <UploadIcon size={14} /> Classwork
+                <span className="tabular-nums font-medium">({matchedClasswork.length})</span>
               </h2>
               <div className="space-y-2">
                 {matchedClasswork.map((item) => (
@@ -278,9 +279,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
           {matchedRequests.length > 0 && (
             <section className="space-y-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Handshake className="w-3.5 h-3.5" /> Requests
-                <span className="tabular-nums normal-case tracking-normal font-medium">({matchedRequests.length})</span>
+              <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <HeartHandshakeIcon size={14} /> Requests
+                <span className="tabular-nums font-medium">({matchedRequests.length})</span>
               </h2>
               <div className="space-y-2">
                 {matchedRequests.map((item) => (
@@ -295,7 +296,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 truncate">{item.title}</p>
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-neutral-400 shrink-0">
+                      <span className="text-[10px] font-medium capitalize text-neutral-400 shrink-0">
                         {item.status}
                       </span>
                     </div>

@@ -17,6 +17,7 @@ const ATTACHMENT_TIMEOUT_MS =
     1_000
   );
 const ATTACHMENT_HEAD_BYTES = 32 * 1024;
+const SCHOOL_TIME_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
 const NOTICE_SOURCES = Object.freeze({
   circulars: Object.freeze({
@@ -37,6 +38,79 @@ function getNoticeSource(kind) {
 
 function compactText(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+const MONTH_INDEX = Object.freeze({
+  jan: 0,
+  feb: 1,
+  mar: 2,
+  apr: 3,
+  may: 4,
+  jun: 5,
+  jul: 6,
+  aug: 7,
+  sep: 8,
+  oct: 9,
+  nov: 10,
+  dec: 11,
+});
+
+function parseNoticeDate(value) {
+  const text = compactText(value).replace(/,/g, " ");
+  let match = text.match(/\b(\d{1,2})[\s./-]+([A-Za-z]{3,9})[\s./-]+(\d{4})\b/i);
+  if (match) {
+    const month = MONTH_INDEX[match[2].slice(0, 3).toLowerCase()];
+    if (month !== undefined) {
+      const date = new Date(Date.UTC(Number(match[3]), month, Number(match[1])));
+      if (
+        date.getUTCFullYear() === Number(match[3]) &&
+        date.getUTCMonth() === month &&
+        date.getUTCDate() === Number(match[1])
+      ) return date;
+    }
+  }
+
+  match = text.match(/\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b/);
+  if (match) {
+    const date = new Date(
+      Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]))
+    );
+    if (
+      date.getUTCFullYear() === Number(match[3]) &&
+      date.getUTCMonth() === Number(match[2]) - 1 &&
+      date.getUTCDate() === Number(match[1])
+    ) return date;
+  }
+
+  match = text.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+  if (match) {
+    const date = new Date(
+      Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    );
+    if (
+      date.getUTCFullYear() === Number(match[1]) &&
+      date.getUTCMonth() === Number(match[2]) - 1 &&
+      date.getUTCDate() === Number(match[3])
+    ) return date;
+  }
+
+  return null;
+}
+
+function countRecentNotices(notices, maxAgeDays = 3, now = new Date()) {
+  const schoolNow = new Date(now.getTime() + SCHOOL_TIME_OFFSET_MS);
+  const today = Date.UTC(
+    schoolNow.getUTCFullYear(),
+    schoolNow.getUTCMonth(),
+    schoolNow.getUTCDate()
+  );
+  const maximumAge = Math.max(0, Number(maxAgeDays) || 0) * 24 * 60 * 60 * 1000;
+  return (notices || []).reduce((count, notice) => {
+    const published = parseNoticeDate(notice?.date);
+    if (!published) return count;
+    const age = today - published.getTime();
+    return age >= 0 && age <= maximumAge ? count + 1 : count;
+  }, 0);
 }
 
 function textWithLineBreaks($, node) {
@@ -60,11 +134,17 @@ function isFieldLabel(value) {
   );
 }
 
+function isSchoolBoilerplate(value) {
+  return /^(?:dear\s+parents?\s*,?|team\s+manav\s+mangal[.,]?)$/i.test(
+    compactText(value)
+  );
+}
+
 function withoutLeadingText(value, prefix) {
   const text = String(value || "").trim();
   const leading = compactText(prefix);
   if (!leading || !text.toLowerCase().startsWith(leading.toLowerCase())) return text;
-  return text.slice(leading.length).replace(/^\s*[:\-–—]\s*/, "").trim();
+  return text.slice(leading.length).replace(/^\s*[:\-–\u2014]\s*/, "").trim();
 }
 
 function resolveUrl(href, baseUrl) {
@@ -173,8 +253,8 @@ function parseSchoolNoticesHtml(html, kind) {
     if (leadingBold && content.toLowerCase().startsWith(leadingBold.toLowerCase())) {
       if (isFieldLabel(leadingBold)) {
         content = withoutLeadingText(content, leadingBold);
-      } else if (!title && leadingBold.length <= 120) {
-        title = leadingBold.replace(/\s*[:\-–—]\s*$/, "").trim();
+      } else if (!isSchoolBoilerplate(leadingBold) && !title && leadingBold.length <= 120) {
+        title = leadingBold.replace(/\s*[:\-–\u2014]\s*$/, "").trim();
         content = withoutLeadingText(content, leadingBold);
       }
     }
@@ -490,8 +570,10 @@ async function fetchSchoolNoticesForSession(sessionCookies, kind) {
 module.exports = {
   NOTICE_SOURCES,
   allowedAttachmentUrl,
+  countRecentNotices,
   fetchSchoolNoticeAttachment,
   fetchSchoolNoticesForSession,
   getNoticeSource,
+  parseNoticeDate,
   parseSchoolNoticesHtml,
 };

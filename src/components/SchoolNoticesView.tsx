@@ -1,14 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AlertCircle,
-  ArrowUpRight,
   BellRing,
-  CalendarDays,
-  File,
-  FileArchive,
-  FileImage,
+  Eye,
   FileText,
-  Paperclip,
 } from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -17,6 +12,10 @@ import { RefreshButton } from './RefreshButton';
 import { useSchoolNotices } from '../hooks/useSchoolNotices';
 import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 import { cn } from '../utils/cn';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { AttachFileIcon } from './ui/attach-file';
+import { CalendarDaysIcon } from './ui/calendar-days';
+import { AnimatedIcon } from './ui/animated-icon';
 
 interface SchoolNoticesViewProps {
   kind: SchoolNoticeKind;
@@ -31,8 +30,6 @@ const VIEW_CONFIG = {
     emptyDescription: 'New school circulars will appear here when they are published.',
     itemLabel: 'Circular',
     badgeClass: 'bg-sky-100/80 text-sky-800 dark:bg-sky-400/10 dark:text-sky-200',
-    markerClass: 'bg-sky-500 dark:bg-sky-400',
-    fileIconClass: 'bg-sky-50 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300',
     actionClass: 'text-sky-700 dark:text-sky-300',
   },
   important: {
@@ -42,8 +39,6 @@ const VIEW_CONFIG = {
     emptyDescription: 'Important school updates will appear here when they are sent.',
     itemLabel: 'Important',
     badgeClass: 'bg-amber-100/80 text-amber-900 dark:bg-amber-400/10 dark:text-amber-200',
-    markerClass: 'bg-amber-500 dark:bg-amber-400',
-    fileIconClass: 'bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300',
     actionClass: 'text-amber-800 dark:text-amber-300',
   },
 } as const;
@@ -64,16 +59,17 @@ function attachmentDetails(name: string, url: string) {
   } catch {}
   const extension = searchable.match(/\.([a-z0-9]{1,8})(?:$|[?#\s])/i)?.[1]?.toUpperCase() || 'FILE';
   if (/^(?:PNG|JPG|JPEG|WEBP|GIF)$/.test(extension)) {
-    return { extension, Icon: FileImage };
+    return `${extension} image`;
   }
-  if (/^(?:ZIP|RAR|7Z)$/.test(extension)) {
-    return { extension, Icon: FileArchive };
-  }
-  if (/^(?:PDF|DOC|DOCX|PPT|PPTX|XLS|XLSX|TXT)$/.test(extension)) {
-    return { extension, Icon: FileText };
-  }
-  return { extension, Icon: File };
+  return extension === 'FILE' ? 'School attachment' : `${extension} file`;
 }
+
+function formatNoticeContent(content: string) {
+  return content
+    .replace(/(^|\n)(Dear\s+Parents?\s*,?)(?!\*)/gi, '$1**$2**')
+    .replace(/(^|\n|\s)(Team\s+manav\s+mangal\b[.,]?)(?!\*)/gi, '$1**$2**');
+}
+
 function NoticeCard({
   notice,
   kind,
@@ -85,18 +81,23 @@ function NoticeCard({
 }) {
   const config = VIEW_CONFIG[kind];
   const attachments = attachmentList(notice);
+  const [animatedAttachment, setAnimatedAttachment] = useState<number | null>(null);
+
+  const replayAttachmentAnimation = (index: number) => {
+    setAnimatedAttachment(null);
+    requestAnimationFrame(() => setAnimatedAttachment(index));
+  };
 
   return (
     <article className="group/card overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-2xs transition-[border-color,box-shadow] duration-200 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800/80 dark:bg-[#141417] dark:hover:border-neutral-700">
       <div className="p-3.5 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold', config.badgeClass)}>
-            <span className={cn('size-1.5 rounded-full', config.markerClass)} aria-hidden />
             {notice.type || config.itemLabel}
           </span>
           {notice.date && (
             <time className="inline-flex items-center gap-1.5 text-[11px] font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
-              <CalendarDays className="size-3.5 text-neutral-400 dark:text-neutral-500" aria-hidden />
+              <CalendarDaysIcon size={14} className="text-neutral-400 dark:text-neutral-500" aria-hidden />
               {notice.date}
             </time>
           )}
@@ -107,51 +108,51 @@ function NoticeCard({
             {notice.title}
           </h2>
         )}
-        <p
+        <MarkdownRenderer
+          content={formatNoticeContent(notice.content)}
           className={cn(
             'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-600 dark:text-neutral-300 sm:text-[13px]',
             notice.title ? 'mt-1' : 'mt-2.5'
           )}
-        >
-          {notice.content}
-        </p>
+        />
       </div>
 
       {attachments.length > 0 && (
-        <div className="border-t border-neutral-100 bg-neutral-50/60 px-3.5 py-3 dark:border-neutral-800/80 dark:bg-neutral-950/20 sm:px-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.11em] text-neutral-500 dark:text-neutral-400">
-              <Paperclip className="size-3" aria-hidden />
-              {attachments.length === 1 ? 'File included' : `${attachments.length} files included`}
-            </div>
-            <span className="text-[10px] text-neutral-400 dark:text-neutral-500">Tap to preview</span>
-          </div>
-          <div className={cn('grid gap-2', attachments.length > 1 && 'sm:grid-cols-2')}>
+        <div className="border-t border-neutral-100 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
+          <div className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
             {attachments.map((attachment, index) => {
               const name = attachment.name || `Attachment ${index + 1}`;
-              const { extension, Icon: AttachmentIcon } = attachmentDetails(name, attachment.url);
+              const detail = attachmentDetails(name, attachment.url);
               return (
                 <button
                   key={`${attachment.url}-${index}`}
                   type="button"
-                  onClick={() => onOpenPreview(attachment.url, name)}
+                  onClick={() => {
+                    replayAttachmentAnimation(index);
+                    onOpenPreview(attachment.url, name);
+                  }}
+                  onMouseEnter={() => setAnimatedAttachment(index)}
+                  onMouseLeave={() => setAnimatedAttachment(null)}
+                  onFocus={() => setAnimatedAttachment(index)}
+                  onBlur={() => setAnimatedAttachment(null)}
+                  onPointerDown={() => replayAttachmentAnimation(index)}
                   aria-label={`Open attachment: ${name}`}
-                  className="group/file flex min-w-0 items-center gap-2.5 rounded-lg border border-neutral-200/90 bg-white p-2.5 text-left transition-[border-color,background-color] hover:border-neutral-300 hover:bg-neutral-50 active:bg-neutral-100 dark:border-neutral-800 dark:bg-[#141417] dark:hover:border-neutral-700 dark:hover:bg-neutral-800/60"
+                  className="group/file flex w-full min-w-0 items-center gap-2.5 py-2 text-left transition-colors hover:text-neutral-950 active:bg-neutral-50 dark:hover:text-white dark:active:bg-neutral-900/40"
                 >
-                  <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', config.fileIconClass)}>
-                    <AttachmentIcon className="size-4" aria-hidden />
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">
+                    <AttachFileIcon size={15} isAnimated={animatedAttachment === index} aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold text-neutral-800 dark:text-neutral-200">
                       {name}
                     </span>
                     <span className="mt-0.5 block text-[10px] font-medium text-neutral-400 dark:text-neutral-500">
-                      {extension === 'FILE' ? 'School attachment' : `${extension} file`}
+                      {detail}
                     </span>
                   </span>
-                  <span className={cn('inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold', config.actionClass)}>
-                    Open
-                    <ArrowUpRight className="size-3.5 transition-transform group-hover/file:-translate-y-0.5 group-hover/file:translate-x-0.5" aria-hidden />
+                  <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold dark:bg-neutral-800', config.actionClass)}>
+                    Preview
+                    <AnimatedIcon icon={Eye} preset="zoom" size={12} isActive={animatedAttachment === index} aria-hidden />
                   </span>
                 </button>
               );
@@ -168,7 +169,7 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
   onOpenPreview,
 }) => {
   const config = VIEW_CONFIG[kind];
-  const { notices, isLoading, error, reload } = useSchoolNotices(kind);
+  const { notices, recentCount, isLoading, error, reload } = useSchoolNotices(kind);
 
   return (
     <div className="space-y-5">
@@ -176,9 +177,9 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
         title={config.title}
         description={config.description}
         badge={
-          notices.length > 0 ? (
+          recentCount > 0 ? (
             <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold tabular-nums', config.badgeClass)}>
-              {notices.length} {notices.length === 1 ? 'update' : 'updates'}
+              {recentCount} {recentCount === 1 ? 'update' : 'updates'}
             </span>
           ) : undefined
         }

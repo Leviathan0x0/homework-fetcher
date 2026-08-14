@@ -1524,7 +1524,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                 <React.Fragment key={m.id}>
                   {showDay && (
                     <div className="flex justify-center py-3">
-                      <span className="text-[10px] font-medium tracking-wide text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full">
+                      <span className="text-[10px] font-medium text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full">
                         {formatChatDayLabel(m.createdAt)}
                       </span>
                     </div>

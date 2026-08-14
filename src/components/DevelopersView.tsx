@@ -104,7 +104,7 @@ export const DevelopersView: React.FC = () => {
                 whileHover={{ rotate: 3, scale: 1.05 }}
                 className={cn(
                   'flex size-12 shrink-0 items-center justify-center rounded-xl',
-                  'bg-neutral-900 text-sm font-semibold tracking-wide text-white',
+                  'bg-neutral-900 text-sm font-semibold text-white',
                   'dark:bg-neutral-100 dark:text-neutral-900 shadow-inner'
                 )}
                 aria-hidden

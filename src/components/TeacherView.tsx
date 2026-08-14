@@ -383,7 +383,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
               <div className="relative">
                 <div className="mb-5 flex items-start justify-between">
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Class teacher</p>
+                    <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Class teacher</p>
                     <h2 className="mt-1 text-lg font-semibold tracking-tight">Mark attendance</h2>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-500">Choose a class and mark every student in one pass.</p>
                   </div>

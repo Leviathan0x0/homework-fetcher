@@ -301,7 +301,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 {WEEKDAYS.map((name) => (
                   <div
                     key={name}
-                    className="py-0.5 text-center text-[9px] font-semibold uppercase tracking-[0.14em] text-neutral-400 dark:text-neutral-500"
+                    className="py-0.5 text-center text-[9px] font-semibold text-neutral-400 dark:text-neutral-500"
                   >
                     {name}
                   </div>

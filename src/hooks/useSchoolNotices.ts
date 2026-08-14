@@ -5,6 +5,7 @@ import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 /** Loads one of the two authenticated EduSecure school-update feeds. */
 export function useSchoolNotices(kind: SchoolNoticeKind) {
   const [notices, setNotices] = useState<SchoolNotice[]>([]);
+  const [recentCount, setRecentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -14,8 +15,9 @@ export function useSchoolNotices(kind: SchoolNoticeKind) {
       setError(null);
       try {
         const next = await schoolNoticeService.getNotices(kind, forceRefresh);
-        setNotices(next);
-        return next;
+        setNotices(next.notices);
+        setRecentCount(next.recentCount);
+        return next.notices;
       } catch (err: any) {
         setError(err?.message || 'Could not load school updates.');
         return [] as SchoolNotice[];
@@ -28,8 +30,9 @@ export function useSchoolNotices(kind: SchoolNoticeKind) {
 
   useEffect(() => {
     setNotices([]);
+    setRecentCount(0);
     load(false);
   }, [load]);
 
-  return { notices, isLoading, error, reload: load };
+  return { notices, recentCount, isLoading, error, reload: load };
 }

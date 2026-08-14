@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   NOTICE_SOURCES,
   allowedAttachmentUrl,
+  countRecentNotices,
   fetchSchoolNoticeAttachment,
   getNoticeSource,
   parseSchoolNoticesHtml,
@@ -89,6 +90,48 @@ test("uses a meaningful leading bold phrase as the notice title and deduplicates
   assert.equal(notices[0].title, "Olympiad registration");
   assert.equal(notices[0].content, "Submit the consent form by Friday.");
   assert.equal(notices[0].kind, "important");
+});
+
+test("keeps the standard parent greeting in notice content", () => {
+  const notices = parseSchoolNoticesHtml(
+    `
+      <table id="ctl00_ContentPlaceHolder1_grdDashContents">
+        <tr><td>
+          <small>14 Aug 2026</small>
+          <p><strong>Dear Parent,</strong><br>* Bring the signed form.<br>Team manav mangal</p>
+        </td></tr>
+      </table>
+    `,
+    "important"
+  );
+
+  assert.equal(notices[0].title, null);
+  assert.equal(
+    notices[0].content,
+    "Dear Parent,\n* Bring the signed form.\nTeam manav mangal"
+  );
+});
+
+test("counts only notices published in the last three calendar days", () => {
+  const notices = [
+    { date: "14 Aug 2026" },
+    { date: "12-Aug-2026" },
+    { date: "11/08/2026" },
+    { date: "10 Aug 2026" },
+    { date: "15 Aug 2026" },
+    { date: "Date unavailable" },
+  ];
+
+  assert.equal(countRecentNotices(notices, 3, new Date("2026-08-14T18:00:00Z")), 3);
+  assert.equal(
+    countRecentNotices(
+      [{ date: "11 Aug 2026" }, { date: "15 Aug 2026" }],
+      3,
+      new Date("2026-08-14T20:00:00Z")
+    ),
+    1,
+    "uses the school's India calendar date near UTC midnight"
+  );
 });
 
 test("only allows attachments from the configured EduSecure school path", () => {

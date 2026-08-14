@@ -3,7 +3,7 @@ const { db, schema } = require("../db/client");
 const { testTeacherUser } = require("../teacher/teacherService");
 
 /**
- * Titles people type while poking the UI — not real school content.
+ * Titles people type while poking the UI, not real school content.
  * Kept tight so genuine homework about "unit test" / "class test" is left alone.
  */
 const PLACEHOLDER_TITLE =
@@ -22,7 +22,7 @@ function isPlaceholderTestText(value) {
  * Removes demo/test teacher assignments, matching notification feed rows, and
  * placeholder broadcast alerts / announcements left behind during portal trials.
  *
- * Safe to call on every cold start — it only deletes obvious placeholders and
+ * Safe to call on every cold start. It only deletes obvious placeholders and
  * content owned by the shared demo teacher account.
  */
 async function purgeTestContent() {

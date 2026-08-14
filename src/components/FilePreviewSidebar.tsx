@@ -92,8 +92,8 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   {fileName}
                 </h3>
                 {fileExt && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-neutral-900/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/10 shrink-0">
-                    {fileExt}
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-900/10 dark:bg-white/10 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-white/10 shrink-0">
+                    {fileExt.toLowerCase()}
                   </span>
                 )}
               </div>
@@ -166,7 +166,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             <div className="w-full h-full flex flex-col gap-3 min-h-0">
               {/* Quick Action Pill for Liquid Glass PDF Viewer */}
               <div className="flex items-center justify-between p-3 rounded-2xl bg-white/80 dark:bg-neutral-900/80 border border-white/60 dark:border-white/10 backdrop-blur-md shadow-xs shrink-0">
-                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">PDF Reader View</span>
+                <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">PDF reader view</span>
                 <a
                   href={fileUrl}
                   target="_blank"
@@ -174,7 +174,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   className="px-3.5 py-1.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-bold shadow-2xs flex items-center gap-1.5"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Full PDF</span>
+                  <span>Open full PDF</span>
                 </a>
               </div>
 

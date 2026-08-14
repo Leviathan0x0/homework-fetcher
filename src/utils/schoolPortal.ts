@@ -1,6 +1,6 @@
 /**
  * EduSecure is the school's identity provider. Student/teacher passwords live
- * there — this app verifies them live and never stores them — so password
+ * there. This app verifies them live and never stores them, so password
  * recovery and changes have to go through the school portal / office.
  */
 export const EDUSECURE_LOGIN_URL =

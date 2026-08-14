@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { apiFetch, apiUrl } from '../lib/api';
+import { apiFetch } from '../lib/api';
 import { messagingService, homeworkService } from '../services/api';
 import { motion, useReducedMotion } from 'motion/react';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
@@ -18,9 +18,12 @@ import { AuthenticatedImage } from './AuthenticatedImage';
 import { ProfileAvatar } from './ProfileAvatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SearchIcon } from '@/components/ui/search';
+import { ArrowLeftIcon } from '@/components/ui/arrow-left';
 import { AttachFileIcon } from '@/components/ui/attach-file';
+import { DownloadIcon } from '@/components/ui/download';
+import { InteractiveAnimatedIcon } from '@/components/ui/interactive-animated-icon';
 import { MessageSquareIcon } from '@/components/ui/message-square';
-import { AnimatedIcon } from '@/components/ui/animated-icon';
+import { SendIcon } from '@/components/ui/send';
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
@@ -31,12 +34,9 @@ import {
 import {
   X,
   Loader2,
-  ArrowUp,
   ArrowDown,
-  ArrowLeft,
   Paperclip,
   FileText,
-  Download,
   Trash2,
   Flag,
   Handshake,
@@ -73,7 +73,6 @@ function isUnknownSection(section?: string | null) {
 }
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, currentStudentId: accountStudentId }) => {
-  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   // Seeded from the last load so the inbox paints immediately instead of
   // showing an empty list until the first request comes back.
@@ -489,7 +488,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         0
       );
       if (newestAt > 0) newestServerAtRef.current = new Date(newestAt).toISOString();
-      const fp = msgs.map((m: Message) => `${m.id}:${(m.readBy || []).length}`).join(',');
       setMessages((prev) => {
         const map = new Map<string, Message>();
         if (after) {
@@ -1169,7 +1167,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
-              <MessageSquareIcon size={22} className="text-neutral-300 dark:text-neutral-600 mb-3" />
+              <InteractiveAnimatedIcon icon={MessageSquareIcon} size={22} className="text-neutral-300 dark:text-neutral-600 mb-3" />
               <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">
                 {loadError ? 'Couldn’t load chats' : 'No conversations yet'}
               </p>
@@ -1304,7 +1302,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             onClick={() => setActiveConvId(null)}
             className="md:hidden p-1.5 -ml-1 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <InteractiveAnimatedIcon icon={ArrowLeftIcon} size={16} className="w-4 h-4" />
           </button>
           {activeConv?.type === 'section' ? (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
@@ -1445,7 +1443,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               >
                 <FileText className="w-3 h-3" />
                 Open PDF
-                <Download className="w-3 h-3" />
+                <InteractiveAnimatedIcon icon={DownloadIcon} size={12} className="w-3 h-3" />
               </a>
             )}
           </div>
@@ -1686,7 +1684,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                             >
                               <FileText className="w-4 h-4 shrink-0 opacity-70" />
                               <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
-                              <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                              <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5 shrink-0 opacity-70" />
                             </button>
                           )}
                         </div>
@@ -1828,14 +1826,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           />
           <button
             type="button"
-            onMouseEnter={() => setHoveredAction('attach')}
-            onMouseLeave={() => setHoveredAction(null)}
             onClick={() => fileInputRef.current?.click()}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200 cursor-pointer"
             title="Attach PDF or photo"
             aria-label="Attach PDF or photo"
           >
-            <AttachFileIcon size={18} isAnimated={hoveredAction === 'attach'} />
+            <InteractiveAnimatedIcon icon={AttachFileIcon} size={18} />
           </button>
 
           <textarea
@@ -1857,7 +1853,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             disabled={(!inputText.trim() && !selectedFile) || sending}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AnimatedIcon icon={ArrowUp} preset="lift" size={16} />}
+            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <InteractiveAnimatedIcon icon={SendIcon} size={16} />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">
@@ -1891,7 +1887,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           </motion.div>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-[#fafafa] dark:bg-[#09090b] px-6 text-center">
-            <MessageSquareIcon size={28} className="text-neutral-300 dark:text-neutral-700" />
+            <InteractiveAnimatedIcon icon={MessageSquareIcon} size={28} className="text-neutral-300 dark:text-neutral-700" />
             <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
               Pick a conversation
             </p>
@@ -2077,7 +2073,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
               <span>Download File</span>
             </button>
           </div>

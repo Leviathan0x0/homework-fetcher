@@ -32,7 +32,7 @@ function parseEventDateToYmd(raw) {
   const str = raw.replace(/^Date\s*:?\s*/i, "").trim();
   if (!str) return null;
 
-  const dmy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  const dmy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   if (dmy) {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]);

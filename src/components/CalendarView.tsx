@@ -12,8 +12,11 @@ import {
   getCalendarDaysForMonth,
   formatYmd,
 } from '../utils/dateUtils';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ChevronLeftIcon } from './ui/chevron-left';
+import { ChevronRightIcon } from './ui/chevron-right';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 
 interface CalendarViewProps {
   homework: HomeworkEntry[];
@@ -64,8 +67,8 @@ const DayCell = memo(function DayCell({
       aria-label={`${dayNumber}${hasHoliday ? ', holiday' : ''}${hwCount ? `, ${hwCount} homework` : ''}`}
       aria-pressed={isSelected}
       className={cn(
-        'group relative flex h-10 flex-col items-center justify-center rounded-lg text-xs tabular-nums select-none touch-manipulation sm:h-11',
-        'transition-[transform,background-color,color] duration-150 ease-out',
+        'group relative flex h-full min-w-0 flex-col items-center justify-center rounded-lg text-xs tabular-nums select-none touch-manipulation',
+        'transition-[background-color,color] duration-150 ease-out',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
         !isCurrentMonth && 'text-neutral-300/60 dark:text-neutral-700/70',
         isCurrentMonth && !isSelected && !hasHoliday && 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/70',
@@ -73,12 +76,12 @@ const DayCell = memo(function DayCell({
         isToday && !isSelected && 'font-semibold',
         isToday && !isSelected && 'ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700',
         isSelected && 'bg-neutral-900 text-white font-semibold dark:bg-white dark:text-neutral-900',
-        !isSelected && 'cursor-pointer active:scale-[0.96]'
+        !isSelected && 'cursor-pointer'
       )}
     >
       <span
         className={cn(
-          'flex size-7 items-center justify-center rounded-full leading-none transition-transform duration-200 group-hover:scale-105',
+          'flex size-7 items-center justify-center rounded-full leading-none',
           isToday && !isSelected && 'bg-neutral-100 dark:bg-neutral-800'
         )}
       >
@@ -284,7 +287,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Previous month"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <InteractiveAnimatedIcon icon={ChevronLeftIcon} size={16} className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
@@ -292,7 +295,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Next month"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <InteractiveAnimatedIcon icon={ChevronRightIcon} size={16} className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -308,7 +311,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1">
+              <div className="grid grid-cols-7 grid-rows-6 gap-1 [grid-auto-rows:2.5rem] sm:[grid-auto-rows:2.75rem]">
                 {calendarDays.map((dayItem) => (
                   <DayCell
                     key={dayItem.ymd}

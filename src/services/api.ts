@@ -300,7 +300,7 @@ export const schoolNoticeService = {
       throw error;
     }
     const notices = Array.isArray(data.notices) ? data.notices : [];
-    return notices.map((notice: any) => {
+    const mappedNotices = notices.map((notice: any) => {
       const attachments = Array.isArray(notice.attachments)
         ? notice.attachments.map((attachment: any) => ({
             ...attachment,
@@ -315,6 +315,12 @@ export const schoolNoticeService = {
           : attachments[0]?.url || null,
       };
     });
+    return {
+      notices: mappedNotices,
+      recentCount: Number.isFinite(Number(data.recentCount))
+        ? Math.max(0, Number(data.recentCount))
+        : 0,
+    };
   },
 };
 

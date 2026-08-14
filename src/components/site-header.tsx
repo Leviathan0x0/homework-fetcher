@@ -77,13 +77,13 @@ export function SiteHeader({
       case "admin-students":
         return "Students Directory";
       case "admin-teachers":
-        return "Teachers & Staff";
+        return "Teachers and staff";
       case "admin-moderation":
         return "Moderation Controls";
       case "admin-alerts":
-        return "Broadcast Alerts";
+        return "Broadcast alerts";
       case "admin-reports":
-        return "Flagged Reports Queue";
+        return "Flagged reports queue";
       case "teacher-overview":
         return "Teacher dashboard";
       case "teacher-assignments":

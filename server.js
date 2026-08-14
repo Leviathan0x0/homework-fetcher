@@ -14,7 +14,7 @@ try {
       }
     });
   }
-} catch (e) {}
+} catch {}
 
 const { setupExpressErrorHandler } = require("./server/sentry");
 

@@ -59,8 +59,8 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
 
   // 3. Explicit Header Marker Detection (CLASS WORK / HOME WORK / C.W. / H.W. / CW / HW)
   // Headers must either start at beginning of line or be followed by : / -
-  const cwHeaderPattern = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:\-\s\n]|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:\-]+)/i;
-  const hwHeaderPattern = /(?:(?:^|\n)\s*(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-\s\n]|(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]+)/i;
+  const cwHeaderPattern = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:\s\n-]|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य)\s*[:-]+)/i;
+  const hwHeaderPattern = /(?:(?:^|\n)\s*(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\s\n-]|(?:HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:-]+)/i;
 
   const hasExplicitCW = cwHeaderPattern.test(cleaned);
   const hasExplicitHW = hwHeaderPattern.test(cleaned);
@@ -70,7 +70,7 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
     let hwText = '';
 
     // Split on valid section headers
-    const sectionSplitRegex = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]*|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:\-]+)/gi;
+    const sectionSplitRegex = /(?:(?:^|\n)\s*(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:-]*|(?:CLASS\s*WORK|CLASSWORK|C\.W\.|C\.W|CW|कक्षा\s*कार्य|HOME\s*WORK|HOMEWORK|H\.W\.|H\.W|HW|गृह\s*कार्य)\s*[:-]+)/gi;
 
     const parts = cleaned.split(sectionSplitRegex);
     const matches = Array.from(cleaned.matchAll(sectionSplitRegex));

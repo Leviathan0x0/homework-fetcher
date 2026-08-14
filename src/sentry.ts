@@ -28,8 +28,9 @@ if (enabled) {
     integrations: [
       Sentry.browserTracingIntegration(),
       Sentry.replayIntegration({
-        maskAllText: true,
-        maskAllInputs: true,
+        maskAllText: false,
+        maskAllInputs: false,
+        mask: ['input[type="password"]'],
         blockAllMedia: true,
       }),
     ],

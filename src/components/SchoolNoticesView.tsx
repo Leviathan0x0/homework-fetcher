@@ -17,6 +17,7 @@ import { RefreshButton } from './RefreshButton';
 import { useSchoolNotices } from '../hooks/useSchoolNotices';
 import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 import { cn } from '../utils/cn';
+import { countRecentSchoolNotices, RECENT_SCHOOL_NOTICE_MAX_AGE_DAYS } from '../utils/schoolNoticeUtils';
 
 interface SchoolNoticesViewProps {
   kind: SchoolNoticeKind;
@@ -31,7 +32,6 @@ const VIEW_CONFIG = {
     emptyDescription: 'New school circulars will appear here when they are published.',
     itemLabel: 'Circular',
     badgeClass: 'bg-sky-100/80 text-sky-800 dark:bg-sky-400/10 dark:text-sky-200',
-    markerClass: 'bg-sky-500 dark:bg-sky-400',
     fileIconClass: 'bg-sky-50 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300',
     actionClass: 'text-sky-700 dark:text-sky-300',
   },
@@ -42,7 +42,6 @@ const VIEW_CONFIG = {
     emptyDescription: 'Important school updates will appear here when they are sent.',
     itemLabel: 'Important',
     badgeClass: 'bg-amber-100/80 text-amber-900 dark:bg-amber-400/10 dark:text-amber-200',
-    markerClass: 'bg-amber-500 dark:bg-amber-400',
     fileIconClass: 'bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300',
     actionClass: 'text-amber-800 dark:text-amber-300',
   },
@@ -90,8 +89,7 @@ function NoticeCard({
     <article className="group/card overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-2xs transition-[border-color,box-shadow] duration-200 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800/80 dark:bg-[#141417] dark:hover:border-neutral-700">
       <div className="p-3.5 sm:p-4">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold', config.badgeClass)}>
-            <span className={cn('size-1.5 rounded-full', config.markerClass)} aria-hidden />
+          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', config.badgeClass)}>
             {notice.type || config.itemLabel}
           </span>
           {notice.date && (
@@ -169,6 +167,7 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
 }) => {
   const config = VIEW_CONFIG[kind];
   const { notices, isLoading, error, reload } = useSchoolNotices(kind);
+  const recentNoticeCount = countRecentSchoolNotices(notices);
 
   return (
     <div className="space-y-5">
@@ -177,8 +176,11 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
         description={config.description}
         badge={
           notices.length > 0 ? (
-            <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold tabular-nums', config.badgeClass)}>
-              {notices.length} {notices.length === 1 ? 'update' : 'updates'}
+            <span
+              className={cn('rounded-full px-2.5 py-1 text-[10px] font-semibold tabular-nums', config.badgeClass)}
+              title={`Published in the last ${RECENT_SCHOOL_NOTICE_MAX_AGE_DAYS} days`}
+            >
+              {recentNoticeCount} {recentNoticeCount === 1 ? 'update' : 'updates'}
             </span>
           ) : undefined
         }

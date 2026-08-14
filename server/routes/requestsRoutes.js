@@ -1,7 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
 const { eq, desc, and, inArray } = require("drizzle-orm");
-const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { createNotifications } = require("../notifications/notificationService");

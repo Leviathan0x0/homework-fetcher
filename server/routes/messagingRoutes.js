@@ -88,9 +88,6 @@ function toPinnedHomework(hw) {
   };
 }
 
-function normalizeSearchValue(value) {
-  return (value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 
 function cleanStudentId(raw) {
   return String(raw || "")

@@ -12,8 +12,11 @@ import {
   getCalendarDaysForMonth,
   formatYmd,
 } from '../utils/dateUtils';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { ChevronLeftIcon } from './ui/chevron-left';
+import { ChevronRightIcon } from './ui/chevron-right';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 
 interface CalendarViewProps {
   homework: HomeworkEntry[];
@@ -284,7 +287,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Previous month"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <InteractiveAnimatedIcon icon={ChevronLeftIcon} size={16} className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
@@ -292,7 +295,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     className="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-white hover:text-neutral-950 dark:hover:bg-neutral-700 dark:hover:text-white"
                     aria-label="Next month"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <InteractiveAnimatedIcon icon={ChevronRightIcon} size={16} className="w-4 h-4" />
                   </button>
                 </div>
               </div>

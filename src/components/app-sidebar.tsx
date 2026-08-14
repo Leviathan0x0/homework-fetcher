@@ -63,10 +63,10 @@ export function AppSidebar({
   activeView,
   onViewChange,
   user,
-  sessionStatus,
+  sessionStatus: _sessionStatus,
   onLogout,
-  onRefresh,
-  isLoading,
+  onRefresh: _onRefresh,
+  isLoading: _isLoading,
   ...props
 }: AppSidebarProps) {
   const [hoveredId, setHoveredId] = React.useState<ViewType | null>(null);

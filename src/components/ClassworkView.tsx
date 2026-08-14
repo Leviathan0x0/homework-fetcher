@@ -4,30 +4,31 @@ import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageC
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
 import {
-  UploadCloud,
   FileText,
   Image as ImageIcon,
   FileCode,
   FileSpreadsheet,
   Presentation,
   File,
-  Download,
-  Eye,
   Trash2,
-  Plus,
   X,
   Loader2,
   UserCheck,
   Calendar as CalendarIcon,
   CheckCircle2,
   AlertCircle,
-  FolderOpen
+  UploadCloud
 } from 'lucide-react';
 import { ClassworkEntry, SubjectInfo } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { DownloadIcon } from './ui/download';
+import { EyeIcon } from './ui/eye';
+import { FolderOpenIcon } from './ui/folder-open';
+import { PlusIcon } from './ui/plus';
 
 interface ClassworkViewProps {
   userSection?: string;
@@ -70,7 +71,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   onOpenPreview
 }) => {
   const [classwork, setClasswork] = useState<ClassworkEntry[]>([]);
-  const [sectionName, setSectionName] = useState<string>(userSection);
+  const [sectionName] = useState<string>(userSection);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
@@ -323,7 +324,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       ) : filteredClasswork.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 dark:text-neutral-500 shadow-2xs">
-            <FolderOpen className="w-6 h-6" />
+            <InteractiveAnimatedIcon icon={FolderOpenIcon} size={24} className="w-6 h-6" />
           </div>
           <div className="space-y-1 max-w-sm">
             <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-200">
@@ -341,7 +342,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             onClick={() => setIsUploadOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-medium hover:bg-neutral-800 transition-colors shadow-2xs cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <InteractiveAnimatedIcon icon={PlusIcon} size={14} className="w-3.5 h-3.5" />
             <span>Upload Today's Classwork</span>
           </button>
         </div>
@@ -416,7 +417,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                       className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">
-                      <Eye className="w-4 h-4" />
+                      <InteractiveAnimatedIcon icon={EyeIcon} size={16} className="w-4 h-4" />
                       <span>Preview</span>
                     </div>
                   </div>
@@ -443,7 +444,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                         className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                         title="Preview File"
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <InteractiveAnimatedIcon icon={EyeIcon} size={14} className="w-3.5 h-3.5" />
                       </button>
                     )}
 
@@ -453,7 +454,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                       className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                       title="Download File"
                     >
-                      <Download className="w-3.5 h-3.5" />
+                      <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
                     </a>
 
                     {item.isOwner && (
@@ -483,7 +484,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             className="group relative rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-neutral-400 dark:hover:border-neutral-500 bg-neutral-50/50 dark:bg-[#141417]/50 p-6 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 cursor-pointer min-h-[180px] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
           >
             <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-2xs group-hover:scale-110 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-all duration-200">
-              <Plus className="w-5 h-5" />
+              <InteractiveAnimatedIcon icon={PlusIcon} size={20} className="w-5 h-5" />
             </div>
             <div>
               <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">

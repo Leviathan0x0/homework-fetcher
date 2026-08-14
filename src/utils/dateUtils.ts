@@ -12,7 +12,7 @@ export function parseHomeworkDate(dateStr?: string | null): Date | null {
   }
 
   // 2. Match DD/MM/YYYY, DD-MM-YYYY, or DD.MM.YYYY (e.g. "24/02/2026", "24-02-2026")
-  const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
     const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed month
@@ -24,7 +24,7 @@ export function parseHomeworkDate(dateStr?: string | null): Date | null {
   }
 
   // 3. Match DD-MMM-YYYY or DD MMM YYYY (e.g. "24-Feb-2026", "24 Feb 2026")
-  const dMmmYMatch = str.match(/^(\d{1,2})[\s\-]+([A-Za-z]+)[\s\-]+(\d{4})$/);
+  const dMmmYMatch = str.match(/^(\d{1,2})[\s-]+([A-Za-z]+)[\s-]+(\d{4})$/);
   if (dMmmYMatch) {
     parsed = new Date(`${dMmmYMatch[2]} ${dMmmYMatch[1]}, ${dMmmYMatch[3]}`);
     if (!isNaN(parsed.getTime())) {
@@ -199,7 +199,7 @@ export function getCalendarDaysForMonth(year: number, month: number): CalendarDa
   const lastDayOfMonth = new Date(year, month + 1, 0);
 
   // Monday = 0, ..., Sunday = 6
-  let startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+  const startingDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
 
   // Previous month padding days
   for (let i = startingDayOfWeek - 1; i >= 0; i--) {

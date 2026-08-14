@@ -19,7 +19,6 @@ const {
   testTeacherUser,
   profileFromEnvironment,
   ensureTeacherProfile,
-  saveTeacherProfile,
   normalizeTeacherProfile,
 } = require("../teacher/teacherService");
 

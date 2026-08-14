@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, Download, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { X, ExternalLink, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { DownloadIcon } from './ui/download';
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -129,7 +131,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
               title="Download file"
             >
-              <Download className="w-4 h-4" />
+              <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
             </a>
 
             <button
@@ -213,7 +215,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   download={fileName}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent text-neutral-700 dark:text-neutral-300 text-xs font-semibold"
                 >
-                  <Download className="w-3.5 h-3.5" />
+                  <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
                   <span>Download</span>
                 </a>
               </div>

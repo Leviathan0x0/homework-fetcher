@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Loader2, AlertCircle, ArrowRight, CreditCard, Lock, GraduationCap, UserRound } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle, CreditCard, Lock, GraduationCap, UserRound } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { ArrowRightIcon } from './ui/arrow-right';
 
 interface LoginPageProps {
   onLogin: (studentId: string, pass: string) => Promise<boolean>;
@@ -239,7 +241,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 ) : (
                   <>
                     <span>Sign in</span>
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                    <InteractiveAnimatedIcon icon={ArrowRightIcon} size={16} className="h-4 w-4" />
                   </>
                 )}
               </button>

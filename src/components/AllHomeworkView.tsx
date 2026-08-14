@@ -15,8 +15,10 @@ import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
-import { Handshake, Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { HeartHandshakeIcon } from './ui/heart-handshake';
+import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { UploadIcon } from './ui/upload';
 
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
@@ -247,7 +249,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {matchedClasswork.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5" /> Classwork
+                <InteractiveAnimatedIcon icon={UploadIcon} size={14} className="w-3.5 h-3.5" /> Classwork
                 <span className="tabular-nums normal-case tracking-normal font-medium">({matchedClasswork.length})</span>
               </h2>
               <div className="space-y-2">
@@ -279,7 +281,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {matchedRequests.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <Handshake className="w-3.5 h-3.5" /> Requests
+                <InteractiveAnimatedIcon icon={HeartHandshakeIcon} size={14} className="w-3.5 h-3.5" /> Requests
                 <span className="tabular-nums normal-case tracking-normal font-medium">({matchedRequests.length})</span>
               </h2>
               <div className="space-y-2">

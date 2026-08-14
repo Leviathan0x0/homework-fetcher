@@ -79,7 +79,7 @@ export function SiteHeader({
       case "admin-teachers":
         return "Teachers and staff";
       case "admin-moderation":
-        return "Moderation Controls";
+        return "Moderation and mutes";
       case "admin-alerts":
         return "Broadcast alerts";
       case "admin-reports":

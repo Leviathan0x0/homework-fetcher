@@ -17,6 +17,7 @@ import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { Loader2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
+import { SHOW_LEAVE_AND_ABSENCE } from '../utils/features';
 
 type AppRole = 'student' | 'teacher' | 'admin';
 
@@ -118,6 +119,7 @@ export const AppShell: React.FC = () => {
 
   const isViewAllowed = useCallback((view: ViewType) => {
     if (view === 'settings' || view === 'developers') return true;
+    if (!SHOW_LEAVE_AND_ABSENCE && (view === 'leave' || view === 'teacher-leave')) return false;
     if (isAdmin) return view.startsWith('admin-');
     if (isTeacher) return view.startsWith('teacher-') || view === 'messages';
     return !view.startsWith('admin-') && !view.startsWith('teacher-');
@@ -566,7 +568,7 @@ export const AppShell: React.FC = () => {
             <AdminView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
           {activeView.startsWith('teacher-') && (
-            <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
+            <TeacherView activeSubView={activeView} onNavigate={handleViewChange} onOpenPreview={handleOpenPreview} />
           )}
         </motion.main>
         </Suspense>

@@ -27,9 +27,12 @@ import { CircleCheckIcon } from "@/components/ui/circle-check"
 import { SettingsIcon } from "@/components/ui/settings"
 import { LayersIcon } from "@/components/ui/layers"
 import { LogoutIcon } from "@/components/ui/logout"
+import { BellIcon } from "@/components/ui/bell"
+import { ScrollTextIcon } from "@/components/ui/scroll-text"
+import { MegaphoneIcon } from "@/components/ui/megaphone"
 import { AnimatedIcon, type AnimationPreset } from "@/components/ui/animated-icon"
 import { ProfileAvatar } from "./ProfileAvatar"
-import { Activity, Users, VolumeX, Bell, Flag, ShieldCheck, FileText, ClipboardList, MessageCircle, Megaphone, ScrollText, type LucideIcon } from "lucide-react"
+import { Activity, Users, VolumeX, Flag, ShieldCheck, type LucideIcon } from "lucide-react"
 
 const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
   function NavIcon({ size = 18, className, isAnimated }: { size?: number; className?: string; isAnimated?: boolean }) {
@@ -39,14 +42,8 @@ const makeNavIcon = (icon: LucideIcon, preset: AnimationPreset = "scale") =>
 const ActivityNavIcon = makeNavIcon(Activity, "pulse");
 const UsersNavIcon = makeNavIcon(Users);
 const ModerationNavIcon = makeNavIcon(VolumeX, "shake");
-const BellNavIcon = makeNavIcon(Bell, "ring");
 const FlagNavIcon = makeNavIcon(Flag, "lift");
 const ShieldNavIcon = makeNavIcon(ShieldCheck, "scale");
-const FileTextNavIcon = makeNavIcon(FileText, "lift");
-const ClipboardNavIcon = makeNavIcon(ClipboardList, "scale");
-const MessageNavIcon = makeNavIcon(MessageCircle, "bounce");
-const CircularsNavIcon = makeNavIcon(ScrollText, "lift");
-const ImportantNavIcon = makeNavIcon(Megaphone, "bounce");
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   activeView: ViewType;
@@ -95,8 +92,8 @@ export function AppSidebar({
     {
       label: "School updates",
       items: [
-        { id: "circulars" as ViewType, title: "Circulars", IconComponent: CircularsNavIcon },
-        { id: "important" as ViewType, title: "Important", IconComponent: ImportantNavIcon },
+        { id: "circulars" as ViewType, title: "Circulars", IconComponent: ScrollTextIcon },
+        { id: "important" as ViewType, title: "Important", IconComponent: MegaphoneIcon },
       ],
     },
     {
@@ -128,7 +125,7 @@ export function AppSidebar({
         { id: "admin-students" as ViewType, title: "Students", IconComponent: UsersNavIcon },
         { id: "admin-teachers" as ViewType, title: "Teachers and staff", IconComponent: GraduationCapIcon },
         { id: "admin-moderation" as ViewType, title: "Moderation and mutes", IconComponent: ModerationNavIcon },
-        { id: "admin-alerts" as ViewType, title: "Broadcast alerts", IconComponent: BellNavIcon },
+        { id: "admin-alerts" as ViewType, title: "Broadcast alerts", IconComponent: BellIcon },
         { id: "admin-reports" as ViewType, title: "Flagged reports", IconComponent: FlagNavIcon },
       ],
     },
@@ -142,16 +139,16 @@ export function AppSidebar({
       label: "Teaching",
       items: [
         { id: "teacher-overview", title: "Overview", IconComponent: ActivityNavIcon },
-        { id: "teacher-assignments", title: "Assignments", IconComponent: FileTextNavIcon },
-        { id: "teacher-attendance", title: "Attendance", IconComponent: ClipboardNavIcon },
+        { id: "teacher-assignments", title: "Assignments", IconComponent: AttachFileIcon },
+        { id: "teacher-attendance", title: "Attendance", IconComponent: CalendarCheckIcon },
       ],
     },
     {
       label: "Class management",
       items: [
         { id: "teacher-duties", title: "Duties", IconComponent: ShieldNavIcon },
-        { id: "teacher-announcements", title: "Announcements", IconComponent: BellNavIcon },
-        { id: "teacher-parents", title: "Parent connections", IconComponent: MessageNavIcon },
+        { id: "teacher-announcements", title: "Announcements", IconComponent: BellIcon },
+        { id: "teacher-parents", title: "Parent connections", IconComponent: MessageSquareIcon },
         { id: "teacher-students", title: "Student profiles", IconComponent: UsersNavIcon },
       ],
     },
@@ -161,7 +158,7 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="relative">
+      <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8!">
@@ -177,7 +174,6 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <span className="absolute inset-x-3 bottom-0 hidden h-px bg-sidebar-border group-data-[collapsible=icon]:block" aria-hidden />
       </SidebarHeader>
 
       <SidebarContent className="gap-1">

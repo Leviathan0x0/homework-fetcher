@@ -150,7 +150,7 @@ router.post(
         const resolved = resolveUploadType(req.file.originalname);
         if (!resolved) {
           cleanupUpload(req.file);
-          return res.status(400).json({ error: "Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here." });
+          return res.status(400).json({ error: "Only homework PDFs, DOCX files, and photos (JPG, PNG, or WebP) can be shared here." });
         }
 
         const id = crypto.randomUUID();

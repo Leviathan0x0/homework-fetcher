@@ -108,7 +108,46 @@ test("keeps the standard parent greeting in notice content", () => {
   assert.equal(notices[0].title, null);
   assert.equal(
     notices[0].content,
-    "Dear Parent,\n* Bring the signed form.\nTeam manav mangal"
+    "**Dear Parent,**\n* Bring the signed form.\nTeam manav mangal"
+  );
+});
+
+test("keeps student greetings and numbered school signatures in notice content", () => {
+  const notices = parseSchoolNoticesHtml(
+    `
+      <table id="ctl00_ContentPlaceHolder1_grdDashContents">
+        <tr><td>
+          <small>14 Aug 2026</small>
+          <p><b>Dear Students,</b><br>Bring your diary.<br><strong>Team manav mangal - 64</strong></p>
+        </td></tr>
+      </table>
+    `,
+    "circulars"
+  );
+
+  assert.equal(notices[0].title, null);
+  assert.equal(
+    notices[0].content,
+    "**Dear Students,**\nBring your diary.\n**Team manav mangal - 64**"
+  );
+});
+
+test("preserves safe inline emphasis and list formatting from circulars", () => {
+  const notices = parseSchoolNoticesHtml(
+    `
+      <table id="ctl00_ContentPlaceHolder1_grdDashContents">
+        <tr><td>
+          <small>14 Aug 2026</small>
+          <p>Please bring <em>both</em> forms.<ul><li>Consent form</li><li>ID copy</li></ul></p>
+        </td></tr>
+      </table>
+    `,
+    "circulars"
+  );
+
+  assert.equal(
+    notices[0].content,
+    "Please bring *both* forms.\n- Consent form\n- ID copy"
   );
 });
 

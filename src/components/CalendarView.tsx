@@ -73,7 +73,6 @@ const DayCell = memo(function DayCell({
         !isCurrentMonth && 'text-neutral-300/60 dark:text-neutral-700/70',
         isCurrentMonth && !isSelected && !hasHoliday && 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800/70',
         isCurrentMonth && !isSelected && hasHoliday && 'text-rose-600 hover:bg-neutral-100 dark:text-rose-300 dark:hover:bg-neutral-800/70',
-        isToday && !isSelected && 'font-semibold',
         isToday && !isSelected && 'ring-1 ring-inset ring-neutral-300 dark:ring-neutral-700',
         isSelected && 'bg-neutral-900 text-white font-semibold dark:bg-white dark:text-neutral-900',
         !isSelected && 'cursor-pointer'
@@ -215,7 +214,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const handleSelect = useCallback((ymd: string) => {
     setSelectedYmd(ymd);
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
       requestAnimationFrame(() => {
         detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
@@ -273,7 +272,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12 lg:gap-5">
-        <div className="space-y-3 lg:sticky lg:top-4 lg:col-span-4">
+        <div className="space-y-3 lg:sticky lg:top-4 lg:col-span-8">
           <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
@@ -379,7 +378,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
 
-        <div ref={detailRef} className="space-y-3 scroll-mt-4 lg:col-span-8">
+        <div ref={detailRef} className="space-y-3 scroll-mt-4 lg:col-span-4">
           <div className="flex items-baseline justify-between gap-3">
             <h3 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
               {selectedDateLabel}

@@ -9,14 +9,16 @@ const path = require("path");
  * whether an upload is accepted and which content type the server will serve.
  */
 
-// Homework-only: PDFs and photos. Office docs / GIF / text are intentionally
-// blocked so peer sharing stays on assignment material, not arbitrary files.
+// Homework-only: PDFs, photos, and modern Word documents. DOCX stays
+// download-only at the HTTP layer and is converted to a safe text-first model
+// by the client preview; legacy executable Office formats remain blocked.
 const ALLOWED_TYPES = new Map([
   [".png", "image/png"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
   [".webp", "image/webp"],
   [".pdf", "application/pdf"],
+  [".docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 ]);
 
 // SVG is intentionally absent: it is an XML document that renders as a page on
@@ -31,7 +33,7 @@ const INLINE_TYPES = new Set([
 ]);
 
 const UNSUPPORTED_FILE_MESSAGE =
-  "Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.";
+  "Only homework PDFs, DOCX files, and photos (JPG, PNG, or WebP) can be shared here.";
 
 /**
  * Resolves the server-chosen content type for an uploaded filename.

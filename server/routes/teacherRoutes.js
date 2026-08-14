@@ -474,6 +474,8 @@ router.post("/assignments", async (req, res) => {
         targetCount: targets.length,
         hasAttachment: Boolean(attachment),
         attachmentUrl: attachment ? `/api/teacher/assignments/${id}/attachment` : null,
+        attachmentFilename: attachment?.filename || null,
+        attachmentMimeType: attachment?.mimeType || null,
       },
     });
   } catch (err) {

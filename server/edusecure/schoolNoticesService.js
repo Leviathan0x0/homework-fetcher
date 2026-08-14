@@ -117,7 +117,26 @@ function textWithLineBreaks($, node) {
   if (!node?.length) return "";
   const copy = node.clone();
   copy.find("script, style, button").remove();
+
+  // EduSecure mixes plain text, <br> tags, lists, and inline emphasis. Keep a
+  // small Markdown-safe subset so the client can restore the authored layout
+  // without ever rendering portal HTML.
+  copy.find("strong, b").each((_, element) => {
+    const emphasis = $(element);
+    const text = emphasis.text().trim();
+    emphasis.replaceWith(text ? `**${text}**` : "");
+  });
+  copy.find("em, i").each((_, element) => {
+    const emphasis = $(element);
+    const text = emphasis.text().trim();
+    emphasis.replaceWith(text ? `*${text}*` : "");
+  });
+  copy.find("li").each((_, element) => {
+    const item = $(element);
+    item.replaceWith(`\n- ${item.text().trim()}`);
+  });
   copy.find("br").replaceWith("\n");
+  copy.find("p, div").append("\n");
   return copy
     .text()
     .replace(/\r/g, "")
@@ -135,16 +154,22 @@ function isFieldLabel(value) {
 }
 
 function isSchoolBoilerplate(value) {
-  return /^(?:dear\s+parents?\s*,?|team\s+manav\s+mangal[.,]?)$/i.test(
+  return /^(?:dear\s+(?:students?|parents?)\s*[,;:]?|team\s+manav\s+mangal(?:\s*-\s*[a-z0-9]+)?\s*[.,;:]?)$/i.test(
     compactText(value)
   );
 }
 
 function withoutLeadingText(value, prefix) {
-  const text = String(value || "").trim();
+  let text = String(value || "").trim();
   const leading = compactText(prefix);
-  if (!leading || !text.toLowerCase().startsWith(leading.toLowerCase())) return text;
-  return text.slice(leading.length).replace(/^\s*[:\-–\u2014]\s*/, "").trim();
+  const marker = text.match(/^(?:\*\*|__)/)?.[0] || "";
+  if (marker) text = text.slice(marker.length);
+  if (!leading || !text.toLowerCase().startsWith(leading.toLowerCase())) {
+    return String(value || "").trim();
+  }
+  text = text.slice(leading.length);
+  if (marker && text.startsWith(marker)) text = text.slice(marker.length);
+  return text.replace(/^\s*[:\-–\u2014]\s*/, "").trim();
 }
 
 function resolveUrl(href, baseUrl) {
@@ -237,6 +262,9 @@ function parseSchoolNoticesHtml(html, kind) {
   $("#ctl00_ContentPlaceHolder1_grdDashContents tr").each((_, row) => {
     const entry = $(row);
     const paragraph = entry.find("p").first();
+    const contentBlocks = entry.find("p, ul, ol").filter((_, element) =>
+      $(element).parents("p, ul, ol").length === 0
+    );
 
 
     let title = compactText(
@@ -247,10 +275,15 @@ function parseSchoolNoticesHtml(html, kind) {
         .first()
         .text()
     );
-    let content = textWithLineBreaks($, paragraph);
+    let content = contentBlocks
+      .toArray()
+      .map((element) => textWithLineBreaks($, $(element)))
+      .filter(Boolean)
+      .join("\n");
 
     const leadingBold = compactText(paragraph.find("b, strong").first().text());
-    if (leadingBold && content.toLowerCase().startsWith(leadingBold.toLowerCase())) {
+    const unmarkedContent = content.replace(/^\s*(?:\*\*|__)/, "");
+    if (leadingBold && unmarkedContent.toLowerCase().startsWith(leadingBold.toLowerCase())) {
       if (isFieldLabel(leadingBold)) {
         content = withoutLeadingText(content, leadingBold);
       } else if (!isSchoolBoilerplate(leadingBold) && !title && leadingBold.length <= 120) {

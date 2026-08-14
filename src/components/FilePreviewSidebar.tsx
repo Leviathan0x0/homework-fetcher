@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, ExternalLink, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
+import { X, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { AnimatedIcon } from './ui/animated-icon';
+import { ExternalLinkIcon } from './ui/external-link';
 import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 import { DownloadIcon } from './ui/download';
 
@@ -25,6 +25,8 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl, onClose, originalFilename }) => {
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const handlePreviewLoaded = () => setLoading(false);
 
   useEffect(() => {
     setZoom(1);
@@ -78,7 +80,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
       <div className="absolute inset-0" onClick={onClose} />
 
       {/* Slide-over Sidebar */}
-      <aside className="relative z-10 w-full max-w-2xl lg:max-w-3xl h-full bg-white dark:bg-[#141417] border-l border-neutral-200 dark:border-neutral-800 rounded-l-3xl flex flex-col animate-in slide-in-from-right duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl">
+      <aside className="relative z-10 flex h-full w-full max-w-2xl flex-col border-l border-neutral-200 bg-white pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] shadow-2xl animate-in slide-in-from-right duration-300 dark:border-neutral-800 dark:bg-[#141417] sm:rounded-l-3xl lg:max-w-3xl">
         {/* Sidebar Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200/60 dark:border-neutral-800/60 shrink-0 gap-3 bg-white/40 dark:bg-white/5 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
@@ -109,20 +111,22 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="grid shrink-0 grid-flow-col auto-cols-[2.25rem] items-center gap-1">
             {isImage && (
               <>
                 <button
                   onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                  className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                   title="Zoom Out"
+                  aria-label="Zoom out"
                 >
                   <ZoomOut className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setZoom((z) => Math.min(2.5, z + 0.25))}
-                  className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                   title="Zoom In"
+                  aria-label="Zoom in"
                 >
                   <ZoomIn className="w-4 h-4" />
                 </button>
@@ -134,29 +138,35 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Open full PDF"
-                className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                onMouseEnter={() => setHoveredAction('open')}
+                onMouseLeave={() => setHoveredAction(null)}
+                onFocus={() => setHoveredAction('open')}
+                onBlur={() => setHoveredAction(null)}
+                aria-label="Open full PDF in a new tab"
+                className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
                 title="Open full PDF"
               >
-                <AnimatedIcon icon={ExternalLink} preset="lift" size={16} />
+                <ExternalLinkIcon size={16} isAnimated={hoveredAction === 'open'} aria-hidden />
               </a>
             )}
 
             <a
               href={fileUrl}
               download={fileName}
-              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               title="Download file"
+              aria-label="Download file"
             >
               <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
             </a>
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer ml-1"
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
               title="Close preview"
+              aria-label="Close preview"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
@@ -174,8 +184,8 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
               <AuthenticatedImage
                 src={fileUrl}
                 alt={`Preview of ${fileName}`}
-                onReady={() => setLoading(false)}
-                onFail={() => setLoading(false)}
+                onReady={handlePreviewLoaded}
+                onFail={handlePreviewLoaded}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 className="max-w-full max-h-full object-contain rounded-2xl shadow-md transition-transform duration-200"
                 fallbackClassName="min-h-[40vh] rounded-2xl"
@@ -221,7 +231,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold shadow-2xs"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
+                  <ExternalLinkIcon size={14} />
                   <span>Open file</span>
                 </a>
                 <a

@@ -110,9 +110,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   const acceptFile = async (file: File) => {
     setModalError(null);
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.docx'];
     if (!allowed.includes(ext)) {
-      setModalError('Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.');
+      setModalError('Only homework PDFs, DOCX files, and photos (JPG, PNG, or WebP) can be shared here.');
       return;
     }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
@@ -605,7 +605,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                    accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.jpg,.jpeg,.png,.webp,.pdf,.docx"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
 
@@ -633,7 +633,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                           Click to choose a file or drag & drop here
                         </p>
                         <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Images, PDFs, Word, Excel, PowerPoint, Text (photos are compressed automatically)
+                          JPG, PNG, WebP, PDF, or DOCX (photos are compressed automatically)
                         </p>
                       </div>
                     </div>

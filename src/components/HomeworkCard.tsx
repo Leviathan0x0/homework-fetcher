@@ -136,12 +136,12 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         </div>
       </div>
 
-      {/* Hierarchy: compact HW / CW tags */}
+      {/* Compact homework and classwork labels */}
       <div className={cn('space-y-1.5', isCompleted && 'opacity-80')}>
         {parsed.homeWork && (
           <div className="flex items-start gap-2">
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              HW
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              Homework
             </span>
             <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
               <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
@@ -158,8 +158,8 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
 
         {parsed.classWork && (
           <div className="flex items-start gap-2">
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              CW
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+              Classwork
             </span>
             <span
               className={cn(

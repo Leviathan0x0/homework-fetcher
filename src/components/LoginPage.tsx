@@ -150,14 +150,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 className="space-y-5"
               >
               <div className="space-y-2">
-                <label htmlFor="login-student-id" className="block text-sm font-medium text-[#f5f2eb]/80">
+                <label htmlFor={`login-${loginMode}-id`} className="block text-sm font-medium text-[#f5f2eb]/80">
                   {loginMode === 'teacher' ? 'Teacher ID' : 'Student ID'}
                 </label>
                 <div className="relative">
                   <CreditCard className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#f5f2eb]/45" />
                   <input
-                    id="login-student-id"
-                    name="studentId"
+                    id={`login-${loginMode}-id`}
+                    name={`${loginMode}Id`}
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}

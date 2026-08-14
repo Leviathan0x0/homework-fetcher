@@ -21,10 +21,19 @@ export const RefreshButton: React.FC<RefreshButtonProps> = ({
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 
+  const replayAnimation = () => {
+    setIsHovered(false);
+    requestAnimationFrame(() => setIsHovered(true));
+  };
+
   return (
     <button
       type="button"
-      onClick={onRefresh}
+      onClick={() => {
+        replayAnimation();
+        onRefresh();
+      }}
+      onPointerDown={replayAnimation}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       disabled={isRefreshing}

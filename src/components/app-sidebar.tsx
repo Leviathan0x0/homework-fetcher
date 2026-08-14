@@ -124,14 +124,14 @@ export function AppSidebar({
     items: { id: ViewType; title: string; IconComponent: React.ComponentType<any>; badge?: number }[];
   }[] = [
     {
-      label: "Admin Management",
+      label: "Admin management",
       items: [
         { id: "admin-overview" as ViewType, title: "Overview", IconComponent: ActivityNavIcon },
         { id: "admin-students" as ViewType, title: "Students", IconComponent: UsersNavIcon },
-        { id: "admin-teachers" as ViewType, title: "Teachers & Staff", IconComponent: GraduationCapIcon },
-        { id: "admin-moderation" as ViewType, title: "Moderation & Mutes", IconComponent: ModerationNavIcon },
-        { id: "admin-alerts" as ViewType, title: "Broadcast Alerts", IconComponent: BellNavIcon },
-        { id: "admin-reports" as ViewType, title: "Flagged Reports", IconComponent: FlagNavIcon },
+        { id: "admin-teachers" as ViewType, title: "Teachers and staff", IconComponent: GraduationCapIcon },
+        { id: "admin-moderation" as ViewType, title: "Moderation and mutes", IconComponent: ModerationNavIcon },
+        { id: "admin-alerts" as ViewType, title: "Broadcast alerts", IconComponent: BellNavIcon },
+        { id: "admin-reports" as ViewType, title: "Flagged reports", IconComponent: FlagNavIcon },
       ],
     },
   ];
@@ -164,10 +164,10 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="relative">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+            <SidebarMenuButton size="lg" className="group data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:h-12! group-data-[collapsible=icon]:w-8!">
               <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-white shrink-0 transition-transform duration-300 group-hover:scale-105 shadow-2xs p-0.5 border border-neutral-200/60 dark:border-neutral-800/60 overflow-hidden">
                 <img src="/logo.png" alt="MMSS Mohali Logo" className="w-full h-full object-contain" />
               </div>
@@ -180,13 +180,15 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <span className="absolute inset-x-3 bottom-0 hidden h-px bg-sidebar-border group-data-[collapsible=icon]:block" aria-hidden />
       </SidebarHeader>
 
       <SidebarContent className="gap-1">
         {navGroups.map((group) => (
           <SidebarGroup key={group.label} className="py-1">
-            <SidebarGroupLabel className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 group-data-[collapsible=icon]:hidden">
-              {group.label}
+            <SidebarGroupLabel className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 group-data-[collapsible=icon]:mt-0! group-data-[collapsible=icon]:opacity-100!">
+              <span className="group-data-[collapsible=icon]:hidden">{group.label}</span>
+              <span className="hidden h-px w-full bg-sidebar-border group-data-[collapsible=icon]:block" aria-hidden />
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
@@ -221,8 +223,9 @@ export function AppSidebar({
         ))}
 
         <SidebarGroup className="mt-auto py-1">
-          <SidebarGroupLabel className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 group-data-[collapsible=icon]:hidden">
-            Account
+          <SidebarGroupLabel className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500 group-data-[collapsible=icon]:mt-0! group-data-[collapsible=icon]:opacity-100!">
+            <span className="group-data-[collapsible=icon]:hidden">Account</span>
+            <span className="hidden h-px w-full bg-sidebar-border group-data-[collapsible=icon]:block" aria-hidden />
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

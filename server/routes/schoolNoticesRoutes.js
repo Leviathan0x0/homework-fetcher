@@ -7,6 +7,7 @@ const { SchoolSessionExpiredError } = require("../edusecure/homeworkService");
 const { applyDownloadHeaders, resolveUploadType } = require("../files/fileTypes");
 const {
   allowedAttachmentUrl,
+  countRecentNotices,
   fetchSchoolNoticeAttachment,
   fetchSchoolNoticesForSession,
   getNoticeSource,
@@ -61,6 +62,16 @@ function clientNotice(notice) {
 function clientNotices(notices) {
   return (notices || []).map(clientNotice);
 }
+
+function noticePayload(notices, extra = {}) {
+  const visibleNotices = clientNotices(notices);
+  return {
+    count: visibleNotices.length,
+    recentCount: countRecentNotices(visibleNotices, 3),
+    notices: visibleNotices,
+    ...extra,
+  };
+}
 async function refreshFromEduSecure(userId, kind) {
   const key = cacheKey(userId, kind);
   const running = refreshesInFlight.get(key);
@@ -87,12 +98,10 @@ function invalidKind(res) {
 }
 
 function expiredResponse(res, notices = []) {
-  const visibleNotices = clientNotices(notices);
   return res.status(401).json({
     error: "Your school session has expired. Reconnect with your school password to continue.",
     code: "SCHOOL_SESSION_EXPIRED",
-    count: visibleNotices.length,
-    notices: visibleNotices,
+    ...noticePayload(notices),
   });
 }
 
@@ -156,18 +165,12 @@ router.get("/school-updates/:kind", requireAuth, async (req, res) => {
         console.error(`Background ${source.kind} refresh error:`, err.message);
       });
     }
-    const notices = clientNotices(cached.notices);
-    return res.json({
-      count: notices.length,
-      notices,
-      isStale: stale,
-    });
+    return res.json(noticePayload(cached.notices, { isStale: stale }));
   }
 
   try {
     const fresh = await refreshFromEduSecure(userId, source.kind);
-    const notices = clientNotices(fresh.notices);
-    return res.json({ count: notices.length, notices, isStale: false });
+    return res.json(noticePayload(fresh.notices, { isStale: false }));
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
       return expiredResponse(res);
@@ -189,8 +192,7 @@ router.post("/school-updates/:kind/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
   try {
     const fresh = await refreshFromEduSecure(userId, source.kind);
-    const notices = clientNotices(fresh.notices);
-    return res.json({ count: notices.length, notices, isStale: false });
+    return res.json(noticePayload(fresh.notices, { isStale: false }));
   } catch (err) {
     const cached = cachedFor(userId, source.kind);
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
@@ -198,13 +200,10 @@ router.post("/school-updates/:kind/refresh", requireAuth, async (req, res) => {
     }
     if (cached) {
       console.error(`POST /school-updates/${source.kind}/refresh; serving cache:`, err);
-      const notices = clientNotices(cached.notices);
-      return res.json({
-        count: notices.length,
-        notices,
+      return res.json(noticePayload(cached.notices, {
         isStale: true,
         refreshFailed: true,
-      });
+      }));
     }
     console.error(`POST /school-updates/${source.kind}/refresh:`, err);
     return res.status(err?.statusCode === 502 ? 502 : 500).json({

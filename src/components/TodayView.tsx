@@ -38,15 +38,10 @@ interface TodayViewProps {
   onNavigate?: (view: ViewType) => void;
 }
 
-function greetingNameFrom(displayName?: string | null, studentId?: string | null): string {
-  const fullName = displayName?.trim();
-  if (fullName) return fullName;
-
-  const raw = studentId?.trim() || '';
+function fullNameFrom(displayName?: string | null, studentId?: string | null): string {
+  const raw = (displayName || studentId || '').trim();
   if (!raw) return 'there';
-  const token = raw.split(/[\s@._-]+/).filter(Boolean)[0] || raw;
-  const cleaned = token.replace(/\d+$/, '') || token;
-  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  return raw.replace(/\s+/g, ' ');
 }
 
 /**
@@ -95,6 +90,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
   const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(readDismissedAlerts);
   const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
+  const [animatedGlance, setAnimatedGlance] = useState<string | null>(null);
 
   useEffect(() => {
     adminService.getActiveAlerts().then((res) => {
@@ -182,7 +178,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
     (totalCount === 0 && holidaysLoading && calendarEvents.length === 0);
 
   const greeting = getTimeGreeting();
-  const name = greetingNameFrom(displayName, studentId);
+  const name = fullNameFrom(displayName, studentId);
   const dateStr = formatContextualDate();
   const pendingCount = Math.max(totalCount - doneCount, 0);
   const allDone = !isContentLoading && totalCount > 0 && doneCount >= totalCount;
@@ -335,7 +331,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600/80 dark:text-rose-400">
+            <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
               {upcomingHoliday.daysAway === 1
                 ? 'Holiday tomorrow'
                 : `Holiday in ${upcomingHoliday.daysAway} days`}
@@ -352,14 +348,21 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {glance.map((item) => {
-          const Icon = item.icon;
           const interactive = Boolean(item.onClick);
           const Comp: 'button' | 'div' = interactive ? 'button' : 'div';
           return (
             <Comp
               key={item.key}
               type={interactive ? 'button' : undefined}
-              onClick={item.onClick}
+              onClick={() => {
+                setAnimatedGlance(null);
+                requestAnimationFrame(() => setAnimatedGlance(item.key));
+                item.onClick?.();
+              }}
+              onMouseEnter={() => setAnimatedGlance(item.key)}
+              onMouseLeave={() => setAnimatedGlance(null)}
+              onFocus={() => setAnimatedGlance(item.key)}
+              onBlur={() => setAnimatedGlance(null)}
               aria-label={`${item.value} ${item.label}`}
               className={cn(
                 'flex min-w-0 items-center gap-2 rounded-2xl border border-neutral-200/80 bg-gradient-to-br from-white to-neutral-50/80 p-2.5 text-left shadow-2xs dark:border-neutral-800/80 dark:from-[#18181b] dark:to-[#111113]',
@@ -368,7 +371,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
               )}
             >
               <span className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/80 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 max-[359px]:hidden">
-                <InteractiveAnimatedIcon icon={Icon} size={14} />
+                {item.key === 'homework' ? (
+                  <CalendarCheckIcon size={14} isAnimated={animatedGlance === item.key} />
+                ) : item.key === 'messages' ? (
+                  <MessageSquareIcon size={14} isAnimated={animatedGlance === item.key} />
+                ) : (
+                  <HeartHandshakeIcon size={14} isAnimated={animatedGlance === item.key} />
+                )}
               </span>
               <span className="flex min-w-0 items-baseline gap-1">
                 <span className="text-base sm:text-lg font-semibold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-50 leading-none">
@@ -390,7 +399,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         >
           <div className="flex items-baseline justify-between gap-3 mb-3">
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
-              Today’s Progress
+              Today’s progress
             </h2>
             <p className="text-xs font-semibold tabular-nums text-neutral-600 dark:text-neutral-300">
               {progressPct}% complete

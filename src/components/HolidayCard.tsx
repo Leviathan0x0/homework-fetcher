@@ -82,7 +82,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
                 <Sparkles className="h-3 w-3" />
                 {label}
               </span>
@@ -182,7 +182,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           <InteractiveAnimatedIcon icon={PartyPopperIcon} size={16} className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400">
+          <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
             {label}
           </p>
           <p className="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">

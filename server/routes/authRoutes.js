@@ -227,7 +227,7 @@ router.post("/login", async (req, res) => {
       }),
     ]);
 
-    // Fetch and cache initial homework in the background — this no longer
+    // Fetch and cache initial homework in the background. This no longer
     // blocks the login response now that the Announcement.aspx verification
     // round-trip has been removed from loginToEduSecure.
     fetchHomeworkForSession(sessionCookies)
@@ -566,7 +566,7 @@ router.post(
     await sessionService.saveEduSecureSession(req.user.id, sessionCookies);
 
     // Warm the homework cache in the background after reconnect (same pattern
-    // as the login route — Announcement.aspx is no longer fetched inline).
+    // as the login route; Announcement.aspx is no longer fetched inline).
     fetchHomeworkForSession(sessionCookies)
       .then((data) => homeworkCacheService.upsertHomework(req.user.id, data.homework))
       .catch((err) => {

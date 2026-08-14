@@ -123,8 +123,8 @@ function testTeacherCredentials() {
  *
  * Hosting dashboards store the field exactly as typed, so pasting "hunter2"
  * with the quotes makes them part of the password and every sign-in fails
- * while the variable still looks correctly set. The value is never rewritten —
- * a password may legitimately contain quotes — but it is worth saying out loud.
+ * while the variable still looks correctly set. The value is never rewritten;
+ * a password may legitimately contain quotes, but it is worth saying out loud.
  */
 function passwordLooksQuoted() {
   const configured = (process.env.TEACHER_TEST_PASSWORD || "").trim();
@@ -155,7 +155,7 @@ let warnedAboutQuotedTestPassword = false;
  * "disabled" is deliberately distinct from "no match": collapsing them into a
  * single false sent the request on to EduSecure, which rejected the unknown ID
  * and reported a missing TEACHER_TEST_PASSWORD as "invalid student ID or
- * password" — an answer that points at the wrong problem entirely.
+ * password", an answer that points at the wrong problem entirely.
  */
 const TEST_TEACHER_MATCH = {
   NO_MATCH: "no_match",
@@ -173,7 +173,7 @@ function isTestTeacherEnabled() {
  * Matches credentials against the demo teacher account.
  *
  * The configured username is reserved for this account, so once it matches the
- * result is authoritative and the school portal is never consulted — the demo
+ * result is authoritative and the school portal is never consulted. The demo
  * account exists precisely so a teacher view can be opened without EduSecure.
  *
  * @returns {"no_match"|"disabled"|"bad_password"|"ok"}

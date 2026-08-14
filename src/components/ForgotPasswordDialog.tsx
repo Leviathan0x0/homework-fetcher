@@ -16,7 +16,7 @@ interface ForgotPasswordDialogProps {
 
 /**
  * Explains why this app cannot email a reset link, and points students to the
- * school office / EduSecure portal — the only places that can change the
+ * school office or EduSecure portal, the only places that can change the
  * password used at sign-in.
  */
 export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
@@ -155,7 +155,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
             <span>
               {isForgot
                 ? 'Ask the school office or IT desk to reset your EduSecure password for your student or teacher ID.'
-                : 'To change it, sign in on the school portal and use Change Password — or ask the school office / IT desk.'}
+                : 'To change it, sign in on the school portal and use Change password, or ask the school office or IT desk.'}
             </span>
           </li>
           <li className="flex gap-2.5">
@@ -189,7 +189,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
             <span className="inline-flex items-start gap-1.5">
               <School className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
               <span>
-                Admin and demo teacher accounts use deployment passwords — those
+                Admin and demo teacher accounts use deployment passwords. Those
                 are rotated by whoever hosts this app, not by EduSecure.
               </span>
             </span>

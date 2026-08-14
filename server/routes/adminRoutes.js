@@ -1,7 +1,7 @@
 const express = require("express");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
-const { eq, desc, count, and, inArray } = require("drizzle-orm");
+const { eq, desc, count, and, inArray, or } = require("drizzle-orm");
 const {
   DEFAULT_SETTINGS,
   getSetting,
@@ -153,6 +153,84 @@ router.post("/students/mute", requireAdmin, async (req, res) => {
   } catch (err) {
     console.error("Admin mute error:", err);
     return res.status(500).json({ error: "Failed to update mute status." });
+  }
+});
+
+// POST /api/admin/students/clear-moderation
+router.post("/students/clear-moderation", requireAdmin, async (req, res) => {
+  try {
+    const { studentId } = req.body || {};
+    if (!studentId) {
+      return res.status(400).json({ error: "studentId is required." });
+    }
+
+    const targetUser = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.studentId, String(studentId).trim()))
+      .get();
+
+    if (!targetUser) {
+      return res.status(404).json({ error: `Student ${studentId} not found in database.` });
+    }
+    if (isAdminUser(targetUser)) {
+      return res.status(400).json({ error: "Cannot clear moderation history for an administrator account." });
+    }
+
+    const reportRows = await db
+      .select({ id: schema.adminFlagLog.id })
+      .from(schema.adminFlagLog)
+      .where(
+        or(
+          eq(schema.adminFlagLog.userId, targetUser.id),
+          eq(schema.adminFlagLog.studentId, targetUser.studentId)
+        )
+      )
+      .all();
+    const reportIds = reportRows.map((report) => report.id);
+
+    if (reportIds.length) {
+      await db
+        .delete(schema.notifications)
+        .where(
+          and(
+            eq(schema.notifications.type, "new_report"),
+            inArray(schema.notifications.referenceId, reportIds)
+          )
+        )
+        .run();
+      await db
+        .delete(schema.adminFlagLog)
+        .where(inArray(schema.adminFlagLog.id, reportIds))
+        .run();
+    }
+
+    await db
+      .delete(schema.moderationStrikes)
+      .where(eq(schema.moderationStrikes.userId, targetUser.id))
+      .run();
+    await db
+      .update(schema.users)
+      .set({
+        isMuted: 0,
+        mutedReason: null,
+        mutedAt: null,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(schema.users.id, targetUser.id))
+      .run();
+    invalidateCachedSessionsForUser(targetUser.id);
+
+    return res.json({
+      success: true,
+      studentId: targetUser.studentId,
+      removedReports: reportIds.length,
+      unmuted: true,
+      message: `Moderation history cleared for ${targetUser.displayName || targetUser.studentId}.`,
+    });
+  } catch (err) {
+    console.error("Admin clear moderation history error:", err);
+    return res.status(500).json({ error: "Failed to clear moderation history." });
   }
 });
 

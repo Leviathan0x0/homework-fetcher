@@ -18,6 +18,23 @@
 
 ---
 
+## 🔗 Try the Live App
+
+Open the deployed app at **[mmss64.vercel.app](https://mmss64.vercel.app)**.
+The portal requires a valid MMSS student or teacher account. A private demo-teacher account is
+enabled for reviewers; request its credentials separately rather than publishing the password.
+
+![MMSS Mohali login screen](public/demo-screenshot.png)
+
+## 🤖 AI Use Disclosure
+
+The app uses OpenAI's **Moderation API** (`omni-moderation-latest`) to check text and uploaded
+images in Messages, Requests, and Classwork for abusive, unsafe, or NSFW content. This is a
+content-safety filter, not a chatbot or a homework-generation feature. Deterministic profanity
+and file-type checks run locally as a second layer.
+
+---
+
 ## ✅ Release Quality — v0.5.0
 
 Every push and pull request is checked by GitHub Actions before it should be merged:

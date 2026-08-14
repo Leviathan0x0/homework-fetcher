@@ -210,9 +210,9 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {grouped.length > 0 && (
             <div className="space-y-6">
               {q && (
-                <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
                   Homework
-                  <span className="tabular-nums normal-case tracking-normal font-medium">({filtered.length})</span>
+                  <span className="tabular-nums font-medium">({filtered.length})</span>
                 </h2>
               )}
               {grouped.map((group, gIdx) => (
@@ -297,7 +297,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 truncate">{item.title}</p>
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-neutral-400 shrink-0">
+                      <span className="text-[10px] font-medium capitalize text-neutral-400 shrink-0">
                         {item.status}
                       </span>
                     </div>

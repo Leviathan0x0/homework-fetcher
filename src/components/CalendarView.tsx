@@ -271,7 +271,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         }
       />
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(34rem,2fr)_minmax(20rem,1fr)] xl:gap-5">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(20rem,3fr)_minmax(0,7fr)] xl:gap-5">
         <div className="space-y-3 xl:sticky xl:top-4">
           <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4">
             <div>

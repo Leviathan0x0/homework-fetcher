@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import {
@@ -35,16 +35,64 @@ interface MobileNavigationProps {
  * with a gap underneath - most noticeable on tall scroll pages like
  * Classwork and Requests.
  */
-function useVisualViewportBottomOffset() {
+const VIEW_CHANGE_VIEWPORT_SETTLE_MS = 120;
+
+function measureVisualViewportBottomOffset() {
+  const vv = window.visualViewport;
+  if (!vv) return 0;
+  return Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+}
+
+function useVisualViewportBottomOffset(activeView: ViewType) {
   const [offset, setOffset] = useState(0);
+  const offsetRef = useRef(0);
+  const previousViewRef = useRef(activeView);
+  const isViewSettlingRef = useRef(false);
+  const settleTimerRef = useRef<number | null>(null);
+
+  const commitOffset = useCallback((next: number) => {
+    offsetRef.current = next;
+    setOffset((prev) => (prev === next ? prev : next));
+  }, []);
+
+  const finishViewSettle = useCallback(() => {
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+    }
+    settleTimerRef.current = window.setTimeout(() => {
+      settleTimerRef.current = null;
+      isViewSettlingRef.current = false;
+      commitOffset(measureVisualViewportBottomOffset());
+    }, VIEW_CHANGE_VIEWPORT_SETTLE_MS);
+  }, [commitOffset]);
+
+  useLayoutEffect(() => {
+    if (previousViewRef.current === activeView) return;
+    previousViewRef.current = activeView;
+    if (!window.visualViewport) return;
+    isViewSettlingRef.current = true;
+    finishViewSettle();
+  }, [activeView, finishViewSettle]);
 
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
 
     const sync = () => {
-      const next = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-      setOffset((prev) => (prev === next ? prev : next));
+      const next = measureVisualViewportBottomOffset();
+
+      // Changing between a tall and a short tab can make mobile browsers emit
+      // a transient zero offset while they clamp the old page's scroll
+      // position. Applying that value drops the dock behind the browser
+      // toolbar for a frame. Keep the last safe position until those viewport
+      // events settle, but still move upward immediately if the visible
+      // viewport actually becomes shorter.
+      if (isViewSettlingRef.current && next <= offsetRef.current) {
+        finishViewSettle();
+        return;
+      }
+
+      commitOffset(next);
     };
 
     sync();
@@ -52,11 +100,14 @@ function useVisualViewportBottomOffset() {
     vv.addEventListener('scroll', sync);
     window.addEventListener('resize', sync);
     return () => {
+      if (settleTimerRef.current !== null) {
+        window.clearTimeout(settleTimerRef.current);
+      }
       vv.removeEventListener('resize', sync);
       vv.removeEventListener('scroll', sync);
       window.removeEventListener('resize', sync);
     };
-  }, []);
+  }, [commitOffset, finishViewSettle]);
 
   return offset;
 }
@@ -73,7 +124,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   messagesUnread = 0,
   openRequests = 0,
 }) => {
-  const viewportBottomOffset = useVisualViewportBottomOffset();
+  const viewportBottomOffset = useVisualViewportBottomOffset(activeView);
   const [mounted, setMounted] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 

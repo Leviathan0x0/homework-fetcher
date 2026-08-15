@@ -12,7 +12,12 @@ describe('DevelopersView', () => {
     expect(screen.getAllByText('Co-creator')).toHaveLength(2);
     expect(screen.getByText(/both developers shaped the portal and receive equal credit/i)).toBeInTheDocument();
     expect(container.querySelector('.uppercase')).not.toBeInTheDocument();
-    expect(screen.getByText('One shared build.')).toHaveClass('bg-gradient-to-r');
+    expect(screen.getByText('One shared build.')).toHaveClass('bg-clip-text', 'text-transparent');
+    expect(screen.getByAltText('Kiaan Mittal profile')).toHaveAttribute('src', '/developers/kiaan.png');
+    expect(screen.getByAltText('Guranshbir Singh profile')).toHaveAttribute('src', '/developers/guranshbir.png');
+    expect(container.querySelectorAll('[style*="linear-gradient"]')).toHaveLength(2);
+    expect(container.querySelector('[class*="from-sky"], [class*="from-violet"], [class*="from-emerald"]')).not.toBeInTheDocument();
+    expect(container.querySelector('[class*="text-sky"], [class*="text-violet"], [class*="text-emerald"]')).not.toBeInTheDocument();
   });
 
   it('keeps every profile link without an external-link icon', () => {

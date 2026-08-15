@@ -5,17 +5,11 @@ import { PageHeader } from './PageHeader';
 import { DEVELOPERS, DEVELOPERS_PROJECT, DeveloperLink, DeveloperLinkKind } from '../data/developers';
 import { cn } from '../utils/cn';
 
-const LINK_TONES: Record<DeveloperLinkKind, string> = {
-  website: 'text-sky-600 dark:text-sky-400',
-  x: 'text-violet-600 dark:text-violet-400',
-  github: 'text-indigo-600 dark:text-indigo-400',
-  linkedin: 'text-blue-600 dark:text-blue-400',
-  devto: 'text-emerald-600 dark:text-emerald-400',
-  other: 'text-amber-600 dark:text-amber-400',
-};
+const WARM_GRADIENT =
+  'linear-gradient(90deg, #f97316 0%, #facc15 24%, #ffffff 40%, #fb923c 57%, #ef4444 78%, #f97316 100%)';
 
 function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
-  const className = cn('size-3.5 shrink-0', LINK_TONES[kind]);
+  const className = 'size-3.5 shrink-0';
   switch (kind) {
     case 'github':
       return <Github className={className} aria-hidden />;
@@ -46,13 +40,13 @@ function ConnectionLink({ link, reduceMotion }: { link: DeveloperLink; reduceMot
       transition={{ duration: 0.16, ease: 'easeOut' }}
       className={cn(
         'group/link inline-flex cursor-pointer items-center gap-1.5 py-1 text-xs font-medium',
-        'text-neutral-600 transition-colors duration-200 hover:text-violet-700',
+        'text-neutral-600 transition-colors duration-200 hover:text-neutral-950',
         'focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
-        'dark:text-neutral-400 dark:hover:text-violet-300'
+        'dark:text-neutral-400 dark:hover:text-neutral-100'
       )}
     >
       <LinkIcon kind={link.kind} />
-      <span className="border-b border-neutral-200 pb-0.5 transition-colors duration-200 group-hover/link:border-violet-400 dark:border-neutral-800 dark:group-hover/link:border-violet-500">
+      <span className="border-b border-neutral-200 pb-0.5 transition-colors duration-200 group-hover/link:border-neutral-500 dark:border-neutral-800 dark:group-hover/link:border-neutral-500">
         {link.label}
       </span>
     </motion.a>
@@ -76,15 +70,16 @@ export const DevelopersView: React.FC = () => {
 
       <motion.section
         {...reveal(0.04)}
-        className="relative pb-7 sm:pb-9"
+        className="border-b border-neutral-200/80 pb-7 dark:border-neutral-800/80 sm:pb-9"
         aria-labelledby="shared-credit-title"
       >
         <div className="flex items-center gap-2">
           <span
-            className="h-1.5 w-6 rounded-full bg-gradient-to-r from-sky-500 via-violet-500 to-emerald-500"
+            className="h-1.5 w-6 rounded-full"
+            style={{ backgroundImage: WARM_GRADIENT }}
             aria-hidden
           />
-          <p className="text-xs font-medium text-violet-700 dark:text-violet-300">Built together</p>
+          <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">Built together</p>
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(18rem,1.2fr)] sm:items-end sm:gap-10">
           <h2
@@ -93,7 +88,10 @@ export const DevelopersView: React.FC = () => {
           >
             Two students.
             <br />
-            <span className="bg-gradient-to-r from-sky-700 via-violet-700 to-emerald-700 bg-clip-text text-transparent dark:from-sky-300 dark:via-violet-300 dark:to-emerald-300">
+            <span
+              className="bg-clip-text text-transparent"
+              style={{ backgroundImage: WARM_GRADIENT }}
+            >
               One shared build.
             </span>
           </h2>
@@ -101,10 +99,6 @@ export const DevelopersView: React.FC = () => {
             {DEVELOPERS_PROJECT.credit}
           </p>
         </div>
-        <div
-          className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-sky-300/70 via-violet-300/70 to-emerald-300/70 dark:from-sky-700/60 dark:via-violet-700/60 dark:to-emerald-700/60"
-          aria-hidden
-        />
       </motion.section>
 
       <section
@@ -122,23 +116,14 @@ export const DevelopersView: React.FC = () => {
             )}
           >
             <div className="flex items-center justify-between gap-4">
-              <div
-                className={cn(
-                  'flex size-10 items-center justify-center rounded-full border border-violet-200/80',
-                  'bg-gradient-to-br from-sky-50 via-violet-50 to-emerald-50',
-                  'text-xs font-semibold text-violet-700 transition-[border-color,box-shadow] duration-200',
-                  'group-hover:border-violet-300 group-hover:shadow-sm',
-                  'dark:border-violet-900/70 dark:from-sky-950/60 dark:via-violet-950/60 dark:to-emerald-950/50',
-                  'dark:text-violet-200 dark:group-hover:border-violet-700'
-                )}
-                aria-hidden
-              >
-                {dev.initials}
-              </div>
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-600 dark:text-violet-300">
-                <span className="size-1.5 rounded-full bg-violet-500 dark:bg-violet-400" aria-hidden />
-                {dev.role}
-              </span>
+              <img
+                src={dev.imageSrc}
+                alt={`${dev.name} profile`}
+                loading="lazy"
+                decoding="async"
+                className="size-12 rounded-full border border-neutral-200 bg-neutral-100 object-cover dark:border-neutral-800 dark:bg-neutral-900"
+              />
+              <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{dev.role}</span>
             </div>
 
             <h3

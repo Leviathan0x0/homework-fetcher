@@ -11,7 +11,7 @@ export interface Developer {
   name: string;
   role: string;
   bio: string;
-  initials: string;
+  imageSrc: string;
   links: DeveloperLink[];
 }
 
@@ -22,7 +22,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Kiaan Mittal',
     role: 'Co-creator',
     bio: 'Student developer at MMSS Mohali and equal co-creator of this portal. Also builds practical tools including SignPaw and IndieTerminal.',
-    initials: 'KM',
+    imageSrc: '/developers/kiaan.png',
     links: [
       { kind: 'website', label: 'kiaanmittal.xyz', href: 'https://www.kiaanmittal.xyz/' },
       { kind: 'x', label: '@kiaan_mittal', href: 'https://x.com/kiaan_mittal' },
@@ -35,7 +35,7 @@ export const DEVELOPERS: Developer[] = [
     name: 'Guranshbir Singh',
     role: 'Co-creator',
     bio: 'Student developer at MMSS Mohali and equal co-creator of this portal. Also builds practical tools including Chronicle MCP.',
-    initials: 'GB',
+    imageSrc: '/developers/guranshbir.png',
     links: [
       { kind: 'website', label: 'guranshbir.dev', href: 'https://guranshbir.dev' },
       { kind: 'x', label: '@gsbrar_', href: 'https://x.com/gsbrar_' },

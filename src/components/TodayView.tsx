@@ -274,7 +274,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             onClick={() => dismissAlert(String(alt.id))}
             aria-label={`Dismiss announcement: ${alt.title}`}
             title="Dismiss"
-            className="-m-1 shrink-0 rounded-lg p-1 opacity-60 transition hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current dark:hover:bg-white/10"
+            className="-m-1 shrink-0 cursor-pointer rounded-lg p-1 opacity-60 transition-[background-color,opacity] duration-200 hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current dark:hover:bg-white/10"
           >
             <X className="size-4" />
           </button>
@@ -323,7 +323,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <button
           type="button"
           onClick={() => onNavigate?.('calendar')}
-          className="w-full text-left rounded-2xl border border-rose-200/60 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 px-4 py-3.5 flex items-center gap-3 cursor-pointer hover:border-rose-300 dark:hover:border-rose-800 transition-colors active:scale-[0.99] shadow-2xs"
+          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-4 py-3.5 text-left shadow-2xs transition-[background-color,border-color] duration-200 hover:border-rose-300 hover:bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20 dark:hover:border-rose-800 dark:hover:bg-rose-950/30"
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
             <span className="text-xs font-bold tabular-nums">

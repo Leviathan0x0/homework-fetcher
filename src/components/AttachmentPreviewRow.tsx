@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Eye } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { AnimatedIcon } from './ui/animated-icon';
 import { AttachFileIcon } from './ui/attach-file';
 
 interface AttachmentPreviewRowProps {
@@ -53,7 +52,7 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
       onBlur={() => setIsAnimated(false)}
       onPointerDown={replayAnimation}
       aria-label={`Open attachment: ${name}`}
-      className="group/file flex w-full min-w-0 items-center gap-2.5 py-2 text-left transition-colors hover:text-neutral-950 active:bg-neutral-50 dark:hover:text-white dark:active:bg-neutral-900/40"
+      className="group/file flex w-full min-w-0 cursor-pointer items-center gap-2.5 py-2 text-left transition-colors duration-200 hover:text-neutral-950 dark:hover:text-white"
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">
         <AttachFileIcon size={15} isAnimated={isAnimated} aria-hidden />
@@ -68,12 +67,12 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
       </span>
       <span
         className={cn(
-          'inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
+          'inline-flex shrink-0 items-center gap-1 rounded-full bg-neutral-100 px-2.5 py-1 text-[10px] font-semibold text-neutral-700 transition-colors duration-200 group-hover/file:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:group-hover/file:bg-neutral-700',
           actionClassName
         )}
       >
         Preview
-        <AnimatedIcon icon={Eye} preset="zoom" size={12} isActive={isAnimated} aria-hidden />
+        <Eye className="h-3 w-3 opacity-70 transition-opacity duration-200 group-hover/file:opacity-100" aria-hidden />
       </span>
     </button>
   );

@@ -214,7 +214,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const handleSelect = useCallback((ymd: string) => {
     setSelectedYmd(ymd);
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches) {
       requestAnimationFrame(() => {
         detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
@@ -271,8 +271,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         }
       />
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12 lg:gap-5">
-        <div className="space-y-3 lg:sticky lg:top-4 lg:col-span-8">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(34rem,2fr)_minmax(20rem,1fr)] xl:gap-5">
+        <div className="space-y-3 xl:sticky xl:top-4">
           <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3 px-0.5">
@@ -310,7 +310,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 grid-rows-6 gap-1 [grid-auto-rows:2.5rem] sm:[grid-auto-rows:2.75rem]">
+              <div className="grid grid-cols-7 gap-1 [grid-auto-rows:3rem] sm:[grid-auto-rows:3.25rem] xl:[grid-auto-rows:3.5rem]">
                 {calendarDays.map((dayItem) => (
                   <DayCell
                     key={dayItem.ymd}
@@ -378,7 +378,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
         </div>
 
-        <div ref={detailRef} className="space-y-3 scroll-mt-4 lg:col-span-4">
+        <div ref={detailRef} className="space-y-3 scroll-mt-4">
           <div className="flex items-baseline justify-between gap-3">
             <h3 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50">
               {selectedDateLabel}

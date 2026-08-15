@@ -5,10 +5,9 @@ import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser
 import { Check, Pencil, Trash2, NotebookPen } from 'lucide-react';
 import { AnimatedIcon } from './ui/animated-icon';
 import { cn } from '../utils/cn';
-import { AttachFileIcon } from './ui/attach-file';
 import { CircleCheckIcon } from './ui/circle-check';
-import { EyeIcon } from './ui/eye';
 import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
+import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 
 interface HomeworkCardProps {
   item: HomeworkEntry;
@@ -53,20 +52,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
     }
   };
   const attachmentLabel = item.attachment ? getAttachmentLabel(item.attachment) : '';
-  const isWordDocument = /\.(?:doc|docx)(?:$|[?#])/i.test(attachmentLabel) ||
-    /\.(?:doc|docx)(?:$|[?#])/i.test(item.attachment || '');
   const workTypeLabel = /^(?:home\s*work|homework)$/i.test(item.type)
     ? 'HW'
     : /^(?:class\s*work|classwork)$/i.test(item.type)
       ? 'CW'
       : item.type;
-
-  const handleAttachmentClick = (e: React.MouseEvent) => {
-    if (onOpenPreview && item.attachment && isValidUrl(item.attachment)) {
-      e.preventDefault();
-      onOpenPreview(item.attachment, attachmentLabel);
-    }
-  };
 
   const handleSaveNote = () => {
     if (onUpdateNote && item.id) {
@@ -91,10 +81,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   return (
     <article
       className={cn(
-        'group relative bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl p-3.5 sm:p-4 shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
+        'group relative overflow-hidden bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
         isCompleted && 'opacity-65 bg-neutral-50/60 dark:bg-[#101012]/60 border-neutral-200/40 dark:border-neutral-800/40 shadow-none'
       )}
     >
+      <div className="p-3.5 sm:p-4">
       {/* Top: checkbox + subject */}
       <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2.5">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -284,21 +275,16 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
           </div>
         )}
       </div>
+      </div>
 
       {item.attachment && isValidUrl(item.attachment) && (
-        <div className="mt-2 pt-2 border-t border-neutral-100 dark:border-neutral-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 dark:text-neutral-400 truncate max-w-full sm:max-w-[65%]">
-            <InteractiveAnimatedIcon icon={AttachFileIcon} size={12} className="text-neutral-400 shrink-0" />
-            <span className="truncate">{attachmentLabel}</span>
-          </div>
-
-          <button
-            onClick={handleAttachmentClick}
-            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-neutral-900 dark:text-neutral-100 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors duration-200 py-1 px-2.5 rounded-full bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 cursor-pointer active:scale-95"
-          >
-            <span>{isWordDocument ? 'Preview document' : 'Preview attachment'}</span>
-            <InteractiveAnimatedIcon icon={EyeIcon} size={12} />
-          </button>
+        <div className="border-t border-neutral-100 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
+          <AttachmentPreviewRow
+            url={item.attachment}
+            name={attachmentLabel}
+            onOpenPreview={onOpenPreview || (() => undefined)}
+            fallbackDetail="Homework attachment"
+          />
         </div>
       )}
     </article>

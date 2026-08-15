@@ -15,7 +15,11 @@ describe('DevelopersView', () => {
     expect(screen.getByText('One shared build.')).toHaveClass('bg-clip-text', 'text-transparent');
     expect(screen.getByAltText('Kiaan Mittal profile')).toHaveAttribute('src', '/developers/kiaan.png');
     expect(screen.getByAltText('Guranshbir Singh profile')).toHaveAttribute('src', '/developers/guranshbir.png');
-    expect(container.querySelectorAll('[style*="linear-gradient"]')).toHaveLength(2);
+    const warmGradients = container.querySelectorAll<HTMLElement>('[style*="linear-gradient"]');
+    expect(warmGradients).toHaveLength(2);
+    warmGradients.forEach((element) => {
+      expect(element.style.backgroundImage).not.toMatch(/#fff(?:fff)?|rgb\(255,\s*255,\s*255\)/i);
+    });
     expect(container.querySelector('[class*="from-sky"], [class*="from-violet"], [class*="from-emerald"]')).not.toBeInTheDocument();
     expect(container.querySelector('[class*="text-sky"], [class*="text-violet"], [class*="text-emerald"]')).not.toBeInTheDocument();
 

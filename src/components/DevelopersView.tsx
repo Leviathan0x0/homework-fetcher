@@ -6,7 +6,7 @@ import { DEVELOPERS, DEVELOPERS_PROJECT, DeveloperLink, DeveloperLinkKind } from
 import { cn } from '../utils/cn';
 
 const WARM_GRADIENT =
-  'linear-gradient(90deg, #f97316 0%, #facc15 24%, #ffffff 40%, #fb923c 57%, #ef4444 78%, #f97316 100%)';
+  'linear-gradient(90deg, #f97316 0%, #facc15 24%, #fb923c 57%, #ef4444 78%, #f97316 100%)';
 
 function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
   const className = 'size-3.5 shrink-0';

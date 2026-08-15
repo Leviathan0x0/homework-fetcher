@@ -23,7 +23,26 @@ function renderCard(item: Partial<HomeworkEntry> = {}) {
   );
 }
 
+function renderCompletedCard() {
+  return render(
+    <HomeworkCard
+      item={baseItem}
+      isCompleted
+      onToggleCompleted={vi.fn()}
+      onUpdateNote={vi.fn()}
+    />
+  );
+}
+
 describe('HomeworkCard notes', () => {
+  it('uses the plain check icon for completed homework', () => {
+    renderCompletedCard();
+
+    const completionButton = screen.getByRole('button', { name: 'Mark as pending' });
+    expect(completionButton.querySelector('.lucide-check')).toBeInTheDocument();
+    expect(completionButton.querySelector('[class*="circle-check"]')).not.toBeInTheDocument();
+  });
+
   it('keeps the standalone note divider on cards without attachments', () => {
     const { container } = renderCard();
     const article = container.querySelector('article');

@@ -310,7 +310,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
               </div>
 
-              <div className="grid grid-cols-7 gap-1 [grid-auto-rows:3rem] sm:[grid-auto-rows:3.25rem] xl:[grid-auto-rows:3.5rem]">
+              <div className="grid grid-cols-7 gap-1 [grid-auto-rows:2.75rem] sm:[grid-auto-rows:3rem] xl:[grid-auto-rows:3.125rem]">
                 {calendarDays.map((dayItem) => (
                   <DayCell
                     key={dayItem.ymd}

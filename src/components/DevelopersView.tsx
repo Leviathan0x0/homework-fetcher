@@ -1,6 +1,6 @@
 import React from 'react';
-import { ExternalLink, Github, Globe, Linkedin } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Code2, Github, Globe, Linkedin } from 'lucide-react';
+import { motion, useReducedMotion } from 'motion/react';
 import { PageHeader } from './PageHeader';
 import { DEVELOPERS, DEVELOPERS_PROJECT, DeveloperLink, DeveloperLinkKind } from '../data/developers';
 import { cn } from '../utils/cn';
@@ -15,7 +15,7 @@ function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
     case 'linkedin':
       return <Linkedin className={className} aria-hidden />;
     case 'devto':
-      return <ExternalLink className={className} aria-hidden />;
+      return <Code2 className={className} aria-hidden />;
     case 'x':
       return (
         <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
@@ -23,117 +23,122 @@ function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
         </svg>
       );
     default:
-      return <ExternalLink className={className} aria-hidden />;
+      return null;
   }
 }
 
-function ConnectionLink({ link }: { link: DeveloperLink }) {
+function ConnectionLink({ link, reduceMotion }: { link: DeveloperLink; reduceMotion: boolean }) {
   return (
     <motion.a
       href={link.href}
       target="_blank"
       rel="noopener noreferrer"
-      whileHover={{ scale: 1.03, y: -1 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={reduceMotion ? undefined : { y: -1 }}
+      transition={{ duration: 0.16, ease: 'easeOut' }}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-lg border border-neutral-200/80 dark:border-neutral-800',
-        'bg-white/80 dark:bg-neutral-900/60 px-2.5 py-1.5 text-[11px] font-medium',
-        'text-neutral-700 dark:text-neutral-200',
-        'hover:border-neutral-300 dark:hover:border-neutral-700',
-        'hover:bg-neutral-50 dark:hover:bg-neutral-800/80',
-        'transition-colors duration-150 shadow-2xs'
+        'group/link inline-flex cursor-pointer items-center gap-1.5 py-1 text-xs font-medium',
+        'text-neutral-600 transition-colors duration-200 hover:text-neutral-950',
+        'focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
+        'dark:text-neutral-400 dark:hover:text-neutral-100'
       )}
     >
       <LinkIcon kind={link.kind} />
-      <span>{link.label}</span>
-      <ExternalLink className="size-3 opacity-40" aria-hidden />
+      <span className="border-b border-neutral-200 pb-0.5 transition-colors duration-200 group-hover/link:border-neutral-500 dark:border-neutral-800 dark:group-hover/link:border-neutral-500">
+        {link.label}
+      </span>
     </motion.a>
   );
 }
 
 export const DevelopersView: React.FC = () => {
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 12 },
-    show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } },
-  };
+  const prefersReducedMotion = useReducedMotion();
+  const reduceMotion = Boolean(prefersReducedMotion);
+  const reveal = (delay = 0) => ({
+    initial: reduceMotion ? false : { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.28, delay, ease: [0.22, 1, 0.36, 1] as const },
+  });
 
   return (
-    <motion.div
-      className="space-y-6 max-w-3xl"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
-      <motion.div variants={itemVariants}>
-        <PageHeader
-          title="Meet the Developers"
-          description={DEVELOPERS_PROJECT.blurb}
-        />
+    <div className="max-w-5xl space-y-8 sm:space-y-10">
+      <motion.div {...reveal()}>
+        <PageHeader title="Meet the Developers" description={DEVELOPERS_PROJECT.blurb} />
       </motion.div>
 
-      <section className="space-y-4" aria-label="Contributors">
-        {DEVELOPERS.map((dev) => (
+      <motion.section
+        {...reveal(0.04)}
+        className="border-b border-neutral-200/80 pb-7 dark:border-neutral-800/80 sm:pb-9"
+        aria-labelledby="shared-credit-title"
+      >
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400 dark:text-neutral-500">
+          Built together
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(18rem,1.2fr)] sm:items-end sm:gap-10">
+          <h2
+            id="shared-credit-title"
+            className="text-2xl font-semibold tracking-[-0.04em] text-neutral-950 dark:text-neutral-50 sm:text-3xl"
+          >
+            Two students.
+            <br />
+            One shared build.
+          </h2>
+          <p className="max-w-xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
+            {DEVELOPERS_PROJECT.credit}
+          </p>
+        </div>
+      </motion.section>
+
+      <section
+        className="grid border-b border-neutral-200/80 dark:border-neutral-800/80 md:grid-cols-2 md:divide-x md:divide-neutral-200/80 md:dark:divide-neutral-800/80"
+        aria-label="Equal contributors"
+      >
+        {DEVELOPERS.map((dev, index) => (
           <motion.article
             key={dev.id}
-            variants={itemVariants}
-            whileHover={{ scale: 1.01, translateY: -2 }}
+            {...reveal(0.08 + index * 0.06)}
+            aria-labelledby={`developer-${dev.id}`}
             className={cn(
-              'group relative overflow-hidden rounded-2xl border border-neutral-200/80 dark:border-neutral-800',
-              'bg-white dark:bg-[#0c0c0e] shadow-2xs hover:shadow-xs transition-all duration-200'
+              'group py-7 sm:py-8 md:px-8 md:first:pl-0 md:last:pr-0',
+              index > 0 && 'border-t border-neutral-200/80 dark:border-neutral-800/80 md:border-t-0'
             )}
           >
-            <div
-              className={cn(
-                'pointer-events-none absolute inset-0 bg-gradient-to-br opacity-50 group-hover:opacity-100 transition-opacity duration-300',
-                dev.accentClass
-              )}
-              aria-hidden
-            />
-            <div className="relative flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:gap-5 sm:p-6">
-              <motion.div
-                whileHover={{ rotate: 3, scale: 1.05 }}
+            <div className="flex items-center justify-between gap-4">
+              <div
                 className={cn(
-                  'flex size-12 shrink-0 items-center justify-center rounded-xl',
-                  'bg-neutral-900 text-sm font-semibold text-white',
-                  'dark:bg-neutral-100 dark:text-neutral-900 shadow-inner'
+                  'flex size-10 items-center justify-center rounded-full border border-neutral-200',
+                  'text-xs font-semibold text-neutral-700 transition-colors duration-200',
+                  'group-hover:border-neutral-300 group-hover:bg-neutral-100/70',
+                  'dark:border-neutral-800 dark:text-neutral-300 dark:group-hover:border-neutral-700 dark:group-hover:bg-neutral-900'
                 )}
                 aria-hidden
               >
                 {dev.initials}
-              </motion.div>
-
-              <div className="min-w-0 flex-1 space-y-3">
-                <div>
-                  <h2 className="text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 transition-colors">
-                    {dev.name}
-                  </h2>
-                  <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{dev.role}</p>
-                </div>
-                <p className="text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-300">
-                  {dev.bio}
-                </p>
-                {dev.links.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-0.5">
-                    {dev.links.map((link) => (
-                      <ConnectionLink key={link.href} link={link} />
-                    ))}
-                  </div>
-                )}
               </div>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-neutral-400 dark:text-neutral-500">
+                {dev.role}
+              </span>
             </div>
+
+            <h3
+              id={`developer-${dev.id}`}
+              className="mt-6 text-xl font-semibold tracking-[-0.03em] text-neutral-950 dark:text-neutral-50 sm:text-2xl"
+            >
+              {dev.name}
+            </h3>
+            <p className="mt-2 max-w-md text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-300">
+              {dev.bio}
+            </p>
+
+            {dev.links.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-1.5" aria-label={`${dev.name} links`}>
+                {dev.links.map((link) => (
+                  <ConnectionLink key={link.href} link={link} reduceMotion={reduceMotion} />
+                ))}
+              </div>
+            )}
           </motion.article>
         ))}
       </section>
-    </motion.div>
+    </div>
   );
 };

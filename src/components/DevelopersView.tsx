@@ -63,14 +63,14 @@ export const DevelopersView: React.FC = () => {
   });
 
   return (
-    <div className="max-w-5xl space-y-8 sm:space-y-10">
+    <div className="max-w-5xl">
       <motion.div {...reveal()}>
         <PageHeader title="Meet the Developers" description={DEVELOPERS_PROJECT.blurb} />
       </motion.div>
 
       <motion.section
         {...reveal(0.04)}
-        className="border-b border-neutral-200/80 pb-7 dark:border-neutral-800/80 sm:pb-9"
+        className="mt-8 border-b border-neutral-200/80 pb-7 dark:border-neutral-800/80 sm:mt-10 sm:pb-9"
         aria-labelledby="shared-credit-title"
       >
         <div className="flex items-center gap-2">

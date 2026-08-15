@@ -18,6 +18,12 @@ describe('DevelopersView', () => {
     expect(container.querySelectorAll('[style*="linear-gradient"]')).toHaveLength(2);
     expect(container.querySelector('[class*="from-sky"], [class*="from-violet"], [class*="from-emerald"]')).not.toBeInTheDocument();
     expect(container.querySelector('[class*="text-sky"], [class*="text-violet"], [class*="text-emerald"]')).not.toBeInTheDocument();
+
+    const sharedSection = screen.getByRole('heading', { name: /two students.*one shared build/i }).closest('section');
+    const contributors = screen.getByRole('region', { name: 'Equal contributors' });
+    expect(sharedSection).toHaveClass('border-b');
+    expect(sharedSection?.nextElementSibling).toBe(contributors);
+    expect(contributors).toHaveClass('md:divide-x');
   });
 
   it('keeps every profile link without an external-link icon', () => {

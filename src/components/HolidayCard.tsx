@@ -26,6 +26,12 @@ function formatShortDate(ymd: string): string {
   });
 }
 
+function formatMonth(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' });
+}
+
 function typeLabel(type?: string) {
   return isHolidayType(type) ? 'School Holiday' : type || 'School Event';
 }
@@ -61,8 +67,11 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
         )}
         aria-label={`${label}: ${event.title}`}
       >
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
-          <span className="text-xs font-bold tabular-nums">
+        <div className="flex h-12 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-rose-200/70 bg-white/70 text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
+          <span className="text-[8px] font-semibold uppercase tracking-wide opacity-75">
+            {formatMonth(event.date)}
+          </span>
+          <span className="mt-0.5 text-sm font-bold leading-none tabular-nums">
             {Number(event.date.slice(8)) || '-'}
           </span>
         </div>
@@ -70,11 +79,11 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
             {label} · Today
           </p>
-          <h2 className="mt-0.5 truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+          <h2 className="mt-0.5 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
             {event.title}
           </h2>
           <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-            {formatHolidayDate(event.date)}
+            No classes today · {formatHolidayDate(event.date)}
           </p>
         </div>
       </section>

@@ -23,7 +23,6 @@ import { AttachFileIcon } from '@/components/ui/attach-file';
 import { DownloadIcon } from '@/components/ui/download';
 import { InteractiveAnimatedIcon } from '@/components/ui/interactive-animated-icon';
 import { MessageSquareIcon } from '@/components/ui/message-square';
-import { SendIcon } from '@/components/ui/send';
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
@@ -34,6 +33,7 @@ import {
 import {
   X,
   Loader2,
+  ArrowUp,
   ArrowDown,
   Paperclip,
   FileText,
@@ -1849,11 +1849,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           />
 
           <button
+            type="button"
             onClick={handleSend}
             disabled={(!inputText.trim() && !selectedFile) || sending}
+            aria-label="Send message"
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <InteractiveAnimatedIcon icon={SendIcon} size={16} />}
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowUp className="h-4 w-4" aria-hidden />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">

@@ -4,8 +4,6 @@ import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
 import { Check, Pencil, Plus, Trash2, NotebookPen } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { CircleCheckIcon } from './ui/circle-check';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 
 interface HomeworkCardProps {
@@ -196,14 +194,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               )}
               title={isCompleted ? 'Mark as pending' : 'Mark as done'}
             >
-              <InteractiveAnimatedIcon
-                icon={CircleCheckIcon}
-                size={12}
-                className={cn(
-                  'w-3 h-3 stroke-[3] transition-opacity duration-200',
-                  isCompleted ? 'opacity-100' : 'opacity-0'
-                )}
-              />
+              {isCompleted && <Check className="h-3.5 w-3.5 stroke-[3]" aria-hidden />}
             </button>
           )}
 

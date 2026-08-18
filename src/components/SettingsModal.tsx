@@ -58,7 +58,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [pictureSaved, setPictureSaved] = useState(false);
   const pictureInputRef = useRef<HTMLInputElement>(null);
 
-  const { canInstall, isInstalled, install } = usePWAInstall();
+  const { canInstall, isInstalled, isChecking, supportsInstallPrompt, install } = usePWAInstall();
   const [isInstalling, setIsInstalling] = useState(false);
   const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
@@ -329,7 +329,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   ? 'App is installed on your device.'
                   : canInstall
                     ? 'Ready for your browser\'s built-in install.'
-                    : 'This browser has not offered one-click installation.'}
+                    : isChecking
+                      ? 'Checking for your browser\'s built-in install…'
+                      : supportsInstallPrompt
+                        ? 'App works here; Install is unavailable in this browser session.'
+                        : 'App works here; this browser has no one-click install API.'}
               </div>
             </div>
           </div>

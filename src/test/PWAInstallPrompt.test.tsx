@@ -15,12 +15,23 @@ function dispatchInstallEvent(prompt: () => Promise<void>) {
   return installEvent;
 }
 
+function captureInstallEventBeforeAppLoads(prompt: () => Promise<void>) {
+  const installEvent = new Event('beforeinstallprompt', { cancelable: true });
+  Object.defineProperties(installEvent, {
+    prompt: { value: prompt },
+    userChoice: { value: Promise.resolve({ outcome: 'dismissed' as const }) },
+  });
+  installEvent.preventDefault();
+  (window as Window & { __mmssPwaInstallPrompt?: Event }).__mmssPwaInstallPrompt = installEvent;
+  return installEvent;
+}
+
 describe('PWAInstallPrompt', () => {
   it('uses an install event captured before the button mounts', async () => {
     const prompt = vi.fn().mockResolvedValue(undefined);
 
+    const installEvent = captureInstallEventBeforeAppLoads(prompt);
     initializePWAInstall();
-    const installEvent = dispatchInstallEvent(prompt);
 
     render(<PWAInstallPrompt variant="button" />);
     await userEvent.setup().click(screen.getByRole('button', { name: 'Install MMSS Mohali App' }));

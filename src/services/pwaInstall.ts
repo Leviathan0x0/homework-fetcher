@@ -10,6 +10,12 @@ export interface PWAInstallSnapshot {
 
 export type PWAInstallOutcome = 'accepted' | 'dismissed' | 'unavailable';
 
+interface PWAInstallWindow extends Window {
+  __mmssPwaInstallPrompt?: BeforeInstallPromptEvent | null;
+}
+
+const INSTALL_AVAILABLE_EVENT = 'mmss:pwa-install-available';
+
 const listeners = new Set<() => void>();
 const serverSnapshot: PWAInstallSnapshot = { canInstall: false, isInstalled: false };
 
@@ -31,6 +37,12 @@ function updateSnapshot(next: PWAInstallSnapshot) {
   listeners.forEach((listener) => listener());
 }
 
+function capturePrompt(prompt: BeforeInstallPromptEvent) {
+  prompt.preventDefault();
+  deferredPrompt = prompt;
+  updateSnapshot({ canInstall: true, isInstalled: false });
+}
+
 /**
  * Capture the browser's one-shot install event before authenticated UI mounts.
  * Every install entry point then uses this same event, so opening settings or
@@ -43,14 +55,23 @@ export function initializePWAInstall() {
   const installed = isRunningStandalone();
   updateSnapshot({ canInstall: false, isInstalled: installed });
 
+  const installWindow = window as PWAInstallWindow;
+  if (installWindow.__mmssPwaInstallPrompt) {
+    capturePrompt(installWindow.__mmssPwaInstallPrompt);
+  }
+
   window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault();
-    deferredPrompt = event as BeforeInstallPromptEvent;
-    updateSnapshot({ canInstall: true, isInstalled: false });
+    capturePrompt(event as BeforeInstallPromptEvent);
+  });
+
+  window.addEventListener(INSTALL_AVAILABLE_EVENT, () => {
+    const earlyPrompt = installWindow.__mmssPwaInstallPrompt;
+    if (earlyPrompt) capturePrompt(earlyPrompt);
   });
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
+    installWindow.__mmssPwaInstallPrompt = null;
     updateSnapshot({ canInstall: false, isInstalled: true });
   });
 }
@@ -76,6 +97,7 @@ export async function requestPWAInstall(): Promise<PWAInstallOutcome> {
   // A BeforeInstallPromptEvent may only be used once. Clear it for every
   // install surface before opening the browser-owned confirmation dialog.
   deferredPrompt = null;
+  (window as PWAInstallWindow).__mmssPwaInstallPrompt = null;
   updateSnapshot({ canInstall: false, isInstalled: false });
 
   await prompt.prompt();

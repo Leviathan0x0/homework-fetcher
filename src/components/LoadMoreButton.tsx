@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 
 interface LoadMoreButtonProps {
   hasMore: boolean;
@@ -54,13 +54,13 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
         >
           {isLoadingMore ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-500 dark:text-neutral-400" />
+              <Reicon name="loader" size={14} isLoading className="animate-spin text-neutral-500 dark:text-neutral-400" />
               <span>Loading more cards…</span>
             </>
           ) : (
             <>
               <span>Load More Cards</span>
-              <ChevronDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5" />
+              <Reicon name="chevron-down" size={14} className="transition-transform duration-200" />
             </>
           )}
         </button>

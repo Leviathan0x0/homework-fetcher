@@ -28,6 +28,10 @@ body {
   overscroll-behavior-y: none;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 /* Custom smooth scrollbar for minimal design */
 ::-webkit-scrollbar {
   width: 5px;

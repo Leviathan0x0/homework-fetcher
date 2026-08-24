@@ -2,15 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { X, User, CheckCircle2, AlertTriangle, ShieldCheck, Smartphone, Monitor, KeyRound, Trash2 } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { DownloadIcon } from './ui/download';
-import { LogoutIcon } from './ui/logout';
-import { UploadIcon } from './ui/upload';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -181,15 +177,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <div className="flex items-center gap-1.5 text-xs">
             {schoolSessionExpired ? (
               <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5 animate-wiggle-subtle" /> School portal disconnected
+                <Reicon name="alert-triangle" size={14} /> School portal disconnected
               </span>
             ) : sessionStatus === 'connected' ? (
               <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Session active
+                <Reicon name="circle-check" size={14} /> Session active
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <AlertTriangle className="w-3.5 h-3.5 animate-wiggle-subtle" /> Session expired
+                <Reicon name="alert-triangle" size={14} /> Session expired
               </span>
             )}
           </div>
@@ -216,7 +212,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onClick={handleSignOut}
               className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
             >
-              <InteractiveAnimatedIcon icon={LogoutIcon} size={14} className="w-3.5 h-3.5" />
+              <Reicon name="logout" size={14} preset="lift" className="w-3.5 h-3.5" />
               <span>Sign out</span>
             </button>
           </div>
@@ -235,7 +231,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 }}
                 className="group/reconnect inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
               >
-                <KeyRound className="w-3.5 h-3.5 transition-transform duration-200 group-hover/reconnect:rotate-12" />
+                <Reicon name="key" size={14} preset="scale" className="w-3.5 h-3.5" />
                 <span>Reconnect to school portal</span>
               </button>
             </div>
@@ -248,7 +244,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               className="group/password inline-flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60 cursor-pointer"
             >
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                <KeyRound className="h-3.5 w-3.5 text-neutral-500 transition-transform duration-200 group-hover/password:rotate-12" />
+                <Reicon name="key" size={14} className="h-3.5 w-3.5 text-neutral-500" />
                 Forgot or change password
               </span>
               <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
@@ -288,7 +284,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 onClick={() => pictureInputRef.current?.click()}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
               >
-                <InteractiveAnimatedIcon icon={UploadIcon} size={14} className="size-3.5" />
+                <Reicon name="upload" size={14} preset="lift" className="size-3.5" />
                 {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
               </button>
               {user?.profilePictureUrl && (
@@ -298,7 +294,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   onClick={handleRemovePicture}
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:border-rose-900 dark:hover:text-rose-400"
                 >
-                  <Trash2 className="size-3.5" /> Remove
+                  <Reicon name="trash-2" size={14} className="size-3.5" /> Remove
                 </button>
               )}
             </div>
@@ -344,7 +340,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
-              <Smartphone className="w-4 h-4" />
+              <Reicon name="smartphone" size={16} className="w-4 h-4" />
             </div>
             <div>
               <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
@@ -365,7 +361,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onClick={handleInstallClick}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer active:scale-95 transition-transform"
             >
-              <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
+              <Reicon name="download" size={14} preset="bounce" className="w-3.5 h-3.5" />
               <span>Install</span>
             </button>
           )}
@@ -399,7 +395,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       {/* Section 5: App Identity & Security Info */}
       <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
         <span className="flex items-center gap-1.5 group/sec">
-          <ShieldCheck className="w-4 h-4 text-emerald-500 transition-transform duration-200 group-hover/sec:rotate-12" />
+          <Reicon name="shield-check" size={16} preset="scale" className="w-4 h-4 text-emerald-500" />
           <span>Secure HTTP-only session</span>
         </span>
         <span className="text-[11px] font-medium">mmss64 · v1.1.0</span>
@@ -426,7 +422,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="flex items-center justify-between border-b border-neutral-200/80 dark:border-neutral-800/80 pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100">
-                  <Smartphone className="w-5 h-5" />
+                  <Reicon name="smartphone" size={20} className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">Install MMSS Mohali App</h3>
@@ -437,7 +433,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 onClick={() => setShowInstallModal(false)}
                 className="p-1 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <Reicon name="x" size={20} className="w-5 h-5" />
               </button>
             </div>
 
@@ -453,7 +449,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                 )}
               >
-                <Monitor className="w-3.5 h-3.5" />
+                <Reicon name="monitor" size={14} className="w-3.5 h-3.5" />
                 <span>Computer</span>
               </button>
 
@@ -467,7 +463,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                 )}
               >
-                <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                <Reicon name="smartphone" size={14} className="w-3.5 h-3.5 text-emerald-500" />
                 <span>Android</span>
               </button>
 
@@ -481,7 +477,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
                 )}
               >
-                <Smartphone className="w-3.5 h-3.5 text-sky-500" />
+                <Reicon name="smartphone" size={14} className="w-3.5 h-3.5 text-sky-500" />
                 <span>iOS</span>
               </button>
             </div>
@@ -546,7 +542,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   }}
                   className="w-full py-2.5 rounded-xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-bold text-xs hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                 >
-                  <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
+                  <Reicon name="download" size={16} preset="bounce" className="w-4 h-4" />
                   <span>Install Instantly (1-Click)</span>
                 </button>
               )}
@@ -598,7 +594,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-neutral-50/80 dark:bg-[#141418]/80">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 flex items-center justify-center font-bold text-xs">
-              <User className="w-4 h-4" />
+              <Reicon name="user" size={16} className="w-4 h-4" />
             </div>
             <h2 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
               Profile & Settings
@@ -609,7 +605,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             className="group/close p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-150 cursor-pointer active:scale-90"
             title="Close"
           >
-            <X className="w-5 h-5 sm:w-4 sm:h-4 transition-transform duration-200 group-hover/close:rotate-90" />
+            <Reicon name="x" size={18} />
           </button>
         </div>
 

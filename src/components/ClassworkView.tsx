@@ -3,33 +3,12 @@ import { classworkService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
-import {
-  FileText,
-  Image as ImageIcon,
-  FileCode,
-  FileSpreadsheet,
-  Presentation,
-  File,
-  Trash2,
-  X,
-  Loader2,
-  UserCheck,
-  Calendar as CalendarIcon,
-  CheckCircle2,
-  AlertCircle,
-  UploadCloud
-} from 'lucide-react';
+import { Reicon, Reillustration } from './ui/reicon';
 import { ClassworkEntry, SubjectInfo } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { DownloadIcon } from './ui/download';
-import { EyeIcon } from './ui/eye';
-import { FolderOpenIcon } from './ui/folder-open';
-import { PlusIcon } from './ui/plus';
-
 interface ClassworkViewProps {
   userSection?: string;
   onOpenPreview: (url: string, filename?: string) => void;
@@ -56,14 +35,11 @@ function formatFileSize(bytes: number): string {
 function getFileIcon(mimeType: string | null | undefined, filename: string) {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
   if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return <ImageIcon className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
+    return <Reicon name="image" size={20} className="text-neutral-500 dark:text-neutral-400" />;
   }
-  if (mimeType === 'application/pdf' || ext === 'pdf') return <FileText className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
-  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <FileText className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
-  if (ext === 'xls' || ext === 'xlsx' || mimeType?.includes('sheet') || mimeType?.includes('excel')) return <FileSpreadsheet className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
-  if (ext === 'ppt' || ext === 'pptx' || mimeType?.includes('presentation') || mimeType?.includes('powerpoint')) return <Presentation className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
-  if (ext === 'txt') return <FileCode className="w-5 h-5 text-neutral-500 dark:text-neutral-400" />;
-  return <File className="w-5 h-5 text-neutral-400" />;
+  if (mimeType === 'application/pdf' || ext === 'pdf') return <Reicon name="file-text" size={20} className="text-neutral-500 dark:text-neutral-400" />;
+  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <Reicon name="file-text" size={20} className="text-neutral-500 dark:text-neutral-400" />;
+  return <Reicon name="file" size={20} className="text-neutral-500 dark:text-neutral-400" />;
 }
 
 export const ClassworkView: React.FC<ClassworkViewProps> = ({
@@ -110,9 +86,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   const acceptFile = async (file: File) => {
     setModalError(null);
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
-    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.docx'];
     if (!allowed.includes(ext)) {
-      setModalError('Only homework PDFs and photos (JPG, PNG, or WebP) can be shared here.');
+      setModalError('Only homework PDFs, DOCX files, and photos (JPG, PNG, or WebP) can be shared here.');
       return;
     }
     const prepared = isCompressibleImage(file) ? await compressImage(file) : file;
@@ -217,7 +193,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         description="Access and share today's class notes, slides, and documents with classmates in your section."
         badge={
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700 text-xs font-medium">
-            <UserCheck className="w-3 h-3 text-neutral-500 dark:text-neutral-400" />
+            <Reicon name="user-check" size={12} className="text-neutral-500 dark:text-neutral-400" />
             {sectionName}
           </span>
         }
@@ -227,7 +203,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">
           <div className="flex items-center gap-2 min-w-0">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            <Reicon name="alert-circle" size={16} className="text-rose-600 shrink-0" />
             <span className="leading-snug">{errorMessage}</span>
           </div>
           <button
@@ -235,7 +211,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             disabled={isLoading}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-semibold hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
           >
-            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {isLoading ? <Reicon name="loader" size={12} isLoading className="animate-spin" /> : null}
             Retry
           </button>
         </div>
@@ -323,8 +299,8 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         </div>
       ) : filteredClasswork.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400 dark:text-neutral-500 shadow-2xs">
-            <InteractiveAnimatedIcon icon={FolderOpenIcon} size={24} className="w-6 h-6" />
+          <div className="mb-2">
+            <Reillustration name="classwork-empty" size="md" />
           </div>
           <div className="space-y-1 max-w-sm">
             <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-200">
@@ -342,7 +318,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             onClick={() => setIsUploadOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-medium hover:bg-neutral-800 transition-colors shadow-2xs cursor-pointer"
           >
-            <InteractiveAnimatedIcon icon={PlusIcon} size={14} className="w-3.5 h-3.5" />
+            <Reicon name="plus" size={14} preset="scale" className="w-3.5 h-3.5" />
             <span>Upload Today's Classwork</span>
           </button>
         </div>
@@ -380,7 +356,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                       {item.subject}
                     </span>
                     <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium flex items-center gap-1">
-                      <CalendarIcon className="w-3 h-3" />
+                      <Reicon name="calendar" size={12} />
                       {item.date === todayStr ? 'Today' : item.date}
                     </span>
                   </div>
@@ -420,7 +396,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                       className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
                     />
                     <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">
-                      <InteractiveAnimatedIcon icon={EyeIcon} size={16} className="w-4 h-4" />
+                      <Reicon name="eye" size={16} preset="scale" className="w-4 h-4" />
                       <span>Preview</span>
                     </div>
                   </div>
@@ -447,7 +423,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                         className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                         title="Preview File"
                       >
-                        <InteractiveAnimatedIcon icon={EyeIcon} size={14} className="w-3.5 h-3.5" />
+                        <Reicon name="eye" size={14} preset="scale" className="w-3.5 h-3.5" />
                       </button>
                     )}
 
@@ -457,7 +433,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                       className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
                       title="Download File"
                     >
-                      <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
+                      <Reicon name="download" size={14} preset="bounce" className="w-3.5 h-3.5" />
                     </a>
 
                     {item.isOwner && (
@@ -468,9 +444,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                         title="Delete Upload"
                       >
                         {deletingId === item.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Reicon name="loader" size={14} isLoading className="animate-spin" />
                         ) : (
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Reicon name="trash-2" size={14} />
                         )}
                       </button>
                     )}
@@ -487,7 +463,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             className="group relative rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-neutral-400 dark:hover:border-neutral-500 bg-neutral-50/50 dark:bg-[#141417]/50 p-6 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 cursor-pointer min-h-[180px] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
           >
             <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-2xs group-hover:scale-110 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-all duration-200">
-              <InteractiveAnimatedIcon icon={PlusIcon} size={20} className="w-5 h-5" />
+              <Reicon name="plus" size={20} preset="scale" className="w-5 h-5" />
             </div>
             <div>
               <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
@@ -509,7 +485,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
-                  <UploadCloud className="w-5 h-5" />
+                  <Reicon name="upload-cloud" size={20} preset="lift" />
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
@@ -524,14 +500,14 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                 onClick={() => setIsUploadOpen(false)}
                 className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <Reicon name="x" size={16} />
               </button>
             </div>
 
             {/* Modal Error */}
             {modalError && (
               <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 font-medium leading-relaxed flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                <Reicon name="alert-circle" size={16} className="shrink-0 text-rose-600 mt-0.5" />
                 <span>{modalError}</span>
               </div>
             )}
@@ -605,14 +581,14 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   <input
                     type="file"
                     onChange={handleFileChange}
-                    accept="image/jpeg,image/png,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf"
+                    accept="image/jpeg,image/png,image/webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.jpg,.jpeg,.png,.webp,.pdf,.docx"
                     className="absolute inset-0 opacity-0 cursor-pointer"
                   />
 
                   {selectedFile ? (
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-xl bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300">
-                        <CheckCircle2 className="w-5 h-5" />
+                        <Reicon name="circle-check" size={20} className="text-emerald-600 dark:text-emerald-400" />
                       </div>
                       <div className="text-left">
                         <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 max-w-[200px] truncate">
@@ -626,14 +602,14 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   ) : (
                     <div className="space-y-2">
                       <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-800 mx-auto flex items-center justify-center text-neutral-400">
-                        <UploadCloud className="w-5 h-5" />
+                        <Reicon name="upload-cloud" size={20} preset="lift" />
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                           Click to choose a file or drag & drop here
                         </p>
                         <p className="text-[10px] text-neutral-400 mt-0.5">
-                          Images, PDFs, Word, Excel, PowerPoint, Text (photos are compressed automatically)
+                          JPG, PNG, WebP, PDF, or DOCX (photos are compressed automatically)
                         </p>
                       </div>
                     </div>
@@ -658,12 +634,12 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <Reicon name="loader" size={14} isLoading className="animate-spin" />
                       <span>Uploading...</span>
                     </>
                   ) : (
                     <>
-                      <UploadCloud className="w-3.5 h-3.5" />
+                      <Reicon name="upload-cloud" size={14} preset="lift" />
                       <span>Upload</span>
                     </>
                   )}

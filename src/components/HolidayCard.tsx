@@ -1,10 +1,7 @@
 import React from 'react';
-import { SchoolCalendarEvent } from '../types/homework';
+import type { SchoolCalendarEvent } from '../types/homework';
 import { cn } from '../utils/cn';
-import { Sparkles, EyeOff } from 'lucide-react';
-import { EyeIcon } from './ui/eye';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { PartyPopperIcon } from './ui/party-popper';
+import { Reicon, Reillustration } from './ui/reicon';
 
 function isHolidayType(type?: string) {
   return /holiday|vacation|break|off/i.test(type || '');
@@ -31,7 +28,7 @@ function formatShortDate(ymd: string): string {
 }
 
 function typeLabel(type?: string) {
-  return isHolidayType(type) ? 'School holiday' : type || 'School event';
+  return isHolidayType(type) ? 'School Holiday' : type || 'School Event';
 }
 
 interface HolidayCardProps {
@@ -59,10 +56,8 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
     return (
       <section
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-rose-200/80 dark:border-rose-900/50',
-          'bg-gradient-to-br from-rose-50 via-white to-amber-50/80',
-          'dark:from-rose-950/40 dark:via-[#141417] dark:to-amber-950/20',
-          'p-4 sm:p-5 shadow-2xs',
+          'relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-rose-200/70 bg-gradient-to-br from-rose-50/80 via-rose-50/40 to-amber-50/50 p-5 sm:p-6 shadow-xs',
+          'dark:border-rose-900/40 dark:from-rose-950/30 dark:via-rose-950/15 dark:to-neutral-900/40',
           className
         )}
         aria-label={`${label}: ${event.title}`}
@@ -76,17 +71,17 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           aria-hidden
         />
 
-        <div className="relative flex items-start gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-500/25">
-            <InteractiveAnimatedIcon icon={PartyPopperIcon} size={20} className="h-5 w-5" />
+        <div className="relative flex items-start gap-4 min-w-0 flex-1">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-500/25">
+            <Reicon name="party-popper" size={22} preset="bounce" className="text-white" />
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
-                <Sparkles className="h-3 w-3" />
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 dark:bg-rose-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                <Reicon name="sparkles" size={12} preset="scale" className="text-rose-600 dark:text-rose-400" />
                 {label}
               </span>
-              <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+              <span className="text-xs tabular-nums font-medium text-neutral-500 dark:text-neutral-400">
                 {formatHolidayDate(event.date)}
               </span>
             </div>
@@ -94,9 +89,13 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
               {event.title}
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
-              No school today - enjoy the break.
+              No school today — enjoy the break.
             </p>
           </div>
+        </div>
+
+        <div className="hidden sm:flex shrink-0 items-center justify-center">
+          <Reillustration name="celebration-holiday" size="sm" interactive />
         </div>
       </section>
     );
@@ -107,8 +106,8 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
     return (
       <div
         className={cn(
-          'flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors',
-          active && visible && 'bg-rose-50 dark:bg-rose-950/35',
+          'flex items-center gap-2 rounded-xl px-2 py-1.5 transition-colors duration-200',
+          active && visible && 'bg-neutral-50 dark:bg-neutral-900/50',
           !visible && 'opacity-45',
           className
         )}
@@ -118,7 +117,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           onClick={onSelect}
           className={cn(
             'min-w-0 flex-1 flex items-center gap-2.5 text-left',
-            onSelect && 'cursor-pointer'
+            onSelect && 'cursor-pointer rounded-lg'
           )}
         >
           <span
@@ -153,14 +152,14 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
             onClick={onToggleVisible}
             title={visible ? 'Hide on calendar' : 'Show on calendar'}
             className={cn(
-              'shrink-0 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-colors',
+              'inline-flex items-center gap-1 shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-colors duration-200',
               visible
-                ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300 hover:bg-rose-500/15'
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                ? 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200'
+                : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200'
             )}
           >
-            {visible ? <InteractiveAnimatedIcon icon={EyeIcon} size={12} className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-            {visible ? 'On' : 'Off'}
+            <Reicon name={visible ? 'eye' : 'eye-off'} size={12} preset="scale" />
+            <span>{visible ? 'On' : 'Off'}</span>
           </button>
         )}
       </div>
@@ -171,38 +170,35 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-rose-200/70 dark:border-rose-900/45',
-        'bg-gradient-to-r from-rose-50/90 to-white dark:from-rose-950/30 dark:to-[#141417]',
-        'px-4 py-3.5 shadow-2xs',
+        'flex items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-3.5 py-3 shadow-2xs',
+        'dark:border-rose-900/40 dark:bg-rose-950/20',
         className
       )}
     >
-      <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/20">
-          <InteractiveAnimatedIcon icon={PartyPopperIcon} size={16} className="h-4 w-4" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-            {label}
-          </p>
-          <p className="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">
-            {event.title}
-          </p>
-          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            {formatHolidayDate(event.date)}
-          </p>
-        </div>
-        {onToggleVisible && (
-          <button
-            type="button"
-            onClick={onToggleVisible}
-            className="shrink-0 text-[11px] text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
-            title="Hide this holiday"
-          >
-            Hide
-          </button>
-        )}
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/20">
+        <Reicon name="party-popper" size={18} preset="bounce" className="text-white" />
       </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+          {label}
+        </p>
+        <p className="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">
+          {event.title}
+        </p>
+        <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+          {formatHolidayDate(event.date)}
+        </p>
+      </div>
+      {onToggleVisible && (
+        <button
+          type="button"
+          onClick={onToggleVisible}
+          className="shrink-0 cursor-pointer rounded-lg px-2 py-1 text-[11px] text-neutral-400 transition-colors duration-200 hover:bg-rose-500/10 hover:text-neutral-700 dark:hover:text-neutral-200"
+          title="Hide this holiday"
+        >
+          Hide
+        </button>
+      )}
     </div>
   );
 };

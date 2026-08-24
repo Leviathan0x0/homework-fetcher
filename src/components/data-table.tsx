@@ -90,7 +90,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
-import { GripVerticalIcon, CircleCheckIcon, LoaderIcon, EllipsisVerticalIcon, Columns3Icon, ChevronDownIcon, PlusIcon, ChevronsLeftIcon, ChevronLeftIcon, ChevronRightIcon, ChevronsRightIcon, TrendingUpIcon } from "lucide-react"
+import { Reicon } from "@/components/ui/reicon"
 
 export const schema = z.object({
   id: z.number(),
@@ -115,7 +115,7 @@ function DragHandle({ id }: { id: number }) {
       size="icon"
       className="size-7 text-muted-foreground hover:bg-transparent"
     >
-      <GripVerticalIcon className="size-3 text-muted-foreground" />
+      <Reicon name="grip-vertical" size={12} className="text-muted-foreground" />
       <span className="sr-only">Drag to reorder</span>
     </Button>
   )
@@ -178,10 +178,9 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     cell: ({ row }) => (
       <Badge variant="outline" className="px-1.5 text-muted-foreground">
         {row.original.status === "Done" ? (
-          <CircleCheckIcon className="fill-green-500 dark:fill-green-400" />
+          <Reicon name="circle-check" size={14} className="text-green-500 dark:text-green-400" />
         ) : (
-          <LoaderIcon
-          />
+          <Reicon name="loader" size={14} isLoading className="animate-spin" />
         )}
         {row.original.status}
       </Badge>
@@ -289,8 +288,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
             />
           }
         >
-          <EllipsisVerticalIcon
-          />
+          <Reicon name="ellipsis-vertical" size={16} />
           <span className="sr-only">Open menu</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-32">
@@ -437,9 +435,9 @@ export function DataTable({
             <DropdownMenuTrigger
               render={<Button variant="outline" size="sm" />}
             >
-              <Columns3Icon data-icon="inline-start" />
+              <Reicon name="columns-3" size={14} />
               Columns
-              <ChevronDownIcon data-icon="inline-end" />
+              <Reicon name="chevron-down" size={14} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-32">
               {table
@@ -466,8 +464,7 @@ export function DataTable({
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="outline" size="sm">
-            <PlusIcon
-            />
+            <Reicon name="plus" size={14} />
             <span className="hidden lg:inline">Add Section</span>
           </Button>
         </div>
@@ -575,8 +572,7 @@ export function DataTable({
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to first page</span>
-                <ChevronsLeftIcon
-                />
+                <Reicon name="chevrons-left" size={16} />
               </Button>
               <Button
                 variant="outline"
@@ -586,8 +582,7 @@ export function DataTable({
                 disabled={!table.getCanPreviousPage()}
               >
                 <span className="sr-only">Go to previous page</span>
-                <ChevronLeftIcon
-                />
+                <Reicon name="chevron-left" size={16} />
               </Button>
               <Button
                 variant="outline"
@@ -597,8 +592,7 @@ export function DataTable({
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to next page</span>
-                <ChevronRightIcon
-                />
+                <Reicon name="chevron-right" size={16} />
               </Button>
               <Button
                 variant="outline"
@@ -608,8 +602,7 @@ export function DataTable({
                 disabled={!table.getCanNextPage()}
               >
                 <span className="sr-only">Go to last page</span>
-                <ChevronsRightIcon
-                />
+                <Reicon name="chevrons-right" size={16} />
               </Button>
             </div>
           </div>
@@ -743,7 +736,7 @@ function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
               <div className="grid gap-2">
                 <div className="flex gap-2 leading-none font-medium">
                   Trending up by 5.2% this month{" "}
-                  <TrendingUpIcon className="size-4" />
+                  <Reicon name="trending-up" size={16} className="inline size-4" />
                 </div>
                 <div className="text-muted-foreground">
                   Showing total visitors for the last 6 months. This is just

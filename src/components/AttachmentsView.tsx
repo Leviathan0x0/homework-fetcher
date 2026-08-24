@@ -15,7 +15,7 @@ interface AttachmentsViewProps {
   completedMap: Record<string, boolean>;
   onToggleCompleted: (id: string) => void;
   onUpdateNote?: (id: string, note: string | null) => void;
-  onOpenPreview?: (url: string) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
 }
 
 export const AttachmentsView: React.FC<AttachmentsViewProps> = ({

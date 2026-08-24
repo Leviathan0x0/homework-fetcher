@@ -37,6 +37,13 @@
   "display_override": ["standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "categories": ["education", "productivity"],
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "/manifest.json",
+      "id": "/"
+    }
+  ],
   "prefer_related_applications": false,
   "shortcuts": [
     {

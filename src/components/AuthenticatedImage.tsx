@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image as ImageIcon } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { cn } from '../utils/cn';
+import { Reicon } from './ui/reicon';
 
 interface AuthenticatedImageProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, 'src' | 'onError' | 'onLoad'> {
   /** API path or absolute URL that requires the session cookie. */
@@ -115,7 +115,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         aria-label={alt ? `${alt} unavailable` : 'Image unavailable'}
       >
         <div className="flex flex-col items-center justify-center gap-1.5 px-3 text-center">
-          <ImageIcon className="w-6 h-6 opacity-60" />
+          <Reicon name="image" size={24} className="opacity-60" />
           <span className="text-xs font-medium">Image unavailable</span>
         </div>
       </div>

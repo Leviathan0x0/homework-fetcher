@@ -9,9 +9,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { ViewType, ThemeMode } from "../types/homework"
-import { SunIcon } from "@/components/ui/sun"
-import { MoonIcon } from "@/components/ui/moon"
-import { SettingsIcon } from "@/components/ui/settings"
+import { Reicon } from "@/components/ui/reicon"
 import { NotificationPopover } from "./NotificationPopover"
 import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
@@ -79,7 +77,7 @@ export function SiteHeader({
       case "admin-teachers":
         return "Teachers and staff";
       case "admin-moderation":
-        return "Moderation Controls";
+        return "Moderation and mutes";
       case "admin-alerts":
         return "Broadcast alerts";
       case "admin-reports":
@@ -146,9 +144,9 @@ export function SiteHeader({
           aria-label="Toggle theme"
         >
           {theme === "dark" ? (
-            <SunIcon size={16} isAnimated={hoveredButton === 'theme'} />
+            <Reicon name="sun" size={16} preset="rotate" isActive={hoveredButton === 'theme'} />
           ) : (
-            <MoonIcon size={16} isAnimated={hoveredButton === 'theme'} />
+            <Reicon name="moon" size={16} preset="scale" isActive={hoveredButton === 'theme'} />
           )}
         </button>
 
@@ -160,7 +158,7 @@ export function SiteHeader({
           title="Settings"
           aria-label="Settings"
         >
-          <SettingsIcon size={16} isAnimated={activeView === "settings" || hoveredButton === 'settings'} />
+          <Reicon name="settings" size={16} preset="gear" isActive={activeView === "settings" || hoveredButton === 'settings'} />
         </button>
       </div>
     </header>

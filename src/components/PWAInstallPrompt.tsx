@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Smartphone, X } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -141,7 +141,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
                 className="p-1 rounded-lg text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5" />
+                <Reicon name="x" size={20} />
               </button>
             </div>
 
@@ -199,7 +199,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             title="Install MMSS Mohali App"
             aria-label="Install MMSS Mohali App"
           >
-            <Download className="w-3.5 h-3.5 shrink-0" />
+            <Reicon name="download" size={14} className="shrink-0" />
             <span className="whitespace-nowrap max-[350px]:sr-only">Install</span>
           </button>
           <button
@@ -208,7 +208,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             title="Dismiss install button"
             aria-label="Dismiss install button"
           >
-            <X className="w-3.5 h-3.5 shrink-0" />
+            <Reicon name="x" size={14} className="shrink-0" />
           </button>
         </div>
         {ModalContent}
@@ -219,7 +219,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
   return (
     <>
       <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-neutral-200/60 dark:border-neutral-800/80 bg-neutral-50/80 dark:bg-neutral-900/40 text-xs text-neutral-700 dark:text-neutral-300 animate-in fade-in-0 duration-500">
-        <Smartphone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 shrink-0" />
+        <Reicon name="smartphone" size={14} className="text-neutral-400 dark:text-neutral-500 shrink-0" />
         <div className="min-w-0 flex-1 leading-snug">
           <span className="font-medium text-neutral-800 dark:text-neutral-200">Install the app</span>
           <span className="text-neutral-500 dark:text-neutral-500">
@@ -239,7 +239,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
             className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 cursor-pointer"
             aria-label="Dismiss banner"
           >
-            <X className="w-3.5 h-3.5" />
+            <Reicon name="x" size={14} />
           </button>
         </div>
       </div>

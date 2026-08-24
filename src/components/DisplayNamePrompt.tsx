@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Loader2, UserRound } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
 
@@ -32,7 +32,7 @@ export const DisplayNamePrompt: React.FC<DisplayNamePromptProps> = ({ onSaved })
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-sky-500/15 text-sky-700 dark:text-sky-300">
-          <UserRound className="size-4" />
+          <Reicon name="user-round" size={16} />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold">Add your display name</h2>
@@ -58,7 +58,7 @@ export const DisplayNamePrompt: React.FC<DisplayNamePromptProps> = ({ onSaved })
               disabled={saving || !name.trim()}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-sky-700 px-3 text-xs font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-500 dark:text-sky-950 dark:hover:bg-sky-400"
             >
-              {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+              {saving ? <Reicon name="loader" size={14} isLoading className="animate-spin" /> : <Reicon name="check" size={14} />}
               Save name
             </button>
           </div>

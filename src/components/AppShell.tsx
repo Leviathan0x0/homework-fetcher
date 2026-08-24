@@ -14,9 +14,10 @@ import { TodayView } from './TodayView';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
-import { Loader2 } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
+import { SHOW_LEAVE_AND_ABSENCE } from '../utils/features';
 
 type AppRole = 'student' | 'teacher' | 'admin';
 
@@ -47,7 +48,7 @@ const DisplayNamePrompt = lazy(() => import('./DisplayNamePrompt').then((m) => (
 /** Placeholder shown while a screen's code is still downloading. */
 const ViewFallback: React.FC = () => (
   <div className="flex items-center justify-center py-16">
-    <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+    <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
   </div>
 );
 
@@ -118,6 +119,7 @@ export const AppShell: React.FC = () => {
 
   const isViewAllowed = useCallback((view: ViewType) => {
     if (view === 'settings' || view === 'developers') return true;
+    if (!SHOW_LEAVE_AND_ABSENCE && (view === 'leave' || view === 'teacher-leave')) return false;
     if (isAdmin) return view.startsWith('admin-');
     if (isTeacher) return view.startsWith('teacher-') || view === 'messages';
     return !view.startsWith('admin-') && !view.startsWith('teacher-');
@@ -341,7 +343,7 @@ export const AppShell: React.FC = () => {
             <img src="/logo.png" alt="MMSS Mohali" className="w-full h-full object-contain" />
           </div>
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-neutral-400" />
+            <Reicon name="loader" size={14} isLoading className="animate-spin text-neutral-400" />
             <span>Checking your session</span>
           </div>
         </div>
@@ -396,7 +398,10 @@ export const AppShell: React.FC = () => {
             "flex-1 w-full min-w-0 mx-auto min-h-0 overflow-x-hidden",
             activeView === 'messages'
               ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
-              : "max-w-[1100px] px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
+              : cn(
+                  activeView === 'calendar' ? "max-w-[1400px]" : "max-w-[1100px]",
+                  "px-4 sm:px-6 lg:px-8 py-6 pb-[var(--mobile-nav-clearance,calc(6.5rem+env(safe-area-inset-bottom)))] md:pb-10 space-y-6"
+                )
           )}
         >
           {user && !isAdmin && !isTeacher && !user.displayName && (
@@ -452,7 +457,7 @@ export const AppShell: React.FC = () => {
 
           {activeView === 'messages' && (
             <div className="flex-1 min-h-0">
-              <MessagesView userSection={user?.section} currentStudentId={user?.studentId} />
+              <MessagesView userSection={user?.section} currentStudentId={user?.studentId} role={appRole} />
             </div>
           )}
 
@@ -566,7 +571,7 @@ export const AppShell: React.FC = () => {
             <AdminView activeSubView={activeView} onNavigate={handleViewChange} />
           )}
           {activeView.startsWith('teacher-') && (
-            <TeacherView activeSubView={activeView} onNavigate={handleViewChange} />
+            <TeacherView activeSubView={activeView} onNavigate={handleViewChange} onOpenPreview={handleOpenPreview} />
           )}
         </motion.main>
         </Suspense>

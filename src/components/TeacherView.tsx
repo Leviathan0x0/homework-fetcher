@@ -1,28 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import {
-  AlertCircle,
-  Bell,
-  Check,
-  ClipboardCheck,
-  ClipboardList,
-  Loader2,
-  Mic,
-  Paperclip,
-  MessageCircle,
-  Plus,
-  Send,
-  Users,
-  X,
-} from "lucide-react";
+import { Reicon } from "./ui/reicon";
 import { PageHeader } from "./PageHeader";
 import { teacherService } from "../services/api";
 import { ViewType } from "../types/homework";
 import { cn } from "../utils/cn";
 
+
 interface TeacherViewProps {
   activeSubView: ViewType;
   onNavigate: (view: ViewType) => void;
+  onOpenPreview?: (url: string, filename?: string) => void;
 }
 
 const inputClass =
@@ -51,7 +39,7 @@ function Empty({ children }: { children: React.ReactNode }) {
   return <div className="rounded-xl border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-400 dark:border-neutral-800">{children}</div>;
 }
 
-export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavigate }) => {
+export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavigate, onOpenPreview }) => {
   const prefersReducedMotion = useReducedMotion();
   const [dashboard, setDashboard] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -292,13 +280,13 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
   };
 
   if (isLoading) {
-    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><Loader2 className="size-5 animate-spin" /></div>;
+    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><Reicon name="loader" size={20} isLoading className="animate-spin text-neutral-400" /></div>;
   }
 
   return (
     <motion.div initial={prefersReducedMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl space-y-6 pb-12">
       {message && <div className="fixed right-4 top-4 z-50 rounded-xl bg-neutral-900 px-4 py-3 text-xs font-semibold text-white shadow-xl dark:bg-white dark:text-neutral-900">{message}</div>}
-      {error && <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-300"><AlertCircle className="size-4 shrink-0" />{error}<button className="ml-auto" onClick={() => setError(null)}><X className="size-3.5" /></button></div>}
+      {error && <div className="flex items-start gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-300"><Reicon name="alert-circle" size={16} preset="pulse" />{error}<button className="ml-auto" onClick={() => setError(null)} aria-label="Dismiss error"><Reicon name="x" size={14} preset="scale" /></button></div>}
 
       <PageHeader
         title={title[0]}
@@ -318,13 +306,13 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
               <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Start something</h2><p className="mt-1 text-xs text-neutral-500">Your most-used teacher actions.</p></div></div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {[
-                  ["teacher-assignments", "New assignment", "Give homework to a section", Plus],
-                  ["teacher-attendance", "Take attendance", "Mark your class in seconds", ClipboardCheck],
-                  ["teacher-announcements", "Announce to class", "Send a clear update", Bell],
-                  ["teacher-duties", "Create a duty", "Delegate a responsibility", ClipboardList],
-                ].map(([id, label, desc, Icon]: any) => (
-                  <button key={id} onClick={() => onNavigate(id)} className="group flex items-center gap-3 rounded-xl border border-neutral-200 p-3 text-left transition hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:hover:border-neutral-700">
-                    <span className="flex size-9 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><Icon className="size-4" /></span>
+                  ["teacher-assignments", "New assignment", "Give homework to a section", "plus"],
+                  ["teacher-attendance", "Take attendance", "Mark your class in seconds", "clipboard-list"],
+                  ["teacher-announcements", "Announce to class", "Send a clear update", "bell"],
+                  ["teacher-duties", "Create a duty", "Delegate a responsibility", "clipboard-list"],
+                ].map(([id, label, desc, iconName]: any) => (
+                  <button key={id} onClick={() => onNavigate(id)} className="group flex items-center gap-3 rounded-xl border border-neutral-200 p-3 text-left transition hover:border-neutral-300 hover:shadow-sm dark:border-neutral-800 dark:hover:border-neutral-700 cursor-pointer">
+                    <span className="flex size-9 items-center justify-center rounded-lg bg-neutral-100 text-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"><Reicon name={iconName} preset="scale" size={16} /></span>
                     <span><span className="block text-xs font-semibold">{label}</span><span className="mt-0.5 block text-[11px] text-neutral-500">{desc}</span></span>
                   </button>
                 ))}
@@ -351,11 +339,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             <div className="rounded-xl border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
               <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-neutral-200 px-2.5 py-2 text-[11px] font-medium hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900">
-                  <Paperclip className="size-3.5" /> Attach document
+                  <Reicon name="paperclip" size={14} /> Attach document
                   <input type="file" className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.webp" onChange={(e) => handleAssignmentFile(e.target.files?.[0])} />
                 </label>
-                <button type="button" onClick={toggleRecording} className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-medium transition", isRecording ? "border-rose-500 bg-rose-500/10 text-rose-600" : "border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900")}>
-                  {isRecording ? <><span className="size-2 animate-pulse rounded-full bg-rose-500" /> Stop recording</> : <><Mic className="size-3.5" /> Record voice</>}
+                <button type="button" onClick={toggleRecording} className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-medium transition cursor-pointer", isRecording ? "border-rose-500 bg-rose-500/10 text-rose-600" : "border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900")}>
+                  {isRecording ? <><span className="size-2 animate-pulse rounded-full bg-rose-500" /> Stop recording</> : <><Reicon name="megaphone" size={14} preset="pulse" /> Record voice</>}
                 </button>
               </div>
               <p className="mt-2 text-[10px] text-neutral-400">Attach a document or record a short voice instruction. One attachment per assignment.</p>
@@ -363,9 +351,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             </div>
             <input className={inputClass} type="date" value={assignmentForm.dueDate} onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })} />
             <div><p className="mb-2 text-[11px] font-medium text-neutral-500">Assign to sections</p><div className="flex flex-wrap gap-2">{sections.map((section: string) => <button type="button" key={section} onClick={() => setAssignmentForm({ ...assignmentForm, sections: assignmentForm.sections.includes(section) ? assignmentForm.sections.filter((item) => item !== section) : [...assignmentForm.sections, section] })} className={cn("rounded-lg border px-2.5 py-1.5 text-[11px] font-medium", assignmentForm.sections.includes(section) ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300" : "border-neutral-200 dark:border-neutral-800")}>{section}</button>)}</div></div>
-            <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900"><Send className="size-3.5" />Publish assignment</button>
+            <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} weight="Filled" />Publish assignment</button>
           </form></Panel>
-          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Published assignments</h2><p className="mt-1 text-xs text-neutral-500">Assignments currently shared with your sections.</p></div><div className="flex items-center gap-2"><a href="/api/teacher/exports/assignments.csv" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px] font-medium dark:border-neutral-800">Export CSV</a></div></div>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="w-full rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold">{assignment.title}</p><p className="mt-1 text-[11px] text-neutral-500">{assignment.subject} · due {assignment.dueDate}</p>{assignment.attachmentUrl && <a className="mt-2 inline-block text-[11px] font-medium text-sky-600 hover:underline" href={assignment.attachmentUrl} target="_blank" rel="noreferrer">Open attachment</a>}</div><span className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium dark:bg-neutral-900">{assignment.targetCount || assignment.targets?.length || 0} students</span></div></div>)}</div> : <Empty>No assignments published yet.</Empty>}</Panel>
+          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Published assignments</h2><p className="mt-1 text-xs text-neutral-500">Assignments currently shared with your sections.</p></div><div className="flex items-center gap-2"><a href="/api/teacher/exports/assignments.csv" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px] font-medium dark:border-neutral-800">Export CSV</a></div></div>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="w-full rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold">{assignment.title}</p><p className="mt-1 text-[11px] text-neutral-500">{assignment.subject} · due {assignment.dueDate}</p>{assignment.attachmentUrl && (onOpenPreview ? <button type="button" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 hover:underline cursor-pointer" onClick={() => onOpenPreview(assignment.attachmentUrl, assignment.attachmentFilename)}><Reicon name="paperclip" size={12} />Open attachment</button> : <a className="mt-2 inline-block text-[11px] font-medium text-sky-600 hover:underline" href={assignment.attachmentUrl} target="_blank" rel="noreferrer">Open attachment</a>)}</div><span className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium dark:bg-neutral-900">{assignment.targetCount || assignment.targets?.length || 0} students</span></div></div>)}</div> : <Empty>No assignments published yet.</Empty>}</Panel>
         </div>
       )}
 
@@ -387,7 +375,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
                     <h2 className="mt-1 text-lg font-semibold tracking-tight">Mark attendance</h2>
                     <p className="mt-1 text-xs leading-relaxed text-neutral-500">Choose a class and mark every student in one pass.</p>
                   </div>
-                  <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><ClipboardCheck className="size-5" /></div>
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"><Reicon name="calendar-check" size={20} /></div>
                 </div>
                 <div className="space-y-3">
                   <label className="block text-[11px] font-medium text-neutral-500">
@@ -401,8 +389,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
                     Date
                     <input className={cn(inputClass, "mt-1.5")} type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
                   </label>
-                  <button disabled={!attendanceSection || !roster.length} onClick={saveAttendance} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200">
-                    <Check className="size-4" /> Save attendance
+                  <button disabled={!attendanceSection || !roster.length} onClick={saveAttendance} className="mt-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white shadow-sm transition hover:bg-neutral-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 cursor-pointer">
+                    <Reicon name="check" size={16} preset="scale" /> Save attendance
                   </button>
                 </div>
               </div>
@@ -410,7 +398,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             <Panel>
               <div className="mb-4 flex items-center justify-between">
                 <div><h2 className="text-sm font-semibold">Class roster</h2><p className="mt-1 text-xs text-neutral-500">{roster.length ? `${roster.length} students · tap a status to update` : "Select a section to load students."}</p></div>
-                <Users className="size-5 text-neutral-400" />
+                <Reicon name="users" size={20} className="text-neutral-400" />
               </div>
               {roster.length ? (
                 <div className="space-y-2">
@@ -435,7 +423,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             </Panel>
           </div>
           <Panel>
-            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Recent attendance</h2><p className="mt-1 text-xs text-neutral-500">Your latest saved attendance sessions.</p></div><ClipboardList className="size-5 text-neutral-400" /></div>
+            <div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Recent attendance</h2><p className="mt-1 text-xs text-neutral-500">Your latest saved attendance sessions.</p></div><Reicon name="clipboard-list" size={20} className="text-neutral-400" /></div>
             {attendanceSessions.length ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{attendanceSessions.slice(0, 6).map((session) => <div key={session.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-center justify-between"><span className="text-xs font-semibold">{session.section}</span><span className="text-[11px] text-neutral-500">{session.date}</span></div><p className="mt-1 text-[11px] text-neutral-500">{session.title}</p></div>)}</div> : <Empty>No attendance sessions saved yet.</Empty>}
           </Panel>
           <Panel>
@@ -448,13 +436,13 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
 
       {activeSubView === "teacher-students" && (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Student profiles</h2><p className="mt-1 text-xs text-neutral-500">Notes are private to you and are never shown to students.</p></div><Users className="size-5 text-neutral-400" /></div><select className={inputClass} value={attendanceSection} onChange={(e) => loadRoster(e.target.value)}><option value="">Choose section</option>{sections.map((section: string) => <option key={section}>{section}</option>)}</select><div className="mt-3 space-y-2">{roster.length ? roster.map((student) => <button key={student.id} onClick={() => loadStudentNotes(student)} className={cn("flex w-full items-center justify-between rounded-xl border p-3 text-left transition", selectedStudent?.id === student.id ? "border-neutral-500 bg-neutral-500/5" : "border-neutral-200 dark:border-neutral-800")}><span><p className="text-xs font-semibold">{student.displayName}</p><p className="text-[11px] text-neutral-500">{student.studentId} · {student.section}</p></span><span className="text-[11px] text-neutral-600 dark:text-neutral-400">Open profile</span></button>) : <Empty>Select a section to view students.</Empty>}</div></Panel>
+          <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Student profiles</h2><p className="mt-1 text-xs text-neutral-500">Notes are private to you and are never shown to students.</p></div><Reicon name="users" size={20} className="text-neutral-400" /></div><select className={inputClass} value={attendanceSection} onChange={(e) => loadRoster(e.target.value)}><option value="">Choose section</option>{sections.map((section: string) => <option key={section}>{section}</option>)}</select><div className="mt-3 space-y-2">{roster.length ? roster.map((student) => <button key={student.id} onClick={() => loadStudentNotes(student)} className={cn("flex w-full items-center justify-between rounded-xl border border-neutral-200 p-3 text-left transition hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700 cursor-pointer")}><span><span className="block text-xs font-semibold">{student.displayName}</span><span className="text-[11px] text-neutral-500">{student.studentId} · {student.section}</span></span><span className="text-xs text-neutral-400">View notes →</span></button>) : <p className="text-xs text-neutral-400">No students found.</p>}</div></Panel>
           <Panel>{selectedStudent ? <><div className="mb-4"><p className="text-sm font-semibold">{selectedStudent.displayName}</p><p className="mt-1 text-xs text-neutral-500">{selectedStudent.studentId} · {selectedStudent.section}</p></div><div className="flex gap-2"><textarea className={textareaClass} placeholder="Add a private observation, support note, or follow-up..." value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} /><button type="button" onClick={saveStudentNote} className="h-10 shrink-0 rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900">Save</button></div><div className="mt-5 space-y-2">{studentNotes.length ? studentNotes.map((note) => <div key={note.id} className="rounded-xl border border-neutral-100 p-3 dark:border-neutral-800"><p className="text-xs leading-relaxed">{note.note}</p><p className="mt-2 text-[10px] text-neutral-400">{new Date(note.updatedAt).toLocaleString()}</p></div>) : <Empty>No private notes for this student.</Empty>}</div></> : <Empty>Select a student to view their profile.</Empty>}</Panel>
         </div>
       )}
 
       {activeSubView === "teacher-leave" && (
-        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Leave approvals</h2><p className="mt-1 text-xs text-neutral-500">Approve or reject requests for your class-teacher sections.</p></div><ClipboardCheck className="size-5 text-amber-500" /></div>{leaveRequests.length ? <div className="space-y-2">{leaveRequests.map((request) => <div key={request.id} className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold">{request.student}</p><p className="mt-1 text-[11px] text-neutral-500">{request.section} · {request.fromDate} → {request.toDate}</p><p className="mt-2 text-xs text-neutral-700 dark:text-neutral-300">{request.reason}</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold capitalize text-amber-700">{request.status}</span>{request.status === "pending" && <><button onClick={() => updateLeave(request, "approved")} className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-semibold text-white">Approve</button><button onClick={() => updateLeave(request, "rejected")} className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[10px] font-semibold text-white">Reject</button></>}</div></div>)}</div> : <Empty>No leave requests to review.</Empty>}</Panel>
+        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Leave approvals</h2><p className="mt-1 text-xs text-neutral-500">Approve or reject requests for your class-teacher sections.</p></div><Reicon name="calendar-check" size={20} className="text-amber-500" /></div>{leaveRequests.length ? <div className="space-y-2">{leaveRequests.map((request) => <div key={request.id} className="flex flex-col gap-3 rounded-xl border border-neutral-200 p-3 dark:border-neutral-800 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-semibold">{request.student}</p><p className="mt-1 text-[11px] text-neutral-500">{request.section} · {request.fromDate} → {request.toDate}</p><p className="mt-2 text-xs text-neutral-600 dark:text-neutral-300">{request.reason}</p></div><div className="flex items-center gap-2"><button onClick={() => updateLeave(request, "approved")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 cursor-pointer">Approve</button><button onClick={() => updateLeave(request, "rejected")} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-neutral-800 dark:hover:bg-rose-950/40 cursor-pointer">Reject</button></div></div>)}</div> : <Empty>No leave requests pending review.</Empty>}</Panel>
       )}
 
       {activeSubView === "teacher-duties" && (
@@ -462,11 +450,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
       )}
 
       {activeSubView === "teacher-announcements" && (
-        <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]"><Panel><h2 className="mb-4 text-sm font-semibold">Announce to a class</h2><form onSubmit={createAnnouncement} className="space-y-3"><select className={inputClass} value={announcementForm.section} onChange={(e) => setAnnouncementForm({ ...announcementForm, section: e.target.value })}><option value="">Choose section</option>{classTeacherSections.map((section: string) => <option key={section}>{section}</option>)}</select><input className={inputClass} placeholder="Announcement title" value={announcementForm.title} onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })} /><textarea className={textareaClass} placeholder="Write your announcement" value={announcementForm.content} onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })} /><button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900"><Send className="size-3.5" />Send announcement</button></form></Panel><Panel><h2 className="mb-4 text-sm font-semibold">Sent announcements</h2>{announcements.length ? <div className="space-y-2">{announcements.map((item) => <div key={item.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex justify-between gap-3"><p className="text-xs font-semibold">{item.title}</p><span className="text-[10px] text-neutral-400">{item.section}</span></div><p className="mt-2 text-xs leading-relaxed text-neutral-600 dark:text-neutral-300">{item.content}</p></div>)}</div> : <Empty>No announcements sent yet.</Empty>}</Panel></div>
+        <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]"><Panel><div className="mb-4 flex items-center gap-2"><Reicon name="bell" size={17} /><h2 className="text-sm font-semibold">Announce to a class</h2></div><form onSubmit={createAnnouncement} className="space-y-3"><select className={inputClass} value={announcementForm.section} onChange={(e) => setAnnouncementForm({ ...announcementForm, section: e.target.value })}><option value="">Choose section</option>{classTeacherSections.map((section: string) => <option key={section}>{section}</option>)}</select><input className={inputClass} placeholder="Announcement title" value={announcementForm.title} onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })} /><textarea className={textareaClass} placeholder="Announcement content" value={announcementForm.content} onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })} /><button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="megaphone" size={14} />Publish announcement</button></form></Panel><Panel><h2 className="mb-4 text-sm font-semibold">Recent class announcements</h2>{announcements.length ? <div className="space-y-2">{announcements.map((item) => <div key={item.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-center justify-between"><span className="text-xs font-semibold">{item.title}</span><span className="text-[11px] text-neutral-500">{item.section}</span></div><p className="mt-1 text-xs text-neutral-600 dark:text-neutral-300">{item.content}</p></div>)}</div> : <Empty>No announcements sent yet.</Empty>}</Panel></div>
       )}
 
       {activeSubView === "teacher-parents" && (
-        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><MessageCircle className="size-5 text-neutral-400" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[11px] font-medium dark:border-neutral-800">Message</button></div>)}</div> : <Empty>No parent accounts are linked to your sections yet.</Empty>}</Panel>
+        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><Reicon name="message-square" size={20} className="text-neutral-400" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900 cursor-pointer">Open chat</button></div>)}</div> : <Empty>No parent contacts available.</Empty>}</Panel>
       )}
     </motion.div>
   );

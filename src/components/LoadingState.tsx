@@ -1,5 +1,5 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
 
 interface LoadingStateProps {
@@ -18,7 +18,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ label, className }) 
     aria-live="polite"
     aria-busy="true"
   >
-    <Loader2 className="size-5 animate-spin text-neutral-400 dark:text-neutral-500" aria-hidden="true" />
+    <Reicon name="loader" size={20} isLoading className="animate-spin text-neutral-400 dark:text-neutral-500" />
     <p className="text-xs font-medium">{label}</p>
   </div>
 );

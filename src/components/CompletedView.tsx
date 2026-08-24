@@ -79,7 +79,7 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
         <LoadingSkeleton label="Loading completed homework…" />
       ) : filteredEntries.length === 0 ? (
         <EmptyState
-          type="all"
+          type="completed"
           title="No completed homework"
           subtitle="Check off tasks on your dashboard to see them listed here."
         />

@@ -1,27 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
-import {
-  Bell,
-  ClipboardList,
-  FileText,
-  Flag,
-  GraduationCap,
-  LayoutDashboard,
-  Megaphone,
-  Settings,
-  Users,
-  type LucideIcon,
-} from 'lucide-react';
-import { ViewType } from '../types/homework';
-import { CalendarCheckIcon } from '@/components/ui/calendar-check';
-import { UploadIcon } from '@/components/ui/upload';
-import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
-import { MessageSquareIcon } from '@/components/ui/message-square';
-import { SearchIcon } from '@/components/ui/search';
-import { SettingsIcon } from '@/components/ui/settings';
-import { AnimatedIcon, type AnimationPreset } from '@/components/ui/animated-icon';
+import { Reicon, type ReiconName } from './ui/reicon';
 import { cn } from '../utils/cn';
+import type { ViewType } from '../types/homework';
 
 interface MobileNavigationProps {
   activeView: ViewType;
@@ -64,11 +46,7 @@ function useVisualViewportBottomOffset() {
   return offset;
 }
 
-// A single, restrained spring reused everywhere so every motion in the bar
-// feels like one mechanism, not several competing effects.
-const indicatorSpring = { type: 'spring' as const, stiffness: 520, damping: 42, mass: 0.6 };
-const pressSpring = { type: 'spring' as const, stiffness: 700, damping: 30 };
-
+const dockSpring = { type: 'spring' as const, stiffness: 520, damping: 38, mass: 0.6 };
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeView,
   onViewChange,
@@ -82,10 +60,10 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
   useEffect(() => {
     setMounted(true);
-    // Keep page content clear of the fixed dock (bar + gap + home-indicator).
+    // Keep page content clear of the floating dock bar.
     document.documentElement.style.setProperty(
       '--mobile-nav-clearance',
-      'calc(5.75rem + max(0.6rem, env(safe-area-inset-bottom, 0px)))'
+      'calc(5.25rem + max(0.65rem, env(safe-area-inset-bottom, 0px)))'
     );
     return () => {
       document.documentElement.style.removeProperty('--mobile-nav-clearance');
@@ -95,65 +73,57 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   type NavItem = {
     id: ViewType;
     label: string;
-    IconComponent?: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>;
-    icon?: LucideIcon;
-    preset?: AnimationPreset;
+    iconName: ReiconName;
     badge?: number;
   };
 
   const studentItems: NavItem[] = [
-    { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon },
-    { id: 'classwork', label: 'Uploads', IconComponent: UploadIcon },
-    { id: 'requests', label: 'Requests', IconComponent: HeartHandshakeIcon, badge: openRequests > 0 ? openRequests : undefined },
-    { id: 'messages', label: 'Messages', IconComponent: MessageSquareIcon, badge: messagesUnread > 0 ? messagesUnread : undefined },
-    { id: 'all', label: 'Search', IconComponent: SearchIcon },
-    { id: 'settings', label: 'Settings', IconComponent: SettingsIcon },
+    { id: 'today', label: 'Today', iconName: 'calendar-check' },
+    { id: 'classwork', label: 'Uploads', iconName: 'upload' },
+    { id: 'requests', label: 'Requests', iconName: 'heart-handshake', badge: openRequests > 0 ? openRequests : undefined },
+    { id: 'messages', label: 'Messages', iconName: 'message-square', badge: messagesUnread > 0 ? messagesUnread : undefined },
+    { id: 'all', label: 'Search', iconName: 'search' },
   ];
+
   const teacherItems: NavItem[] = [
-    { id: 'teacher-overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'teacher-assignments', label: 'Tasks', icon: FileText, preset: 'lift' },
-    { id: 'teacher-attendance', label: 'Roll', icon: ClipboardList },
-    { id: 'teacher-announcements', label: 'Updates', icon: Megaphone, preset: 'bounce' },
-    { id: 'teacher-students', label: 'Students', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+    { id: 'teacher-overview', label: 'Overview', iconName: 'activity' },
+    { id: 'teacher-assignments', label: 'Tasks', iconName: 'paperclip' },
+    { id: 'teacher-attendance', label: 'Roll', iconName: 'calendar-check' },
+    { id: 'teacher-announcements', label: 'Updates', iconName: 'bell' },
+    { id: 'teacher-students', label: 'Students', iconName: 'users' },
   ];
+
   const adminItems: NavItem[] = [
-    { id: 'admin-overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'admin-students', label: 'Students', icon: Users },
-    { id: 'admin-teachers', label: 'Staff', icon: GraduationCap },
-    { id: 'admin-reports', label: 'Reports', icon: Flag, preset: 'lift' },
-    { id: 'admin-alerts', label: 'Alerts', icon: Bell, preset: 'ring' },
-    { id: 'settings', label: 'Settings', icon: Settings, preset: 'gear' },
+    { id: 'admin-overview', label: 'Overview', iconName: 'activity' },
+    { id: 'admin-students', label: 'Students', iconName: 'users' },
+    { id: 'admin-teachers', label: 'Staff', iconName: 'graduation-cap' },
+    { id: 'admin-reports', label: 'Reports', iconName: 'flag' },
+    { id: 'admin-alerts', label: 'Alerts', iconName: 'bell' },
   ];
+
   const items = role === 'admin' ? adminItems : role === 'teacher' ? teacherItems : studentItems;
 
   const nav = (
     <nav
-      aria-label="Primary"
-      className="md:hidden fixed inset-x-0 z-40 flex justify-center px-4 pointer-events-none"
+      aria-label="Mobile Navigation"
+      className="md:hidden fixed inset-x-0 bottom-0 z-40 flex justify-center px-3.5 pointer-events-none"
       style={{
         bottom: viewportBottomOffset,
-        paddingBottom: 'max(0.6rem, env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0px))',
         transform: 'translateZ(0)',
       }}
     >
       <div
         className={cn(
-          'pointer-events-auto w-full max-w-[23rem]',
-          'rounded-[1.15rem] p-1',
-          'flex items-stretch justify-between',
-          // A near-opaque surface with a hairline border reads as a real native
-          // control rather than a generic frosted-glass overlay.
-          'bg-[#fbfbfb]/[0.98] dark:bg-[#151517]/[0.98]',
-          'border border-neutral-200/70 dark:border-white/[0.07]',
-          'shadow-[0_1px_2px_rgba(15,23,42,0.04),0_12px_28px_-14px_rgba(15,23,42,0.28)]',
-          'dark:shadow-[0_1px_2px_rgba(0,0,0,0.3),0_12px_28px_-14px_rgba(0,0,0,0.55)]',
+          'pointer-events-auto flex items-center justify-between gap-1 p-1.5 rounded-full',
+          'bg-[#121215]/95 dark:bg-[#151518]/95 backdrop-blur-2xl',
+          'border border-neutral-800/80 dark:border-white/[0.08]',
+          'shadow-[0_8px_32px_rgba(0,0,0,0.38),0_2px_6px_rgba(0,0,0,0.2)]',
           'select-none'
         )}
       >
-        <LayoutGroup id="mobile-nav">
+        <LayoutGroup id="mobile-floating-dock">
           {items.map((item) => {
-            const IconComp = item.IconComponent;
             const isActive = activeView === item.id;
 
             return (
@@ -164,66 +134,59 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 aria-current={isActive ? 'page' : undefined}
                 aria-label={item.label}
                 className={cn(
-                  'relative flex flex-1 flex-col items-center justify-center gap-[3px]',
-                  'min-w-0 h-[3.1rem] rounded-[0.8rem]',
-                  'cursor-pointer touch-manipulation',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/20 dark:focus-visible:ring-white/25'
+                  'relative h-10 flex items-center justify-center rounded-full',
+                  'cursor-pointer touch-manipulation transition-colors duration-150',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+                  isActive ? 'px-3.5' : 'w-10'
                 )}
               >
                 {isActive && (
                   <motion.span
-                    layoutId="mobile-nav-indicator"
-                    transition={prefersReducedMotion ? { duration: 0 } : indicatorSpring}
+                    layoutId="dock-active-pill"
+                    transition={prefersReducedMotion ? { duration: 0 } : dockSpring}
+                    style={{ borderRadius: 9999 }}
                     aria-hidden
-                    className="absolute inset-0 rounded-[0.8rem] bg-neutral-900 dark:bg-white"
+                    className="absolute inset-0 bg-white shadow-xs pointer-events-none"
                   />
                 )}
 
-                <motion.span
-                  whileTap={prefersReducedMotion ? undefined : { scale: 0.88 }}
-                  transition={prefersReducedMotion ? { duration: 0 } : pressSpring}
-                  className={cn(
-                    'relative z-[1] flex items-center justify-center transition-colors duration-150',
-                    isActive
-                      ? 'text-white dark:text-neutral-900'
-                      : 'text-neutral-400 dark:text-neutral-500'
-                  )}
-                >
-                  {IconComp ? (
-                    <IconComp size={19} isAnimated={isActive} className="shrink-0" />
-                  ) : item.icon ? (
-                    <AnimatedIcon
-                      icon={item.icon}
-                      preset={item.preset || 'scale'}
-                      isActive={isActive}
-                      size={19}
-                      className="shrink-0"
-                    />
-                  ) : null}
+                <div className="relative z-[1] flex items-center gap-1.5">
+                  <Reicon
+                    name={item.iconName}
+                    size={19}
+                    className={cn(
+                      'shrink-0 transition-colors duration-150',
+                      isActive
+                        ? 'text-neutral-950'
+                        : 'text-neutral-400 hover:text-neutral-200'
+                    )}
+                  />
+
                   {item.badge !== undefined && (
                     <span
                       className={cn(
-                        'absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none',
+                        'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs',
                         isActive
-                          ? 'bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white'
-                          : 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+                          ? 'bg-neutral-950 text-white'
+                          : 'bg-rose-500 text-white'
                       )}
                     >
                       {item.badge > 9 ? '9+' : item.badge}
                     </span>
                   )}
-                </motion.span>
 
-                <span
-                  className={cn(
-                    'relative z-[1] max-w-[3.6rem] truncate text-[10px] leading-none tracking-tight transition-colors duration-150 max-[359px]:sr-only',
-                    isActive
-                      ? 'font-medium text-white dark:text-neutral-900'
-                      : 'font-medium text-neutral-400 dark:text-neutral-500'
+                  {isActive && (
+                    <motion.span
+                      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
+                      className="text-xs font-semibold text-neutral-950 tracking-tight whitespace-nowrap"
+                    >
+                      {item.label}
+                    </motion.span>
                   )}
-                >
-                  {item.label}
-                </span>
+                </div>
               </button>
             );
           })}
@@ -231,7 +194,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       </div>
     </nav>
   );
-
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(nav, document.body);
 };

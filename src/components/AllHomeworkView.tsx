@@ -16,9 +16,7 @@ import { RefreshButton } from './RefreshButton';
 import { LoadMoreButton } from './LoadMoreButton';
 import { ScrollToTopButton } from './ScrollToTopButton';
 import { cn } from '../utils/cn';
-import { HeartHandshakeIcon } from './ui/heart-handshake';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { UploadIcon } from './ui/upload';
+import { Reicon } from './ui/reicon';
 
 interface AllHomeworkViewProps {
   homework: HomeworkEntry[];
@@ -249,7 +247,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {matchedClasswork.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <InteractiveAnimatedIcon icon={UploadIcon} size={14} className="w-3.5 h-3.5" /> Classwork
+                <Reicon name="upload" size={14} preset="lift" className="w-3.5 h-3.5" /> Classwork
                 <span className="tabular-nums normal-case tracking-normal font-medium">({matchedClasswork.length})</span>
               </h2>
               <div className="space-y-2">
@@ -281,7 +279,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
           {matchedRequests.length > 0 && (
             <section className="space-y-3">
               <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5">
-                <InteractiveAnimatedIcon icon={HeartHandshakeIcon} size={14} className="w-3.5 h-3.5" /> Requests
+                <Reicon name="heart-handshake" size={14} preset="scale" className="w-3.5 h-3.5" /> Requests
                 <span className="tabular-nums normal-case tracking-normal font-medium">({matchedRequests.length})</span>
               </h2>
               <div className="space-y-2">

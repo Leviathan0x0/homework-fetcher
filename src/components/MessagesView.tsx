@@ -17,13 +17,7 @@ import { MonitoringNoticeDialog } from './MonitoringNoticeDialog';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { ProfileAvatar } from './ProfileAvatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
-import { SearchIcon } from '@/components/ui/search';
-import { ArrowLeftIcon } from '@/components/ui/arrow-left';
-import { AttachFileIcon } from '@/components/ui/attach-file';
-import { DownloadIcon } from '@/components/ui/download';
-import { InteractiveAnimatedIcon } from '@/components/ui/interactive-animated-icon';
-import { MessageSquareIcon } from '@/components/ui/message-square';
-import { SendIcon } from '@/components/ui/send';
+import { Reicon, Reillustration } from './ui/reicon';
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
@@ -31,28 +25,12 @@ import {
   messagePreviewText,
   type PendingRequestContext,
 } from '../utils/pendingMessageOpen';
-import {
-  X,
-  Loader2,
-  ArrowDown,
-  Paperclip,
-  FileText,
-  Trash2,
-  Flag,
-  Handshake,
-  Reply,
-  Check,
-  CheckCheck,
-  BellOff,
-  Bell,
-  Pin,
-  Users,
-  LogOut,
-} from 'lucide-react';
+
 
 interface MessagesViewProps {
   userSection?: string;
   currentStudentId?: string;
+  role?: 'student' | 'teacher' | 'admin';
 }
 
 /** Turns stored section codes into a clear class-group title, e.g. "9-C" → "Class 9-C". */
@@ -1088,9 +1066,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="inline-flex items-center gap-1.5 h-8 max-w-[11rem] px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] text-[11px] font-medium text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
           >
             {askClassBusy ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <Reicon name="loader" size={14} isLoading className="animate-spin shrink-0" />
             ) : (
-              <Users className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
+              <Reicon name="users" size={14} className="shrink-0 text-neutral-400" />
             )}
             <span className="truncate">{classButtonLabel}</span>
             {sectionConv?.memberCount ? (
@@ -1099,9 +1077,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           </button>
         </div>
         <div className="relative">
-          <SearchIcon
+          <Reicon
+            name="search"
             size={14}
-            isAnimated={Boolean(searchQuery)}
+            preset="zoom"
+            isActive={Boolean(searchQuery)}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none"
           />
           <input
@@ -1118,7 +1098,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <Reicon name="x" size={14} />
             </button>
           )}
         </div>
@@ -1127,7 +1107,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       <div className="flex-1 overflow-y-auto">
         {searching ? (
           <div className="flex items-center justify-center py-10">
-            <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+            <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
           </div>
         ) : searchQuery.trim() ? (
           searchResults.length > 0 ? (
@@ -1163,16 +1143,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         ) : conversations.length === 0 ? (
           isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+              <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
-              <InteractiveAnimatedIcon icon={MessageSquareIcon} size={22} className="text-neutral-300 dark:text-neutral-600 mb-3" />
-              <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">
+            <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
+              <div className="mb-3">
+                <Reillustration
+                  name={
+                    currentStudentId === 'admin_mmss'
+                      ? 'messages-empty-admin'
+                      : userSection === 'Staff'
+                        ? 'messages-empty-teacher'
+                        : 'messages-empty-student'
+                  }
+                  size="sm"
+                />
+              </div>
+              <p className="text-[13px] font-semibold text-neutral-900 dark:text-neutral-100">
                 {loadError ? 'Couldn’t load chats' : 'No conversations yet'}
               </p>
-              <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[18rem] leading-relaxed">
-                {loadError || 'Type a classmate’s student ID above to message them - they don’t need an account yet.'}
+              <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 max-w-[16rem] leading-relaxed">
+                {loadError || 'Search a student ID or name above to start a conversation.'}
               </p>
             </div>
           )
@@ -1204,7 +1195,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                         ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
                         : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
                     )}>
-                      <Users className="w-5 h-5" />
+                      <Reicon name="users" size={20} />
                     </div>
                   ) : (
                     <ProfileAvatar
@@ -1227,7 +1218,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                           {conv.type === 'section' ? classGroupLabel(conv.section) : userLabel(conv.otherUser)}
                         </span>
                         {conv.muted && (
-                          <BellOff className="w-3 h-3 text-neutral-400 shrink-0" />
+                          <Reicon name="bell" size={12} className="text-neutral-400 shrink-0 opacity-50" />
                         )}
                       </div>
                       <div className="shrink-0 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
@@ -1279,11 +1270,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                   className="absolute right-2 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-md bg-white/95 p-1.5 text-neutral-400 opacity-0 shadow-2xs transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:translate-x-0 focus-visible:opacity-100 disabled:opacity-50 group-hover/conv:translate-x-0 group-hover/conv:opacity-100 group-focus-within/conv:translate-x-0 group-focus-within/conv:opacity-100 dark:bg-[#141417]/95 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                 >
                   {deletingConvId === conv.id ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Reicon name="loader" size={14} isLoading className="animate-spin" />
                   ) : conv.type === 'section' ? (
-                    <LogOut className="w-3.5 h-3.5" />
+                    <Reicon name="logout" size={14} />
                   ) : (
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Reicon name="trash-2" size={14} />
                   )}
                 </button>
               </div>
@@ -1302,11 +1293,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             onClick={() => setActiveConvId(null)}
             className="md:hidden p-1.5 -ml-1 rounded-md text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/60 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
           >
-            <InteractiveAnimatedIcon icon={ArrowLeftIcon} size={16} className="w-4 h-4" />
+            <Reicon name="arrow-left" size={16} preset="lift" className="w-4 h-4" />
           </button>
           {activeConv?.type === 'section' ? (
             <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
-              <Users className="w-4 h-4" />
+              <Reicon name="users" size={16} />
             </div>
           ) : (
             <ProfileAvatar
@@ -1335,7 +1326,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             )}
             {activeConv?.muted && (
               <p className="text-[11px] text-neutral-400 truncate leading-tight mt-0.5 flex items-center gap-1">
-                <BellOff className="w-3 h-3" /> Muted
+                <Reicon name="bell" size={12} className="opacity-50" /> Muted
               </p>
             )}
           </div>
@@ -1363,7 +1354,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                       : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                   )}
                 >
-                  {pinning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pin className="w-3.5 h-3.5" />}
+                  {pinning ? <Reicon name="loader" size={14} isLoading className="animate-spin" /> : <Reicon name="paperclip" size={14} />}
                 </button>
               )}
             />
@@ -1379,11 +1370,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
           >
             {muting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Reicon name="loader" size={14} isLoading className="animate-spin" />
             ) : activeConv?.muted ? (
-              <BellOff className="w-3.5 h-3.5" />
+              <Reicon name="bell" size={14} className="opacity-50" />
             ) : (
-              <Bell className="w-3.5 h-3.5" />
+              <Reicon name="bell" size={14} />
             )}
           </button>
           <button
@@ -1393,7 +1384,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             aria-label="Report this chat"
             className="p-1.5 rounded-md text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {reportingConv ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-3.5 h-3.5" />}
+            {reportingConv ? <Reicon name="loader" size={16} isLoading className="animate-spin" /> : <Reicon name="flag" size={14} />}
           </button>
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
@@ -1403,11 +1394,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
             {deletingConvId === activeConvId ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Reicon name="loader" size={16} isLoading className="animate-spin" />
             ) : activeConv?.type === 'section' ? (
-              <LogOut className="w-3.5 h-3.5" />
+              <Reicon name="logout" size={14} />
             ) : (
-              <Trash2 className="w-3.5 h-3.5" />
+              <Reicon name="trash-2" size={14} />
             )}
           </button>
         </div>
@@ -1415,7 +1406,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
 
       {activeConv?.pinnedHomework && (
         <div className="mx-3 mt-2 mb-0 flex items-start gap-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/30 px-3 py-2.5 shrink-0" role="status">
-          <Pin className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
+          <Reicon name="paperclip" size={14} className="text-amber-700 dark:text-amber-400 mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/80 mb-0.5">
               Pinned homework in this chat
@@ -1441,9 +1432,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-medium text-amber-800 dark:text-amber-300 hover:underline"
               >
-                <FileText className="w-3 h-3" />
+                <Reicon name="file-text" size={12} className="w-3 h-3" />
                 Open PDF
-                <InteractiveAnimatedIcon icon={DownloadIcon} size={12} className="w-3 h-3" />
+                <Reicon name="download" size={12} className="w-3 h-3" />
               </a>
             )}
           </div>
@@ -1454,7 +1445,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             title="Unpin"
             aria-label="Unpin homework"
           >
-            <X className="w-3.5 h-3.5" />
+            <Reicon name="x" size={14} />
           </button>
         </div>
       )}
@@ -1477,6 +1468,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           </div>
         ) : visibleMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+            <div className="mb-4">
+              <Reillustration
+                name={
+                  currentStudentId === 'admin_mmss'
+                    ? 'messages-empty-admin'
+                    : userSection === 'Staff'
+                      ? 'messages-empty-teacher'
+                      : 'messages-empty-student'
+                }
+                size={110}
+              />
+            </div>
             <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-300">Say hello</p>
             <p className="text-[12px] text-neutral-400 mt-1.5 max-w-[16rem] leading-relaxed">
               Share homework notes, a PDF, or a photo when it helps.
@@ -1573,7 +1576,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                               isMine ? '-left-9' : '-right-9'
                             )}
                           >
-                            <Reply className="w-3.5 h-3.5" />
+                            <Reicon name="arrow-left" size={14} />
                           </button>
                           {isMine && (
                             <button
@@ -1584,9 +1587,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                               className="absolute -left-[4.25rem] top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                             >
                               {deletingMessageId === m.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <Reicon name="loader" size={14} isLoading className="animate-spin" />
                               ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Reicon name="trash-2" size={14} />
                               )}
                             </button>
                           )}
@@ -1601,7 +1604,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                             : "border-neutral-300 dark:border-neutral-700"
                         )}>
                           <div className="font-medium flex items-center gap-1">
-                            <Handshake className="w-3 h-3 shrink-0 opacity-80" />
+                            <Reicon name="heart-handshake" size={12} className="shrink-0 opacity-80" />
                             <span>
                               Request
                               {m.requestRef.category ? ` · ${m.requestRef.category}` : ''}
@@ -1682,9 +1685,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                                   : 'bg-neutral-100 dark:bg-neutral-900'
                               )}
                             >
-                              <FileText className="w-4 h-4 shrink-0 opacity-70" />
+                              <Reicon name="file-text" size={16} className="w-4 h-4 shrink-0 opacity-70" />
                               <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
-                              <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                              <Reicon name="download" size={14} className="w-3.5 h-3.5 shrink-0 opacity-70" />
                             </button>
                           )}
                         </div>
@@ -1707,12 +1710,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                             {isPending ? 'Sending' : timeStr}
                             {isMine && !isPending && m.readBy && m.readBy.length > 0 && (
                               <span title={`Read by ${m.readBy.length}`}>
-                                <CheckCheck className="w-3 h-3" aria-hidden />
+                                <Reicon name="check" size={12} />
                               </span>
                             )}
                             {isMine && !isPending && (!m.readBy || m.readBy.length === 0) && (
                               <span title="Sent">
-                                <Check className="w-3 h-3" aria-hidden />
+                                <Reicon name="check" size={12} />
                               </span>
                             )}
                           </span>
@@ -1736,7 +1739,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             aria-label="Scroll to bottom"
             className="sticky bottom-2 left-full -translate-x-10 z-30 p-2 rounded-full bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shadow-sm hover:text-neutral-900 dark:hover:text-white cursor-pointer"
           >
-            <ArrowDown className="w-4 h-4" />
+            <Reicon name="arrow-down" size={16} />
           </button>
         )}
       </div>
@@ -1750,7 +1753,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
 
         {attachedRequest && (
           <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
-            <Reply className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <Reicon name="arrow-left" size={14} className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-medium text-blue-900 dark:text-blue-300">
                 Replying to request
@@ -1771,7 +1774,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               className="p-0.5 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer shrink-0"
               aria-label="Cancel request reply"
             >
-              <X className="w-3.5 h-3.5" />
+              <Reicon name="x" size={14} />
             </button>
           </div>
         )}
@@ -1779,21 +1782,21 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         {selectedFile && (
           <div className="mb-2 px-2.5 py-2 rounded-lg bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-2 text-[12px]">
             <div className="flex items-center gap-2 min-w-0">
-              <Paperclip className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+              <Reicon name="paperclip" size={14} className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
               <span className="font-medium truncate">{selectedFile.name}</span>
             </div>
             <button
               onClick={() => setSelectedFile(null)}
               className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
+              <Reicon name="x" size={14} />
             </button>
           </div>
         )}
 
         {replyingTo && !attachedRequest && (
           <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 flex items-start gap-2">
-            <Reply className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <Reicon name="arrow-left" size={14} className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-medium text-blue-900 dark:text-blue-300">
                 Replying to {replyingTo.senderName || 'User'}
@@ -1807,7 +1810,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               className="p-0.5 rounded-full text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 cursor-pointer shrink-0"
               aria-label="Cancel reply"
             >
-              <X className="w-3.5 h-3.5" />
+              <Reicon name="x" size={14} />
             </button>
           </div>
         )}
@@ -1831,7 +1834,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             title="Attach PDF or photo"
             aria-label="Attach PDF or photo"
           >
-            <InteractiveAnimatedIcon icon={AttachFileIcon} size={18} />
+            <Reicon name="paperclip" size={18} />
           </button>
 
           <textarea
@@ -1853,7 +1856,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             disabled={(!inputText.trim() && !selectedFile) || sending}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <InteractiveAnimatedIcon icon={SendIcon} size={16} />}
+            {sending ? <Reicon name="loader" size={16} isLoading className="animate-spin" /> : <Reicon name="send" size={16} />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">
@@ -1886,14 +1889,25 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             {threadContent}
           </motion.div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 bg-[#fafafa] dark:bg-[#09090b] px-6 text-center">
-            <InteractiveAnimatedIcon icon={MessageSquareIcon} size={28} className="text-neutral-300 dark:text-neutral-700" />
-            <p className="text-[13px] font-medium text-neutral-600 dark:text-neutral-400">
-              Pick a conversation
-            </p>
-            <p className="text-[12px] text-neutral-400 max-w-[16rem] leading-relaxed">
-              Search a student ID in the sidebar - they don’t need to have logged in yet.
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 bg-[#fafafa] dark:bg-[#09090b] px-6 text-center">
+            <Reillustration
+              name={
+                currentStudentId === 'admin_mmss'
+                  ? 'messages-empty-admin'
+                  : userSection === 'Staff'
+                    ? 'messages-empty-teacher'
+                    : 'messages-empty-student'
+              }
+              size="md"
+            />
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                Pick a conversation
+              </h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 max-w-[18rem] leading-relaxed">
+                Search a classmate or teacher above to start chatting securely.
+              </p>
+            </div>
           </div>
         )}
       </div>
@@ -1915,13 +1929,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                 onClick={() => setShowMembers(false)}
                 className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <Reicon name="x" size={16} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {membersLoading ? (
                 <div className="flex items-center justify-center py-10">
-                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                  <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
                 </div>
               ) : sectionMembers.length === 0 ? (
                 <p className="text-xs text-neutral-400 text-center py-10 px-4">
@@ -1970,18 +1984,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">New Message</h3>
               <button onClick={() => { setShowNewModal(false); setSearchQuery(''); setSearchResults([]); }}
                 className="p-1 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer">
-                <X className="w-4 h-4" />
+                <Reicon name="x" size={16} />
               </button>
             </div>
             <div className="relative">
-              <SearchIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+              <Reicon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
               <input type="text" value={searchQuery} onChange={(e) => handleSearch(e.target.value)}
                 placeholder="Search by name or student ID across any section..."
                 className="w-full text-xs h-9 pl-8 pr-3 rounded-xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400" />
             </div>
             <div className="space-y-1 max-h-56 overflow-y-auto">
               {searching ? (
-                <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-neutral-400" /></div>
+                <div className="flex items-center justify-center py-4"><Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" /></div>
               ) : searchResults.length > 0 ? (
                 searchResults.map((u) => (
                   <button key={u.id || `prov-${u.studentId}`} onClick={() => handleInitiateChat(u)}
@@ -2035,7 +2049,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             <div className="w-full flex items-center justify-between border-b border-neutral-200/60 dark:border-white/10 pb-3">
               <span className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 truncate">{previewMedia.name}</span>
               <button onClick={() => setPreviewMedia(null)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors cursor-pointer">
-                <X className="w-5 h-5" />
+                <Reicon name="x" size={20} />
               </button>
             </div>
             {previewMedia.url.startsWith('blob:') ? (
@@ -2073,7 +2087,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
               }}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
             >
-              <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
+              <Reicon name="download" size={16} className="w-4 h-4" />
               <span>Download File</span>
             </button>
           </div>
@@ -2100,13 +2114,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                 className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer"
                 aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <Reicon name="x" size={16} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               {pinLoading ? (
                 <div className="flex justify-center py-10">
-                  <Loader2 className="w-4 h-4 animate-spin text-neutral-400" />
+                  <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
                 </div>
               ) : pinCandidates.length === 0 ? (
                 <p className="text-[13px] text-neutral-500 text-center py-10 px-6 leading-relaxed">
@@ -2121,7 +2135,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                     className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800/80 transition-colors cursor-pointer disabled:opacity-50 flex items-start gap-3"
                   >
                     <div className="w-9 h-9 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4" />
+                      <Reicon name="file-text" size={16} className="w-4 h-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-100 truncate">

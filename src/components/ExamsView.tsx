@@ -7,10 +7,8 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
-import { GraduationCap } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
-import { GraduationCapIcon } from './ui/graduation-cap';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
 
 interface ExamsViewProps {
   homework: HomeworkEntry[];
@@ -92,7 +90,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-900 dark:text-white shrink-0">
-            <InteractiveAnimatedIcon icon={GraduationCapIcon} size={20} className="w-5 h-5" />
+            <Reicon name="graduation-cap" size={20} preset="scale" />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -192,7 +190,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
         </div>
       ) : (
         <EmptyState
-          icon={GraduationCap}
+          type="exams"
           title="No exam-related assignments found"
           description="Assignments mentioning exams, syllabus, or revision will automatically appear here."
         />

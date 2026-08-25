@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
 import { Reicon, type ReiconName } from './ui/reicon';
 import { cn } from '../utils/cn';
 import type { ViewType } from '../types/homework';
@@ -46,7 +45,6 @@ function useVisualViewportBottomOffset() {
   return offset;
 }
 
-const dockSpring = { type: 'spring' as const, stiffness: 520, damping: 38, mass: 0.6 };
 export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   activeView,
   onViewChange,
@@ -56,7 +54,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 }) => {
   const viewportBottomOffset = useVisualViewportBottomOffset();
   const [mounted, setMounted] = useState(false);
-  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
@@ -122,75 +119,61 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           'select-none'
         )}
       >
-        <LayoutGroup id="mobile-floating-dock">
-          {items.map((item) => {
-            const isActive = activeView === item.id;
+        {items.map((item) => {
+          const isActive = activeView === item.id;
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onViewChange(item.id)}
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={item.label}
-                className={cn(
-                  'relative h-10 flex items-center justify-center rounded-full',
-                  'cursor-pointer touch-manipulation transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
-                  isActive ? 'px-3.5' : 'w-10'
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="dock-active-pill"
-                    transition={prefersReducedMotion ? { duration: 0 } : dockSpring}
-                    style={{ borderRadius: 9999 }}
-                    aria-hidden
-                    className="absolute inset-0 bg-white shadow-xs pointer-events-none"
-                  />
-                )}
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => onViewChange(item.id)}
+              aria-current={isActive ? 'page' : undefined}
+              aria-label={item.label}
+              className={cn(
+                'relative h-10 rounded-full flex items-center justify-center',
+                'cursor-pointer touch-manipulation',
+                'transition-[width,padding,background-color,color] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+                isActive
+                  ? 'bg-white text-neutral-950 shadow-xs px-3.5'
+                  : 'bg-transparent text-neutral-400 hover:text-neutral-200 w-10 p-0'
+              )}
+            >
+              <div className="flex items-center gap-1.5 overflow-hidden">
+                <Reicon
+                  name={item.iconName}
+                  size={19}
+                  className={cn(
+                    'shrink-0 transition-colors duration-200',
+                    isActive ? 'text-neutral-950' : 'text-neutral-400 hover:text-neutral-200'
+                  )}
+                />
 
-                <div className="relative z-[1] flex items-center gap-1.5">
-                  <Reicon
-                    name={item.iconName}
-                    size={19}
+                {item.badge !== undefined && (
+                  <span
                     className={cn(
-                      'shrink-0 transition-colors duration-150',
-                      isActive
-                        ? 'text-neutral-950'
-                        : 'text-neutral-400 hover:text-neutral-200'
+                      'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs transition-colors duration-200',
+                      isActive ? 'bg-neutral-950 text-white' : 'bg-rose-500 text-white'
                     )}
-                  />
+                  >
+                    {item.badge > 9 ? '9+' : item.badge}
+                  </span>
+                )}
 
-                  {item.badge !== undefined && (
-                    <span
-                      className={cn(
-                        'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs',
-                        isActive
-                          ? 'bg-neutral-950 text-white'
-                          : 'bg-rose-500 text-white'
-                      )}
-                    >
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
+                <span
+                  className={cn(
+                    'text-xs font-semibold tracking-tight whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]',
+                    isActive
+                      ? 'max-w-[90px] opacity-100 text-neutral-950 ml-0.5'
+                      : 'max-w-0 opacity-0 pointer-events-none ml-0'
                   )}
-
-                  {isActive && (
-                    <motion.span
-                      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
-                      className="text-xs font-semibold text-neutral-950 tracking-tight whitespace-nowrap"
-                    >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </LayoutGroup>
+                >
+                  {item.label}
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </nav>
   );

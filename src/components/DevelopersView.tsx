@@ -1,5 +1,5 @@
 import React from 'react';
-import { Code2, Github, Globe, Linkedin } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { motion, useReducedMotion } from 'motion/react';
 import { PageHeader } from './PageHeader';
 import { DEVELOPERS, DEVELOPERS_PROJECT, DeveloperLink, DeveloperLinkKind } from '../data/developers';
@@ -12,13 +12,13 @@ function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
   const className = 'size-3.5 shrink-0';
   switch (kind) {
     case 'github':
-      return <Github className={className} aria-hidden />;
+      return <Reicon name="github" size={14} className={className} aria-hidden />;
     case 'website':
-      return <Globe className={className} aria-hidden />;
+      return <Reicon name="globe" size={14} className={className} aria-hidden />;
     case 'linkedin':
-      return <Linkedin className={className} aria-hidden />;
+      return <Reicon name="linkedin" size={14} className={className} aria-hidden />;
     case 'devto':
-      return <Code2 className={className} aria-hidden />;
+      return <Reicon name="code" size={14} className={className} aria-hidden />;
     case 'x':
       return (
         <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>

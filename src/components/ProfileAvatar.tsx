@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { UserRound } from "lucide-react";
+import { Reicon } from "./ui/reicon";
 import { AuthenticatedImage } from "./AuthenticatedImage";
 import { cn } from "../utils/cn";
 
@@ -47,7 +47,7 @@ export const ProfileAvatar: React.FC<ProfileAvatarProps> = ({
         />
       ) : (
         <span className="inline-flex size-full items-center justify-center">
-          {label === "Student" ? <UserRound className="size-4" /> : initials}
+          {label === "Student" ? <Reicon name="user-round" size={16} /> : initials}
         </span>
       )}
     </div>

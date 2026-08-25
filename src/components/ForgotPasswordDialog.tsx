@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
-import { ExternalLink, KeyRound, School, X } from 'lucide-react';
 import { EDUSECURE_CHANGE_PASSWORD_URL, EDUSECURE_LOGIN_URL } from '../utils/schoolPortal';
 import { cn } from '../utils/cn';
+import { Reicon } from './ui/reicon';
 
 export type PasswordHelpVariant = 'forgot' | 'change';
 
@@ -70,7 +70,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
                   : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
               )}
             >
-              <KeyRound className="h-5 w-5" />
+              <Reicon name="key" size={20} preset="scale" />
             </div>
             <div>
               <h3
@@ -107,7 +107,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
                 : 'text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800'
             )}
           >
-            <X className="h-5 w-5" />
+            <Reicon name="x" size={18} preset="scale" />
           </button>
         </div>
 
@@ -187,7 +187,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
               3
             </span>
             <span className="inline-flex items-start gap-1.5">
-              <School className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+              <Reicon name="graduation-cap" size={14} className="mt-0.5 shrink-0 opacity-70" />
               <span>
                 Admin and demo teacher accounts use deployment passwords. Those
                 are rotated by whoever hosts this app, not by EduSecure.
@@ -222,7 +222,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
             )}
           >
             <span>{isForgot ? 'Open school portal' : 'Open change password'}</span>
-            <ExternalLink className="h-3.5 w-3.5" />
+            <Reicon name="external-link" size={14} preset="lift" />
           </a>
         </div>
       </div>

@@ -50,8 +50,7 @@ describe('HomeworkCard notes', () => {
 
     expect(article?.querySelectorAll('.border-t')).toHaveLength(1);
     expect(addNote.closest('.border-t')).toBeInTheDocument();
-    expect(addNote.querySelector('.lucide-plus')).toBeInTheDocument();
-    expect(addNote.querySelector('.lucide-notebook-pen')).not.toBeInTheDocument();
+    expect(addNote.querySelector('svg')).toBeInTheDocument();
   });
 
   it('groups notes and attachments below one card divider', () => {

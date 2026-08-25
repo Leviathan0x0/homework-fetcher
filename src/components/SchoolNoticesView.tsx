@@ -1,20 +1,15 @@
 import React from 'react';
-import {
-  AlertCircle,
-  BellRing,
-  FileText,
-} from 'lucide-react';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { useSchoolNotices } from '../hooks/useSchoolNotices';
-import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
+import type { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { CalendarDaysIcon } from './ui/calendar-days';
-import { formatNoticeContent } from '../utils/noticeFormatting';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
+import { formatNoticeContent } from '../utils/noticeFormatting';
+import { Reicon } from './ui/reicon';
 
 interface SchoolNoticesViewProps {
   kind: SchoolNoticeKind;
@@ -64,17 +59,17 @@ function NoticeCard({
   const attachments = attachmentList(notice);
 
   return (
-    <article className="group/card overflow-hidden rounded-xl border border-neutral-200/80 bg-white shadow-2xs transition-[border-color,box-shadow] duration-200 hover:border-neutral-300 hover:shadow-md dark:border-neutral-800/80 dark:bg-[#141417] dark:hover:border-neutral-700">
-      <div className="p-3.5 sm:p-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold', config.badgeClass)}>
-            {notice.type || config.itemLabel}
+    <article className="overflow-hidden rounded-3xl border border-neutral-200/80 bg-white shadow-2xs transition-shadow duration-200 hover:shadow-md dark:border-neutral-800/80 dark:bg-[#141417]">
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className={cn('rounded-full px-2.5 py-0.5 text-[11px] font-semibold', config.badgeClass)}>
+            {config.itemLabel}
           </span>
           {notice.date && (
-            <time className="inline-flex items-center gap-1.5 text-[11px] font-medium tabular-nums text-neutral-500 dark:text-neutral-400">
-              <CalendarDaysIcon size={14} className="text-neutral-400 dark:text-neutral-500" aria-hidden />
-              {notice.date}
-            </time>
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
+              <Reicon name="calendar-days" size={13} />
+              <span>{notice.date}</span>
+            </div>
           )}
         </div>
 
@@ -83,13 +78,14 @@ function NoticeCard({
             {notice.title}
           </h2>
         )}
-        <MarkdownRenderer
-          content={formatNoticeContent(notice.content)}
+        <div
           className={cn(
             'max-w-3xl whitespace-pre-wrap break-words text-xs leading-relaxed text-neutral-900 dark:text-neutral-100 sm:text-[13px]',
             notice.title ? 'mt-1' : 'mt-2.5'
           )}
-        />
+        >
+          <MarkdownRenderer content={formatNoticeContent(notice.content)} />
+        </div>
       </div>
 
       {attachments.length > 0 && (
@@ -146,7 +142,7 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
 
       {error && notices.length > 0 && (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          <AlertCircle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <Reicon name="alert-circle" size={14} preset="pulse" className="mt-0.5 shrink-0" />
           <span>{error} The last loaded updates are still shown.</span>
         </div>
       )}
@@ -155,14 +151,15 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
         <LoadingSkeleton count={3} label={`Loading ${config.title.toLowerCase()}…`} />
       ) : error && notices.length === 0 ? (
         <EmptyState
-          icon={AlertCircle}
+          type="notices"
+          illustration="error-warning"
           title={`Could not load ${config.title.toLowerCase()}`}
           description={error}
           action={
             <button
               type="button"
               onClick={() => reload(true)}
-              className="rounded-xl bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-85 dark:bg-white dark:text-neutral-900"
+              className="rounded-xl bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-85 dark:bg-white dark:text-neutral-900 cursor-pointer"
             >
               Try again
             </button>
@@ -170,7 +167,8 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
         />
       ) : notices.length === 0 ? (
         <EmptyState
-          icon={kind === 'circulars' ? FileText : BellRing}
+          type="notices"
+          illustration="empty-notices"
           title={config.emptyTitle}
           description={config.emptyDescription}
         />

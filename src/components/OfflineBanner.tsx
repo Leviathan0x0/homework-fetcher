@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { WifiOff } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { Reicon } from './ui/reicon';
 
 /**
  * Soft notice when the browser is offline - homework already loaded stays usable.
@@ -27,14 +27,19 @@ export const OfflineBanner: React.FC<{ className?: string }> = ({ className }) =
     <div
       role="status"
       className={cn(
-        'flex items-start gap-2.5 px-3 py-2.5 rounded-xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/40 text-xs text-amber-900 dark:text-amber-200 shadow-sm backdrop-blur-sm',
+        'flex items-start gap-2.5 px-3.5 py-2.5 rounded-2xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/90 dark:bg-amber-950/40 text-xs text-amber-900 dark:text-amber-200 shadow-xs backdrop-blur-sm',
         className
       )}
     >
-      <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" aria-hidden />
+      <Reicon
+        name="wifi-off"
+        size={15}
+        preset="pulse"
+        className="shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
+      />
       <div className="min-w-0 leading-relaxed">
-        <p className="font-medium">You’re offline</p>
-        <p className="text-amber-800/80 dark:text-amber-300/70 mt-0.5">
+        <p className="font-semibold">You’re offline</p>
+        <p className="text-amber-800/80 dark:text-amber-300/70 mt-0.5 text-[11px]">
           Cached homework still works. Sync resumes when you’re back online.
         </p>
       </div>

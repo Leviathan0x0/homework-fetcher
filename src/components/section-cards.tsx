@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { HomeworkEntry, SessionStatus } from "../types/homework"
 import { isTodayDate, isWithinLast7Days } from "../utils/dateUtils"
-import { Calendar, Clock, Paperclip, ShieldCheck, CheckCircle2 } from "lucide-react"
+import { Reicon } from "@/components/ui/reicon"
 
 interface SectionCardsProps {
   homework: HomeworkEntry[];
@@ -30,13 +30,13 @@ export function SectionCards({ homework, completedMap, sessionStatus }: SectionC
       <Card className="shadow-2xs border-neutral-200/80 dark:border-neutral-800 rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardDescription className="text-xs font-medium">Today's tasks</CardDescription>
-          <Calendar className="size-4 text-muted-foreground" />
+          <Reicon name="calendar" size={16} className="text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <CardTitle className="text-2xl font-bold">{todayEntries.length}</CardTitle>
           <div className="flex items-center gap-1.5 mt-1">
             <Badge variant="outline" className="text-[11px] font-medium border-emerald-500/40 text-emerald-600 dark:text-emerald-400 rounded-full">
-              <CheckCircle2 className="size-3 mr-1 text-emerald-500" />
+              <Reicon name="circle-check" size={12} className="mr-1 text-emerald-500" />
               {todayCompletedCount} of {todayEntries.length} done ({todayPercent}%)
             </Badge>
           </div>
@@ -47,7 +47,7 @@ export function SectionCards({ homework, completedMap, sessionStatus }: SectionC
       <Card className="shadow-2xs border-neutral-200/80 dark:border-neutral-800 rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardDescription className="text-xs font-medium">Last 7 days</CardDescription>
-          <Clock className="size-4 text-muted-foreground" />
+          <Reicon name="clock" size={16} className="text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <CardTitle className="text-2xl font-bold">{recentEntries.length}</CardTitle>
@@ -61,7 +61,7 @@ export function SectionCards({ homework, completedMap, sessionStatus }: SectionC
       <Card className="shadow-2xs border-neutral-200/80 dark:border-neutral-800 rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardDescription className="text-xs font-medium">Attachments</CardDescription>
-          <Paperclip className="size-4 text-muted-foreground" />
+          <Reicon name="paperclip" size={16} className="text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <CardTitle className="text-2xl font-bold">{attachmentEntries.length}</CardTitle>
@@ -75,7 +75,7 @@ export function SectionCards({ homework, completedMap, sessionStatus }: SectionC
       <Card className="shadow-2xs border-neutral-200/80 dark:border-neutral-800 rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardDescription className="text-xs font-medium">EduSecure auth</CardDescription>
-          <ShieldCheck className="size-4 text-muted-foreground" />
+          <Reicon name="shield-check" size={16} className="text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2 mt-1">

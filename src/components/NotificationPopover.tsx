@@ -1,24 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { notificationService } from '../services/api';
 import { AppNotification } from '../types/homework';
-import {
-  BookOpenCheck,
-  CheckCheck,
-  ClipboardCheck,
-  FileUp,
-  Flag,
-  Inbox,
-  Loader2,
-  Megaphone,
-  ShieldCheck,
-  UserCog,
-} from 'lucide-react';
-import { BellIcon } from '@/components/ui/bell';
-import { HeartHandshakeIcon } from '@/components/ui/heart-handshake';
-import { MessageSquareIcon } from '@/components/ui/message-square';
+import { Reicon, Reillustration } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { formatChatListTime } from '../utils/dateUtils';
 import { messagePreviewText } from '../utils/pendingMessageOpen';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface NotificationPopoverProps {
   role: 'student' | 'teacher' | 'admin';
@@ -30,51 +17,49 @@ interface NotificationPopoverProps {
 function getNotifIcon(type: string) {
   switch (type) {
     case 'new_classwork':
-      return <FileUp className="size-4" />;
+      return <Reicon name="upload" size={16} />;
     case 'new_request':
-      return <HeartHandshakeIcon size={16} />;
+      return <Reicon name="heart-handshake" size={16} />;
     case 'new_message':
-      return <MessageSquareIcon size={16} />;
+      return <Reicon name="chat-line" size={16} />;
     case 'teacher_assignment':
     case 'new_homework':
     case 'homework_updated':
-      return <BookOpenCheck className="size-4" />;
+      return <Reicon name="file-text" size={16} />;
     case 'teacher_announcement':
-      return <Megaphone className="size-4" />;
+      return <Reicon name="megaphone" size={16} />;
     case 'new_submission':
     case 'submission_updated':
-      return <ClipboardCheck className="size-4" />;
+      return <Reicon name="clipboard-list" size={16} />;
     case 'new_report':
     case 'moderation_event':
-      return <Flag className="size-4" />;
+      return <Reicon name="flag" size={16} />;
     case 'account_activity':
     case 'role_updated':
-      return <UserCog className="size-4" />;
+      return <Reicon name="user-cog" size={16} />;
     default:
-      return <Inbox className="size-4" />;
+      return <Reicon name="inbox" size={16} />;
   }
 }
 
 const roleCopy = {
   student: {
-    heading: 'Student updates',
-    emptyTitle: "You're all caught up",
-    emptyBody: 'Homework, announcements, uploads, help requests, and school notices will appear here.',
-    EmptyIcon: BookOpenCheck,
+    heading: 'Notifications',
+    emptyTitle: 'No notifications',
+    emptyBody: 'Updates on homework, requests, and announcements will appear here.',
   },
   teacher: {
-    heading: 'Teacher updates',
-    emptyTitle: 'No teacher updates',
-    emptyBody: 'Help requests, submissions, class activity, and staff notices will appear here.',
-    EmptyIcon: ClipboardCheck,
+    heading: 'Teacher alerts',
+    emptyTitle: 'No teacher alerts',
+    emptyBody: 'Submissions, student requests, and circulars will appear here.',
   },
   admin: {
-    heading: 'Administrator updates',
-    emptyTitle: 'No administrator alerts',
-    emptyBody: 'Reports, account changes, moderation events, and platform notices will appear here.',
-    EmptyIcon: ShieldCheck,
+    heading: 'Admin notifications',
+    emptyTitle: 'No admin notifications',
+    emptyBody: 'User registrations, flagged content, and system alerts appear here.',
   },
 } as const;
+
 
 function resolveNavigateTarget(n: AppNotification): string | null {
   if (n.type === 'new_message') {
@@ -161,7 +146,6 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
   const unread = notifications.filter((n) => !n.isRead).length;
   const copy = roleCopy[role];
-  const EmptyIcon = copy.EmptyIcon;
 
   const toggleOpen = () => {
     const willOpen = !isOpen;
@@ -179,7 +163,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
         title="Notifications"
         aria-label="Notifications"
       >
-        <BellIcon size={16} />
+        <Reicon name="bell" size={16} />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-white text-[9px] font-bold">
             {unreadCount > 9 ? '9+' : unreadCount}
@@ -196,7 +180,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 onClick={handleMarkAllRead}
                 className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 transition-colors cursor-pointer flex items-center gap-1"
               >
-                <CheckCheck className="w-3.5 h-3.5" />
+                <Reicon name="check" size={14} />
                 <span>Mark all read</span>
               </button>
             )}
@@ -205,12 +189,12 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
           <div className="max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-neutral-400" />
+                <WanderingEyes className="h-10 text-neutral-400" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-5 py-6 text-center">
-                <div className="mb-2 flex size-8 items-center justify-center rounded-xl bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                  <EmptyIcon className="size-4" />
+                <div className="mb-2">
+                  <Reillustration name="empty-notifications" size="sm" />
                 </div>
                 <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300">{copy.emptyTitle}</p>
                 <p className="text-[11px] text-neutral-400 mt-1 max-w-[17rem] leading-relaxed">

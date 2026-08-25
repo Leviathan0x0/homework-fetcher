@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, KeyRound, Loader2, Lock } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { authService } from '../services/api';
 import { cn } from '../utils/cn';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface ReconnectSchoolDialogProps {
   isOpen: boolean;
@@ -87,7 +88,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
       >
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 shrink-0">
-            <KeyRound className="w-5 h-5" />
+            <Reicon name="key" size={20} />
           </div>
           <h3 id="reconnect-title" className="text-base font-bold text-neutral-900 dark:text-neutral-100">
             Reconnect to school portal
@@ -107,7 +108,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
             Password for {studentId || 'your school account'}
           </label>
           <div className="relative">
-            <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Reicon name="lock" size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               ref={inputRef}
               id="reconnect-password"
@@ -131,7 +132,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
               aria-label={showPassword ? 'Hide password' : 'Show password'}
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40"
             >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <Reicon name={showPassword ? 'eye-off' : 'eye'} size={16} />
             </button>
           </div>
         </div>
@@ -163,7 +164,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <WanderingEyes className="h-7" />
                 <span>Reconnecting</span>
               </>
             ) : (

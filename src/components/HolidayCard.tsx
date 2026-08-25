@@ -1,6 +1,7 @@
 import React from 'react';
-import { SchoolCalendarEvent } from '../types/homework';
+import type { SchoolCalendarEvent } from '../types/homework';
 import { cn } from '../utils/cn';
+import { Reicon, Reillustration } from './ui/reicon';
 
 function isHolidayType(type?: string) {
   return /holiday|vacation|break|off/i.test(type || '');
@@ -26,10 +27,20 @@ function formatShortDate(ymd: string): string {
   });
 }
 
-function formatMonth(ymd: string): string {
+function formatUpcomingMonth(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number);
   if (!y || !m || !d) return '';
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' });
+}
+
+function formatUpcomingWeekday(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function typeLabel(type?: string) {
@@ -38,8 +49,9 @@ function typeLabel(type?: string) {
 
 interface HolidayCardProps {
   event: SchoolCalendarEvent;
-  /** hero = Today page banner, detail = calendar day, compact = month list row */
-  variant?: 'hero' | 'detail' | 'compact';
+  daysAway?: number;
+  /** hero = Today page banner, upcoming = compact upcoming countdown banner, detail = calendar day, compact = month list row */
+  variant?: 'hero' | 'upcoming' | 'detail' | 'compact';
   active?: boolean;
   onSelect?: () => void;
   onToggleVisible?: () => void;
@@ -48,6 +60,7 @@ interface HolidayCardProps {
 
 export const HolidayCard: React.FC<HolidayCardProps> = ({
   event,
+  daysAway,
   variant = 'detail',
   active = false,
   onSelect,
@@ -57,34 +70,148 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
   const visible = event.selected !== false;
   const label = typeLabel(event.type);
 
+  if (variant === 'upcoming') {
+    const Comp = onSelect ? 'button' : 'div';
+    const dayNumber = Number(event.date.slice(8)) || '';
+    const monthText = formatUpcomingMonth(event.date);
+    const dateFormatted = formatUpcomingWeekday(event.date);
+    const countdownText =
+      daysAway === 1 ? 'Holiday tomorrow' : daysAway ? `Holiday in ${daysAway} days` : 'Upcoming holiday';
+
+    return (
+      <Comp
+        type={onSelect ? 'button' : undefined}
+        onClick={onSelect}
+        aria-label={`${countdownText}: ${event.title}, ${dateFormatted}`}
+        className={cn(
+          'group relative overflow-hidden flex w-full items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50/90 via-amber-50/40 to-rose-50/60 p-3 sm:p-3.5 text-left shadow-2xs transition-all duration-200 hover:border-rose-300 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40',
+          'dark:border-rose-900/40 dark:from-rose-950/30 dark:via-amber-950/15 dark:to-rose-950/20 dark:hover:border-rose-800',
+          onSelect && 'cursor-pointer',
+          className
+        )}
+      >
+        {/* Ambient subtle glow flares */}
+        <div
+          className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-rose-400/15 dark:bg-rose-500/10 blur-xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-6 left-1/3 h-16 w-24 rounded-full bg-amber-300/20 dark:bg-amber-500/10 blur-xl"
+          aria-hidden
+        />
+
+        <div className="relative flex items-center gap-3 min-w-0 flex-1">
+          {/* Calendar Date Block */}
+          <div className="flex h-11 w-10 sm:h-12 sm:w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-white shadow-2xs border border-rose-200/60 dark:bg-neutral-900 dark:border-rose-900/50 overflow-hidden select-none">
+            <span className="w-full bg-rose-500 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-white">
+              {monthText}
+            </span>
+            <span className="flex-1 flex items-center justify-center text-xs sm:text-sm font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+              {dayNumber}
+            </span>
+          </div>
+
+          {/* Text Content */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                {countdownText}
+              </span>
+              <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400 hidden xs:inline">
+                · {dateFormatted}
+              </span>
+            </div>
+            <p className="mt-1 text-xs sm:text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 truncate">
+              {event.title}
+            </p>
+          </div>
+        </div>
+
+        {/* Right side compact celebration illustration & action */}
+        <div className="relative flex items-center gap-2.5 shrink-0">
+          <div className="hidden sm:flex shrink-0 items-center justify-center" aria-hidden>
+            <svg
+              viewBox="0 0 48 48"
+              className="size-9 text-rose-500 select-none overflow-visible"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="24" cy="24" r="20" className="fill-rose-100/80 dark:fill-rose-950/40" />
+              <circle cx="24" cy="24" r="14" className="fill-amber-100/70 dark:fill-amber-950/30" />
+              <circle cx="12" cy="32" r="1.5" className="fill-emerald-400" />
+              <circle cx="37" cy="30" r="1.5" className="fill-indigo-400" />
+              <g transform="translate(16 15)">
+                <path
+                  d="M4 22L2 8l16 8L4 22z"
+                  className="fill-rose-500 stroke-rose-600 dark:stroke-rose-400"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+                <path d="M2 8l16 8" stroke="white" strokeWidth="1.2" strokeOpacity="0.8" />
+                <path d="M6 10l10 5" stroke="#fcd34d" strokeWidth="1.2" />
+                <path d="M13 6c2-4 6-3 8-1" stroke="#fbbf24" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M16 10c3-2 6-1 8 2" stroke="#f43f5e" strokeWidth="1.2" strokeLinecap="round" />
+              </g>
+            </svg>
+          </div>
+
+          <div className="flex items-center gap-1 text-[11px] font-medium text-rose-600 transition-colors group-hover:text-rose-700 dark:text-rose-400 dark:group-hover:text-rose-300">
+            <span className="hidden xs:inline">View</span>
+            <Reicon
+              name="chevron-right"
+              size={14}
+              className="transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </div>
+        </div>
+      </Comp>
+    );
+  }
+
   if (variant === 'hero') {
     return (
       <section
         className={cn(
-          'flex items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-4 py-3.5 shadow-2xs',
-          'dark:border-rose-900/40 dark:bg-rose-950/20',
+          'relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-rose-200/70 bg-gradient-to-br from-rose-50/80 via-rose-50/40 to-amber-50/50 p-5 sm:p-6 shadow-xs',
+          'dark:border-rose-900/40 dark:from-rose-950/30 dark:via-rose-950/15 dark:to-neutral-900/40',
           className
         )}
         aria-label={`${label}: ${event.title}`}
       >
-        <div className="flex h-12 w-11 shrink-0 flex-col items-center justify-center rounded-xl border border-rose-200/70 bg-white/70 text-rose-600 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300">
-          <span className="text-[8px] font-semibold uppercase tracking-wide opacity-75">
-            {formatMonth(event.date)}
-          </span>
-          <span className="mt-0.5 text-sm font-bold leading-none tabular-nums">
-            {Number(event.date.slice(8)) || '-'}
-          </span>
+        <div
+          className="pointer-events-none absolute -right-6 -top-8 h-28 w-28 rounded-full bg-rose-400/15 dark:bg-rose-500/10 blur-2xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-10 left-10 h-24 w-24 rounded-full bg-amber-300/20 dark:bg-amber-500/10 blur-2xl"
+          aria-hidden
+        />
+
+        <div className="relative flex items-start gap-4 min-w-0 flex-1">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-500 text-white shadow-sm shadow-rose-500/25">
+            <Reicon name="party-popper" size={22} preset="bounce" className="text-white" />
+          </div>
+          <div className="min-w-0 flex-1 pt-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 dark:bg-rose-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                <Reicon name="sparkles" size={12} preset="scale" className="text-rose-600 dark:text-rose-400" />
+                {label}
+              </span>
+              <span className="text-xs tabular-nums font-medium text-neutral-500 dark:text-neutral-400">
+                {formatHolidayDate(event.date)}
+              </span>
+            </div>
+            <h2 className="mt-1.5 text-base sm:text-lg font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 leading-snug">
+              {event.title}
+            </h2>
+            <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed">
+              No school today — enjoy the break.
+            </p>
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
-            {label} · Today
-          </p>
-          <h2 className="mt-0.5 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
-            {event.title}
-          </h2>
-          <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
-            No classes today · {formatHolidayDate(event.date)}
-          </p>
+
+        <div className="hidden sm:flex shrink-0 items-center justify-center">
+          <Reillustration name="celebration-holiday" size="sm" interactive />
         </div>
       </section>
     );
@@ -141,13 +268,14 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
             onClick={onToggleVisible}
             title={visible ? 'Hide on calendar' : 'Show on calendar'}
             className={cn(
-              'shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-colors duration-200',
+              'inline-flex items-center gap-1 shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium cursor-pointer transition-colors duration-200',
               visible
                 ? 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200'
                 : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:hover:bg-neutral-800 dark:hover:text-neutral-200'
             )}
           >
-            {visible ? 'Hide' : 'Show'}
+            <Reicon name={visible ? 'eye' : 'eye-off'} size={12} preset="scale" />
+            <span>{visible ? 'On' : 'Off'}</span>
           </button>
         )}
       </div>
@@ -158,21 +286,19 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
   return (
     <div
       className={cn(
-        'flex items-center gap-3 rounded-xl border border-rose-200/60 bg-rose-50/50 px-3.5 py-3 shadow-2xs',
+        'flex items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-3.5 py-3 shadow-2xs',
         'dark:border-rose-900/40 dark:bg-rose-950/20',
         className
       )}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
-        <span className="text-xs font-bold tabular-nums">
-          {Number(event.date.slice(8)) || '-'}
-        </span>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500 text-white shadow-sm shadow-rose-500/20">
+        <Reicon name="party-popper" size={18} preset="bounce" className="text-white" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
+        <p className="text-[10px] font-semibold text-rose-600 dark:text-rose-400">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
+        <p className="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug">
           {event.title}
         </p>
         <p className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">

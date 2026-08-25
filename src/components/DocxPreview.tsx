@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, FileText } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { DocxBlock, DocxParagraph, parseDocx } from '../utils/docxPreview';
 
@@ -95,7 +95,7 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, fileName, onL
   if (error) {
     return (
       <div className="mx-auto my-auto max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center text-amber-900">
-        <AlertCircle className="mx-auto size-5" />
+        <Reicon name="alert-circle" size={20} className="mx-auto" />
         <p className="mt-2 text-sm font-semibold">DOCX preview unavailable</p>
         <p className="mt-1 text-xs leading-relaxed text-amber-800/80">{error} You can still download the original file.</p>
       </div>
@@ -108,7 +108,7 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, fileName, onL
         blocks.map((block, index) => <DocumentBlock key={index} block={block} />)
       ) : (
         <div className="flex min-h-48 flex-col items-center justify-center text-neutral-400">
-          <FileText className="size-6" />
+          <Reicon name="file-text" size={24} />
           <p className="mt-2 text-xs">This document has no previewable text.</p>
         </div>
       )}

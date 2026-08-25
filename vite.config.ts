@@ -49,6 +49,7 @@ export default defineConfig({
           if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
           if (/node_modules\/(recharts|d3-|victory-|internmap|robust-predicates|delaunator)/.test(id)) return 'charts';
           if (/node_modules\/(motion|framer-motion|motion-dom|motion-utils)\//.test(id)) return 'motion';
+          if (/node_modules\/reicon-react\//.test(id)) return 'icons';
           return undefined;
         },
       },

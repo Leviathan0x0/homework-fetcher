@@ -1,6 +1,6 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface LoadingStateProps {
   label: string;
@@ -18,7 +18,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ label, className }) 
     aria-live="polite"
     aria-busy="true"
   >
-    <Loader2 className="size-5 animate-spin text-neutral-400 dark:text-neutral-500" aria-hidden="true" />
+    <WanderingEyes className="h-10 text-neutral-400 dark:text-neutral-500" />
     <p className="text-xs font-medium">{label}</p>
   </div>
 );

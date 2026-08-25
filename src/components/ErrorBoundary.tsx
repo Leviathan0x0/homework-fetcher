@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { RefreshCw, AlertTriangle } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { reportClientError } from '../sentry';
 
 interface Props {
@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
           <div className="max-w-md w-full rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] p-6 shadow-sm flex flex-col items-center text-center space-y-4">
             <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
-              <AlertTriangle className="w-6 h-6" />
+              <Reicon name="alert-triangle" size={24} />
             </div>
             
             <div className="space-y-1">
@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={this.handleReload}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 hover:opacity-90 transition-opacity cursor-pointer active:scale-95"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <Reicon name="refresh-cw" size={14} />
               Reload Page
             </button>
           </div>

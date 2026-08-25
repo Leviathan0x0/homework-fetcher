@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, RefreshCw, KeyRound } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 
 interface ErrorBannerProps {
   message: string;
@@ -23,7 +23,12 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
       className="bg-amber-500/10 border border-amber-500/25 text-amber-900 dark:text-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs leading-relaxed animate-in fade-in duration-200"
     >
       <div className="flex items-start gap-3 min-w-0">
-        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <Reicon
+          name="alert-circle"
+          size={16}
+          preset="pulse"
+          className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5"
+        />
         <div>
           <p className="font-semibold">
             {isSchoolSessionExpired
@@ -42,9 +47,9 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
         {showReconnect && (
           <button
             onClick={onReconnect}
-            className="group/sec inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors duration-150 shadow-2xs cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+            className="group/sec inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs transition-colors duration-150 shadow-2xs cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
           >
-            <KeyRound className="w-3.5 h-3.5 transition-transform duration-200 group-hover/sec:rotate-12" />
+            <Reicon name="key" size={14} preset="scale" />
             <span>Reconnect</span>
           </button>
         )}
@@ -52,9 +57,9 @@ export const ErrorBanner: React.FC<ErrorBannerProps> = ({
         {onRetry && !showReconnect && (
           <button
             onClick={onRetry}
-            className="group/retry inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-neutral-100 dark:text-neutral-900 font-medium text-xs transition-colors duration-150 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40"
+            className="group/retry inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 dark:bg-neutral-100 hover:bg-neutral-800 dark:hover:bg-neutral-200 text-neutral-100 dark:text-neutral-900 font-medium text-xs transition-colors duration-150 cursor-pointer active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40"
           >
-            <RefreshCw className="w-3 h-3 transition-transform duration-300 group-hover/retry:rotate-180" />
+            <Reicon name="refresh-cw" size={13} />
             <span>Try again</span>
           </button>
         )}

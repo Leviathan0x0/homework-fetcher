@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { X, FileText, Image as ImageIcon, File, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 import { AuthenticatedImage } from './AuthenticatedImage';
-import { ExternalLinkIcon } from './ui/external-link';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { DownloadIcon } from './ui/download';
+import { Reicon } from './ui/reicon';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -25,7 +23,6 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl, onClose, originalFilename }) => {
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const handlePreviewLoaded = () => setLoading(false);
 
   useEffect(() => {
@@ -86,11 +83,11 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-2xl bg-white/80 dark:bg-neutral-800/80 border border-white/50 dark:border-white/10 flex items-center justify-center text-neutral-700 dark:text-neutral-300 shrink-0 shadow-2xs">
               {isImage ? (
-                <ImageIcon className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
+                <Reicon name="image" size={18} className="text-neutral-900 dark:text-neutral-100" />
               ) : isPdf || isWordDocument ? (
-                <FileText className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
+                <Reicon name="file-text" size={18} className="text-neutral-900 dark:text-neutral-100" />
               ) : (
-                <File className="w-4.5 h-4.5 text-neutral-900 dark:text-neutral-100" />
+                <Reicon name="file-text" size={18} className="text-neutral-900 dark:text-neutral-100" />
               )}
             </div>
 
@@ -106,7 +103,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 )}
               </div>
               <p className="text-xs text-neutral-400 font-medium truncate mt-0.5">
-                {isWordDocument ? 'Word Document' : 'Attachment File'}
+                {isWordDocument ? 'Word Document' : isPdf ? 'PDF Document' : 'Attachment File'}
               </p>
             </div>
           </div>
@@ -115,20 +112,22 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
             {isImage && (
               <>
                 <button
+                  type="button"
                   onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}
-                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 cursor-pointer"
                   title="Zoom Out"
                   aria-label="Zoom out"
                 >
-                  <ZoomOut className="w-4 h-4" />
+                  <Reicon name="zoom-out" size={16} preset="scale" />
                 </button>
                 <button
+                  type="button"
                   onClick={() => setZoom((z) => Math.min(2.5, z + 0.25))}
-                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                  className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 cursor-pointer"
                   title="Zoom In"
                   aria-label="Zoom in"
                 >
-                  <ZoomIn className="w-4 h-4" />
+                  <Reicon name="zoom-in" size={16} preset="scale" />
                 </button>
               </>
             )}
@@ -138,35 +137,32 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                 href={fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                onMouseEnter={() => setHoveredAction('open')}
-                onMouseLeave={() => setHoveredAction(null)}
-                onFocus={() => setHoveredAction('open')}
-                onBlur={() => setHoveredAction(null)}
                 aria-label="Open full PDF in a new tab"
-                className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+                className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 cursor-pointer"
                 title="Open full PDF"
               >
-                <ExternalLinkIcon size={16} isAnimated={hoveredAction === 'open'} aria-hidden />
+                <Reicon name="external-link" size={16} preset="lift" />
               </a>
             )}
 
             <a
               href={fileUrl}
               download={fileName}
-              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 cursor-pointer"
               title="Download file"
               aria-label="Download file"
             >
-              <InteractiveAnimatedIcon icon={DownloadIcon} size={16} className="w-4 h-4" />
+              <Reicon name="download" size={16} preset="bounce" />
             </a>
 
             <button
+              type="button"
               onClick={onClose}
-              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+              className="flex size-9 items-center justify-center rounded-xl text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100 cursor-pointer"
               title="Close preview"
               aria-label="Close preview"
             >
-              <X className="w-4.5 h-4.5" />
+              <Reicon name="x" size={18} preset="scale" />
             </button>
           </div>
         </div>
@@ -175,7 +171,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50/40 dark:bg-neutral-950/40 relative flex flex-col items-center justify-center min-h-0">
           {loading && (isImage || isPdf || isWordDocument) && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-[#141417]/60 backdrop-blur-xs">
-              <RefreshCw className="w-6 h-6 animate-spin text-neutral-500" />
+              <WanderingEyes className="h-12 text-neutral-500" />
             </div>
           )}
 
@@ -216,7 +212,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
           ) : (
             <div className="w-full max-w-md p-8 rounded-3xl bg-white/80 dark:bg-[#18181c]/80 border border-white/60 dark:border-white/10 backdrop-blur-xl text-center space-y-4 shadow-lg my-auto">
               <div className="w-14 h-14 rounded-3xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-600 dark:text-neutral-300 mx-auto">
-                <FileText className="w-7 h-7 text-neutral-500 dark:text-neutral-400" />
+                <Reicon name="file-text" size={28} className="text-neutral-500 dark:text-neutral-400" />
               </div>
               <div className="space-y-1">
                 <h4 className="font-semibold text-sm text-neutral-900 dark:text-neutral-100">{fileName}</h4>
@@ -231,7 +227,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-xs font-semibold shadow-2xs"
                 >
-                  <ExternalLinkIcon size={14} />
+                  <Reicon name="external-link" size={14} preset="lift" />
                   <span>Open file</span>
                 </a>
                 <a
@@ -239,7 +235,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
                   download={fileName}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-transparent text-neutral-700 dark:text-neutral-300 text-xs font-semibold"
                 >
-                  <InteractiveAnimatedIcon icon={DownloadIcon} size={14} className="w-3.5 h-3.5" />
+                  <Reicon name="download" size={14} preset="bounce" />
                   <span>Download</span>
                 </a>
               </div>

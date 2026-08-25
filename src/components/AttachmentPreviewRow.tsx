@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { Eye } from 'lucide-react';
+import React from 'react';
 import { cn } from '../utils/cn';
-import { AttachFileIcon } from './ui/attach-file';
+import { Reicon } from './ui/reicon';
 
 interface AttachmentPreviewRowProps {
   url: string;
@@ -31,31 +30,17 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
   actionClassName,
   fallbackDetail = 'Attachment file',
 }) => {
-  const [isAnimated, setIsAnimated] = useState(false);
   const detail = attachmentDetails(name, url, fallbackDetail);
-
-  const replayAnimation = () => {
-    setIsAnimated(false);
-    requestAnimationFrame(() => setIsAnimated(true));
-  };
 
   return (
     <button
       type="button"
-      onClick={() => {
-        replayAnimation();
-        onOpenPreview(url, name);
-      }}
-      onMouseEnter={() => setIsAnimated(true)}
-      onMouseLeave={() => setIsAnimated(false)}
-      onFocus={() => setIsAnimated(true)}
-      onBlur={() => setIsAnimated(false)}
-      onPointerDown={replayAnimation}
+      onClick={() => onOpenPreview(url, name)}
       aria-label={`Open attachment: ${name}`}
       className="group/file flex w-full min-w-0 cursor-pointer items-center gap-2.5 py-2 text-left transition-colors duration-200 hover:text-neutral-950 dark:hover:text-white"
     >
       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300">
-        <AttachFileIcon size={15} isAnimated={isAnimated} aria-hidden />
+        <Reicon name="paperclip" size={15} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-semibold text-neutral-800 dark:text-neutral-200">
@@ -71,8 +56,8 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
           actionClassName
         )}
       >
-        Preview
-        <Eye className="h-3 w-3 opacity-70 transition-opacity duration-200 group-hover/file:opacity-100" aria-hidden />
+        <span>Preview</span>
+        <Reicon name="eye" size={12} preset="scale" className="opacity-70 group-hover/file:opacity-100" />
       </span>
     </button>
   );

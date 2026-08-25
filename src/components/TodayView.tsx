@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { HomeworkEntry, ViewType } from '../types/homework';
+import type { HomeworkEntry, ViewType, SchoolCalendarEvent } from '../types/homework';
 import { isTodayDate, formatContextualDate, getTimeGreeting, formatYmd } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
@@ -12,13 +12,7 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
-import { X } from 'lucide-react';
-import { AttachFileIcon } from './ui/attach-file';
-import { BellIcon } from './ui/bell';
-import { CalendarCheckIcon } from './ui/calendar-check';
-import { HeartHandshakeIcon } from './ui/heart-handshake';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { MessageSquareIcon } from './ui/message-square';
+import { Reicon } from './ui/reicon';
 
 interface TodayViewProps {
   homework: HomeworkEntry[];
@@ -63,11 +57,11 @@ function readDismissedAlerts(): string[] {
 }
 
 function progressEncouragement(done: number, total: number): string {
-  if (total === 0) return 'Nothing due today - enjoy the quiet.';
-  if (done === 0) return 'Start with one - momentum builds fast.';
+  if (total === 0) return 'Nothing due today — enjoy the quiet.';
+  if (done === 0) return 'Start with one — momentum builds fast.';
   if (done >= total) return 'All done for today. Nice work.';
-  if (done / total >= 0.66) return 'Almost there - keep going.';
-  return 'Keep going - you are making progress.';
+  if (done / total >= 0.66) return 'Almost there — keep going.';
+  return 'Keep going — you are making progress.';
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -81,30 +75,84 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onOpenPreview,
   displayName,
   studentId,
-  hasHomeworkError = false,
   unreadMessages = 0,
   openRequests = 0,
   onNavigate,
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
-  const [activeAlerts, setActiveAlerts] = useState<any[]>([]);
-  const [dismissedAlertIds, setDismissedAlertIds] = useState<string[]>(readDismissedAlerts);
-  const [teacherAssignments, setTeacherAssignments] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<Array<{ id: number | string; title: string; message: string; level: 'info' | 'warning' | 'urgent' }>>([]);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>(readDismissedAlerts);
+  const [teacherAssignments, setTeacherAssignments] = useState<Array<{ targetId: string; title: string; subject: string; dueDate: string; status: string; attachmentUrl?: string; attachmentFilename?: string; attachmentMimeType?: string }>>([]);
   const [animatedGlance, setAnimatedGlance] = useState<string | null>(null);
 
+  const {
+    events: calendarEvents,
+    isLoading: holidaysLoading,
+    reload: reloadHolidays,
+  } = useSchoolCalendar();
+
+  const todayHolidays = useMemo(() => {
+    const todayYmd = formatYmd(new Date());
+    return (calendarEvents || []).filter(
+      (e: SchoolCalendarEvent) => e.date === todayYmd && e.selected !== false
+    );
+  }, [calendarEvents]);
+
+  const upcomingHoliday = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const future = (calendarEvents || [])
+      .filter((e: SchoolCalendarEvent) => e.selected !== false)
+      .map((e: SchoolCalendarEvent) => {
+        const [y, m, d] = e.date.split('-').map(Number);
+        const eventDate = new Date(y, m - 1, d);
+        const diffMs = eventDate.getTime() - today.getTime();
+        const daysAway = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        return { event: e, daysAway };
+      })
+      .filter((item) => item.daysAway > 0 && item.daysAway <= 7)
+      .sort((a, b) => a.daysAway - b.daysAway);
+    return future[0] || null;
+  }, [calendarEvents]);
+
   useEffect(() => {
-    adminService.getActiveAlerts().then((res) => {
-      if (res.alerts) setActiveAlerts(res.alerts);
-    });
-    teacherService.getStudentAssignments().then((res) => {
-      if (res.assignments) setTeacherAssignments(res.assignments.slice(0, 3));
-    }).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await adminService.getActiveAlerts();
+        if (!cancelled && res?.alerts && Array.isArray(res.alerts)) {
+          setAlerts(res.alerts);
+        }
+      } catch {
+        // Soft fail
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const dismissAlert = (alertId: string) => {
-    setDismissedAlertIds((previous) => {
-      if (previous.includes(alertId)) return previous;
-      const next = [...previous, alertId];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await teacherService.getStudentAssignments();
+        if (!cancelled && Array.isArray(list)) {
+          setTeacherAssignments(list.slice(0, 3));
+        }
+      } catch {
+        // Soft fail
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const dismissAlert = (id: string) => {
+    setDismissedAlerts((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
       try {
         localStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify(next));
       } catch {}
@@ -113,110 +161,77 @@ export const TodayView: React.FC<TodayViewProps> = ({
   };
 
   const visibleAlerts = useMemo(
-    () => activeAlerts.filter((alert) => !dismissedAlertIds.includes(String(alert.id))),
-    [activeAlerts, dismissedAlertIds]
+    () => alerts.filter((a) => !dismissedAlerts.includes(String(a.id))),
+    [alerts, dismissedAlerts]
   );
-
-  const { events: calendarEvents, isLoading: holidaysLoading, reload: reloadHolidays } =
-    useSchoolCalendar();
-
-  const todayYmd = useMemo(() => formatYmd(new Date()), []);
-  const todayHolidays = useMemo(
-    () => calendarEvents.filter((e) => e.date === todayYmd && e.selected !== false),
-    [calendarEvents, todayYmd]
-  );
-  const hasHolidayToday = todayHolidays.length > 0;
-
-  const upcomingHoliday = useMemo(() => {
-    if (hasHolidayToday) return null;
-    const upcoming = calendarEvents
-      .filter((e) => e.selected !== false && e.date > todayYmd)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (!upcoming.length) return null;
-    const next = upcoming[0];
-    const [y, m, d] = next.date.split('-').map(Number);
-    const daysAway = Math.round(
-      (new Date(y, m - 1, d).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000
-    );
-    if (daysAway > 7) return null;
-    return { event: next, daysAway };
-  }, [calendarEvents, todayYmd, hasHolidayToday]);
-
-  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
-  const todayAllEntries = validHomework.filter((item) => isTodayDate(item?.date));
-
-  const availableSubjects = Array.from(
-    new Set(todayAllEntries.map((item) => detectSubject(item?.homework || '').name))
-  );
-
-  const todayEntries =
-    selectedSubject === 'All'
-      ? todayAllEntries
-      : todayAllEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
-
-  const getEntryId = (item: HomeworkEntry) => {
-    if (!item) return '';
-    const d = item.date || '';
-    const hw = item.homework || '';
-    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-  };
-
-  const isEntryDone = (item: HomeworkEntry) => {
-    const entryId = getEntryId(item);
-    return Boolean(completedMap[entryId]) || item.completed === true;
-  };
-
-  const doneCount = todayAllEntries.filter(isEntryDone).length;
-  const totalCount = todayAllEntries.length;
-  const progressPct = totalCount === 0 ? 0 : Math.round((doneCount / totalCount) * 100);
-  // Holidays can replace the homework empty state, so an empty diary is not a
-  // final answer until both requests have settled. Existing homework remains
-  // visible while holidays refresh in the background.
-  const isContentLoading =
-    isLoading ||
-    (totalCount === 0 && Boolean(isRefreshing)) ||
-    (totalCount === 0 && holidaysLoading && calendarEvents.length === 0);
 
   const greeting = getTimeGreeting();
   const name = fullNameFrom(displayName, studentId);
   const dateStr = formatContextualDate();
-  const pendingCount = Math.max(totalCount - doneCount, 0);
-  const allDone = !isContentLoading && totalCount > 0 && doneCount >= totalCount;
 
-  const subtitle = hasHomeworkError
-    ? 'We could not check today’s homework yet. Try again in a moment.'
-    : isContentLoading
-    ? 'Preparing your dashboard...'
-    : hasHolidayToday && totalCount === 0
-      ? 'School holiday today. No homework is expected.'
-      : hasHolidayToday && totalCount > 0
-        ? 'A few assigned tasks still need your attention today.'
-        : totalCount === 0
-          ? 'No homework posted today.'
-          : allDone
-            ? 'Everything assigned for today is complete.'
-            : 'Here is your plan for today.';
+  const todayEntries = useMemo(() => {
+    const safeHomework = Array.isArray(homework) ? homework : [];
+    return safeHomework.filter((item) => {
+      if (!item) return false;
+      const itemDate = item.date ? item.date.trim() : '';
+      return itemDate ? isTodayDate(itemDate) : false;
+    });
+  }, [homework]);
+
+  const availableSubjects = useMemo(() => {
+    return Array.from(
+      new Set(todayEntries.map((item) => detectSubject(item?.homework || '').name))
+    );
+  }, [todayEntries]);
+
+  const filteredEntries = useMemo(() => {
+    if (selectedSubject === 'All') return todayEntries;
+    return todayEntries.filter(
+      (item) => detectSubject(item?.homework || '').name === selectedSubject
+    );
+  }, [todayEntries, selectedSubject]);
+
+  const getEntryId = (item: HomeworkEntry) => item.id || `${item.date}_${item.homework}`;
+  const totalCount = todayEntries.length;
+  const completedCount = todayEntries.filter((item) => completedMap[getEntryId(item)]).length;
+  const pendingCount = Math.max(0, totalCount - completedCount);
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  const encouragement = progressEncouragement(completedCount, totalCount);
+
+  const hasHolidayToday = todayHolidays.length > 0;
+  const isContentLoading = isLoading || (Boolean(isRefreshing) && filteredEntries.length === 0);
+
+  const subtitle = hasHolidayToday
+    ? 'School is off today.'
+    : totalCount === 0
+      ? 'No homework posted today yet.'
+      : completedCount >= totalCount
+        ? 'All caught up for today!'
+        : `${pendingCount} ${pendingCount === 1 ? 'task' : 'tasks'} remaining today.`;
 
   const glance = [
     {
       key: 'homework',
       label: pendingCount === 1 ? 'task' : 'tasks',
       value: isContentLoading ? '...' : String(pendingCount),
-      icon: CalendarCheckIcon,
+      iconName: 'calendar-check' as const,
+      preset: 'bounce' as const,
       onClick: undefined as undefined | (() => void),
     },
     {
       key: 'messages',
       label: unreadMessages === 1 ? 'chat' : 'chats',
       value: String(unreadMessages),
-      icon: MessageSquareIcon,
+      iconName: 'chat-line' as const,
+      preset: 'bounce' as const,
       onClick: onNavigate ? () => onNavigate('messages') : undefined,
     },
     {
       key: 'requests',
       label: openRequests === 1 ? 'request' : 'requests',
       value: String(openRequests),
-      icon: HeartHandshakeIcon,
+      iconName: 'heart-handshake' as const,
+      preset: 'scale' as const,
       onClick: onNavigate ? () => onNavigate('requests') : undefined,
     },
   ];
@@ -264,7 +279,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               : 'bg-sky-500/10 border-sky-500/30 text-sky-900 dark:text-sky-200'
           )}
         >
-          <InteractiveAnimatedIcon icon={BellIcon} size={16} className="size-4 shrink-0 mt-0.5" />
+          <Reicon name="bell" size={16} preset="ring" className="size-4 shrink-0 mt-0.5" />
           <div className="space-y-0.5 min-w-0 flex-1">
             <p className="font-semibold">{alt.title}</p>
             <p className="leading-relaxed opacity-90">{alt.message}</p>
@@ -276,7 +291,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             title="Dismiss"
             className="-m-1 shrink-0 cursor-pointer rounded-lg p-1 opacity-60 transition-[background-color,opacity] duration-200 hover:bg-black/5 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current dark:hover:bg-white/10"
           >
-            <X className="size-4" />
+            <Reicon name="x" size={16} preset="scale" />
           </button>
         </div>
       ))}
@@ -306,7 +321,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   assignment.attachmentMimeType?.startsWith('audio/') ? (
                     <audio className="mt-3 w-full" controls src={assignment.attachmentUrl} />
                   ) : (
-                    <a href={assignment.attachmentUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"><InteractiveAnimatedIcon icon={AttachFileIcon} size={12} className="size-3" />{assignment.attachmentFilename || 'Open attachment'}</a>
+                    <a
+                      href={assignment.attachmentUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-neutral-700 hover:underline dark:text-neutral-300"
+                    >
+                      <Reicon name="paperclip" size={12} className="size-3" />
+                      {assignment.attachmentFilename || 'Open attachment'}
+                    </a>
                   )
                 )}
               </div>
@@ -320,36 +343,19 @@ export const TodayView: React.FC<TodayViewProps> = ({
       ))}
 
       {!hasHolidayToday && upcomingHoliday && (
-        <button
-          type="button"
-          onClick={() => onNavigate?.('calendar')}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-4 py-3.5 text-left shadow-2xs transition-[background-color,border-color] duration-200 hover:border-rose-300 hover:bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20 dark:hover:border-rose-800 dark:hover:bg-rose-950/30"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
-            <span className="text-xs font-bold tabular-nums">
-              {Number(upcomingHoliday.event.date.slice(8))}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
-              {upcomingHoliday.daysAway === 1
-                ? 'Holiday Tomorrow'
-                : `Holiday After ${upcomingHoliday.daysAway} Days`}
-            </p>
-            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mt-0.5">
-              {upcomingHoliday.event.title}
-            </p>
-          </div>
-          <span className="text-[11px] text-rose-600 dark:text-rose-400 shrink-0 font-medium">
-            View
-          </span>
-        </button>
+        <HolidayCard
+          event={upcomingHoliday.event}
+          daysAway={upcomingHoliday.daysAway}
+          variant="upcoming"
+          onSelect={() => onNavigate?.('calendar')}
+        />
       )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {glance.map((item) => {
           const interactive = Boolean(item.onClick);
           const Comp: 'button' | 'div' = interactive ? 'button' : 'div';
+          const isActive = animatedGlance === item.key;
           return (
             <Comp
               key={item.key}
@@ -371,13 +377,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               )}
             >
               <span className="flex size-7 shrink-0 items-center justify-center rounded-xl border border-neutral-200/70 bg-white/80 text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 max-[359px]:hidden">
-                {item.key === 'homework' ? (
-                  <CalendarCheckIcon size={14} isAnimated={animatedGlance === item.key} />
-                ) : item.key === 'messages' ? (
-                  <MessageSquareIcon size={14} isAnimated={animatedGlance === item.key} />
-                ) : (
-                  <HeartHandshakeIcon size={14} isAnimated={animatedGlance === item.key} />
-                )}
+                <Reicon name={item.iconName} size={14} preset={item.preset} isActive={isActive} />
               </span>
               <span className="flex min-w-0 items-baseline gap-1">
                 <span className="text-base sm:text-lg font-semibold tabular-nums tracking-tight text-neutral-900 dark:text-neutral-50 leading-none">
@@ -401,32 +401,32 @@ export const TodayView: React.FC<TodayViewProps> = ({
             <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
               Today’s progress
             </h2>
-            <p className="text-xs font-semibold tabular-nums text-neutral-600 dark:text-neutral-300">
-              {progressPct}% complete
-            </p>
+            <span className="text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
+              {completedCount} of {totalCount} done ({progressPercent}%)
+            </span>
           </div>
+
           <div
-            className="h-2.5 w-full rounded-full bg-neutral-100 dark:bg-neutral-800 overflow-hidden"
             role="progressbar"
-            aria-valuenow={doneCount}
+            aria-valuenow={progressPercent}
             aria-valuemin={0}
-            aria-valuemax={totalCount}
+            aria-valuemax={100}
+            aria-label="Today's homework completion progress"
+            className="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800"
           >
             <div
-              className={cn(
-                'h-full rounded-full transition-[width] duration-500 ease-out',
-                allDone ? 'bg-emerald-500' : 'bg-neutral-500 dark:bg-neutral-500'
-              )}
-              style={{ width: `${progressPct}%` }}
+              style={{ width: `${progressPercent}%` }}
+              className="h-full rounded-full bg-neutral-900 dark:bg-white transition-[width] duration-500 ease-out"
             />
           </div>
+
           <p className="mt-2.5 text-xs text-neutral-500 dark:text-neutral-400">
-            {progressEncouragement(doneCount, totalCount)}
+            {encouragement}
           </p>
         </section>
       )}
 
-      {(availableSubjects.length > 0 || todayEntries.length > 0) && (
+      {availableSubjects.length > 1 && (
         <SubjectFilterPills
           subjects={availableSubjects}
           selectedSubject={selectedSubject}
@@ -435,24 +435,24 @@ export const TodayView: React.FC<TodayViewProps> = ({
       )}
 
       {isContentLoading ? (
-        <LoadingSkeleton label="Loading today’s homework…" />
-      ) : todayEntries.length === 0 ? (
-        hasHolidayToday || hasHomeworkError
-          ? null
-          : <EmptyState
-              type="today"
-              title="No homework posted today"
-              subtitle="Nothing has been sent yet. Check back later or refresh when your school posts it."
-            />
+        <LoadingSkeleton label="Loading today's homework…" />
+      ) : filteredEntries.length === 0 ? (
+        hasHolidayToday ? null : (
+          <EmptyState
+            type="today"
+            title="No homework posted today"
+            subtitle="Nothing has been sent yet. Check back later or refresh when your school posts it."
+          />
+        )
       ) : (
-        <div className="space-y-2.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-          {todayEntries.map((item, index) => {
+        <div className="space-y-3.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+          {filteredEntries.map((item, index) => {
             const entryId = getEntryId(item);
             return (
               <HomeworkCard
                 key={item.id || index}
                 item={item}
-                isCompleted={isEntryDone(item)}
+                isCompleted={Boolean(completedMap[entryId])}
                 onToggleCompleted={() => onToggleCompleted(entryId)}
                 onUpdateNote={onUpdateNote}
                 onOpenPreview={onOpenPreview}
@@ -461,6 +461,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           })}
         </div>
       )}
+
       <ScrollToTopButton />
     </div>
   );

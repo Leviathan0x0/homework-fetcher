@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch, apiJson } from '../lib/api';
-import { Cctv, Loader2 } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface MonitoringNoticeDialogProps {
   isOpen: boolean;
@@ -97,7 +98,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
       <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-4 relative overflow-hidden">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 shrink-0">
-            <Cctv className="w-5 h-5" />
+            <Reicon name="cctv" size={20} />
           </div>
           <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
             Acknowledgement
@@ -147,7 +148,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
             )}
           >
             {isLoadingToken ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <WanderingEyes className="h-7" />
             ) : secondsLeft > 0 ? (
               <span>{secondsLeft}</span>
             ) : (

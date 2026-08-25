@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download } from 'lucide-react';
+import { Reicon } from './ui/reicon';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ variant = 'banner' }) => {
@@ -31,7 +31,7 @@ export const PWAInstallPrompt: React.FC<{ variant?: 'banner' | 'button' }> = ({ 
       aria-label="Install MMSS Mohali App"
       aria-busy={isInstalling}
     >
-      <Download className="w-3.5 h-3.5 shrink-0" />
+      <Reicon name="download" size={14} className="w-3.5 h-3.5 shrink-0" />
       <span className="whitespace-nowrap max-[350px]:sr-only">
         {isInstalling ? 'Opening…' : 'Install'}
       </span>

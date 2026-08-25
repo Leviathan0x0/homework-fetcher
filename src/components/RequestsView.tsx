@@ -5,34 +5,18 @@ import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
 import { friendlyContentError } from '../utils/friendlyErrors';
 import { buildHelpPrefill, setPendingMessageOpen } from '../utils/pendingMessageOpen';
-import {
-  Handshake,
-  X,
-  Loader2,
-  CheckCircle2,
-  Trash2,
-  AlertCircle,
-  FolderOpen,
-  MessageSquare,
-  Printer,
-  HelpCircle,
-  Box,
-} from 'lucide-react';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { FolderOpenIcon } from './ui/folder-open';
-import { HeartHandshakeIcon } from './ui/heart-handshake';
-import { MessageSquareIcon } from './ui/message-square';
-import { PlusIcon } from './ui/plus';
+import { Reicon, Reillustration } from './ui/reicon';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 const CATEGORIES = ['Help', 'Book', 'Printout', 'Supply', 'Other'];
 
 function getCategoryIcon(cat: string | null | undefined) {
   switch (cat) {
-    case 'Help': return <HelpCircle className="w-4 h-4" />;
-    case 'Book': return <FolderOpen className="w-4 h-4" />;
-    case 'Printout': return <Printer className="w-4 h-4" />;
-    case 'Supply': return <Box className="w-4 h-4" />;
-    default: return <MessageSquare className="w-4 h-4" />;
+    case 'Help': return <Reicon name="heart-handshake" size={16} />;
+    case 'Book': return <Reicon name="folder-open" size={16} />;
+    case 'Printout': return <Reicon name="file-text" size={16} />;
+    case 'Supply': return <Reicon name="box" size={16} />;
+    default: return <Reicon name="chat-line" size={16} />;
   }
 }
 
@@ -180,7 +164,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
         badge={
           userSection ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 text-xs font-medium">
-              <Handshake className="w-3 h-3" />
+              <Reicon name="heart-handshake" size={12} />
               {userSection}
             </span>
           ) : undefined
@@ -190,7 +174,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
       {errorMessage && (
         <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/80 dark:border-rose-800/50 flex items-center justify-between gap-3 text-xs text-rose-700 dark:text-rose-300">
           <div className="flex items-center gap-2 min-w-0">
-            <AlertCircle className="w-4 h-4 shrink-0" />
+            <Reicon name="alert-circle" size={16} className="shrink-0" />
             <span className="leading-snug">{errorMessage}</span>
           </div>
           <button
@@ -198,7 +182,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
             disabled={isLoading}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-semibold hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
           >
-            {isLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+            {isLoading ? <WanderingEyes className="h-6" /> : null}
             Retry
           </button>
         </div>
@@ -261,8 +245,8 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center text-neutral-400">
-            <InteractiveAnimatedIcon icon={FolderOpenIcon} size={24} className="w-6 h-6" />
+          <div className="mb-2">
+            <Reillustration name="student-requests-empty" size="md" />
           </div>
           <div className="space-y-1 max-w-sm">
             <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-200">
@@ -271,7 +255,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
             <p className="text-xs text-neutral-500 dark:text-neutral-400">Create a request to ask for help or share resources with your section.</p>
           </div>
           <button onClick={() => setIsFormOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-medium hover:bg-neutral-800 transition-colors shadow-2xs cursor-pointer">
-            <InteractiveAnimatedIcon icon={PlusIcon} size={14} className="w-3.5 h-3.5" />
+            <Reicon name="plus" size={14} preset="scale" className="w-3.5 h-3.5" />
             <span>Create Request</span>
           </button>
         </div>
@@ -333,14 +317,14 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                     <button onClick={() => handleToggleStatus(item.id, item.status)}
                       className="p-1.5 rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors cursor-pointer"
                       title="Mark as fulfilled">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <Reicon name="circle-check" size={14} />
                     </button>
                   )}
                   {!item.isOwner && item.status === 'open' && item.creatorUserId && (
                     <button onClick={() => handleHelp(item)} disabled={helpingId === item.id}
                       className="px-2.5 py-1.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-[11px] font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all duration-150 active:scale-95 shadow-2xs cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                       title="Message the requester with this request attached">
-                      {helpingId === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <InteractiveAnimatedIcon icon={MessageSquareIcon} size={12} className="w-3 h-3" />}
+                      {helpingId === item.id ? <WanderingEyes className="h-6" /> : <Reicon name="chat-line" size={12} preset="bounce" className="w-3 h-3" />}
                       <span>Help</span>
                     </button>
                   )}
@@ -348,7 +332,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                     <button onClick={() => handleDelete(item.id)} disabled={deletingId === item.id}
                       className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-50"
                       title="Delete">
-                      {deletingId === item.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      {deletingId === item.id ? <WanderingEyes className="h-7" /> : <Reicon name="trash-2" size={14} />}
                     </button>
                   )}
                 </div>
@@ -363,7 +347,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
             className="group relative rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-neutral-400 dark:hover:border-neutral-500 bg-neutral-50/50 dark:bg-[#141417]/50 p-6 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 cursor-pointer min-h-[160px] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
           >
             <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-2xs group-hover:scale-110 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-all duration-200">
-              <InteractiveAnimatedIcon icon={PlusIcon} size={20} className="w-5 h-5" />
+              <Reicon name="plus" size={20} preset="scale" className="w-5 h-5" />
             </div>
             <div>
               <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
@@ -382,17 +366,17 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
           <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-6 relative overflow-hidden">
             <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400"><Handshake className="w-5 h-5" /></div>
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400"><Reicon name="heart-handshake" size={20} /></div>
                 <div>
                   <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">New Request</h3>
                   <p className="text-xs text-neutral-500 dark:text-neutral-400">Visible to your section {userSection}</p>
                 </div>
               </div>
-              <button onClick={() => setIsFormOpen(false)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+              <button onClick={() => setIsFormOpen(false)} className="p-1.5 rounded-full text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"><Reicon name="x" size={16} /></button>
             </div>
             {formError && (
               <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200 font-medium leading-relaxed flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" /><span>{formError}</span>
+                <Reicon name="alert-circle" size={16} className="shrink-0 mt-0.5" /><span>{formError}</span>
               </div>
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -418,7 +402,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
                   className="px-4 py-2 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 text-xs font-medium text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer">Cancel</button>
                 <button type="submit" disabled={isSubmitting || !formTitle.trim() || !formContent.trim()}
                   className="px-5 py-2 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-2xs">
-                  {isSubmitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /><span>Posting...</span></> : <><InteractiveAnimatedIcon icon={HeartHandshakeIcon} size={14} className="w-3.5 h-3.5" /><span>Post Request</span></>}
+                  {isSubmitting ? <><WanderingEyes className="h-7" /><span>Posting...</span></> : <><Reicon name="heart-handshake" size={14} preset="scale" className="w-3.5 h-3.5" /><span>Post Request</span></>}
                 </button>
               </div>
             </form>

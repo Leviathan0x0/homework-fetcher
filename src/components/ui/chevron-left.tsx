@@ -3,7 +3,7 @@
 import type { Transition } from "motion/react";
 import { motion, useAnimation } from "motion/react";
 import type { HTMLAttributes } from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,6 +14,7 @@ export interface ChevronLeftIconHandle {
 
 interface ChevronLeftIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
+  isAnimated?: boolean;
 }
 
 const DEFAULT_TRANSITION: Transition = {
@@ -22,9 +23,15 @@ const DEFAULT_TRANSITION: Transition = {
 };
 
 const ChevronLeftIcon = forwardRef<ChevronLeftIconHandle, ChevronLeftIconProps>(
-  ({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+  ({ onMouseEnter, onMouseLeave, className, size = 28, isAnimated, ...props }, ref) => {
     const controls = useAnimation();
     const isControlledRef = useRef(false);
+
+    useEffect(() => {
+      if (isAnimated !== undefined) {
+        controls.start(isAnimated ? "animate" : "normal");
+      }
+    }, [isAnimated, controls]);
 
     useImperativeHandle(ref, () => {
       isControlledRef.current = true;

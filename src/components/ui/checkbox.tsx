@@ -3,7 +3,7 @@
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon } from "lucide-react"
+import { Reicon } from "@/components/ui/reicon"
 
 function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
   return (
@@ -19,7 +19,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
         data-slot="checkbox-indicator"
         className="grid place-content-center text-current transition-transform duration-200 animate-pop-bounce [&>svg]:size-3.5"
       >
-        <CheckIcon className="stroke-[3]" />
+        <Reicon name="check" size={14} strokeWidth={3} className="stroke-[3]" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

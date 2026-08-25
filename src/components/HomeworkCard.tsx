@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { HomeworkEntry } from '../types/homework';
+import type { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
-import { Check, Pencil, Plus, Trash2, NotebookPen } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
+import { Reicon } from './ui/reicon';
 
 interface HomeworkCardProps {
   item: HomeworkEntry;
@@ -48,6 +48,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
       return 'Attachment File';
     }
   };
+
   const attachmentLabel = item.attachment ? getAttachmentLabel(item.attachment) : '';
   const hasAttachment = Boolean(item.attachment && isValidUrl(item.attachment));
   const workTypeLabel = /^(?:home\s*work|homework)$/i.test(item.type)
@@ -94,7 +95,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             onClick={handleDeleteNote}
             className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-medium text-rose-600 transition-colors duration-200 hover:text-rose-700 hover:underline dark:text-rose-400 dark:hover:text-rose-300"
           >
-            <Trash2 className="h-3 w-3" />
+            <Reicon name="trash-2" size={12} />
             <span>Delete</span>
           </button>
         ) : (
@@ -114,7 +115,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             onClick={handleSaveNote}
             className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-neutral-900 px-2.5 py-1 text-[11px] font-semibold text-white shadow-2xs transition-colors duration-200 hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
           >
-            <Check className="h-3 w-3" />
+            <Reicon name="check" size={12} />
             <span>Save Note</span>
           </button>
         </div>
@@ -125,7 +126,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
       {item.note ? (
         <div className="group/note relative flex w-full items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2 text-neutral-800 shadow-2xs transition-colors duration-200 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900/70 dark:text-neutral-200 dark:hover:border-neutral-700">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <NotebookPen className="h-3.5 w-3.5 shrink-0 text-neutral-500 dark:text-neutral-400" aria-hidden />
+            <Reicon name="notebook-pen" size={14} className="shrink-0 text-neutral-500 dark:text-neutral-400" />
             <p className="flex-1 whitespace-pre-wrap break-words text-[11px] font-medium leading-relaxed text-neutral-800 dark:text-neutral-200">
               {item.note}
             </p>
@@ -143,7 +144,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 title="Edit note"
                 aria-label="Edit note"
               >
-                <Pencil className="h-3 w-3" />
+                <Reicon name="pencil" size={12} />
               </button>
               <button
                 type="button"
@@ -152,7 +153,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 title="Delete note"
                 aria-label="Delete note"
               >
-                <Trash2 className="h-3 w-3" />
+                <Reicon name="trash-2" size={12} />
               </button>
             </div>
           )}
@@ -164,7 +165,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
             onClick={() => setIsEditingNote(true)}
             className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800/60 dark:hover:text-neutral-300"
           >
-            <Plus className="h-3 w-3" aria-hidden />
+            <Reicon name="plus" size={12} />
             <span>Add note</span>
           </button>
         )
@@ -175,105 +176,114 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   return (
     <article
       className={cn(
-        'group relative overflow-hidden bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-xl shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
+        'group relative overflow-hidden bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800/80 rounded-2xl shadow-2xs hover:shadow-md hover:border-neutral-300 dark:hover:border-neutral-700 transition-shadow duration-200',
         isCompleted && 'opacity-65 bg-neutral-50/60 dark:bg-[#101012]/60 border-neutral-200/40 dark:border-neutral-800/40 shadow-none'
       )}
     >
       <div className="p-3.5 sm:p-4">
-      {/* Top: checkbox + subject */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2.5">
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {onToggleCompleted && (
-            <button
-              onClick={onToggleCompleted}
-              className={cn(
-                'w-5 h-5 rounded-lg border flex items-center justify-center transition-colors duration-200 cursor-pointer shrink-0 touch-manipulation',
-                isCompleted
-                  ? 'bg-neutral-900 border-neutral-900 text-white dark:bg-white dark:border-white dark:text-neutral-900 shadow-2xs'
-                  : 'border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 bg-transparent'
-              )}
-              title={isCompleted ? 'Mark as pending' : 'Mark as done'}
-            >
-              {isCompleted && <Check className="h-3.5 w-3.5 stroke-[3]" aria-hidden />}
-            </button>
-          )}
-
-          <span
-            className={cn(
-              'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border cursor-default',
-              subjectInfo.badgeClass
+        {/* Top: checkbox + subject */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 mb-2.5">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
+            {onToggleCompleted && (
+              <button
+                type="button"
+                onClick={onToggleCompleted}
+                className={cn(
+                  'w-5 h-5 rounded-lg border flex items-center justify-center transition-colors duration-200 cursor-pointer shrink-0 touch-manipulation',
+                  isCompleted
+                    ? 'bg-neutral-900 border-neutral-900 text-white dark:bg-white dark:border-white dark:text-neutral-900 shadow-2xs'
+                    : 'border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 bg-transparent'
+                )}
+                title={isCompleted ? 'Mark as pending' : 'Mark as done'}
+              >
+                <Reicon
+                  name="check"
+                  size={13}
+                  strokeWidth={2.5}
+                  className={cn(
+                    'stroke-[2.5] transition-opacity duration-200',
+                    isCompleted ? 'opacity-100' : 'opacity-0'
+                  )}
+                />
+              </button>
             )}
-          >
-            {subjectInfo.name}
-          </span>
-        </div>
 
-        <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
-          {item.type && (
             <span
-              className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full"
-              title={item.type}
+              className={cn(
+                'inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border cursor-default',
+                subjectInfo.badgeClass
+              )}
             >
-              {workTypeLabel}
+              {subjectInfo.name}
             </span>
-          )}
-          {item.date && <span>{item.date}</span>}
-        </div>
-      </div>
+          </div>
 
-      {/* Compact homework and classwork labels */}
-      <div className={cn('space-y-1.5', isCompleted && 'opacity-80')}>
-        {parsed.homeWork && (
-          <div className="flex items-start gap-2">
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              HW
-            </span>
-            <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
-              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
-                {hwHierarchy.action}
-              </p>
-              {hwHierarchy.detail && (
-                <p className="mt-0.5 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed whitespace-pre-wrap break-words">
-                  {hwHierarchy.detail}
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] font-medium text-neutral-500 dark:text-neutral-400 shrink-0">
+            {item.type && (
+              <span
+                className="bg-neutral-100 dark:bg-neutral-800/80 text-neutral-600 dark:text-neutral-400 px-2 py-0.5 rounded-full"
+                title={item.type}
+              >
+                {workTypeLabel}
+              </span>
+            )}
+            {item.date && <span>{item.date}</span>}
+          </div>
+        </div>
+
+        {/* Compact homework and classwork labels */}
+        <div className={cn('space-y-1.5', isCompleted && 'opacity-80')}>
+          {parsed.homeWork && (
+            <div className="flex items-start gap-2">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+                HW
+              </span>
+              <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
+                  {hwHierarchy.action}
                 </p>
-              )}
+                {hwHierarchy.detail && (
+                  <p className="mt-0.5 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed whitespace-pre-wrap break-words">
+                    {hwHierarchy.detail}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {parsed.classWork && (
-          <div className="flex items-start gap-2">
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
-              CW
-            </span>
-            <span
+          {parsed.classWork && (
+            <div className="flex items-start gap-2">
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-md text-[9px] font-semibold text-neutral-500 dark:text-neutral-400 bg-neutral-100 dark:bg-neutral-800 shrink-0 select-none mt-0.5">
+                CW
+              </span>
+              <span
+                className={cn(
+                  'whitespace-pre-wrap break-words flex-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed',
+                  isCompleted && 'line-through'
+                )}
+              >
+                {parsed.classWork}
+              </span>
+            </div>
+          )}
+
+          {!parsed.homeWork && !parsed.classWork && (
+            <p
               className={cn(
-                'whitespace-pre-wrap break-words flex-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed',
-                isCompleted && 'line-through'
+                'whitespace-pre-wrap break-words text-sm font-normal leading-relaxed text-neutral-800 dark:text-neutral-200',
+                isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
               )}
             >
-              {parsed.classWork}
-            </span>
+              {item.homework}
+            </p>
+          )}
+        </div>
+
+        {!hasAttachment && (
+          <div className="mt-2.5 border-t border-neutral-100 pt-2 dark:border-neutral-800/60">
+            {noteArea}
           </div>
         )}
-
-        {!parsed.homeWork && !parsed.classWork && (
-          <p
-            className={cn(
-              'whitespace-pre-wrap break-words text-sm font-normal leading-relaxed text-neutral-800 dark:text-neutral-200',
-              isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
-            )}
-          >
-            {item.homework}
-          </p>
-        )}
-      </div>
-
-      {!hasAttachment && (
-        <div className="mt-2.5 border-t border-neutral-100 pt-2 dark:border-neutral-800/60">
-          {noteArea}
-        </div>
-      )}
       </div>
 
       {hasAttachment && item.attachment && (

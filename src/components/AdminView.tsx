@@ -932,7 +932,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                 disabled={isSubmittingAlert}
                 className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold text-xs hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
               >
-                {isSubmittingAlert ? <Reicon name="loader" size={14} isLoading className="animate-spin" /> : <Reicon name="send" size={14} />}
+                {isSubmittingAlert ? <Reicon name="loader" size={14} isLoading className="animate-spin" /> : <Reicon name="plane" size={14} weight="Filled" />}
                 <span>Publish Broadcast</span>
               </button>
             </form>

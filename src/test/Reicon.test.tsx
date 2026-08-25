@@ -71,11 +71,22 @@ describe('Reicon', () => {
     expect(container.innerHTML).toContain('M21 12.79');
   });
 
-  it('renders send icon with proper attributes', () => {
+  it('renders send icon with proper attributes and filled path', () => {
     const { container } = render(<Reicon name="send" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
+    expect(container.innerHTML).toContain('M18.6357 15.6701L20.3521');
+    expect(container.innerHTML).toContain('fill="currentColor"');
+  });
+
+  it('renders plane icon with proper attributes and filled path', () => {
+    const { container } = render(<Reicon name="plane" />);
+    const svg = container.querySelector('svg');
+    expect(svg).toBeInTheDocument();
+    expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
+    expect(container.innerHTML).toContain('M18.6357 15.6701L20.3521');
+    expect(container.innerHTML).toContain('fill="currentColor"');
   });
 });
 

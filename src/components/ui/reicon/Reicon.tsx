@@ -102,16 +102,18 @@ import {
 import { cn } from '../../../utils/cn';
 import type { ReiconName, ReiconPreset, ReiconProps } from './types';
 
-export const PaperPlaneFilledIcon: IconSvgElement = [
+export const ReiconPlaneFilledIcon: IconSvgElement = [
   [
     'path',
     {
-      d: 'M21.707 2.293a1 1 0 0 0-1.069-.225l-18 7a1 1 0 0 0-.145 1.787l6.837 3.907 3.907 6.837a1 1 0 0 0 1.787-.145l7-18a1 1 0 0 0-.317-1.161zM11.618 13.79l-4.527-2.587 11.233-4.368-6.706 6.955z',
+      d: 'M18.6357 15.6701L20.3521 10.5208C21.8516 6.02242 22.6013 3.77322 21.414 2.58595C20.2268 1.39869 17.9776 2.14842 13.4792 3.64788L8.32987 5.36432C4.69923 6.57453 2.88392 7.17964 2.36806 8.06698C1.87731 8.91112 1.87731 9.95369 2.36806 10.7978C2.88392 11.6852 4.69923 12.2903 8.32987 13.5005C8.77981 13.6505 9.28601 13.5434 9.62294 13.2096L15.1286 7.75495C15.4383 7.44808 15.9382 7.45041 16.245 7.76015C16.5519 8.06989 16.5496 8.56975 16.2398 8.87662L10.8231 14.2432C10.4518 14.6111 10.3342 15.1742 10.4995 15.6701C11.7097 19.3007 12.3148 21.1161 13.2022 21.6319C14.0463 22.1227 15.0889 22.1227 15.933 21.6319C16.8204 21.1161 17.4255 19.3008 18.6357 15.6701Z',
       fill: 'currentColor',
       key: '0',
     },
   ],
 ];
+
+export const PaperPlaneFilledIcon = ReiconPlaneFilledIcon;
 
 export const CrescentMoonIcon: IconSvgElement = [
   [
@@ -228,13 +230,18 @@ export const HUGEICONS_MAP: Record<ReiconName, IconSvgElement> = {
   'sidebar-left': SidebarLeft01Icon,
   'trending-up': TrendingUpIcon,
   mail: Mail01Icon,
-  send: PaperPlaneFilledIcon,
+  send: ReiconPlaneFilledIcon,
+  plane: ReiconPlaneFilledIcon,
   share: Share01Icon,
   box: PackageIcon,
 };
 
-export const REICON_COMPONENT_MAP = HUGEICONS_MAP;
+export const REICON_FILLED_MAP: Partial<Record<ReiconName, IconSvgElement>> = {
+  send: ReiconPlaneFilledIcon,
+  plane: ReiconPlaneFilledIcon,
+};
 
+export const REICON_COMPONENT_MAP = HUGEICONS_MAP;
 const PRESET_CLASSES: Record<ReiconPreset, string> = {
   bounce: 'transition-transform duration-200 active:scale-95',
   rotate: 'transition-transform duration-300 group-hover:rotate-45 hover:rotate-45',
@@ -258,10 +265,10 @@ export const Reicon = React.forwardRef<SVGSVGElement, ReiconProps>(
       preset = 'none',
       isLoading,
       isActive: _isActive,
-      isFilled: _isFilled,
+      isFilled,
       color = 'currentColor',
       strokeWidth = 1.5,
-      weight: _weight,
+      weight,
       'aria-hidden': ariaHidden,
       'aria-label': ariaLabel,
       role,
@@ -273,17 +280,22 @@ export const Reicon = React.forwardRef<SVGSVGElement, ReiconProps>(
     const numericSize = typeof size === 'number' ? size : Number.parseInt(String(size), 10) || 20;
     const numericStrokeWidth =
       typeof strokeWidth === 'number' ? strokeWidth : Number.parseFloat(String(strokeWidth)) || 1.5;
+    const isFilledWeight = Boolean(
+      isFilled || weight === 'Filled' || weight === 'filled' || weight === 'fill' || weight === 'solid'
+    );
 
     const isHidden = ariaHidden !== undefined ? ariaHidden : ariaLabel ? undefined : true;
     const computedRole = role || (ariaLabel ? 'img' : undefined);
     const presetClass = isSpinner ? 'animate-spin' : preset !== 'none' ? PRESET_CLASSES[preset] : '';
 
-    const effectiveIcon = isSpinner ? Loading01Icon : HUGEICONS_MAP[name] || File01Icon;
+    const iconCandidate = isSpinner
+      ? Loading01Icon
+      : (isFilledWeight && REICON_FILLED_MAP[name]) || HUGEICONS_MAP[name] || File01Icon;
 
     return (
       <HugeiconsIcon
         ref={ref}
-        icon={effectiveIcon}
+        icon={iconCandidate}
         size={numericSize}
         color={color}
         strokeWidth={numericStrokeWidth}

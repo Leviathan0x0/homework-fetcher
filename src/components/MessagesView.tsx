@@ -1856,7 +1856,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             disabled={(!inputText.trim() && !selectedFile) || sending}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <Reicon name="loader" size={16} isLoading className="animate-spin" /> : <Reicon name="send" size={16} />}
+            {sending ? <Reicon name="loader" size={16} isLoading className="animate-spin" /> : <Reicon name="plane" size={16} weight="Filled" />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">

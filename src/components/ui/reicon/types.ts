@@ -101,6 +101,7 @@ export type ReiconName =
   | 'trending-up'
   | 'mail'
   | 'send'
+  | 'plane'
   | 'share'
   | 'box';
 

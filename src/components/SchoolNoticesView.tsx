@@ -8,6 +8,7 @@ import type { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 import { cn } from '../utils/cn';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
+import { formatNoticeContent } from '../utils/noticeFormatting';
 import { Reicon } from './ui/reicon';
 
 interface SchoolNoticesViewProps {
@@ -83,7 +84,7 @@ function NoticeCard({
             notice.title ? 'mt-1' : 'mt-2.5'
           )}
         >
-          <MarkdownRenderer content={notice.content} />
+          <MarkdownRenderer content={formatNoticeContent(notice.content)} />
         </div>
       </div>
 

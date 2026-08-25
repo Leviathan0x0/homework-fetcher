@@ -78,7 +78,7 @@ export const LeaveView: React.FC = () => {
             </div>
             <label className="block space-y-1.5"><span className="text-[11px] font-medium text-neutral-500">Reason</span><select required className={inputClass} value={form.reasonCategory} onChange={(e) => setForm({ ...form, reasonCategory: e.target.value })}><option value="">Choose a reason</option>{REASON_OPTIONS.map((reason) => <option key={reason}>{reason}</option>)}</select></label>
             <label className="block space-y-1.5"><span className="text-[11px] font-medium text-neutral-500">Details <span className="font-normal text-neutral-400">(optional)</span></span><textarea className="min-h-24 w-full resize-y rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs outline-none dark:border-neutral-800 dark:bg-neutral-950" placeholder="Add any details your teacher should know…" value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} /></label>
-            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} weight="Filled" /> Submit request</button>
+            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} /> Submit request</button>
           </div>
         </form>
         <div className="space-y-5">

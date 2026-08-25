@@ -27,14 +27,31 @@ function formatShortDate(ymd: string): string {
   });
 }
 
+function formatUpcomingMonth(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' });
+}
+
+function formatUpcomingWeekday(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
 function typeLabel(type?: string) {
   return isHolidayType(type) ? 'School Holiday' : type || 'School Event';
 }
 
 interface HolidayCardProps {
   event: SchoolCalendarEvent;
-  /** hero = Today page banner, detail = calendar day, compact = month list row */
-  variant?: 'hero' | 'detail' | 'compact';
+  daysAway?: number;
+  /** hero = Today page banner, upcoming = compact upcoming countdown banner, detail = calendar day, compact = month list row */
+  variant?: 'hero' | 'upcoming' | 'detail' | 'compact';
   active?: boolean;
   onSelect?: () => void;
   onToggleVisible?: () => void;
@@ -43,6 +60,7 @@ interface HolidayCardProps {
 
 export const HolidayCard: React.FC<HolidayCardProps> = ({
   event,
+  daysAway,
   variant = 'detail',
   active = false,
   onSelect,
@@ -51,6 +69,104 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
 }) => {
   const visible = event.selected !== false;
   const label = typeLabel(event.type);
+
+  if (variant === 'upcoming') {
+    const Comp = onSelect ? 'button' : 'div';
+    const dayNumber = Number(event.date.slice(8)) || '';
+    const monthText = formatUpcomingMonth(event.date);
+    const dateFormatted = formatUpcomingWeekday(event.date);
+    const countdownText =
+      daysAway === 1 ? 'Holiday tomorrow' : daysAway ? `Holiday in ${daysAway} days` : 'Upcoming holiday';
+
+    return (
+      <Comp
+        type={onSelect ? 'button' : undefined}
+        onClick={onSelect}
+        aria-label={`${countdownText}: ${event.title}, ${dateFormatted}`}
+        className={cn(
+          'group relative overflow-hidden flex w-full items-center justify-between gap-3 sm:gap-4 rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50/90 via-amber-50/40 to-rose-50/60 p-3 sm:p-3.5 text-left shadow-2xs transition-all duration-200 hover:border-rose-300 hover:shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40',
+          'dark:border-rose-900/40 dark:from-rose-950/30 dark:via-amber-950/15 dark:to-rose-950/20 dark:hover:border-rose-800',
+          onSelect && 'cursor-pointer',
+          className
+        )}
+      >
+        {/* Ambient subtle glow flares */}
+        <div
+          className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-rose-400/15 dark:bg-rose-500/10 blur-xl"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute -bottom-6 left-1/3 h-16 w-24 rounded-full bg-amber-300/20 dark:bg-amber-500/10 blur-xl"
+          aria-hidden
+        />
+
+        <div className="relative flex items-center gap-3 min-w-0 flex-1">
+          {/* Calendar Date Block */}
+          <div className="flex h-11 w-10 sm:h-12 sm:w-11 shrink-0 flex-col items-center justify-center rounded-xl bg-white shadow-2xs border border-rose-200/60 dark:bg-neutral-900 dark:border-rose-900/50 overflow-hidden select-none">
+            <span className="w-full bg-rose-500 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-white">
+              {monthText}
+            </span>
+            <span className="flex-1 flex items-center justify-center text-xs sm:text-sm font-bold tabular-nums text-neutral-900 dark:text-neutral-100">
+              {dayNumber}
+            </span>
+          </div>
+
+          {/* Text Content */}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="inline-flex items-center rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                {countdownText}
+              </span>
+              <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400 hidden xs:inline">
+                · {dateFormatted}
+              </span>
+            </div>
+            <p className="mt-1 text-xs sm:text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 truncate">
+              {event.title}
+            </p>
+          </div>
+        </div>
+
+        {/* Right side compact celebration illustration & action */}
+        <div className="relative flex items-center gap-2.5 shrink-0">
+          <div className="hidden sm:flex shrink-0 items-center justify-center" aria-hidden>
+            <svg
+              viewBox="0 0 48 48"
+              className="size-9 text-rose-500 select-none overflow-visible"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <circle cx="24" cy="24" r="20" className="fill-rose-100/80 dark:fill-rose-950/40" />
+              <circle cx="24" cy="24" r="14" className="fill-amber-100/70 dark:fill-amber-950/30" />
+              <circle cx="12" cy="32" r="1.5" className="fill-emerald-400" />
+              <circle cx="37" cy="30" r="1.5" className="fill-indigo-400" />
+              <g transform="translate(16 15)">
+                <path
+                  d="M4 22L2 8l16 8L4 22z"
+                  className="fill-rose-500 stroke-rose-600 dark:stroke-rose-400"
+                  strokeWidth="1.2"
+                  strokeLinejoin="round"
+                />
+                <path d="M2 8l16 8" stroke="white" strokeWidth="1.2" strokeOpacity="0.8" />
+                <path d="M6 10l10 5" stroke="#fcd34d" strokeWidth="1.2" />
+                <path d="M13 6c2-4 6-3 8-1" stroke="#fbbf24" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M16 10c3-2 6-1 8 2" stroke="#f43f5e" strokeWidth="1.2" strokeLinecap="round" />
+              </g>
+            </svg>
+          </div>
+
+          <div className="flex items-center gap-1 text-[11px] font-medium text-rose-600 transition-colors group-hover:text-rose-700 dark:text-rose-400 dark:group-hover:text-rose-300">
+            <span className="hidden xs:inline">View</span>
+            <Reicon
+              name="chevron-right"
+              size={14}
+              className="transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </div>
+        </div>
+      </Comp>
+    );
+  }
 
   if (variant === 'hero') {
     return (

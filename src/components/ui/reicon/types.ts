@@ -40,6 +40,7 @@ export type ReiconName =
   | 'graduation-cap'
   | 'message-square'
   | 'message-circle'
+  | 'chat-line'
   | 'megaphone'
   | 'heart-handshake'
   | 'sparkles'
@@ -103,7 +104,8 @@ export type ReiconName =
   | 'send'
   | 'plane'
   | 'share'
-  | 'box';
+  | 'box'
+  | 'code';
 
 export type ReillustrationName =
   | 'empty-today'
@@ -163,7 +165,7 @@ export interface ReiconProps extends React.SVGAttributes<SVGSVGElement> {
   weight?: string;
 }
 
-export type ReillustrationSize = 'sm' | 'md' | 'lg' | 'xl' | number;
+export type ReillustrationSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 
 export interface ReillustrationProps extends React.SVGAttributes<SVGSVGElement> {
   name: ReillustrationName;

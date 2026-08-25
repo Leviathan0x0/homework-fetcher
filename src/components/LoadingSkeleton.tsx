@@ -1,5 +1,5 @@
 import React from 'react';
-import { Reicon } from './ui/reicon';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface LoadingSkeletonProps {
   count?: number;
@@ -13,7 +13,7 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
   return (
     <div className="space-y-3.5" role="status" aria-live="polite" aria-busy="true">
       <div className="flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
-        <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400 dark:text-neutral-500" />
+        <WanderingEyes className="h-8 text-neutral-400 dark:text-neutral-500" />
         <span>{label}</span>
       </div>
       {Array.from({ length: Math.max(1, count) }).map((_, i) => (

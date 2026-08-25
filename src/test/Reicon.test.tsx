@@ -68,25 +68,35 @@ describe('Reicon', () => {
     const { container } = render(<Reicon name="moon" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
-    expect(container.innerHTML).toContain('M21 12.79');
+    // Reicon Moon (outline) uses reicon-react Moon icon
+    expect(container.innerHTML).toContain('M11.0174');
   });
 
-  it('renders send icon with proper attributes and filled path', () => {
+  it('renders send icon as unfilled paperplane by default', () => {
     const { container } = render(<Reicon name="send" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
-    expect(container.innerHTML).toContain('M18.6357 15.6701L20.3521');
-    expect(container.innerHTML).toContain('fill="currentColor"');
+    // Reicon Send outline from reicon-react
+    expect(container.innerHTML).toContain('M22.5615');
   });
 
-  it('renders plane icon with proper attributes and filled path', () => {
-    const { container } = render(<Reicon name="plane" />);
+  it('renders filled paperplane when weight="Filled" or isFilled is set', () => {
+    const { container: filledWeight } = render(<Reicon name="send" weight="Filled" />);
+    expect(filledWeight.innerHTML).toContain('M18.3803');
+    expect(filledWeight.innerHTML).toContain('fill="currentColor"');
+
+    const { container: isFilledProp } = render(<Reicon name="plane" isFilled />);
+    // plane now maps to PaperPlane (reicon) filled variant
+    expect(isFilledProp.innerHTML).toContain('M 21.7933');
+    expect(isFilledProp.innerHTML).toContain('fill="currentColor"');
+  });
+
+  it('renders code icon with proper attributes', () => {
+    const { container } = render(<Reicon name="code" />);
     const svg = container.querySelector('svg');
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
-    expect(container.innerHTML).toContain('M18.6357 15.6701L20.3521');
-    expect(container.innerHTML).toContain('fill="currentColor"');
   });
 });
 
@@ -114,6 +124,9 @@ describe('Reillustration', () => {
   });
 
   it('maps named size presets to numeric pixel sizes', () => {
+    const { container: xs } = render(<Reillustration name="empty-today" size="xs" />);
+    expect(xs.querySelector('svg')).toHaveAttribute('width', '48');
+
     const { container: sm } = render(<Reillustration name="empty-today" size="sm" />);
     expect(sm.querySelector('svg')).toHaveAttribute('width', '96');
 

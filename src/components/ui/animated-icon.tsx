@@ -81,7 +81,7 @@ export const AnimatedSearch: React.FC<Omit<AnimatedIconProps, 'icon' | 'name'>> 
 );
 
 export const AnimatedMessage: React.FC<Omit<AnimatedIconProps, 'icon' | 'name'>> = (props) => (
-  <Reicon name="message-square" preset="bounce" {...props} />
+  <Reicon name="chat-line" preset="bounce" {...props} />
 );
 
 export const AnimatedUpload: React.FC<Omit<AnimatedIconProps, 'icon' | 'name'>> = (props) => (

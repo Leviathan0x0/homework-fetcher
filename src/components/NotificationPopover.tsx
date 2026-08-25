@@ -5,6 +5,7 @@ import { Reicon, Reillustration } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { formatChatListTime } from '../utils/dateUtils';
 import { messagePreviewText } from '../utils/pendingMessageOpen';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface NotificationPopoverProps {
   role: 'student' | 'teacher' | 'admin';
@@ -20,7 +21,7 @@ function getNotifIcon(type: string) {
     case 'new_request':
       return <Reicon name="heart-handshake" size={16} />;
     case 'new_message':
-      return <Reicon name="message-square" size={16} />;
+      return <Reicon name="chat-line" size={16} />;
     case 'teacher_assignment':
     case 'new_homework':
     case 'homework_updated':
@@ -188,7 +189,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
           <div className="max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Reicon name="loader" size={20} isLoading className="animate-spin text-neutral-400" />
+                <WanderingEyes className="h-10 text-neutral-400" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-5 py-6 text-center">

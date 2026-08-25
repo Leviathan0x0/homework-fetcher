@@ -222,7 +222,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       key: 'messages',
       label: unreadMessages === 1 ? 'chat' : 'chats',
       value: String(unreadMessages),
-      iconName: 'message-square' as const,
+      iconName: 'chat-line' as const,
       preset: 'bounce' as const,
       onClick: onNavigate ? () => onNavigate('messages') : undefined,
     },
@@ -343,30 +343,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
       ))}
 
       {!hasHolidayToday && upcomingHoliday && (
-        <button
-          type="button"
-          onClick={() => onNavigate?.('calendar')}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-rose-200/60 bg-rose-50/50 px-4 py-3.5 text-left shadow-2xs transition-[background-color,border-color] duration-200 hover:border-rose-300 hover:bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20 dark:hover:border-rose-800 dark:hover:bg-rose-950/30"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-300">
-            <span className="text-xs font-bold tabular-nums">
-              {Number(upcomingHoliday.event.date.slice(8))}
-            </span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold text-rose-600/80 dark:text-rose-400">
-              {upcomingHoliday.daysAway === 1
-                ? 'Holiday Tomorrow'
-                : `Holiday After ${upcomingHoliday.daysAway} Days`}
-            </p>
-            <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate mt-0.5">
-              {upcomingHoliday.event.title}
-            </p>
-          </div>
-          <span className="text-[11px] text-rose-600 dark:text-rose-400 shrink-0 font-medium">
-            View
-          </span>
-        </button>
+        <HolidayCard
+          event={upcomingHoliday.event}
+          daysAway={upcomingHoliday.daysAway}
+          variant="upcoming"
+          onSelect={() => onNavigate?.('calendar')}
+        />
       )}
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">

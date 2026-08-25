@@ -14,10 +14,10 @@ import { TodayView } from './TodayView';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
-import { Reicon } from './ui/reicon';
 import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
 import { SHOW_LEAVE_AND_ABSENCE } from '../utils/features';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 type AppRole = 'student' | 'teacher' | 'admin';
 
@@ -48,7 +48,7 @@ const DisplayNamePrompt = lazy(() => import('./DisplayNamePrompt').then((m) => (
 /** Placeholder shown while a screen's code is still downloading. */
 const ViewFallback: React.FC = () => (
   <div className="flex items-center justify-center py-16">
-    <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
+    <WanderingEyes className="h-8 text-neutral-400" />
   </div>
 );
 
@@ -343,7 +343,7 @@ export const AppShell: React.FC = () => {
             <img src="/logo.png" alt="MMSS Mohali" className="w-full h-full object-contain" />
           </div>
           <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 dark:text-neutral-400 mt-2">
-            <Reicon name="loader" size={14} isLoading className="animate-spin text-neutral-400" />
+            <WanderingEyes className="h-7 text-neutral-400" />
             <span>Checking your session</span>
           </div>
         </div>

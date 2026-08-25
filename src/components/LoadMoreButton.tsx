@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Reicon } from './ui/reicon';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface LoadMoreButtonProps {
   hasMore: boolean;
@@ -54,7 +55,7 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
         >
           {isLoadingMore ? (
             <>
-              <Reicon name="loader" size={14} isLoading className="animate-spin text-neutral-500 dark:text-neutral-400" />
+              <WanderingEyes className="h-7 text-neutral-500 dark:text-neutral-400" />
               <span>Loading more cards…</span>
             </>
           ) : (

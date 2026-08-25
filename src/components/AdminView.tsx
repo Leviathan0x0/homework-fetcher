@@ -7,6 +7,7 @@ import { adminService } from '../services/api';
 import { ViewType } from '../types/homework';
 import { cn } from '../utils/cn';
 import { messagePreviewText } from '../utils/pendingMessageOpen';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface AdminViewProps {
   activeSubView?: ViewType;
@@ -18,7 +19,7 @@ type DirectoryLoadState = 'loading' | 'loaded' | 'error';
 function DirectoryLoading({ label }: { label: string }) {
   return (
     <div className="flex min-h-32 items-center justify-center gap-2.5 p-8 text-xs text-neutral-500" role="status">
-      <Reicon name="loader" size={16} isLoading className="animate-spin text-neutral-400" />
+      <WanderingEyes className="h-8 text-neutral-400" />
       <span>{label}</span>
     </div>
   );
@@ -932,7 +933,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                 disabled={isSubmittingAlert}
                 className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-semibold text-xs hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
               >
-                {isSubmittingAlert ? <Reicon name="loader" size={14} isLoading className="animate-spin" /> : <Reicon name="plane" size={14} weight="Filled" />}
+                {isSubmittingAlert ? <WanderingEyes className="h-7" /> : <Reicon name="send" size={14} />}
                 <span>Publish Broadcast</span>
               </button>
             </form>

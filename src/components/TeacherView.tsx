@@ -5,6 +5,7 @@ import { PageHeader } from "./PageHeader";
 import { teacherService } from "../services/api";
 import { ViewType } from "../types/homework";
 import { cn } from "../utils/cn";
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 
 interface TeacherViewProps {
@@ -280,7 +281,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
   };
 
   if (isLoading) {
-    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><Reicon name="loader" size={20} isLoading className="animate-spin text-neutral-400" /></div>;
+    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><WanderingEyes className="h-10 text-neutral-400" /></div>;
   }
 
   return (
@@ -351,7 +352,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
             </div>
             <input className={inputClass} type="date" value={assignmentForm.dueDate} onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })} />
             <div><p className="mb-2 text-[11px] font-medium text-neutral-500">Assign to sections</p><div className="flex flex-wrap gap-2">{sections.map((section: string) => <button type="button" key={section} onClick={() => setAssignmentForm({ ...assignmentForm, sections: assignmentForm.sections.includes(section) ? assignmentForm.sections.filter((item) => item !== section) : [...assignmentForm.sections, section] })} className={cn("rounded-lg border px-2.5 py-1.5 text-[11px] font-medium", assignmentForm.sections.includes(section) ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300" : "border-neutral-200 dark:border-neutral-800")}>{section}</button>)}</div></div>
-            <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} weight="Filled" />Publish assignment</button>
+            <button className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white transition hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} />Publish assignment</button>
           </form></Panel>
           <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Published assignments</h2><p className="mt-1 text-xs text-neutral-500">Assignments currently shared with your sections.</p></div><div className="flex items-center gap-2"><a href="/api/teacher/exports/assignments.csv" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-[10px] font-medium dark:border-neutral-800">Export CSV</a></div></div>{assignments.length ? <div className="space-y-2">{assignments.map((assignment) => <div key={assignment.id} className="w-full rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold">{assignment.title}</p><p className="mt-1 text-[11px] text-neutral-500">{assignment.subject} · due {assignment.dueDate}</p>{assignment.attachmentUrl && (onOpenPreview ? <button type="button" className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-sky-600 hover:underline cursor-pointer" onClick={() => onOpenPreview(assignment.attachmentUrl, assignment.attachmentFilename)}><Reicon name="paperclip" size={12} />Open attachment</button> : <a className="mt-2 inline-block text-[11px] font-medium text-sky-600 hover:underline" href={assignment.attachmentUrl} target="_blank" rel="noreferrer">Open attachment</a>)}</div><span className="rounded-md bg-neutral-100 px-2 py-1 text-[10px] font-medium dark:bg-neutral-900">{assignment.targetCount || assignment.targets?.length || 0} students</span></div></div>)}</div> : <Empty>No assignments published yet.</Empty>}</Panel>
         </div>
@@ -454,7 +455,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
       )}
 
       {activeSubView === "teacher-parents" && (
-        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><Reicon name="message-square" size={20} className="text-neutral-400" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900 cursor-pointer">Open chat</button></div>)}</div> : <Empty>No parent contacts available.</Empty>}</Panel>
+        <Panel><div className="mb-4 flex items-center justify-between"><div><h2 className="text-sm font-semibold">Parent directory</h2><p className="mt-1 text-xs text-neutral-500">Messaging access is limited to parent accounts in your assigned scope.</p></div><Reicon name="chat-line" size={20} className="text-neutral-400" /></div>{parents.length ? <div className="grid gap-2 sm:grid-cols-2">{parents.map((parent) => <div key={parent.id} className="flex items-center justify-between rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><span><p className="text-xs font-semibold">{parent.displayName}</p><p className="text-[11px] text-neutral-500">{parent.studentId} · {parent.section || "Linked account"}</p></span><button onClick={() => onNavigate("messages")} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-white dark:text-neutral-900 cursor-pointer">Open chat</button></div>)}</div> : <Empty>No parent contacts available.</Empty>}</Panel>
       )}
     </motion.div>
   );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch, apiJson } from '../lib/api';
 import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface MonitoringNoticeDialogProps {
   isOpen: boolean;
@@ -147,7 +148,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
             )}
           >
             {isLoadingToken ? (
-              <Reicon name="loader" size={14} isLoading className="animate-spin" />
+              <WanderingEyes className="h-7" />
             ) : secondsLeft > 0 ? (
               <span>{secondsLeft}</span>
             ) : (

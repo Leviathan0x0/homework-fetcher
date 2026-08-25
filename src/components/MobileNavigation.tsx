@@ -78,7 +78,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     { id: 'today', label: 'Today', iconName: 'calendar-check' },
     { id: 'classwork', label: 'Uploads', iconName: 'upload' },
     { id: 'requests', label: 'Requests', iconName: 'heart-handshake', badge: openRequests > 0 ? openRequests : undefined },
-    { id: 'messages', label: 'Messages', iconName: 'message-square', badge: messagesUnread > 0 ? messagesUnread : undefined },
+    { id: 'messages', label: 'Messages', iconName: 'chat-line', badge: messagesUnread > 0 ? messagesUnread : undefined },
     { id: 'all', label: 'Search', iconName: 'search' },
   ];
 

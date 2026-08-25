@@ -67,7 +67,7 @@ export function AppSidebar({
         { id: "today", title: "Today", icon: "calendar-check" },
         { id: "classwork", title: "Classwork", icon: "upload" },
         { id: "requests", title: "Requests", icon: "heart-handshake" },
-        { id: "messages", title: "Messages", icon: "message-square" },
+        { id: "messages", title: "Messages", icon: "chat-line" },
       ],
     },
     {
@@ -123,7 +123,7 @@ export function AppSidebar({
       items: [
         { id: "teacher-duties", title: "Duties", icon: "shield-check" },
         { id: "teacher-announcements", title: "Announcements", icon: "bell" },
-        { id: "teacher-parents", title: "Parent connections", icon: "message-square" },
+        { id: "teacher-parents", title: "Parent connections", icon: "chat-line" },
         { id: "teacher-students", title: "Student profiles", icon: "users" },
       ],
     },

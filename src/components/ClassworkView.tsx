@@ -9,6 +9,7 @@ import { detectSubject } from '../utils/subjectDetector';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
 import { AuthenticatedImage } from './AuthenticatedImage';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 interface ClassworkViewProps {
   userSection?: string;
   onOpenPreview: (url: string, filename?: string) => void;
@@ -211,7 +212,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
             disabled={isLoading}
             className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-semibold hover:bg-rose-700 disabled:opacity-60 cursor-pointer"
           >
-            {isLoading ? <Reicon name="loader" size={12} isLoading className="animate-spin" /> : null}
+            {isLoading ? <WanderingEyes className="h-6" /> : null}
             Retry
           </button>
         </div>
@@ -444,7 +445,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                         title="Delete Upload"
                       >
                         {deletingId === item.id ? (
-                          <Reicon name="loader" size={14} isLoading className="animate-spin" />
+                          <WanderingEyes className="h-7" />
                         ) : (
                           <Reicon name="trash-2" size={14} />
                         )}
@@ -634,7 +635,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                 >
                   {isSubmitting ? (
                     <>
-                      <Reicon name="loader" size={14} isLoading className="animate-spin" />
+                      <WanderingEyes className="h-7" />
                       <span>Uploading...</span>
                     </>
                   ) : (

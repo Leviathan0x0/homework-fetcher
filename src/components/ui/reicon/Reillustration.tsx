@@ -3,7 +3,8 @@ import { cn } from '../../../utils/cn';
 import { ILLUSTRATION_REGISTRY } from './illustrations';
 import type { ReillustrationProps } from './types';
 
-const SIZE_MAP: Record<'sm' | 'md' | 'lg' | 'xl', number> = {
+const SIZE_MAP: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', number> = {
+  xs: 48,
   sm: 96,
   md: 140,
   lg: 180,

@@ -22,6 +22,7 @@
     "hooks": "@/hooks"
   },
   "registries": {
-    "@lucide-animated": "https://lucide-animated.com/r/{name}.json"
+    "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
+    "@loading-ui": "https://loading-ui.com/r/{name}.json"
   }
 }

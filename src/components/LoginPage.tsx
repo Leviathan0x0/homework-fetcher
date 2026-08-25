@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { cn } from '../utils/cn';
 import { Reicon } from './ui/reicon';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
+import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
 
 interface LoginPageProps {
   onLogin: (studentId: string, pass: string) => Promise<boolean>;
@@ -242,7 +243,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               >
                 {isLoading ? (
                   <>
-                    <Reicon name="loader" size={16} isLoading className="animate-spin" />
+                    <WanderingEyes className="h-8" />
                     <span>Signing in...</span>
                   </>
                 ) : (

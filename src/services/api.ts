@@ -1,6 +1,7 @@
 import { apiFetch, apiJson, apiUrl } from "../lib/api";
 import { messagePreviewText, parseMessageRequestRef } from "../utils/pendingMessageOpen";
 import { getHomeworkRequest } from "./homeworkLoader";
+import { clearViewCache, readViewCache, writeViewCache } from "./viewCache";
 
 /**
  * Conversations from the last successful load.
@@ -113,6 +114,7 @@ export const authService = {
 
     // A new session must never read the previous account's cached conversations.
     clearConversationCache();
+    clearViewCache();
 
     return mapAuthUser(data.user);
   },
@@ -178,6 +180,7 @@ export const authService = {
       console.error("Logout error:", err);
     } finally {
       clearConversationCache();
+      clearViewCache();
     }
   }
 };
@@ -250,13 +253,20 @@ export const homeworkService = {
 
 // --- SCHOOL CALENDAR (holidays / events from EduSecure) ---
 export const calendarService = {
+  /** Events from the last load, available synchronously for the first paint. */
+  getCachedEvents() {
+    return readViewCache<any[]>("calendar", []);
+  },
+
   async getEvents() {
     const res = await apiFetch("/api/calendar", { headers: { Accept: "application/json" } });
     const data = await apiJson<any>(res);
     if (!res.ok) {
       throw new Error(data.error || "Failed to load school calendar.");
     }
-    return Array.isArray(data.events) ? data.events : [];
+    const events = Array.isArray(data.events) ? data.events : [];
+    writeViewCache("calendar", events);
+    return events;
   },
 
   async refresh() {
@@ -268,7 +278,9 @@ export const calendarService = {
     if (!res.ok && (!data.events || data.events.length === 0)) {
       throw new Error(data.error || "Failed to refresh school calendar.");
     }
-    return Array.isArray(data.events) ? data.events : [];
+    const events = Array.isArray(data.events) ? data.events : [];
+    writeViewCache("calendar", events);
+    return events;
   },
 
   async setSelected(eventId: string, selected: boolean) {
@@ -285,6 +297,14 @@ export const calendarService = {
 
 // --- SCHOOL UPDATES (EduSecure circulars and important messages) ---
 export const schoolNoticeService = {
+  /** Notices from the last load, available synchronously for the first paint. */
+  getCachedNotices(kind: "circulars" | "important") {
+    return readViewCache<{ notices: any[]; recentCount: number }>(`notices:${kind}`, {
+      notices: [],
+      recentCount: 0,
+    });
+  },
+
   async getNotices(kind: "circulars" | "important", forceRefresh = false) {
     const suffix = forceRefresh ? "/refresh" : "";
     const res = await apiFetch(`/api/school-updates/${kind}${suffix}`, {
@@ -315,12 +335,14 @@ export const schoolNoticeService = {
           : attachments[0]?.url || null,
       };
     });
-    return {
+    const result = {
       notices: mappedNotices,
       recentCount: Number.isFinite(Number(data.recentCount))
         ? Math.max(0, Number(data.recentCount))
         : 0,
     };
+    writeViewCache(`notices:${kind}`, result);
+    return result;
   },
 };
 
@@ -462,12 +484,16 @@ export const messagingService = {
     _senderStudentId: string,
     content: string,
     file?: File | null,
-    replyToId?: string | null
+    replyToId?: string | null,
+    clientMessageId?: string | null
   ) {
     const formData = new FormData();
     if (content) formData.append("content", content);
     if (file) formData.append("file", file);
     if (replyToId) formData.append("replyToId", replyToId);
+    // Identifies this composed message, so a retry after a failed or lost
+    // response is stored once instead of posting the same text twice.
+    if (clientMessageId) formData.append("clientMessageId", clientMessageId);
 
     const res = await apiFetch(`/api/conversations/${encodeURIComponent(convId)}/messages`, {
       method: "POST",
@@ -629,11 +655,18 @@ export const notificationService = {
 
 // --- REQUEST SERVICE ---
 export const requestService = {
+  /** Requests from the last load, available synchronously for the first paint. */
+  getCachedRequests() {
+    return readViewCache<any[]>("requests", []);
+  },
+
   async getRequests(_section?: string) {
     const res = await apiFetch("/api/requests", { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error("Failed to load requests.");
     const data = await apiJson<any>(res);
-    return data.requests || [];
+    const requests = data.requests || [];
+    writeViewCache("requests", requests);
+    return requests;
   },
 
   async createRequest(title: string, content: string, category?: string) {
@@ -674,14 +707,21 @@ export const requestService = {
 
 // --- CLASSWORK SERVICE ---
 export const classworkService = {
+  /** Classwork from the last load, available synchronously for the first paint. */
+  getCachedClasswork() {
+    return readViewCache<any[]>("classwork", []);
+  },
+
   async getClasswork(_section?: string) {
     const res = await apiFetch("/api/classwork", { headers: { Accept: "application/json" } });
     if (!res.ok) throw new Error("Failed to load classwork.");
     const data = await apiJson<any>(res);
-    return (data.classwork || []).map((item: any) => ({
+    const classwork = (data.classwork || []).map((item: any) => ({
       ...item,
       fileUrl: item.fileUrl ? apiUrl(item.fileUrl) : item.fileUrl,
     }));
+    writeViewCache("classwork", classwork);
+    return classwork;
   },
 
   async uploadClasswork(file: File, subject: string, title?: string, _section?: string, date?: string) {

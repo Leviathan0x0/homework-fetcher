@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { eq, desc, asc, and, or, sql, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
-const { db, schema, isRemote } = require("../db/client");
+const { db, schema, isRemote, runBatch } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
 const {
   applyDownloadHeaders,
@@ -582,6 +582,78 @@ const msgUpload = multer({
   fileFilter: uploadFileFilter,
 });
 
+/**
+ * Sender-generated id for one composed message.
+ *
+ * A send that fails, or whose answer never arrives, is retried with the same
+ * value, which is what lets the server store the message once instead of
+ * posting the same text twice.
+ */
+function normalizeClientMessageId(raw) {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value || value.length > 100) return null;
+  return /^[A-Za-z0-9._:-]+$/.test(value) ? value : null;
+}
+
+/** Removes a temporary upload that will not be attached to a stored message. */
+function discardUpload(file) {
+  if (file?.path) fs.unlink(file.path, () => {});
+}
+
+/** The message already stored for this sender-generated id, if any. */
+async function findMessageByClientId(conversationId, clientMessageId) {
+  if (!clientMessageId) return null;
+  const row = await db
+    .select()
+    .from(schema.messages)
+    .where(
+      and(
+        eq(schema.messages.conversationId, conversationId),
+        eq(schema.messages.clientMessageId, clientMessageId)
+      )
+    )
+    .get();
+  return row || null;
+}
+
+/** Quoted-message chrome shown above a reply. */
+async function replyReferenceFor(parent) {
+  if (!parent) return null;
+  const parentSender = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, parent.senderId))
+    .get();
+  return {
+    id: parent.id,
+    senderId: parent.senderId,
+    senderName: parentSender
+      ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
+      : "Student",
+    content: (parent.content || "").substring(0, 100),
+    attachmentUrl: parent.attachmentUrl,
+  };
+}
+
+/** Public shape of a message the caller just sent. */
+function sentMessageResponse(row, sender, replyTo) {
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    senderId: row.senderId,
+    senderName: sender.displayName || alphabeticStudentAlias(sender.studentId) || "You",
+    content: row.content,
+    attachmentUrl: row.attachmentUrl,
+    originalFilename: row.originalFilename,
+    mimeType: row.mimeType,
+    clientMessageId: row.clientMessageId || null,
+    replyTo: replyTo || null,
+    readBy: [],
+    createdAt: row.createdAt,
+    isMine: true,
+  };
+}
+
 router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
@@ -776,7 +848,11 @@ router.post(
         return res.json({
           success: true,
           duplicate: true,
-          message: sentMessageResponse(alreadySent, req.user, await replyReferenceFor(parentMsg)),
+          message: sentMessageResponse(
+            alreadySent,
+            req.user,
+            await replyReferenceFor(parentMsg).catch(() => null)
+          ),
         });
       }
 
@@ -868,7 +944,11 @@ router.post(
         return res.json({
           success: true,
           duplicate: true,
-          message: sentMessageResponse(stored, req.user, await replyReferenceFor(parentMsg)),
+          message: sentMessageResponse(
+            stored,
+            req.user,
+            await replyReferenceFor(parentMsg).catch(() => null)
+          ),
         });
       }
 

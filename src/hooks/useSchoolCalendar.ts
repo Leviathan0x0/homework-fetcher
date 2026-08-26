@@ -6,12 +6,16 @@ import { calendarService } from '../services/api';
  * Loads EduSecure school calendar events (holidays) with optional force refresh.
  */
 export function useSchoolCalendar() {
-  const [events, setEvents] = useState<SchoolCalendarEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seeded from the last load so the calendar paints immediately instead of
+  // showing a spinner until the first request comes back.
+  const [events, setEvents] = useState<SchoolCalendarEvent[]>(
+    () => calendarService.getCachedEvents() as SchoolCalendarEvent[]
+  );
+  const [isLoading, setIsLoading] = useState(() => calendarService.getCachedEvents().length === 0);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (force = false) => {
-    setIsLoading(true);
+    setIsLoading(calendarService.getCachedEvents().length === 0);
     setError(null);
     try {
       const list = force ? await calendarService.refresh() : await calendarService.getEvents();

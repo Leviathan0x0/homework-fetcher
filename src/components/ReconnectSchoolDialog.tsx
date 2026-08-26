@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Reicon } from './ui/reicon';
 import { authService } from '../services/api';
 import { cn } from '../utils/cn';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 interface ReconnectSchoolDialogProps {
   isOpen: boolean;
@@ -164,7 +164,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
           >
             {isSubmitting ? (
               <>
-                <WanderingEyes className="h-7" />
+                <Ring className="size-3.5" />
                 <span>Reconnecting</span>
               </>
             ) : (

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { Reicon } from './ui/reicon';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 interface FilePreviewSidebarProps {
   fileUrl: string | null;
@@ -171,7 +171,7 @@ export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl,
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-neutral-50/40 dark:bg-neutral-950/40 relative flex flex-col items-center justify-center min-h-0">
           {loading && (isImage || isPdf || isWordDocument) && (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-[#141417]/60 backdrop-blur-xs">
-              <WanderingEyes className="h-12 text-neutral-500" />
+              <Ring className="size-6 text-neutral-500" />
             </div>
           )}
 

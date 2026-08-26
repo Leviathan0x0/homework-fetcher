@@ -5,7 +5,7 @@ import { PageHeader } from "./PageHeader";
 import { teacherService } from "../services/api";
 import { ViewType } from "../types/homework";
 import { cn } from "../utils/cn";
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 
 interface TeacherViewProps {
@@ -281,7 +281,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
   };
 
   if (isLoading) {
-    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><WanderingEyes className="h-10 text-neutral-400" /></div>;
+    return <div className="flex min-h-64 items-center justify-center text-neutral-500"><Ring className="size-5 text-neutral-400" /></div>;
   }
 
   return (

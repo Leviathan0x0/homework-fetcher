@@ -18,7 +18,7 @@ export const LoadingState: React.FC<LoadingStateProps> = ({ label, className }) 
     aria-live="polite"
     aria-busy="true"
   >
-    <WanderingEyes className="h-10 text-neutral-400 dark:text-neutral-500" />
-    <p className="text-xs font-medium">{label}</p>
+    <WanderingEyes className="h-12 text-neutral-700 dark:text-neutral-300" />
+    <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{label}</p>
   </div>
 );

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Reicon } from './ui/reicon';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 interface DisplayNamePromptProps {
   onSaved: (user: UserAccount) => void;
@@ -59,7 +59,7 @@ export const DisplayNamePrompt: React.FC<DisplayNamePromptProps> = ({ onSaved })
               disabled={saving || !name.trim()}
               className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-sky-700 px-3 text-xs font-semibold text-white transition hover:bg-sky-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-500 dark:text-sky-950 dark:hover:bg-sky-400"
             >
-              {saving ? <WanderingEyes className="h-7" /> : <Reicon name="check" size={14} />}
+              {saving ? <Ring className="size-3.5" /> : <Reicon name="check" size={14} />}
               Save name
             </button>
           </div>

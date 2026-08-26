@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch, apiJson } from '../lib/api';
 import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 interface MonitoringNoticeDialogProps {
   isOpen: boolean;
@@ -148,7 +148,7 @@ export const MonitoringNoticeDialog: React.FC<MonitoringNoticeDialogProps> = ({
             )}
           >
             {isLoadingToken ? (
-              <WanderingEyes className="h-7" />
+              <Ring className="size-3.5" />
             ) : secondsLeft > 0 ? (
               <span>{secondsLeft}</span>
             ) : (

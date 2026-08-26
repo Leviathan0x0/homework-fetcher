@@ -3,7 +3,7 @@
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { Reicon } from "@/components/ui/reicon"
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes"
+import { Ring } from "@/components/loading-ui/ring"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
@@ -17,7 +17,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         info: <Reicon name="info" size={16} />,
         warning: <Reicon name="triangle-alert" size={16} />,
         error: <Reicon name="octagon-x" size={16} />,
-        loading: <WanderingEyes className="h-8" />,
+        loading: <Ring className="size-4" />,
       }}
       style={
         {

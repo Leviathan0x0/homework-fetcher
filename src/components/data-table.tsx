@@ -91,7 +91,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { Reicon } from "@/components/ui/reicon"
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes"
+import { Ring } from "@/components/loading-ui/ring"
 
 export const schema = z.object({
   id: z.number(),
@@ -181,7 +181,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
         {row.original.status === "Done" ? (
           <Reicon name="circle-check" size={14} className="text-green-500 dark:text-green-400" />
         ) : (
-          <WanderingEyes className="h-4" />
+          <Ring className="size-4" />
         )}
         {row.original.status}
       </Badge>

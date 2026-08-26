@@ -5,7 +5,7 @@ import { Reicon, Reillustration } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { formatChatListTime } from '../utils/dateUtils';
 import { messagePreviewText } from '../utils/pendingMessageOpen';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 
 interface NotificationPopoverProps {
   role: 'student' | 'teacher' | 'admin';
@@ -189,7 +189,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
           <div className="max-h-80 overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
-                <WanderingEyes className="h-10 text-neutral-400" />
+                <Ring className="size-5 text-neutral-400" />
               </div>
             ) : notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-5 py-6 text-center">

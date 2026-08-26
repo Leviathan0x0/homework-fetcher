@@ -18,7 +18,7 @@ import { AuthenticatedImage } from './AuthenticatedImage';
 import { ProfileAvatar } from './ProfileAvatar';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { Reicon, Reillustration } from './ui/reicon';
-import { WanderingEyes } from "@/components/loading-ui/wandering-eyes";
+import { Ring } from "@/components/loading-ui/ring";
 import {
   clearPendingMessageOpen,
   peekPendingMessageOpen,
@@ -1067,7 +1067,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="inline-flex items-center gap-1.5 h-8 max-w-[11rem] px-2.5 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-[#141417] text-[11px] font-medium text-neutral-700 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
           >
             {askClassBusy ? (
-              <WanderingEyes className="h-7 shrink-0" />
+              <Ring className="size-3.5 shrink-0" />
             ) : (
               <Reicon name="users" size={14} className="shrink-0 text-neutral-400" />
             )}
@@ -1108,7 +1108,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       <div className="flex-1 overflow-y-auto">
         {searching ? (
           <div className="flex items-center justify-center py-10">
-            <WanderingEyes className="h-8 text-neutral-400" />
+            <Ring className="size-4 text-neutral-400" />
           </div>
         ) : searchQuery.trim() ? (
           searchResults.length > 0 ? (
@@ -1144,7 +1144,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         ) : conversations.length === 0 ? (
           isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <WanderingEyes className="h-8 text-neutral-400" />
+              <Ring className="size-4 text-neutral-400" />
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
@@ -1271,7 +1271,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                   className="absolute right-2 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-md bg-white/95 p-1.5 text-neutral-400 opacity-0 shadow-2xs transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:translate-x-0 focus-visible:opacity-100 disabled:opacity-50 group-hover/conv:translate-x-0 group-hover/conv:opacity-100 group-focus-within/conv:translate-x-0 group-focus-within/conv:opacity-100 dark:bg-[#141417]/95 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
                 >
                   {deletingConvId === conv.id ? (
-                    <WanderingEyes className="h-7" />
+                    <Ring className="size-3.5" />
                   ) : conv.type === 'section' ? (
                     <Reicon name="logout" size={14} />
                   ) : (
@@ -1355,7 +1355,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                       : 'text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                   )}
                 >
-                  {pinning ? <WanderingEyes className="h-7" /> : <Reicon name="paperclip" size={14} />}
+                  {pinning ? <Ring className="size-3.5" /> : <Reicon name="paperclip" size={14} />}
                 </button>
               )}
             />
@@ -1371,7 +1371,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="p-1.5 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-50"
           >
             {muting ? (
-              <WanderingEyes className="h-7" />
+              <Ring className="size-3.5" />
             ) : activeConv?.muted ? (
               <Reicon name="bell" size={14} className="opacity-50" />
             ) : (
@@ -1385,7 +1385,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             aria-label="Report this chat"
             className="p-1.5 rounded-md text-neutral-400 hover:text-amber-700 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer disabled:opacity-50"
           >
-            {reportingConv ? <WanderingEyes className="h-8" /> : <Reicon name="flag" size={14} />}
+            {reportingConv ? <Ring className="size-4" /> : <Reicon name="flag" size={14} />}
           </button>
           <button
             onClick={() => activeConvId && handleDeleteConversation(activeConvId)}
@@ -1395,7 +1395,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             className="p-1.5 rounded-md text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
             {deletingConvId === activeConvId ? (
-              <WanderingEyes className="h-8" />
+              <Ring className="size-4" />
             ) : activeConv?.type === 'section' ? (
               <Reicon name="logout" size={14} />
             ) : (
@@ -1588,7 +1588,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                               className="absolute -left-[4.25rem] top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                             >
                               {deletingMessageId === m.id ? (
-                                <WanderingEyes className="h-7" />
+                                <Ring className="size-3.5" />
                               ) : (
                                 <Reicon name="trash-2" size={14} />
                               )}
@@ -1857,7 +1857,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             disabled={(!inputText.trim() && !selectedFile) || sending}
             className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-900 text-white transition-opacity hover:opacity-90 disabled:opacity-25 dark:bg-neutral-100 dark:text-neutral-900 cursor-pointer"
           >
-            {sending ? <WanderingEyes className="h-8" /> : <Reicon name="send" size={16} />}
+            {sending ? <Ring className="size-4" /> : <Reicon name="send" size={16} />}
           </button>
         </div>
         <p className="mt-1.5 px-1 text-[10px] text-neutral-400">
@@ -1936,7 +1936,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {membersLoading ? (
                 <div className="flex items-center justify-center py-10">
-                  <WanderingEyes className="h-8 text-neutral-400" />
+                  <Ring className="size-4 text-neutral-400" />
                 </div>
               ) : sectionMembers.length === 0 ? (
                 <p className="text-xs text-neutral-400 text-center py-10 px-4">
@@ -1996,7 +1996,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             </div>
             <div className="space-y-1 max-h-56 overflow-y-auto">
               {searching ? (
-                <div className="flex items-center justify-center py-4"><WanderingEyes className="h-8 text-neutral-400" /></div>
+                <div className="flex items-center justify-center py-4"><Ring className="size-4 text-neutral-400" /></div>
               ) : searchResults.length > 0 ? (
                 searchResults.map((u) => (
                   <button key={u.id || `prov-${u.studentId}`} onClick={() => handleInitiateChat(u)}
@@ -2121,7 +2121,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             <div className="flex-1 overflow-y-auto p-2">
               {pinLoading ? (
                 <div className="flex justify-center py-10">
-                  <WanderingEyes className="h-8 text-neutral-400" />
+                  <Ring className="size-4 text-neutral-400" />
                 </div>
               ) : pinCandidates.length === 0 ? (
                 <p className="text-[13px] text-neutral-500 text-center py-10 px-6 leading-relaxed">

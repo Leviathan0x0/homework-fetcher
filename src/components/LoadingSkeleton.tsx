@@ -12,9 +12,9 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
 }) => {
   return (
     <div className="space-y-3.5" role="status" aria-live="polite" aria-busy="true">
-      <div className="flex items-center justify-center gap-2 py-2 text-xs font-medium text-neutral-500 dark:text-neutral-400">
-        <WanderingEyes className="h-8 text-neutral-400 dark:text-neutral-500" />
-        <span>{label}</span>
+      <div className="flex min-h-32 flex-col items-center justify-center gap-3 py-6 text-center">
+        <WanderingEyes className="h-12 text-neutral-700 dark:text-neutral-300" />
+        <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{label}</span>
       </div>
       {Array.from({ length: Math.max(1, count) }).map((_, i) => (
         <div

@@ -6,15 +6,20 @@ import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 export function useSchoolNotices(kind: SchoolNoticeKind) {
   // Seeded from the last load so the screen paints immediately instead of
   // showing a spinner until the first request comes back.
-  const cached = schoolNoticeService.getCachedNotices(kind);
-  const [notices, setNotices] = useState<SchoolNotice[]>(cached.notices as SchoolNotice[]);
-  const [recentCount, setRecentCount] = useState(cached.recentCount);
-  const [isLoading, setIsLoading] = useState(cached.notices.length === 0);
+  const [notices, setNotices] = useState<SchoolNotice[]>(
+    () => schoolNoticeService.getCachedNotices(kind).notices as SchoolNotice[]
+  );
+  const [recentCount, setRecentCount] = useState(
+    () => schoolNoticeService.getCachedNotices(kind).recentCount
+  );
+  const [isLoading, setIsLoading] = useState(
+    () => schoolNoticeService.getCachedNotices(kind).notices.length === 0
+  );
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(
     async (forceRefresh = false) => {
-      setIsLoading(schoolNoticeService.getCachedNotices(kind).notices.length === 0);
+      setIsLoading(true);
       setError(null);
       try {
         const next = await schoolNoticeService.getNotices(kind, forceRefresh);

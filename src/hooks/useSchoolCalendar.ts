@@ -15,7 +15,7 @@ export function useSchoolCalendar() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (force = false) => {
-    setIsLoading(calendarService.getCachedEvents().length === 0);
+    setIsLoading(true);
     setError(null);
     try {
       const list = force ? await calendarService.refresh() : await calendarService.getEvents();

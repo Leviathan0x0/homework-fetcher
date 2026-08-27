@@ -103,55 +103,55 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
     <g className="illustration-empty-attachments">
       {/* Desk plane the folder rests on */}
       <ellipse cx="60" cy="93" rx="45" ry="11" className="fill-neutral-100 dark:fill-neutral-800/50" />
-      <ellipse cx="60" cy="92" rx="34" ry="4.5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
+      <ellipse cx="60" cy="90" rx="31" ry="4.5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
 
       {/* Folder back panel with index tab */}
       <path
-        d="M22 46a6 6 0 0 1 6-6h18l6 7h40a6 6 0 0 1 6 6v31a5 5 0 0 1-5 5H27a5 5 0 0 1-5-5V46z"
+        d="M30 48a5 5 0 0 1 5-5h14l5 6h31a5 5 0 0 1 5 5v27a5 5 0 0 1-5 5H35a5 5 0 0 1-5-5V48z"
         className="fill-amber-100 dark:fill-amber-900/50 stroke-amber-300 dark:stroke-amber-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
 
       {/* Filed sheet with a folded corner, tucked inside */}
-      <g transform="rotate(7 62 48)">
+      <g transform="rotate(8 63 49)">
         <path
-          d="M47 30a4 4 0 0 1 4-4h18l8 8v32a4 4 0 0 1-4 4H51a4 4 0 0 1-4-4V30z"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          d="M50 32a4 4 0 0 1 4-4h14l8 8v30a4 4 0 0 1-4 4H54a4 4 0 0 1-4-4V32z"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.75"
           strokeLinejoin="round"
         />
         <path
-          d="M69 26v4a4 4 0 0 0 4 4h4z"
-          className="fill-neutral-100 dark:fill-neutral-800 stroke-neutral-200 dark:stroke-neutral-700"
+          d="M68 28v4a4 4 0 0 0 4 4h4z"
+          className="fill-neutral-100 dark:fill-neutral-800 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.75"
           strokeLinejoin="round"
         />
-        <line x1="53" y1="42" x2="71" y2="42" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="53" y1="48" x2="71" y2="48" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="53" y1="54" x2="64" y2="54" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="56" y1="45" x2="70" y2="45" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="56" y1="52" x2="70" y2="52" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="56" y1="59" x2="64" y2="59" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
       </g>
 
-      {/* Front sheet, clipped and slightly askew */}
-      <g transform="rotate(-8 46 51)">
+      {/* Front sheet, slightly askew */}
+      <g transform="rotate(-7 51 52)">
         <rect
-          x="32"
-          y="30"
-          width="28"
-          height="42"
+          x="38"
+          y="32"
+          width="26"
+          height="40"
           rx="4"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.75"
         />
-        <line x1="38" y1="46" x2="54" y2="46" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="38" y1="52" x2="54" y2="52" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="38" y1="58" x2="48" y2="58" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="44" y1="49" x2="58" y2="49" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="44" y1="56" x2="58" y2="56" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="44" y1="63" x2="52" y2="63" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
       </g>
 
       {/* Paperclip holding the front sheet */}
-      <g transform="translate(38 25) rotate(-8)">
+      <g transform="translate(43 24) rotate(-7)">
         <path
-          d="M0 5v11a4.5 4.5 0 0 0 9 0V4.5a3 3 0 0 0-6 0v12"
+          d="M0 6v12a5 5 0 0 0 10 0V5a3.2 3.2 0 0 0-6.4 0v13"
           fill="none"
           className="stroke-indigo-400 dark:stroke-indigo-300"
           strokeWidth="1.75"
@@ -162,7 +162,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
       {/* Folder front pocket, leaning open */}
       <path
-        d="M24 57c14 2.5 58 2.5 72 0a4 4 0 0 1 4 3.5l2 23.5a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6l2-23.5A4 4 0 0 1 24 57z"
+        d="M32 62c12 2.5 44 2.5 56 0a4 4 0 0 1 4 3.5l1.5 17.5a5 5 0 0 1-5 5H31.5a5 5 0 0 1-5-5l1.5-17.5A4 4 0 0 1 32 62z"
         className="fill-amber-200 dark:fill-amber-900/80 stroke-amber-300 dark:stroke-amber-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
@@ -623,10 +623,67 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
   'classwork-empty': (
     <g className="illustration-classwork-empty">
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-      {/* Cloud tray */}
-      <path d="M36 68h48a14 14 0 0 0 0-28 18 18 0 0 0-35-4 12 12 0 0 0-13 18 14 14 0 0 0 0 14z" className="fill-white dark:fill-neutral-900 stroke-sky-400" strokeWidth="2.5" />
-      <path d="M60 48v22M52 56l8-8 8 8" fill="none" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Desk plane and contact shadow */}
+      <ellipse cx="60" cy="93" rx="45" ry="11" className="fill-neutral-100 dark:fill-neutral-800/50" />
+      <ellipse cx="60" cy="90" rx="36" ry="5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
+
+      {/* Divider tab tucked into the pages */}
+      <rect x="91" y="56" width="7" height="8" rx="2" className="fill-indigo-300 dark:fill-indigo-500" />
+
+      {/* Open ruled notebook, seen in perspective */}
+      <path
+        d="M35 44h50a4 4 0 0 1 3.8 2.8l9 34A4 4 0 0 1 94 86H26a4 4 0 0 1-3.8-5.2l9-34A4 4 0 0 1 35 44z"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      {/* Centre fold widening toward the viewer */}
+      <path d="M59.4 45.5h1.2l1.8 39h-4.8z" className="fill-neutral-100 dark:fill-neutral-800/80" />
+
+      {/* Subject heading block on the left page */}
+      <rect x="31.5" y="55.5" width="13" height="4" rx="2" className="fill-indigo-400 dark:fill-indigo-400" />
+      <rect x="47.5" y="56.5" width="7" height="2.5" rx="1.25" className="fill-neutral-200 dark:fill-neutral-700" />
+
+      {/* Ruled lines — left page */}
+      <line x1="29.5" y1="64" x2="56.5" y2="64" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="28" y1="71" x2="56.5" y2="71" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="26" y1="78" x2="48" y2="78" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+
+      {/* Ruled lines — right page */}
+      <line x1="63.5" y1="52" x2="87" y2="52" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="63.5" y1="59" x2="89" y2="59" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="63.5" y1="66" x2="90.5" y2="66" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="63.5" y1="73" x2="88" y2="73" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+
+      {/* Pencil resting across the page */}
+      <g transform="translate(90 50) rotate(34)">
+        <rect x="-3" y="0" width="6" height="27" rx="3" className="fill-neutral-900/10 dark:fill-neutral-950/50" />
+      </g>
+      <g transform="translate(88 47) rotate(34)">
+        <rect x="-3" y="-4" width="6" height="5" rx="2" className="fill-neutral-300 dark:fill-neutral-500" />
+        <rect x="-3" y="0.5" width="6" height="2.5" className="fill-neutral-400 dark:fill-neutral-400" />
+        <rect x="-3" y="3" width="6" height="20" rx="1" className="fill-amber-400 dark:fill-amber-500" />
+        <polygon points="-3,23 3,23 0,30" className="fill-amber-100 dark:fill-amber-200" />
+        <polygon points="-1.3,26.5 1.3,26.5 0,30" className="fill-neutral-700 dark:fill-neutral-800" />
+      </g>
+
+      {/* Note sheet being placed into the shared notebook */}
+      <g transform="rotate(-12 35 37)">
+        <rect x="28" y="30" width="22" height="26" rx="3" className="fill-neutral-900/10 dark:fill-neutral-950/50" />
+        <rect
+          x="24"
+          y="24"
+          width="22"
+          height="26"
+          rx="3"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="1.75"
+        />
+        <rect x="28" y="27.5" width="9" height="3" rx="1.5" className="fill-indigo-300 dark:fill-indigo-400" />
+        <line x1="28" y1="35" x2="41" y2="35" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="28" y1="40" x2="39" y2="40" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="28" y1="45" x2="36" y2="45" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      </g>
     </g>
   ),
 

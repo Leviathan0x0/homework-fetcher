@@ -102,11 +102,13 @@ export function useHomework() {
 
   const [user, setUser] = useState<UserAccount | null>(initialUser);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!!initialUser);
-  // The cached account can paint data after validation, but it must not choose
-  // role navigation before the server confirms the current role. With the
-  // session endpoint kept fast, this prevents a stale student/teacher/admin
-  // dock from flashing without bringing back a long startup delay.
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  // A cached account is enough to draw the app immediately; the session is
+  // revalidated in the background and the account, its role landing screen and
+  // its data are corrected as soon as the server answers. Blocking the whole
+  // UI on that round trip meant every launch started with seconds of
+  // "Checking your session" before anything could be shown, and it also held
+  // back the first homework request until the check had finished.
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(!initialUser);
 
   const [homework, setHomework] = useState<HomeworkEntry[]>(initialHomework);
 

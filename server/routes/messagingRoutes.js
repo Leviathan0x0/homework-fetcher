@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const { eq, desc, asc, and, or, sql, gt, ne, inArray } = require("drizzle-orm");
 const sessionService = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
-const { db, schema, isRemote } = require("../db/client");
+const { db, schema, isRemote, runBatch } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
 const {
   applyDownloadHeaders,
@@ -582,6 +582,78 @@ const msgUpload = multer({
   fileFilter: uploadFileFilter,
 });
 
+/**
+ * Sender-generated id for one composed message.
+ *
+ * A send that fails, or whose answer never arrives, is retried with the same
+ * value, which is what lets the server store the message once instead of
+ * posting the same text twice.
+ */
+function normalizeClientMessageId(raw) {
+  const value = typeof raw === "string" ? raw.trim() : "";
+  if (!value || value.length > 100) return null;
+  return /^[A-Za-z0-9._:-]+$/.test(value) ? value : null;
+}
+
+/** Removes a temporary upload that will not be attached to a stored message. */
+function discardUpload(file) {
+  if (file?.path) fs.unlink(file.path, () => {});
+}
+
+/** The message already stored for this sender-generated id, if any. */
+async function findMessageByClientId(conversationId, clientMessageId) {
+  if (!clientMessageId) return null;
+  const row = await db
+    .select()
+    .from(schema.messages)
+    .where(
+      and(
+        eq(schema.messages.conversationId, conversationId),
+        eq(schema.messages.clientMessageId, clientMessageId)
+      )
+    )
+    .get();
+  return row || null;
+}
+
+/** Quoted-message chrome shown above a reply. */
+async function replyReferenceFor(parent) {
+  if (!parent) return null;
+  const parentSender = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.id, parent.senderId))
+    .get();
+  return {
+    id: parent.id,
+    senderId: parent.senderId,
+    senderName: parentSender
+      ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
+      : "Student",
+    content: (parent.content || "").substring(0, 100),
+    attachmentUrl: parent.attachmentUrl,
+  };
+}
+
+/** Public shape of a message the caller just sent. */
+function sentMessageResponse(row, sender, replyTo) {
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    senderId: row.senderId,
+    senderName: sender.displayName || alphabeticStudentAlias(sender.studentId) || "You",
+    content: row.content,
+    attachmentUrl: row.attachmentUrl,
+    originalFilename: row.originalFilename,
+    mimeType: row.mimeType,
+    clientMessageId: row.clientMessageId || null,
+    replyTo: replyTo || null,
+    readBy: [],
+    createdAt: row.createdAt,
+    isMine: true,
+  };
+}
+
 router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
@@ -709,80 +781,100 @@ router.post(
 
     try {
       const convId = req.params.id;
-      if (!await isParticipant(convId, req.user.id)) {
-        if (req.file?.path) fs.unlink(req.file.path, () => {});
-        return res.status(403).json({ error: "Access denied." });
-      }
-
-      // Enforce Admin Mute Status
-      const dbUser = await db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get();
-      if (dbUser && dbUser.isMuted === 1) {
-        if (req.file?.path) fs.unlink(req.file.path, () => {});
-        return res.status(403).json({ error: "Your account has been muted by an administrator." });
-      }
-
-      // Enforce Global Section Chat Toggle (default enabled when unset)
-      const { isSettingEnabled } = require("../admin/settingsService");
-      if (
-        !(await isSettingEnabled("global_chat_enabled")) &&
-        req.user.studentId !== "admin_mmss" &&
-        req.user.role !== "admin"
-      ) {
-        if (req.file?.path) fs.unlink(req.file.path, () => {});
-        return res.status(403).json({ error: "Section messaging is currently paused by the administrator." });
-      }
-
+      const clientMessageId = normalizeClientMessageId((req.body || {}).clientMessageId);
       const { value: content, tooLong } = limitText((req.body || {}).content, MAX_MESSAGE_CHARS);
       const replyToId = (req.body || {}).replyToId || null;
+      const trimmed = content;
+
       if (!content && !req.file) {
         return res.status(400).json({ error: "Message content or file attachment is required." });
       }
       if (tooLong) {
-        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        discardUpload(req.file);
         return res.status(413).json({
           error: `Messages are limited to ${MAX_MESSAGE_CHARS} characters.`,
         });
       }
 
-      // Validate replyToId if provided
-      if (replyToId) {
-        const parentMsg = await db
-          .select()
-          .from(schema.messages)
-          .where(eq(schema.messages.id, replyToId))
-          .get();
-        if (!parentMsg || parentMsg.conversationId !== convId) {
-          if (req.file?.path) fs.unlink(req.file.path, () => {});
-          return res.status(400).json({ error: "Invalid reply reference." });
-        }
-      }
+      // Derived from the extension allowlist, never from the value the
+      // browser declared, because this is what gets served back.
+      const mimeType = req.file ? resolveUploadType(req.file.originalname).contentType : null;
 
-      const id = req.messageId || crypto.randomUUID();
-      const now = new Date().toISOString();
-      const trimmed = content;
-
-      let attachmentUrl = null;
-      let originalFilename = null;
-      let mimeType = null;
-      let filePath = null;
-
-      if (req.file) {
-        attachmentUrl = `/api/messages/files/${id}`;
-        originalFilename = req.file.originalname;
-        // Derived from the extension allowlist, never from the value the
-        // browser declared, because this is what gets served back.
-        mimeType = resolveUploadType(req.file.originalname).contentType;
-        filePath = req.file.path || null;
-      }
-
-      const safety = await checkContent({
+      // Content safety does not depend on any of the lookups below, and the
+      // lookups do not depend on each other. Running them one after another is
+      // what made sending slow: a hosted database charges a network round trip
+      // per statement, and the moderation call is a second hop on top.
+      const safetyPromise = checkContent({
         text: trimmed,
-        filePath,
+        filePath: req.file?.path || null,
         buffer: req.file?.buffer || null,
         mimeType,
+      }).catch((safetyErr) => {
+        console.error("Content check failed:", safetyErr.message);
+        return {
+          ok: false,
+          reason: "Content could not be verified right now. Please try again in a moment.",
+          strikeable: false,
+        };
       });
+
+      const { isSettingEnabled } = require("../admin/settingsService");
+      const [participants, convMeta, dbUser, chatEnabled, parentMsg, alreadySent] = await Promise.all([
+        db
+          .select()
+          .from(schema.conversationParticipants)
+          .where(eq(schema.conversationParticipants.conversationId, convId))
+          .all(),
+        db.select().from(schema.conversations).where(eq(schema.conversations.id, convId)).get(),
+        db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get(),
+        // Enforce Global Section Chat Toggle (default enabled when unset)
+        isSettingEnabled("global_chat_enabled"),
+        replyToId
+          ? db.select().from(schema.messages).where(eq(schema.messages.id, replyToId)).get()
+          : null,
+        findMessageByClientId(convId, clientMessageId),
+      ]);
+
+      if (!participants.some((participant) => participant.userId === req.user.id)) {
+        discardUpload(req.file);
+        return res.status(403).json({ error: "Access denied." });
+      }
+
+      // A previous attempt reached the database even though its answer never
+      // reached the browser (dropped connection, platform timeout). Hand back
+      // the stored message instead of posting the same text a second time.
+      if (alreadySent) {
+        discardUpload(req.file);
+        return res.json({
+          success: true,
+          duplicate: true,
+          message: sentMessageResponse(
+            alreadySent,
+            req.user,
+            await replyReferenceFor(parentMsg).catch(() => null)
+          ),
+        });
+      }
+
+      // Enforce Admin Mute Status
+      if (dbUser && dbUser.isMuted === 1) {
+        discardUpload(req.file);
+        return res.status(403).json({ error: "Your account has been muted by an administrator." });
+      }
+
+      if (!chatEnabled && req.user.studentId !== "admin_mmss" && req.user.role !== "admin") {
+        discardUpload(req.file);
+        return res.status(403).json({ error: "Section messaging is currently paused by the administrator." });
+      }
+
+      if (replyToId && (!parentMsg || parentMsg.conversationId !== convId)) {
+        discardUpload(req.file);
+        return res.status(400).json({ error: "Invalid reply reference." });
+      }
+
+      const safety = await safetyPromise;
       if (!safety.ok) {
-        if (req.file?.path) fs.unlink(req.file.path, () => {});
+        discardUpload(req.file);
         if (safety.strikeable) {
           try {
             const strike = await recordProfanityStrike({
@@ -801,122 +893,102 @@ router.post(
         return res.status(400).json({ error: safety.reason });
       }
 
-      await db.insert(schema.messages)
-        .values({
-          id,
-          conversationId: convId,
-          senderId: req.user.id,
-          replyToId: replyToId || null,
-          content: trimmed,
-          attachmentUrl,
-          originalFilename,
-          mimeType,
-          filePath,
-          createdAt: now,
-        })
-        .run();
+      const id = req.messageId || crypto.randomUUID();
+      const now = new Date().toISOString();
 
-      if (req.file && STORE_ATTACHMENTS_IN_DB) {
-        await db
-          .insert(schema.messageAttachments)
-          .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
-          .run();
-      }
+      const row = {
+        id,
+        conversationId: convId,
+        senderId: req.user.id,
+        replyToId: replyToId || null,
+        content: trimmed,
+        attachmentUrl: req.file ? `/api/messages/files/${id}` : null,
+        originalFilename: req.file ? req.file.originalname : null,
+        mimeType,
+        filePath: req.file?.path || null,
+        clientMessageId,
+        createdAt: now,
+      };
 
       const previewText = req.file
-        ? `[Attachment] ${originalFilename}`
+        ? `[Attachment] ${row.originalFilename}`
         : messagePreviewText(trimmed).substring(0, 80);
 
-      await db.update(schema.conversations)
-        .set({
-          lastMessagePreview: previewText,
-          lastMessageAt: now,
-          updatedAt: now,
-        })
-        .where(eq(schema.conversations.id, convId))
-        .run();
+      try {
+        // The row, its attachment bytes and the inbox preview belong to one
+        // logical write, so they go out as a single pipelined batch.
+        await runBatch([
+          db.insert(schema.messages).values(row),
+          req.file && STORE_ATTACHMENTS_IN_DB
+            ? db
+                .insert(schema.messageAttachments)
+                .values({ messageId: id, data: req.file.buffer.toString("base64"), createdAt: now })
+            : null,
+          db
+            .update(schema.conversations)
+            .set({
+              lastMessagePreview: previewText,
+              lastMessageAt: now,
+              updatedAt: now,
+            })
+            .where(eq(schema.conversations.id, convId)),
+        ]);
+      } catch (writeErr) {
+        // Two attempts at the same composed message can overlap, and the write
+        // can also fail after the row itself landed. Either way the stored
+        // message is the answer: reporting a failure is what made the sender
+        // send it again.
+        const stored = await findMessageByClientId(convId, clientMessageId).catch(() => null);
+        if (!stored) throw writeErr;
+        discardUpload(req.file);
+        return res.json({
+          success: true,
+          duplicate: true,
+          message: sentMessageResponse(
+            stored,
+            req.user,
+            await replyReferenceFor(parentMsg).catch(() => null)
+          ),
+        });
+      }
 
-      const participants = await db
-        .select()
-        .from(schema.conversationParticipants)
-        .where(eq(schema.conversationParticipants.conversationId, convId))
-        .all();
-
-      // Skip muted recipients - mute means no notification, unread still updates in inbox.
-      const otherUserIds = participants
-        .filter((p) => p.userId !== req.user.id && !p.muted)
-        .map((p) => p.userId);
-
-      if (otherUserIds.length > 0) {
-        const convMeta = await db
-          .select()
-          .from(schema.conversations)
-          .where(eq(schema.conversations.id, convId))
-          .get();
+      // From here the message exists, so the send has succeeded. Notifications
+      // and the quoted-reply chrome are decoration around it, and a failure
+      // there must not be reported as a message that was never sent.
+      let replyTo = null;
+      try {
+        // Skip muted recipients - mute means no notification, unread still updates in inbox.
+        const otherUserIds = participants
+          .filter((participant) => participant.userId !== req.user.id && !participant.muted)
+          .map((participant) => participant.userId);
         const fromName =
           req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "Student";
         const isSection = convMeta?.type === "section";
-        const title = isSection
-          ? `Class ${convMeta.section || "group"}`
-          : fromName;
-        const body = isSection
-          ? `${fromName}: ${previewText}`
-          : previewText || "Sent an attachment";
-        await createNotifications(
-          otherUserIds,
-          "new_message",
-          title,
-          body,
-          `messages:${convId}`,
-          convId
-        );
-      }
 
-      // Fetch parent message if replying
-      let replyTo = null;
-      if (replyToId) {
-        const parent = await db
-          .select()
-          .from(schema.messages)
-          .where(eq(schema.messages.id, replyToId))
-          .get();
-        if (parent) {
-          const parentSender = await db
-            .select()
-            .from(schema.users)
-            .where(eq(schema.users.id, parent.senderId))
-            .get();
-          replyTo = {
-            id: parent.id,
-            senderId: parent.senderId,
-            senderName: parentSender
-              ? parentSender.displayName || alphabeticStudentAlias(parentSender.studentId) || "Student"
-              : "Student",
-            content: parent.content.substring(0, 100),
-            attachmentUrl: parent.attachmentUrl,
-          };
-        }
+        const [reference] = await Promise.all([
+          replyReferenceFor(parentMsg),
+          otherUserIds.length
+            ? createNotifications(
+                otherUserIds,
+                "new_message",
+                isSection ? `Class ${convMeta.section || "group"}` : fromName,
+                isSection ? `${fromName}: ${previewText}` : previewText || "Sent an attachment",
+                `messages:${convId}`,
+                convId
+              )
+            : null,
+        ]);
+        replyTo = reference;
+      } catch (followUpErr) {
+        console.error("Send Message follow-up failed:", followUpErr.message);
       }
 
       return res.status(201).json({
         success: true,
-        message: {
-          id,
-          conversationId: convId,
-          senderId: req.user.id,
-          senderName: req.user.displayName || alphabeticStudentAlias(req.user.studentId) || "You",
-          content: trimmed,
-          attachmentUrl,
-          originalFilename,
-          mimeType,
-          replyTo,
-          readBy: [],
-          createdAt: now,
-          isMine: true,
-        },
+        message: sentMessageResponse(row, req.user, replyTo),
       });
     } catch (err) {
-      if (req.file?.path) fs.unlink(req.file.path, () => {});
+      discardUpload(req.file);
       console.error("Send Message Error:", err);
       return res.status(500).json({ error: "Failed to send message." });
     }

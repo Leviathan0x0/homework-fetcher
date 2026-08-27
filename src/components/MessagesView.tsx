@@ -51,6 +51,12 @@ function isUnknownSection(section?: string | null) {
   return cleaned.toLowerCase() === 'section 10-a';
 }
 
+/** Identifier the server uses to recognise a resent draft. */
+function newDraftId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return uuid || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, currentStudentId: accountStudentId }) => {
   const prefersReducedMotion = useReducedMotion();
   // Seeded from the last load so the inbox paints immediately instead of
@@ -70,6 +76,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const [fileError, setFileError] = useState<string | null>(null);
   const [attachedRequest, setAttachedRequest] = useState<PendingRequestContext | null>(null);
   const pendingPrefillRef = useRef<string | null>(null);
+  const draftIdRef = useRef<{ id: string; signature: string } | null>(null);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [reportingConv, setReportingConv] = useState(false);
@@ -590,6 +597,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     const contentForSend = requestCopy
       ? encodeRequestInMessage(requestCopy, bodyText)
       : bodyText;
+    // Identifies this draft for as long as it stays unsent. A retry after a
+    // failure reuses the id, so an attempt that reached the server but never
+    // answered cannot end up posted twice. Editing the draft starts a new one.
+    const draftSignature = [
+      contentForSend,
+      fileCopy ? `${fileCopy.name}:${fileCopy.size}` : '',
+      replyToCopy?.id || '',
+    ].join('|');
+    if (draftIdRef.current?.signature !== draftSignature) {
+      draftIdRef.current = { id: newDraftId(), signature: draftSignature };
+    }
+    const clientMessageId = draftIdRef.current.id;
     const previewText = messagePreviewText(
       contentForSend,
       fileCopy ? `[Attachment] ${fileCopy.name}` : ''
@@ -661,8 +680,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         currentStudentId,
         contentForSend,
         fileCopy,
-        replyToCopy?.id || null
+        replyToCopy?.id || null,
+        clientMessageId
       );
+      draftIdRef.current = null;
       if (optimistic.attachmentUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(optimistic.attachmentUrl);
       }

@@ -108,7 +108,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Folder back panel with index tab */}
       <path
         d="M30 48a5 5 0 0 1 5-5h14l5 6h31a5 5 0 0 1 5 5v27a5 5 0 0 1-5 5H35a5 5 0 0 1-5-5V48z"
-        className="fill-amber-100 dark:fill-amber-900/50 stroke-amber-300 dark:stroke-amber-700"
+        className="fill-amber-200 dark:fill-amber-900/60 stroke-amber-300 dark:stroke-amber-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
@@ -143,13 +143,12 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
           className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.75"
         />
-        <line x1="44" y1="49" x2="58" y2="49" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="44" y1="56" x2="58" y2="56" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-        <line x1="44" y1="63" x2="52" y2="63" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="44" y1="51" x2="58" y2="51" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="44" y1="59" x2="54" y2="59" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
       </g>
 
       {/* Paperclip holding the front sheet */}
-      <g transform="translate(43 24) rotate(-7)">
+      <g transform="translate(47 23) rotate(-7)">
         <path
           d="M0 6v12a5 5 0 0 0 10 0V5a3.2 3.2 0 0 0-6.4 0v13"
           fill="none"
@@ -163,9 +162,16 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Folder front pocket, leaning open */}
       <path
         d="M32 62c12 2.5 44 2.5 56 0a4 4 0 0 1 4 3.5l1.5 17.5a5 5 0 0 1-5 5H31.5a5 5 0 0 1-5-5l1.5-17.5A4 4 0 0 1 32 62z"
-        className="fill-amber-200 dark:fill-amber-900/80 stroke-amber-300 dark:stroke-amber-700"
+        className="fill-amber-100 dark:fill-amber-900/80 stroke-amber-300 dark:stroke-amber-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
+      />
+      <path
+        d="M29.5 68c13 2 48 2 61 0"
+        fill="none"
+        className="stroke-amber-300/70 dark:stroke-amber-700/70"
+        strokeWidth="1.25"
+        strokeLinecap="round"
       />
     </g>
   ),
@@ -184,7 +190,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
           width="24"
           height="36"
           rx="3"
-          className="fill-neutral-50 dark:fill-neutral-800 stroke-neutral-200 dark:stroke-neutral-700"
+          className="fill-neutral-50 dark:fill-neutral-800 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.5"
         />
         <line x1="30" y1="32" x2="44" y2="32" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" strokeLinecap="round" />
@@ -205,7 +211,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Open notebook — right page */}
       <path
         d="M54 48L85 42.6A3 3 0 0 1 88 45.6V77A3 3 0 0 1 85 80L54 86z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
@@ -217,7 +223,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Open notebook — left page */}
       <path
         d="M54 48L23 42.6A3 3 0 0 0 20 45.6V77A3 3 0 0 0 23 80L54 86z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
@@ -248,9 +254,9 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       />
       <circle cx="75" cy="48" r="12" fill="none" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.25" />
       {/* Magnified rules with nothing written on them */}
-      <line x1="66" y1="43" x2="85" y2="43" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="65" y1="51" x2="83" y2="51" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="67" y1="58" x2="79" y2="58" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="66" y1="43" x2="85" y2="43" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="65" y1="51" x2="83" y2="51" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="67" y1="58" x2="79" y2="58" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
       {/* Glass glint */}
       <path
         d="M64.5 44a11.5 11.5 0 0 1 8-8"
@@ -633,7 +639,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Open ruled notebook, seen in perspective */}
       <path
         d="M35 44h50a4 4 0 0 1 3.8 2.8l9 34A4 4 0 0 1 94 86H26a4 4 0 0 1-3.8-5.2l9-34A4 4 0 0 1 35 44z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
         strokeWidth="1.75"
         strokeLinejoin="round"
       />
@@ -676,7 +682,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
           width="22"
           height="26"
           rx="3"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
           strokeWidth="1.75"
         />
         <rect x="28" y="27.5" width="9" height="3" rx="1.5" className="fill-indigo-300 dark:fill-indigo-400" />

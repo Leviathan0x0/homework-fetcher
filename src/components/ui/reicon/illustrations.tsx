@@ -101,99 +101,164 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
   'empty-attachments': (
     <g className="illustration-empty-attachments">
-      {/* Background glow disc */}
-      <circle cx="60" cy="60" r="46" className="fill-neutral-100 dark:fill-neutral-800/50" />
+      {/* Desk plane the folder rests on */}
+      <ellipse cx="60" cy="93" rx="45" ry="11" className="fill-neutral-100 dark:fill-neutral-800/50" />
+      <ellipse cx="60" cy="92" rx="34" ry="4.5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
 
-      {/* Paper silhouette with folded corner */}
+      {/* Folder back panel with index tab */}
       <path
-        d="M36 28h32l16 16v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V36a8 8 0 0 1 8-8z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
-        strokeWidth="2"
-      />
-      {/* Folded corner triangle */}
-      <path
-        d="M68 28v16h16"
-        fill="none"
-        className="stroke-neutral-200 dark:stroke-neutral-700 fill-neutral-100 dark:fill-neutral-800"
-        strokeWidth="2"
+        d="M22 46a6 6 0 0 1 6-6h18l6 7h40a6 6 0 0 1 6 6v31a5 5 0 0 1-5 5H27a5 5 0 0 1-5-5V46z"
+        className="fill-amber-100 dark:fill-amber-900/50 stroke-amber-300 dark:stroke-amber-700"
+        strokeWidth="1.75"
         strokeLinejoin="round"
       />
 
-      {/* Dotted file preview area */}
-      <rect
-        x="38"
-        y="52"
-        width="34"
-        height="32"
-        rx="6"
-        fill="none"
-        className="stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="1.5"
-        strokeDasharray="3 3"
-      />
-
-      {/* Stylized big paperclip */}
-      <g transform="translate(62 42) rotate(22)">
+      {/* Filed sheet with a folded corner, tucked inside */}
+      <g transform="rotate(7 62 48)">
         <path
-          d="M6 14v16a8 8 0 0 0 16 0V10a6 6 0 0 0-12 0v18a4 4 0 0 0 8 0V14"
+          d="M47 30a4 4 0 0 1 4-4h18l8 8v32a4 4 0 0 1-4 4H51a4 4 0 0 1-4-4V30z"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="1.75"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M69 26v4a4 4 0 0 0 4 4h4z"
+          className="fill-neutral-100 dark:fill-neutral-800 stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="1.75"
+          strokeLinejoin="round"
+        />
+        <line x1="53" y1="42" x2="71" y2="42" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="53" y1="48" x2="71" y2="48" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="53" y1="54" x2="64" y2="54" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      </g>
+
+      {/* Front sheet, clipped and slightly askew */}
+      <g transform="rotate(-8 46 51)">
+        <rect
+          x="32"
+          y="30"
+          width="28"
+          height="42"
+          rx="4"
+          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="1.75"
+        />
+        <line x1="38" y1="46" x2="54" y2="46" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="38" y1="52" x2="54" y2="52" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+        <line x1="38" y1="58" x2="48" y2="58" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      </g>
+
+      {/* Paperclip holding the front sheet */}
+      <g transform="translate(38 25) rotate(-8)">
+        <path
+          d="M0 5v11a4.5 4.5 0 0 0 9 0V4.5a3 3 0 0 0-6 0v12"
           fill="none"
-          className="stroke-primary"
-          strokeWidth="3.5"
+          className="stroke-indigo-400 dark:stroke-indigo-300"
+          strokeWidth="1.75"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
       </g>
+
+      {/* Folder front pocket, leaning open */}
+      <path
+        d="M24 57c14 2.5 58 2.5 72 0a4 4 0 0 1 4 3.5l2 23.5a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6l2-23.5A4 4 0 0 1 24 57z"
+        className="fill-amber-200 dark:fill-amber-900/80 stroke-amber-300 dark:stroke-amber-700"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
     </g>
   ),
 
   'empty-search': (
     <g className="illustration-empty-search">
-      {/* Ambient background disc */}
-      <circle cx="60" cy="60" r="48" className="fill-neutral-100/90 dark:fill-neutral-800/60" />
+      {/* Desk plane and contact shadow */}
+      <ellipse cx="60" cy="93" rx="45" ry="11" className="fill-neutral-100 dark:fill-neutral-800/50" />
+      <ellipse cx="57" cy="93" rx="33" ry="4.5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
 
-      {/* Concentric radar rings */}
-      <circle cx="54" cy="50" r="28" fill="none" className="stroke-neutral-200/70 dark:stroke-neutral-700/50" strokeWidth="1.5" strokeDasharray="3 3" />
-      <circle cx="54" cy="50" r="38" fill="none" className="stroke-neutral-200/50 dark:stroke-neutral-700/30" strokeWidth="1" strokeDasharray="4 4" />
-
-      {/* Floating particles */}
-      <circle cx="28" cy="40" r="3" className="fill-primary/40 dark:fill-primary/50" />
-      <circle cx="86" cy="34" r="2" className="fill-amber-400" />
-      <circle cx="84" cy="74" r="3.5" className="fill-indigo-400/40" />
-
-      {/* Magnifying glass */}
-      <g className="translate-x-[-2px] translate-y-[-2px]">
-        <circle
-          cx="52"
-          cy="48"
-          r="22"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-800 dark:stroke-neutral-200"
-          strokeWidth="3"
+      {/* Misplaced sheet slipped behind the notebook */}
+      <g transform="rotate(-13 37 42)">
+        <rect
+          x="25"
+          y="24"
+          width="24"
+          height="36"
+          rx="3"
+          className="fill-neutral-50 dark:fill-neutral-800 stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="1.5"
         />
-        {/* Glass lens reflection */}
-        <path
-          d="M40 38a16 16 0 0 1 20 0"
-          fill="none"
-          className="stroke-primary"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {/* Handle */}
-        <path
-          d="M68 64l18 18"
-          fill="none"
-          className="stroke-neutral-800 dark:stroke-neutral-200"
-          strokeWidth="4.5"
-          strokeLinecap="round"
-        />
-        {/* Gentle search-x cross or question mark */}
-        <path
-          d="M47 43l10 10M57 43l-10 10"
-          fill="none"
-          className="stroke-neutral-300 dark:stroke-neutral-600"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        <line x1="30" y1="32" x2="44" y2="32" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="30" y1="38" x2="40" y2="38" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" strokeLinecap="round" />
       </g>
+
+      {/* Index card slipped between the pages */}
+      <rect
+        x="64"
+        y="78"
+        width="17"
+        height="11"
+        rx="2.5"
+        className="fill-amber-200 dark:fill-amber-500/40 stroke-amber-300 dark:stroke-amber-600"
+        strokeWidth="1.5"
+      />
+
+      {/* Open notebook — right page */}
+      <path
+        d="M54 48L85 42.6A3 3 0 0 1 88 45.6V77A3 3 0 0 1 85 80L54 86z"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      <line x1="59" y1="55" x2="82" y2="51" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="59" y1="61.5" x2="82" y2="57.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="59" y1="68" x2="82" y2="64" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="59" y1="74.5" x2="75" y2="71.7" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+
+      {/* Open notebook — left page */}
+      <path
+        d="M54 48L23 42.6A3 3 0 0 0 20 45.6V77A3 3 0 0 0 23 80L54 86z"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
+        strokeWidth="1.75"
+        strokeLinejoin="round"
+      />
+      {/* Highlighted line the student was scanning */}
+      <line x1="28" y1="50.9" x2="44" y2="53.7" className="stroke-amber-200 dark:stroke-amber-500/40" strokeWidth="5" strokeLinecap="round" />
+      <line x1="26" y1="50.5" x2="49" y2="54.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="26" y1="57" x2="49" y2="61" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="26" y1="63.5" x2="49" y2="67.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="26" y1="70" x2="49" y2="74" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      <line x1="26" y1="76.5" x2="41" y2="79.1" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
+      {/* Handwritten notes */}
+      <line x1="29" y1="51" x2="43" y2="53.4" className="stroke-neutral-400 dark:stroke-neutral-500" strokeWidth="2" strokeLinecap="round" />
+      <line x1="29" y1="64" x2="39" y2="65.7" className="stroke-neutral-400 dark:stroke-neutral-500" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Magnifier handle */}
+      <g transform="translate(85.6 58.6) rotate(-45)">
+        <rect x="-3.25" y="1" width="6.5" height="20" rx="3.25" className="fill-amber-400 dark:fill-amber-500 stroke-amber-500 dark:stroke-amber-600" strokeWidth="1.25" />
+        <rect x="-4" y="-2" width="8" height="6" rx="2" className="fill-neutral-600 dark:fill-neutral-300" />
+      </g>
+
+      {/* Magnifier lens over the searched page */}
+      <circle
+        cx="75"
+        cy="48"
+        r="15"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-600 dark:stroke-neutral-300"
+        strokeWidth="2.5"
+      />
+      <circle cx="75" cy="48" r="12" fill="none" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.25" />
+      {/* Magnified rules with nothing written on them */}
+      <line x1="66" y1="43" x2="85" y2="43" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="65" y1="51" x2="83" y2="51" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="67" y1="58" x2="79" y2="58" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
+      {/* Glass glint */}
+      <path
+        d="M64.5 44a11.5 11.5 0 0 1 8-8"
+        fill="none"
+        className="stroke-sky-300/80 dark:stroke-sky-400/50"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </g>
   ),
 

@@ -1,4 +1,5 @@
 const { parseHomeworkHtml } = require("./htmlParser");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const HOMEWORK_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx?Type=Homework";
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -79,7 +80,7 @@ async function fetchHomeworkPage(sessionCookies) {
  * @param {string} sessionCookies EduSecure session cookies string
  * @returns {Promise<{count: number, homework: Array}>}
  */
-async function fetchHomeworkForSession(sessionCookies) {
+async function fetchHomeworkForSessionWithoutTiming(sessionCookies) {
   if (!sessionCookies) {
     throw new SchoolSessionExpiredError();
   }
@@ -115,6 +116,12 @@ async function fetchHomeworkForSession(sessionCookies) {
     console.error("EduSecure Homework Fetch Error:", err);
     throw err;
   }
+}
+
+async function fetchHomeworkForSession(sessionCookies) {
+  return measureRequestTiming("edusecure_homework", () =>
+    fetchHomeworkForSessionWithoutTiming(sessionCookies)
+  );
 }
 
 module.exports = {

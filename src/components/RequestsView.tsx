@@ -26,8 +26,12 @@ interface RequestsViewProps {
 }
 
 export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavigate }) => {
-  const [requests, setRequests] = useState<SectionRequest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Seeded from the last load so the list paints immediately instead of showing
+  // a spinner until the first request comes back.
+  const [requests, setRequests] = useState<SectionRequest[]>(
+    () => requestService.getCachedRequests() as SectionRequest[]
+  );
+  const [isLoading, setIsLoading] = useState(() => requestService.getCachedRequests().length === 0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'completed'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');

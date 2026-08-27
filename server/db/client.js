@@ -3,6 +3,7 @@ const os = require("os");
 const fs = require("fs");
 const schema = require("./schema");
 const { createLibsqlClient } = require("./libsqlHttp");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const isServerless =
   !!process.env.VERCEL ||
@@ -42,14 +43,18 @@ if (isRemote) {
 
   db = drizzle(
     async (sql, params, method) => {
-      const result = await remoteClient.execute(sql, params);
+      const result = await measureRequestTiming("database", () =>
+        remoteClient.execute(sql, params)
+      );
       if (method === "get") return { rows: result.rows[0] };
       if (method === "run") return { rows: [] };
       return { rows: result.rows };
     },
     async (queries) => {
-      const results = await remoteClient.executeBatch(
-        queries.map((q) => ({ sql: q.sql, args: q.params }))
+      const results = await measureRequestTiming("database_batch", () =>
+        remoteClient.executeBatch(
+          queries.map((q) => ({ sql: q.sql, args: q.params }))
+        )
       );
       return results.map((result, index) => {
         const method = queries[index].method;
@@ -284,6 +289,7 @@ CREATE TABLE IF NOT EXISTS users (
       original_filename TEXT,
       mime_type TEXT,
       file_path TEXT,
+      client_message_id TEXT,
       created_at TEXT NOT NULL
     );
 
@@ -535,6 +541,7 @@ const ADDED_COLUMNS = [
   ["messages", "mime_type", "TEXT"],
   ["messages", "file_path", "TEXT"],
   ["messages", "reply_to_id", "TEXT"],
+  ["messages", "client_message_id", "TEXT"],
   ["conversations", "type", "TEXT NOT NULL DEFAULT 'dm'"],
   ["conversations", "section", "TEXT"],
   ["conversations", "pinned_homework_id", "TEXT"],
@@ -562,6 +569,13 @@ function postSchemaStatements() {
     // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
     { sql: `UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'` },
     { sql: "CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)" },
+    // Retried sends carry the id the sender generated, so the same composed
+    // message can never be stored twice.
+    {
+      sql:
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_client_id " +
+        "ON messages(conversation_id, client_message_id)",
+    },
     ...DEFAULT_SETTINGS.map(([key, value]) => ({
       sql: "INSERT OR IGNORE INTO system_settings (key, value, updated_at) VALUES (?, ?, ?)",
       args: [key, value, stamped],

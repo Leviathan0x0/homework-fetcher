@@ -216,11 +216,16 @@ const messages = sqliteTable(
     originalFilename: text("original_filename"),
     mimeType: text("mime_type"),
     filePath: text("file_path"),
+    // Sender-generated id for one composed message. A retry after a failed or
+    // never-received response carries the same value, so the message is stored
+    // once instead of twice.
+    clientMessageId: text("client_message_id"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [
     index("idx_messages_conversation_created").on(t.conversationId, t.createdAt),
     index("idx_messages_reply_to").on(t.replyToId),
+    uniqueIndex("idx_messages_client_id").on(t.conversationId, t.clientMessageId),
   ]
 );
 

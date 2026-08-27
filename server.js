@@ -37,6 +37,10 @@ const { isTestTeacherEnabled, testTeacherDiagnostics } = require("./server/teach
 const { ensureDatabaseReady, isRemote, db, schema, ready: dbReady } = require("./server/db/client");
 const { seedDefaultSettings } = require("./server/admin/settingsService");
 const { purgeTestContent } = require("./server/admin/purgeTestContent");
+const {
+  measureRequestTiming,
+  requestTimingMiddleware,
+} = require("./server/performance/requestTiming");
 
 // Seed default settings once at startup, after the database is ready.
 dbReady.then(() => seedDefaultSettings()).catch((err) => {
@@ -133,6 +137,7 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    res.setHeader("Access-Control-Expose-Headers", "Server-Timing");
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
   } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
@@ -149,6 +154,10 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
+
+// Exact dependency and end-to-end durations are available in the browser's
+// Server-Timing panel; external and slow calls also become structured logs.
+app.use("/api", requestTimingMiddleware);
 
 // API payloads are JSON lists (messages, homework, rosters) that compress by
 // roughly an order of magnitude. On a phone connection the transfer, not the
@@ -173,7 +182,7 @@ app.use("/api", (req, res, next) => {
   // Health must remain reachable when database startup is the failure being
   // diagnosed; the route below reports that failure without exposing secrets.
   if (req.path === "/health") return next();
-  ensureDatabaseReady().then(() => next()).catch((err) => {
+  measureRequestTiming("database_ready", () => ensureDatabaseReady()).then(() => next()).catch((err) => {
     console.error("Database unavailable:", err.message);
     res.status(503).json({
       error: err?.message || "Database unavailable. Check the database configuration.",

@@ -47,9 +47,15 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   userSection = '',
   onOpenPreview
 }) => {
-  const [classwork, setClasswork] = useState<ClassworkEntry[]>([]);
+  // Seeded from the last load so the list paints immediately instead of showing
+  // a spinner until the first request comes back.
+  const [classwork, setClasswork] = useState<ClassworkEntry[]>(
+    () => classworkService.getCachedClasswork() as ClassworkEntry[]
+  );
   const [sectionName] = useState<string>(userSection);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => classworkService.getCachedClasswork().length === 0
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
   const [selectedDateFilter, setSelectedDateFilter] = useState<'all' | 'today'>('all');

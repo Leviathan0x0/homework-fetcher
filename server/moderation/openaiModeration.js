@@ -59,6 +59,17 @@ const TEXT_SCORE_LIMITS = {
 
 let missingKeyWarned = false;
 
+/**
+ * Hard ceilings on a moderation call.
+ *
+ * fetch() has no timeout of its own, so a moderation request that never
+ * answered held the whole send open until the hosting platform killed it. The
+ * student saw a failure, sent the message again, and ended up posting it twice.
+ * Images get a longer budget because their payload is far larger.
+ */
+const TEXT_TIMEOUT_MS = 6_000;
+const IMAGE_TIMEOUT_MS = 15_000;
+
 function getApiKey() {
   return (process.env.OPENAI_API_KEY || "").trim();
 }
@@ -108,6 +119,7 @@ async function callModeration(input, options = {}) {
     requireKey = false,
     scoreLimits = TEXT_SCORE_LIMITS,
     failReason = GUIDELINE_MESSAGE,
+    timeoutMs = TEXT_TIMEOUT_MS,
   } = options;
 
   const apiKey = getApiKey();
@@ -128,6 +140,7 @@ async function callModeration(input, options = {}) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ model: MODEL, input }),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
     console.error("[moderation] OpenAI Moderations network error:", err.message);
@@ -247,6 +260,7 @@ async function moderateImage({ filePath = null, buffer = null, mimeType, text = 
     requireKey: true,
     scoreLimits: IMAGE_SCORE_LIMITS,
     failReason: GUIDELINE_MESSAGE,
+    timeoutMs: IMAGE_TIMEOUT_MS,
   });
 }
 

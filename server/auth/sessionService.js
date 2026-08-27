@@ -3,6 +3,7 @@ const { eq, sql } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 const { deriveKey } = require("./secrets");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const ROMAN_MAP = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
 
@@ -217,7 +218,7 @@ async function fetchProfileDocument(url, sessionCookies) {
   return html;
 }
 
-async function fetchProfileFromEduSecure(sessionCookies) {
+async function fetchProfileFromEduSecureWithoutTiming(sessionCookies) {
   const empty = {
     section: null,
     displayName: null,
@@ -300,6 +301,12 @@ async function fetchProfileFromEduSecure(sessionCookies) {
     console.error("Failed to fetch profile from EduSecure:", err.message);
     return empty;
   }
+}
+
+async function fetchProfileFromEduSecure(sessionCookies) {
+  return measureRequestTiming("edusecure_profile", () =>
+    fetchProfileFromEduSecureWithoutTiming(sessionCookies)
+  );
 }
 
 // In-memory fail-safe stores when disk database is non-writable or unavailable

@@ -4,6 +4,7 @@ const {
   EduSecurePortalError,
   SchoolSessionExpiredError,
 } = require("./homeworkService");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const ANNOUNCEMENT_BASE_URL =
   "https://edusecure.in/ManavMangalMohali/ParentApp/Announcement.aspx";
@@ -585,7 +586,7 @@ async function fetchNoticePage(source, sessionCookies) {
   throw new EduSecurePortalError(detail);
 }
 
-async function fetchSchoolNoticesForSession(sessionCookies, kind) {
+async function fetchSchoolNoticesForSessionWithoutTiming(sessionCookies, kind) {
   const source = getNoticeSource(kind);
   if (!source) {
     const error = new Error("Unknown school update type.");
@@ -598,6 +599,12 @@ async function fetchSchoolNoticesForSession(sessionCookies, kind) {
   const html = await fetchNoticePage(source, sessionCookies);
   const notices = parseSchoolNoticesHtml(html, source.kind);
   return { count: notices.length, notices };
+}
+
+async function fetchSchoolNoticesForSession(sessionCookies, kind) {
+  return measureRequestTiming("edusecure_notices", () =>
+    fetchSchoolNoticesForSessionWithoutTiming(sessionCookies, kind)
+  );
 }
 
 module.exports = {

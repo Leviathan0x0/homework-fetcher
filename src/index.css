@@ -76,6 +76,15 @@ input[type="date"]::-webkit-clear-button {
   -webkit-appearance: none !important;
 }
 
+/* SearchBar supplies its own accessible clear button. Hiding the browser's
+   WebKit control prevents two overlapping crosses on Chrome/Safari. */
+.app-search-input::-webkit-search-cancel-button,
+.app-search-input::-webkit-search-decoration {
+  display: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;

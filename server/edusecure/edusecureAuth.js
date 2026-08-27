@@ -1,5 +1,6 @@
 const cheerio = require("cheerio");
 const { withoutPerformanceTracing } = require("../sentry");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const LOGIN_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/Login.aspx";
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -110,7 +111,7 @@ function mapToCookieString(cookieMap) {
  * @param {string} password 
  * @returns {Promise<string>} eduSecureCookieString
  */
-async function loginToEduSecure(studentId, password) {
+async function loginToEduSecureWithoutTiming(studentId, password) {
   if (!studentId || !password) {
     throw invalidCredentialsError();
   }
@@ -223,6 +224,12 @@ async function loginToEduSecure(studentId, password) {
   }
 
   throw invalidCredentialsError();
+}
+
+async function loginToEduSecure(studentId, password) {
+  return measureRequestTiming("edusecure_login", () =>
+    loginToEduSecureWithoutTiming(studentId, password)
+  );
 }
 
 module.exports = {

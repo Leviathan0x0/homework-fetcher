@@ -3,6 +3,7 @@ const os = require("os");
 const fs = require("fs");
 const schema = require("./schema");
 const { createLibsqlClient } = require("./libsqlHttp");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const isServerless =
   !!process.env.VERCEL ||
@@ -42,14 +43,18 @@ if (isRemote) {
 
   db = drizzle(
     async (sql, params, method) => {
-      const result = await remoteClient.execute(sql, params);
+      const result = await measureRequestTiming("database", () =>
+        remoteClient.execute(sql, params)
+      );
       if (method === "get") return { rows: result.rows[0] };
       if (method === "run") return { rows: [] };
       return { rows: result.rows };
     },
     async (queries) => {
-      const results = await remoteClient.executeBatch(
-        queries.map((q) => ({ sql: q.sql, args: q.params }))
+      const results = await measureRequestTiming("database_batch", () =>
+        remoteClient.executeBatch(
+          queries.map((q) => ({ sql: q.sql, args: q.params }))
+        )
       );
       return results.map((result, index) => {
         const method = queries[index].method;

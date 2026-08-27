@@ -164,9 +164,10 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       <div
         className={cn(
           'pointer-events-auto flex items-center justify-between gap-1 p-1.5 rounded-full',
-          'bg-[#121215]/95 dark:bg-[#151518]/95 backdrop-blur-2xl',
-          'border border-neutral-800/80 dark:border-white/[0.08]',
-          'shadow-[0_8px_32px_rgba(0,0,0,0.38),0_2px_6px_rgba(0,0,0,0.2)]',
+          'bg-white/95 dark:bg-[#151518]/95 backdrop-blur-2xl',
+          'border border-neutral-200/90 dark:border-white/[0.08]',
+          'shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_6px_rgba(15,23,42,0.08)]',
+          'dark:shadow-[0_8px_32px_rgba(0,0,0,0.38),0_2px_6px_rgba(0,0,0,0.2)]',
           'select-none'
         )}
       >
@@ -184,10 +185,10 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 'relative h-10 rounded-full flex items-center justify-center',
                 'cursor-pointer touch-manipulation',
                 'transition-[width,padding,background-color,color] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50 dark:focus-visible:ring-white/40',
                 isActive
-                  ? 'bg-white text-neutral-950 shadow-xs px-3.5'
-                  : 'bg-transparent text-neutral-400 hover:text-neutral-200 w-10 p-0'
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 shadow-xs px-3.5'
+                  : 'bg-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200 w-10 p-0'
               )}
             >
               <div className="flex items-center gap-1.5 overflow-hidden">
@@ -196,7 +197,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                   size={19}
                   className={cn(
                     'shrink-0 transition-colors duration-200',
-                    isActive ? 'text-neutral-950' : 'text-neutral-400 hover:text-neutral-200'
+                    isActive
+                      ? 'text-white dark:text-neutral-950'
+                      : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
                   )}
                 />
 
@@ -204,7 +207,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                   <span
                     className={cn(
                       'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs transition-colors duration-200',
-                      isActive ? 'bg-neutral-950 text-white' : 'bg-rose-500 text-white'
+                      isActive
+                        ? 'bg-white text-neutral-950 dark:bg-neutral-950 dark:text-white'
+                        : 'bg-rose-500 text-white'
                     )}
                   >
                     {item.badge > 9 ? '9+' : item.badge}
@@ -215,7 +220,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                   className={cn(
                     'text-xs font-semibold tracking-tight whitespace-nowrap overflow-hidden transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]',
                     isActive
-                      ? 'max-w-[90px] opacity-100 text-neutral-950 ml-0.5'
+                      ? 'max-w-[90px] opacity-100 text-white dark:text-neutral-950 ml-0.5'
                       : 'max-w-0 opacity-0 pointer-events-none ml-0'
                   )}
                 >

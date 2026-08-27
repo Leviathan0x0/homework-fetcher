@@ -27,13 +27,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, inputRef 
         onFocus={() => setIsHoveredOrFocused(true)}
         onBlur={() => setIsHoveredOrFocused(false)}
         placeholder="Search homework, classwork, requests…"
-        className="w-full h-11 sm:h-10 pl-11 pr-10 bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800 rounded-full text-sm sm:text-xs text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20 dark:focus:ring-neutral-600/20 transition-all duration-200 shadow-2xs"
+        className="app-search-input w-full h-11 sm:h-10 pl-11 pr-10 bg-white dark:bg-[#141417] border border-neutral-200/80 dark:border-neutral-800 rounded-full text-sm sm:text-xs text-neutral-900 dark:text-neutral-100 placeholder-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 focus:ring-2 focus:ring-neutral-400/20 dark:focus:ring-neutral-600/20 transition-all duration-200 shadow-2xs"
       />
       {value ? (
         <div className="absolute right-3 inset-y-0 flex items-center justify-center">
           <button
             type="button"
             onClick={() => onChange('')}
+            aria-label="Clear search"
             className="group/clear p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 rounded-full touch-manipulation cursor-pointer active:scale-90 transition-transform duration-150"
           >
             <Reicon name="x" size={14} className="transition-transform duration-200 group-hover/clear:rotate-90" />

@@ -3,6 +3,7 @@ const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 const { requireAuth } = require("../auth/requireAuth");
 const sessionService = require("../auth/sessionService");
+const { measureRequestTiming } = require("../performance/requestTiming");
 const { SchoolSessionExpiredError } = require("../edusecure/homeworkService");
 const { applyDownloadHeaders, resolveUploadType } = require("../files/fileTypes");
 const {
@@ -116,21 +117,23 @@ router.get("/school-updates/attachment", requireAuth, async (req, res) => {
   if (!eduSession?.sessionCookies) return expiredResponse(res);
 
   try {
-    const attachment = await fetchSchoolNoticeAttachment(
-      eduSession.sessionCookies,
-      targetUrl
-    );
-    const previewType = resolveUploadType(attachment.filename)?.contentType;
-    applyDownloadHeaders(res, {
-      contentType: previewType || attachment.contentType,
-      filename: attachment.filename,
-      head: attachment.head.subarray(0, 16),
+    await measureRequestTiming("edusecure_attachment", async () => {
+      const attachment = await fetchSchoolNoticeAttachment(
+        eduSession.sessionCookies,
+        targetUrl
+      );
+      const previewType = resolveUploadType(attachment.filename)?.contentType;
+      applyDownloadHeaders(res, {
+        contentType: previewType || attachment.contentType,
+        filename: attachment.filename,
+        head: attachment.head.subarray(0, 16),
+      });
+      res.setHeader("Cache-Control", "private, no-store");
+      if (attachment.contentLength) {
+        res.setHeader("Content-Length", String(attachment.contentLength));
+      }
+      await pipeline(Readable.from(attachment.body), res);
     });
-    res.setHeader("Cache-Control", "private, no-store");
-    if (attachment.contentLength) {
-      res.setHeader("Content-Length", String(attachment.contentLength));
-    }
-    await pipeline(Readable.from(attachment.body), res);
     return;
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {

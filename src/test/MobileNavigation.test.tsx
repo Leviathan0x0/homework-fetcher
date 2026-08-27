@@ -94,7 +94,7 @@ describe('MobileNavigation', () => {
     expect(searchButton).toBeInTheDocument();
   });
 
-  it('marks the active tab with solid white background and active text color', () => {
+  it('uses a light dock with a dark active tab in the light theme', () => {
     const onViewChange = vi.fn();
     render(
       <MobileNavigation
@@ -106,10 +106,14 @@ describe('MobileNavigation', () => {
 
     const todayButton = screen.getByRole('button', { name: /today/i });
     const classworkButton = screen.getByRole('button', { name: /uploads/i });
+    const navigation = screen.getByRole('navigation', { name: /mobile navigation/i });
+    const dock = navigation.firstElementChild as HTMLElement;
 
     expect(todayButton).toHaveAttribute('aria-current', 'page');
-    expect(todayButton.className).toContain('bg-white');
-    expect(todayButton.className).toContain('text-neutral-950');
+    expect(dock.className).toContain('bg-white/95');
+    expect(dock.className).toContain('dark:bg-[#151518]/95');
+    expect(todayButton.className).toContain('bg-neutral-900');
+    expect(todayButton.className).toContain('text-white');
 
     expect(classworkButton).not.toHaveAttribute('aria-current');
     expect(classworkButton.className).toContain('bg-transparent');

@@ -1,5 +1,6 @@
 const cheerio = require("cheerio");
 const { SchoolSessionExpiredError } = require("./homeworkService");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const CALENDAR_URL =
   "https://edusecure.in/ManavMangalMohali/ParentApp/CurrentSchoolCalendar.aspx";
@@ -207,7 +208,7 @@ async function portalGet(url, sessionCookies) {
  * @param {string} sessionCookies
  * @returns {Promise<{count: number, events: Array}>}
  */
-async function fetchSchoolCalendarForSession(sessionCookies) {
+async function fetchSchoolCalendarForSessionWithoutTiming(sessionCookies) {
   if (!sessionCookies) {
     throw new SchoolSessionExpiredError();
   }
@@ -241,6 +242,12 @@ async function fetchSchoolCalendarForSession(sessionCookies) {
     console.error("EduSecure School Calendar Fetch Error:", err);
     throw err;
   }
+}
+
+async function fetchSchoolCalendarForSession(sessionCookies) {
+  return measureRequestTiming("edusecure_calendar", () =>
+    fetchSchoolCalendarForSessionWithoutTiming(sessionCookies)
+  );
 }
 
 module.exports = {

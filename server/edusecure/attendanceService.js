@@ -1,5 +1,6 @@
 const cheerio = require("cheerio");
 const { SchoolSessionExpiredError } = require("./homeworkService");
+const { measureRequestTiming } = require("../performance/requestTiming");
 
 const BASE_URL = "https://edusecure.in/ManavMangalMohali/ParentApp/";
 const DASHBOARD_URL = `${BASE_URL}Dashboard.aspx`;
@@ -198,7 +199,7 @@ function attendanceUrls() {
       ];
 }
 
-async function fetchAttendanceForSession(sessionCookies) {
+async function fetchAttendanceForSessionWithoutTiming(sessionCookies) {
   if (!sessionCookies) throw new SchoolSessionExpiredError();
 
   const discoveryPages = await Promise.allSettled(
@@ -257,6 +258,12 @@ async function fetchAttendanceForSession(sessionCookies) {
 
   throw new AttendanceUnavailableError(
     "EduSecure did not expose a readable attendance page for this account. Set EDUSECURE_ATTENDANCE_URL if your school uses a custom page."
+  );
+}
+
+async function fetchAttendanceForSession(sessionCookies) {
+  return measureRequestTiming("edusecure_attendance", () =>
+    fetchAttendanceForSessionWithoutTiming(sessionCookies)
   );
 }
 

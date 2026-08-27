@@ -101,48 +101,37 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
   'empty-attachments': (
     <g className="illustration-empty-attachments">
-      {/* Background glow disc */}
-      <circle cx="60" cy="60" r="46" className="fill-neutral-100 dark:fill-neutral-800/50" />
+      {/* A small, complete file-desk scene rather than a single placeholder icon. */}
+      <path d="M18 48c4-22 24-34 45-32 23 2 40 18 41 42 1 22-16 41-42 44-25 3-49-17-44-54z" className="fill-sky-50 dark:fill-sky-950/30" />
+      <ellipse cx="61" cy="99" rx="39" ry="5" className="fill-slate-200/70 dark:fill-slate-800/70" />
 
-      {/* Paper silhouette with folded corner */}
-      <path
-        d="M36 28h32l16 16v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V36a8 8 0 0 1 8-8z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
-        strokeWidth="2"
-      />
-      {/* Folded corner triangle */}
-      <path
-        d="M68 28v16h16"
-        fill="none"
-        className="stroke-neutral-200 dark:stroke-neutral-700 fill-neutral-100 dark:fill-neutral-800"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-
-      {/* Dotted file preview area */}
-      <rect
-        x="38"
-        y="52"
-        width="34"
-        height="32"
-        rx="6"
-        fill="none"
-        className="stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="1.5"
-        strokeDasharray="3 3"
-      />
-
-      {/* Stylized big paperclip */}
-      <g transform="translate(62 42) rotate(22)">
-        <path
-          d="M6 14v16a8 8 0 0 0 16 0V10a6 6 0 0 0-12 0v18a4 4 0 0 0 8 0V14"
-          fill="none"
-          className="stroke-primary"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+      {/* Files peeking out of the open folder. */}
+      <g transform="rotate(-8 48 55)">
+        <rect x="28" y="27" width="39" height="51" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
+        <path d="M54 27v12h13" className="fill-sky-100 dark:fill-sky-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M36 48h21M36 55h17M36 62h20" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
       </g>
+      <g transform="rotate(7 74 54)">
+        <rect x="57" y="25" width="35" height="48" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
+        <rect x="63" y="33" width="23" height="17" rx="3" className="fill-amber-100 dark:fill-amber-950/60" />
+        <circle cx="79" cy="38" r="3" className="fill-amber-400" />
+        <path d="M64 48l7-7 5 5 4-3 6 7" className="fill-sky-300 dark:fill-sky-700 stroke-sky-500 dark:stroke-sky-500" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M64 58h20M64 64h13" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+      </g>
+
+      {/* Open folder, with a dimensional front flap. */}
+      <path d="M20 52a6 6 0 0 1 6-6h25l7 7h34a7 7 0 0 1 7 7v28H20z" className="fill-sky-500 dark:fill-sky-700 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M21 64h30l7-7h38a5 5 0 0 1 5 6l-7 28a7 7 0 0 1-7 5H31a7 7 0 0 1-7-6z" className="fill-sky-400 dark:fill-sky-600 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M31 72h58" className="stroke-white/50" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Paperclip and floating file-type accents. */}
+      <path d="M52 72v12a7 7 0 0 0 14 0V70a5 5 0 0 0-10 0v12a3 3 0 0 0 6 0v-9" fill="none" className="stroke-white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <g transform="translate(91 29) rotate(9)">
+        <rect width="18" height="20" rx="5" className="fill-indigo-500 stroke-white dark:stroke-slate-900" strokeWidth="1.5" />
+        <path d="M6 6h6M6 10h6M6 14h4" className="stroke-white" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      <path d="M22 31l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
+      <circle cx="99" cy="78" r="3" className="fill-emerald-400" />
     </g>
   ),
 
@@ -558,10 +547,35 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
   'classwork-empty': (
     <g className="illustration-classwork-empty">
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-      {/* Cloud tray */}
-      <path d="M36 68h48a14 14 0 0 0 0-28 18 18 0 0 0-35-4 12 12 0 0 0-13 18 14 14 0 0 0 0 14z" className="fill-white dark:fill-neutral-900 stroke-sky-400" strokeWidth="2.5" />
-      <path d="M60 48v22M52 56l8-8 8 8" fill="none" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      {/* A warm study-table vignette built from layered, theme-aware SVG art. */}
+      <path d="M17 53c1-23 19-39 43-39 27 0 46 19 44 45-2 27-19 43-46 44-25 0-42-21-41-50z" className="fill-amber-50 dark:fill-amber-950/25" />
+      <circle cx="88" cy="31" r="12" className="fill-sky-100 dark:fill-sky-950/70" />
+      <path d="M16 88h88" className="stroke-slate-300 dark:stroke-slate-700" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M26 88l-4 17M94 88l4 17" className="stroke-slate-400 dark:stroke-slate-600" strokeWidth="3" strokeLinecap="round" />
+
+      {/* Open ruled notebook. */}
+      <path d="M25 47c13-4 24-2 35 5v34c-11-7-22-9-35-5z" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M95 47c-13-4-24-2-35 5v34c11-7 22-9 35-5z" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M60 52v34" className="stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.5" />
+      <path d="M32 58c8-1 15 0 21 3M32 65c8-1 15 0 21 3M32 72c8-1 15 0 21 3M67 60c7-3 14-4 21-2M67 67c7-3 14-4 21-2M67 74c6-2 11-3 16-2" fill="none" className="stroke-sky-300 dark:stroke-sky-700" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="69" y="42" width="16" height="16" rx="2" transform="rotate(5 77 50)" className="fill-amber-300 dark:fill-amber-500" />
+      <path d="M73 48h8M73 52h6" className="stroke-amber-700 dark:stroke-amber-950" strokeWidth="1.2" strokeLinecap="round" />
+
+      {/* Pencil resting across the page. */}
+      <g transform="translate(31 81) rotate(-13)">
+        <rect width="48" height="6" rx="3" className="fill-rose-400 stroke-rose-500" strokeWidth="1.2" />
+        <path d="M48 0l9 3-9 3z" className="fill-amber-100 stroke-slate-600 dark:stroke-slate-400" strokeWidth="1" strokeLinejoin="round" />
+        <path d="M55 2l3 1-3 1z" className="fill-slate-700 dark:fill-slate-200" />
+        <rect x="4" y="0" width="5" height="6" className="fill-amber-300" />
+      </g>
+
+      {/* Upload badge ties the illustration to the classwork action. */}
+      <g transform="translate(78 16)">
+        <circle cx="10" cy="10" r="10" className="fill-sky-500 dark:fill-sky-600 stroke-white dark:stroke-slate-900" strokeWidth="2" />
+        <path d="M10 15V6M6.5 9.5L10 6l3.5 3.5" fill="none" className="stroke-white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <path d="M22 31l1.8 3.6 3.6 1.8-3.6 1.8-1.8 3.6-1.8-3.6-3.6-1.8 3.6-1.8z" className="fill-emerald-400" />
+      <circle cx="101" cy="68" r="2.5" className="fill-rose-400" />
     </g>
   ),
 

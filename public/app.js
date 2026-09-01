@@ -87,32 +87,99 @@
   /* --------------------------------------------------------------------------
      2. Robust Multi-Format Date Parser
      -------------------------------------------------------------------------- */
+  const MONTH_MAP = {
+    jan: 0, january: 0,
+    feb: 1, february: 1,
+    mar: 2, march: 2,
+    apr: 3, april: 3,
+    may: 4,
+    jun: 5, june: 5,
+    jul: 6, july: 6,
+    aug: 7, august: 7,
+    sep: 8, sept: 8, september: 8,
+    oct: 9, october: 9,
+    nov: 10, november: 10,
+    dec: 11, december: 11,
+  };
+
   function parseHomeworkDate(dateStr) {
     if (!dateStr) return null;
-    const str = String(dateStr).trim();
+    let str = String(dateStr).trim();
+    if (!str) return null;
 
-    let parsed = new Date(str);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
+    const lower = str.toLowerCase();
+    if (lower === 'today') {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    }
+    if (lower === 'yesterday') {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
     }
 
-    const dmyMatch = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+    if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      }
+    }
+
+    str = str.replace(/^(?:sun(?:day)?|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?)[,\s-]+/i, '').trim();
+    str = str.replace(/[,]?\s*(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?$/i, '').trim();
+    str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/i, '$1');
+
+    const isoMatch = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      const d = parseInt(isoMatch[3], 10);
+      if (m >= 0 && m < 12 && d >= 1 && d <= 31) {
+        const cand = new Date(y, m, d);
+        if (!isNaN(cand.getTime()) && cand.getMonth() === m && cand.getDate() === d) return cand;
+      }
+    }
+
+    const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
     if (dmyMatch) {
       const day = parseInt(dmyMatch[1], 10);
-      const month = parseInt(dmyMatch[2], 10) - 1;
-      const year = parseInt(dmyMatch[3], 10);
-      parsed = new Date(year, month, day);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
+      const mIdx = parseInt(dmyMatch[2], 10) - 1;
+      let year = parseInt(dmyMatch[3], 10);
+      if (year < 100) year += 2000;
+      if (mIdx >= 0 && mIdx < 12 && day >= 1 && day <= 31) {
+        const cand = new Date(year, mIdx, day);
+        if (!isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
       }
     }
 
-    const dMmmYMatch = str.match(/^(\d{1,2})[\s\-]+([A-Za-z]+)[\s\-]+(\d{4})$/);
+    const dMmmYMatch = str.match(/^(\d{1,2})[\s./-]+([A-Za-z]+)[\s./-]+(\d{2,4})$/);
     if (dMmmYMatch) {
-      parsed = new Date(`${dMmmYMatch[2]} ${dMmmYMatch[1]}, ${dMmmYMatch[3]}`);
-      if (!isNaN(parsed.getTime())) {
-        return parsed;
+      const day = parseInt(dMmmYMatch[1], 10);
+      const monRaw = dMmmYMatch[2].toLowerCase();
+      const mIdx = MONTH_MAP[monRaw] !== undefined ? MONTH_MAP[monRaw] : MONTH_MAP[monRaw.slice(0, 3)];
+      let year = parseInt(dMmmYMatch[3], 10);
+      if (year < 100) year += 2000;
+      if (mIdx !== undefined && day >= 1 && day <= 31) {
+        const cand = new Date(year, mIdx, day);
+        if (!isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
       }
+    }
+
+    const mmmDMatch = str.match(/^([A-Za-z]+)[\s./-]+(\d{1,2}),?[\s./-]+(\d{2,4})$/);
+    if (mmmDMatch) {
+      const monRaw = mmmDMatch[1].toLowerCase();
+      const mIdx = MONTH_MAP[monRaw] !== undefined ? MONTH_MAP[monRaw] : MONTH_MAP[monRaw.slice(0, 3)];
+      const day = parseInt(mmmDMatch[2], 10);
+      let year = parseInt(mmmDMatch[3], 10);
+      if (year < 100) year += 2000;
+      if (mIdx !== undefined && day >= 1 && day <= 31) {
+        const cand = new Date(year, mIdx, day);
+        if (!isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
+      }
+    }
+
+    const fallback = new Date(str);
+    if (!isNaN(fallback.getTime())) {
+      return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
     }
 
     return null;
@@ -283,10 +350,15 @@
      7. Date Utility Evaluation Functions
      -------------------------------------------------------------------------- */
   function isTodayDate(dateStr) {
+    if (!dateStr) return false;
+    const str = String(dateStr).trim().toLowerCase();
+    if (str === 'today') return true;
+    if (str === 'yesterday') return false;
+
     const homeworkDate = parseHomeworkDate(dateStr);
     if (!homeworkDate) {
       const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      return dateStr.toLowerCase().trim() === todayStr.toLowerCase().trim();
+      return str === todayStr.toLowerCase().trim();
     }
     const today = new Date();
     return homeworkDate.getDate() === today.getDate() &&
@@ -297,10 +369,12 @@
   function isWithinLast7Days(dateStr) {
     const homeworkDate = parseHomeworkDate(dateStr);
     if (!homeworkDate) return true;
-    const now = new Date();
-    const diffTime = Math.abs(now - homeworkDate);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(homeworkDate.getFullYear(), homeworkDate.getMonth(), homeworkDate.getDate());
+    const diffTime = today.getTime() - target.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
   }
 
   function formatToISODate(dateStr) {

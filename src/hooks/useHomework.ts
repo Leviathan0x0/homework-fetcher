@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
-import { sortHomeworkNewestFirst } from "../utils/dateUtils";
+import { sortHomeworkNewestFirst, isTodayDate } from "../utils/dateUtils";
 import { authService, homeworkService } from "../services/api";
 import { loadHomeworkWithRevalidation } from "../services/homeworkLoader";
 
@@ -108,7 +108,12 @@ export function useHomework() {
   // UI on that round trip meant every launch started with seconds of
   // "Checking your session" before anything could be shown, and it also held
   // back the first homework request until the check had finished.
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(!initialUser);
+  // A cached list that has no entries for today has not yet proved that today's
+  // diary is empty. Keep today's loading state until the first homework fetch settles.
+  const hasSettledFirstHomeworkFetch = useRef<boolean>(
+    initialHomework.some((item) => Boolean(item?.date && isTodayDate(item.date)))
+  );
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(false);
 
   const [homework, setHomework] = useState<HomeworkEntry[]>(initialHomework);
 
@@ -123,12 +128,23 @@ export function useHomework() {
   // diary is empty. Keep every homework view in its loading state until the
   // first request settles so an empty-state message never flashes as a false
   // verdict between session validation and the fetch effect below.
-  const [isLoading, setIsLoading] = useState<boolean>(
-    Boolean(initialUser && usesSchoolPortal(initialUser) && initialHomework.length === 0)
-  );
-  const [isRefreshing, setIsRefreshing] = useState<boolean>(
-    Boolean(initialUser && usesSchoolPortal(initialUser) && initialHomework.length > 0)
-  );
+  // When there is no cachedUser at all the check is not a user-visible gate
+  // (AppShell only gated on the old isAuthChecking), so the homework loading
+  // state has to cover the auth window itself.
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    if (initialUser && usesSchoolPortal(initialUser)) {
+      return !hasSettledFirstHomeworkFetch.current;
+    }
+    // No cached account yet. If the last homework cache was empty we have not
+    // proved anything — stay in loading until the first fetch settles.
+    return !hasSettledFirstHomeworkFetch.current;
+  });
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(() => {
+    if (initialUser && usesSchoolPortal(initialUser)) {
+      return hasSettledFirstHomeworkFetch.current;
+    }
+    return false;
+  });
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(initialUser ? "connected" : "disconnected");
   // The school portal ends its own session long before the app session does, so
@@ -164,6 +180,8 @@ export function useHomework() {
   }, [activeView]);
 
   const checkAuth = useCallback(async () => {
+    // ponytail: show the full-screen session gate only when we have nothing cached to paint
+    if (!initialUser) setIsAuthChecking(true);
     try {
       const currentUser = await authService.getCurrentUser();
       if (currentUser) {
@@ -174,11 +192,12 @@ export function useHomework() {
         if (!isSameAccount) {
           homeworkRef.current = cachedHomework;
           setHomework(cachedHomework);
+          hasSettledFirstHomeworkFetch.current = cachedHomework.some((item) => Boolean(item?.date && isTodayDate(item.date)));
         }
         const willLoadHomework = usesSchoolPortal(currentUser);
-        setIsLoading(willLoadHomework && cachedHomework.length === 0);
-        setIsRefreshing(willLoadHomework && cachedHomework.length > 0);
-        // Keeping the same object when nothing changed stops the revalidation
+        const settled = hasSettledFirstHomeworkFetch.current;
+        setIsLoading(willLoadHomework && !settled);
+        setIsRefreshing(willLoadHomework && settled);
         // from re-triggering every effect that depends on the account.
         setUser((previous) =>
           previous && JSON.stringify(previous) === JSON.stringify(currentUser) ? previous : currentUser
@@ -211,7 +230,11 @@ export function useHomework() {
         setUser(null);
         setIsAuthenticated(false);
         setSessionStatus("disconnected");
-        setIsLoading(false);
+        // Keep isLoading honest: with no account and no homework we still
+        // have nothing to adjudicate, so the next fetch (after login) starts
+        // from loading rather than a false empty state.
+        hasSettledFirstHomeworkFetch.current = false;
+        setIsLoading(true);
         setIsRefreshing(false);
       }
     } finally {
@@ -263,7 +286,9 @@ export function useHomework() {
     // however, the centered loading state is the only honest status until the
     // request completes; a spinner in the distant refresh button is too easy
     // to miss and leaves the empty-state copy looking authoritative.
-    const hasVisibleHomework = homeworkRef.current.length > 0;
+    // Honour the settlement flag as well: stale-painting zero today rows after
+    const settled = hasSettledFirstHomeworkFetch.current;
+    const hasVisibleHomework = settled && homeworkRef.current.length > 0;
     setIsLoading(!hasVisibleHomework);
     setIsRefreshing(hasVisibleHomework);
     setErrorMessage(null);
@@ -302,10 +327,12 @@ export function useHomework() {
         forceRefresh,
         (staleResult) => {
           applyResult(staleResult.items, staleResult.schoolSessionExpired);
+          hasSettledFirstHomeworkFetch.current = true;
           setIsLoading(false);
           setIsRefreshing(true);
         },
       );
+      hasSettledFirstHomeworkFetch.current = true;
       applyResult(result.items, result.schoolSessionExpired);
 
       if (!result.isStale) {
@@ -314,17 +341,16 @@ export function useHomework() {
         localStorage.setItem("lastUpdated", timeNow);
       }
     } catch (err: any) {
-      // Keep whatever is already on screen rather than blanking the dashboard.
       console.error("Fetch Homework Error:", err);
-      // A rejected session is already being handled by the auth check, and
-      // surfacing it here would print an error over the login page.
+      hasSettledFirstHomeworkFetch.current = true;
       if (err?.code === "SCHOOL_SESSION_EXPIRED") {
         setSchoolSessionExpired(true);
         setErrorMessage(err.message || "Your school session has expired.");
-      } else if (err?.code !== "UNAUTHENTICATED" && homeworkRef.current.length === 0) {
+      } else if (err?.code !== "UNAUTHENTICATED") {
         setErrorMessage(err.message || "Failed to fetch homework.");
       }
     } finally {
+      hasSettledFirstHomeworkFetch.current = true;
       setIsLoading(false);
       setIsRefreshing(false);
       homeworkRequestInFlightRef.current = false;
@@ -389,9 +415,10 @@ export function useHomework() {
       const cachedHomework = readCachedHomework(loggedUser.id);
       homeworkRef.current = cachedHomework;
       setHomework(cachedHomework);
+      hasSettledFirstHomeworkFetch.current = cachedHomework.some((item) => Boolean(item?.date && isTodayDate(item.date)));
       const willLoadHomework = usesSchoolPortal(loggedUser);
-      setIsLoading(willLoadHomework && cachedHomework.length === 0);
-      setIsRefreshing(willLoadHomework && cachedHomework.length > 0);
+      setIsLoading(willLoadHomework && !hasSettledFirstHomeworkFetch.current);
+      setIsRefreshing(willLoadHomework && hasSettledFirstHomeworkFetch.current);
       writeJson(CACHED_USER_KEY, loggedUser);
       hasAppliedRoleView.current = true;
       setActiveView(defaultViewForUser(loggedUser));
@@ -414,7 +441,6 @@ export function useHomework() {
       console.error("Logout error:", err);
     } finally {
       clearCachedAccount(previousUserId);
-      hasAppliedRoleView.current = false;
       setUser(null);
       setIsAuthenticated(false);
       homeworkRef.current = [];

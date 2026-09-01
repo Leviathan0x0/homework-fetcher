@@ -166,9 +166,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const hasAnyResults =
     grouped.length > 0 || matchedClasswork.length > 0 || matchedRequests.length > 0;
   const isResultLoading =
-    isLoading ||
-    (Boolean(isRefreshing) && !hasAnyResults) ||
-    (Boolean(q) && isSupportingContentLoading);
+    isLoading || (Boolean(q) && isSupportingContentLoading);
 
   return (
     <div className="space-y-6">

@@ -77,6 +77,31 @@ router.get("/homework", requireAuth, async (req, res) => {
     console.error("Homework cache read error:", err.message);
     cachedHomework = [];
   }
+  let hasTodayEntry = false;
+  if (cachedHomework.length > 0) {
+    const now = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const nowIst = new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
+    const day = nowIst.getDate();
+    const month = nowIst.getMonth() + 1;
+    const year = nowIst.getFullYear();
+    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+    const monthShort = monthNames[nowIst.getMonth()];
+    const dStr = String(day).padStart(2, "0");
+    const mStr = String(month).padStart(2, "0");
+
+    hasTodayEntry = cachedHomework.some((item) => {
+      const str = (item?.date || "").toLowerCase().trim();
+      if (!str) return false;
+      if (str.includes(`${dStr} ${monthShort}`) || str.includes(`${day} ${monthShort}`)) return true;
+      if (str.includes(`${year}-${mStr}-${dStr}`) || str.includes(`${dStr}-${mStr}-${year}`) || str.includes(`${dStr}/${mStr}/${year}`) || str.includes(`${dStr}.${mStr}.${year}`)) return true;
+      return false;
+    });
+  }
+
+  if (!hasTodayEntry) {
+    cacheStale = true;
+  }
 
   const hasSchoolSession = Boolean(eduSession && eduSession.sessionCookies);
 

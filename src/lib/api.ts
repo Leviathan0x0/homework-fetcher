@@ -47,7 +47,7 @@ export class ApiUnreachableError extends Error {
  * carry a body get a longer budget: an attachment on a slow phone connection
  * legitimately takes far longer than a read.
  */
-const REQUEST_TIMEOUT_MS = 20_000;
+const REQUEST_TIMEOUT_MS = 60_000;
 const UPLOAD_TIMEOUT_MS = 90_000;
 
 /**

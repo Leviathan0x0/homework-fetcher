@@ -243,7 +243,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                   {hwHierarchy.action}
                 </p>
                 {hwHierarchy.detail && (
-                  <p className="mt-0.5 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed whitespace-pre-wrap break-words">
+                  <p className="mt-0.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap break-words">
                     {hwHierarchy.detail}
                   </p>
                 )}
@@ -258,7 +258,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               </span>
               <span
                 className={cn(
-                  'whitespace-pre-wrap break-words flex-1 text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed',
+                  'whitespace-pre-wrap break-words flex-1 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed',
                   isCompleted && 'line-through'
                 )}
               >

@@ -61,8 +61,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
     }
     return examItems;
   }, [examItems, selectedFilter]);
-  const isContentLoading =
-    isLoading || (Boolean(isRefreshing) && filteredExamItems.length === 0);
+  const isContentLoading = isLoading;
 
   // Group exam items by Subject
   const groupedBySubject = useMemo(() => {

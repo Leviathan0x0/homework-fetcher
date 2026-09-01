@@ -380,7 +380,23 @@ class HomeworkCacheService {
     if (!latestMs) return true;
 
     const ageMinutes = (Date.now() - latestMs) / (1000 * 60);
-    return ageMinutes >= maxAgeMinutes;
+    if (ageMinutes >= maxAgeMinutes) return true;
+
+    // Check if the latest update was on a previous calendar day in IST (UTC+05:30)
+    const now = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const nowIst = new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
+    const latestDate = new Date(latest);
+    const latestIst = new Date(latestDate.getTime() + (latestDate.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
+
+    const isSameDay =
+      nowIst.getFullYear() === latestIst.getFullYear() &&
+      nowIst.getMonth() === latestIst.getMonth() &&
+      nowIst.getDate() === latestIst.getDate();
+
+    if (!isSameDay) return true;
+
+    return false;
   }
 
   /**

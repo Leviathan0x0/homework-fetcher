@@ -75,8 +75,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
     }
     map.get(d)!.entries.push(item);
   }
-  const isContentLoading =
-    isLoading || (Boolean(isRefreshing) && filteredEntries.length === 0);
+  const isContentLoading = isLoading;
 
   return (
     <div className="space-y-6">

@@ -30,8 +30,7 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
 }) => {
   const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
   const attachmentEntries = validHomework.filter((item) => Boolean(item?.attachment));
-  const isContentLoading =
-    isLoading || (Boolean(isRefreshing) && attachmentEntries.length === 0);
+  const isContentLoading = isLoading;
 
   const getEntryId = (item: HomeworkEntry) => {
     if (!item) return '';

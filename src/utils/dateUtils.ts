@@ -1,35 +1,110 @@
 import { HomeworkEntry } from '../types/homework';
 
+const MONTH_MAP: Record<string, number> = {
+  jan: 0, january: 0,
+  feb: 1, february: 1,
+  mar: 2, march: 2,
+  apr: 3, april: 3,
+  may: 4,
+  jun: 5, june: 5,
+  jul: 6, july: 6,
+  aug: 7, august: 7,
+  sep: 8, sept: 8, september: 8,
+  oct: 9, october: 9,
+  nov: 10, november: 10,
+  dec: 11, december: 11,
+};
+
 export function parseHomeworkDate(dateStr?: string | null): Date | null {
   if (!dateStr || typeof dateStr !== 'string') return null;
-  const str = String(dateStr).trim();
+  let str = String(dateStr).trim();
   if (!str) return null;
 
-  // 1. Try standard JS Date parse (e.g. "Feb 24, 2026", "2026-02-24", "Jul 22 2026")
-  let parsed = new Date(str);
-  if (!isNaN(parsed.getTime())) {
-    return parsed;
+  // Relative keywords
+  const lower = str.toLowerCase();
+  if (lower === 'today') {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+  if (lower === 'yesterday') {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   }
 
-  // 2. Match DD/MM/YYYY, DD-MM-YYYY, or DD.MM.YYYY (e.g. "24/02/2026", "24-02-2026")
-  const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  // ISO timestamp (e.g. 2026-08-11T10:30:00.000Z)
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) {
+    const d = new Date(str);
+    if (!Number.isNaN(d.getTime())) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+  }
+
+  // Strip leading weekday (e.g. "Monday, ", "Mon ", "Tuesday - ")
+  str = str.replace(/^(?:sun(?:day)?|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?)[,\s-]+/i, '').trim();
+
+  // Strip trailing time (e.g. " 10:30 AM", " at 14:00", ", 09:15", " 09:15:00")
+  str = str.replace(/[,]?\s*(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?$/i, '').trim();
+
+  // Strip ordinal suffixes on days: "1st", "2nd", "3rd", "4th", "11th", "21st", "22nd", "23rd", "31st"
+  str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/i, '$1');
+
+  // 1. Explicit ISO YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
+  const isoMatch = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
+  if (isoMatch) {
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10) - 1;
+    const d = parseInt(isoMatch[3], 10);
+    if (m >= 0 && m < 12 && d >= 1 && d <= 31) {
+      const cand = new Date(y, m, d);
+      if (!Number.isNaN(cand.getTime()) && cand.getMonth() === m && cand.getDate() === d) return cand;
+    }
+  }
+
+  // 2. DMY with any separator (e.g. "11.08.2026", "11/08/2026", "11-08-2026", "11/08/26")
+  const dmyMatch = str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (dmyMatch) {
     const day = parseInt(dmyMatch[1], 10);
-    const month = parseInt(dmyMatch[2], 10) - 1; // 0-indexed month
-    const year = parseInt(dmyMatch[3], 10);
-    parsed = new Date(year, month, day);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
+    const mIdx = parseInt(dmyMatch[2], 10) - 1;
+    let year = parseInt(dmyMatch[3], 10);
+    if (year < 100) year += 2000;
+    if (mIdx >= 0 && mIdx < 12 && day >= 1 && day <= 31) {
+      const cand = new Date(year, mIdx, day);
+      if (!Number.isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
     }
   }
 
-  // 3. Match DD-MMM-YYYY or DD MMM YYYY (e.g. "24-Feb-2026", "24 Feb 2026")
-  const dMmmYMatch = str.match(/^(\d{1,2})[\s-]+([A-Za-z]+)[\s-]+(\d{4})$/);
+  // 3. D MMM YYYY or D MMMM YYYY (e.g. "11 Aug 2026", "24-Feb-2026", "1 September 2026", "11/Aug/2026", "11.Aug.2026")
+  const dMmmYMatch = str.match(/^(\d{1,2})[\s./-]+([A-Za-z]+)[\s./-]+(\d{2,4})$/);
   if (dMmmYMatch) {
-    parsed = new Date(`${dMmmYMatch[2]} ${dMmmYMatch[1]}, ${dMmmYMatch[3]}`);
-    if (!isNaN(parsed.getTime())) {
-      return parsed;
+    const day = parseInt(dMmmYMatch[1], 10);
+    const monRaw = dMmmYMatch[2].toLowerCase();
+    const mIdx = MONTH_MAP[monRaw] ?? MONTH_MAP[monRaw.slice(0, 3)];
+    let year = parseInt(dMmmYMatch[3], 10);
+    if (year < 100) year += 2000;
+    if (mIdx !== undefined && day >= 1 && day <= 31) {
+      const cand = new Date(year, mIdx, day);
+      if (!Number.isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
     }
+  }
+
+  // 4. MMM D, YYYY or MMMM D, YYYY (e.g. "Feb 24, 2026", "Aug 11 2026", "August 11, 2026")
+  const mmmDMatch = str.match(/^([A-Za-z]+)[\s./-]+(\d{1,2}),?[\s./-]+(\d{2,4})$/);
+  if (mmmDMatch) {
+    const monRaw = mmmDMatch[1].toLowerCase();
+    const mIdx = MONTH_MAP[monRaw] ?? MONTH_MAP[monRaw.slice(0, 3)];
+    const day = parseInt(mmmDMatch[2], 10);
+    let year = parseInt(mmmDMatch[3], 10);
+    if (year < 100) year += 2000;
+    if (mIdx !== undefined && day >= 1 && day <= 31) {
+      const cand = new Date(year, mIdx, day);
+      if (!Number.isNaN(cand.getTime()) && cand.getMonth() === mIdx && cand.getDate() === day) return cand;
+    }
+  }
+
+  // 5. Fallback native
+  const fallback = new Date(str);
+  if (!Number.isNaN(fallback.getTime())) {
+    return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
   }
 
   return null;
@@ -52,10 +127,15 @@ export function sortHomeworkNewestFirst(entries: HomeworkEntry[]): HomeworkEntry
 
 export function isTodayDate(dateStr?: string | null): boolean {
   if (!dateStr || typeof dateStr !== 'string') return false;
+  const str = dateStr.trim().toLowerCase();
+  if (str === 'today') return true;
+  if (str === 'yesterday') return false;
+
   const homeworkDate = parseHomeworkDate(dateStr);
   if (!homeworkDate) {
-    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    return dateStr.toLowerCase().trim() === todayStr.toLowerCase().trim();
+    const raw = dateStr.toLowerCase().trim().replace(/\s+/g, ' ');
+    const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
+    return raw === todayStr;
   }
   const today = new Date();
   return homeworkDate.getDate() === today.getDate() &&
@@ -67,10 +147,12 @@ export function isWithinLast7Days(dateStr?: string | null): boolean {
   if (!dateStr || typeof dateStr !== 'string') return false;
   const homeworkDate = parseHomeworkDate(dateStr);
   if (!homeworkDate) return true;
-  const now = new Date();
-  const diffTime = Math.abs(now.getTime() - homeworkDate.getTime());
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays <= 7;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(homeworkDate.getFullYear(), homeworkDate.getMonth(), homeworkDate.getDate());
+  const diffTime = today.getTime() - target.getTime();
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays <= 7;
 }
 
 export function formatToISODate(dateStr?: string | null): string {

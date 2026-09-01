@@ -55,8 +55,7 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
     selectedSubject === 'All'
       ? completedEntries
       : completedEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
-  const isContentLoading =
-    isLoading || (Boolean(isRefreshing) && filteredEntries.length === 0);
+  const isContentLoading = isLoading;
 
   const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 

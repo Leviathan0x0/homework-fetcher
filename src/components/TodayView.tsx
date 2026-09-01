@@ -199,7 +199,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const encouragement = progressEncouragement(completedCount, totalCount);
 
   const hasHolidayToday = todayHolidays.length > 0;
-  const isContentLoading = isLoading;
+  const isContentLoading = isLoading || (Boolean(isRefreshing) && todayEntries.length === 0);
 
   const subtitle = hasHolidayToday
     ? 'School is off today.'

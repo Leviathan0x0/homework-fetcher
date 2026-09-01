@@ -229,6 +229,7 @@ app.get("/api/health", async (req, res) => {
 // Mount API routes
 app.use("/api/auth", authRoutes);
 app.use("/api", homeworkRoutes);
+app.use(homeworkRoutes);
 app.use("/api", classworkRoutes);
 app.use("/api", requestsRoutes);
 app.use("/api", messagingRoutes);

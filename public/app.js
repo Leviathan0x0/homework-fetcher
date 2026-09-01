@@ -77,7 +77,14 @@
 
     sortHomeworkByDate();
 
-    if (state.cookies && state.homework.length === 0) {
+    if (state.cookies) {
+      const hasToday = state.homework.some(item => isTodayDate(item?.date));
+      if (!hasToday || state.homework.length === 0) {
+        state.isLoading = true;
+        renderSkeletons();
+      } else {
+        render();
+      }
       fetchHomework();
     } else {
       render();

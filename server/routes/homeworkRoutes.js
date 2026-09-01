@@ -275,5 +275,30 @@ router.patch("/homework/:id/note", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Failed to update personal note." });
   }
 });
+// POST /fetch-homework (Legacy direct cookie fetch)
+router.post("/fetch-homework", async (req, res) => {
+  const cookies = req.body?.cookies;
+  if (!cookies) {
+    return res.status(400).json({ error: "No cookies provided." });
+  }
+
+  try {
+    const data = await fetchHomeworkForSession(cookies);
+    return res.json({
+      count: data.count,
+      homework: data.homework,
+    });
+  } catch (err) {
+    if (err instanceof SchoolSessionExpiredError || err?.code === "SCHOOL_SESSION_EXPIRED") {
+      return res.status(401).json({
+        error: "Session expired. Please update your EduSecure cookies in settings.",
+      });
+    }
+    console.error("Fetch Homework (legacy) Error:", err);
+    return res.status(err?.statusCode === 502 ? 502 : 500).json({
+      error: err?.message || "Failed to fetch homework from school server.",
+    });
+  }
+});
 
 module.exports = router;

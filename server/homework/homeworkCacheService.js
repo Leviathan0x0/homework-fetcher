@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const { eq, and, inArray, sql } = require("drizzle-orm");
 const { db, schema, runBatch } = require("../db/client");
+const { toIstWallDate } = require("./homeworkDateUtils");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
 
@@ -382,12 +383,11 @@ class HomeworkCacheService {
     const ageMinutes = (Date.now() - latestMs) / (1000 * 60);
     if (ageMinutes >= maxAgeMinutes) return true;
 
-    // Check if the latest update was on a previous calendar day in IST (UTC+05:30)
-    const now = new Date();
-    const istOffsetMs = 5.5 * 60 * 60 * 1000;
-    const nowIst = new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
-    const latestDate = new Date(latest);
-    const latestIst = new Date(latestDate.getTime() + (latestDate.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
+    // Check if the latest update was on a previous calendar day in IST (UTC+05:30).
+    // toIstWallDate shifts the instant so local getters return IST wall fields
+    // regardless of server TZ (see homeworkDateUtils).
+    const nowIst = toIstWallDate(new Date());
+    const latestIst = toIstWallDate(new Date(latest));
 
     const isSameDay =
       nowIst.getFullYear() === latestIst.getFullYear() &&

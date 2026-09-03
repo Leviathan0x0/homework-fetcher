@@ -229,7 +229,16 @@ app.get("/api/health", async (req, res) => {
 // Mount API routes
 app.use("/api/auth", authRoutes);
 app.use("/api", homeworkRoutes);
-app.use(homeworkRoutes);
+// Legacy compat for old cached public/app.js which POSTs to /fetch-homework.
+// Same handler as POST /api/fetch-homework, with its own rate limit because
+// it is outside the /api middleware chain. Do NOT mount the whole router at
+// root — that would expose /homework etc. without /api guards (rateLimit,
+// isConfigured, ensureDatabaseReady). Remove this once legacy clients expire.
+app.post(
+  "/fetch-homework",
+  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 30 }),
+  homeworkRoutes.handleLegacyFetchHomework
+);
 app.use("/api", classworkRoutes);
 app.use("/api", requestsRoutes);
 app.use("/api", messagingRoutes);

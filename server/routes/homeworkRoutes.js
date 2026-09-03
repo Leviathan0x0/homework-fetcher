@@ -2,11 +2,13 @@ const express = require("express");
 const sessionService = require("../auth/sessionService");
 const { isAdminAccount } = require("../auth/sessionService");
 const { requireAuth } = require("../auth/requireAuth");
+const { rateLimit } = require("../limits");
 const {
   fetchHomeworkForSession,
   SchoolSessionExpiredError,
 } = require("../edusecure/homeworkService");
 const homeworkCacheService = require("../homework/homeworkCacheService");
+const { hasTodayEntry } = require("../homework/homeworkDateUtils");
 
 const router = express.Router();
 
@@ -77,29 +79,16 @@ router.get("/homework", requireAuth, async (req, res) => {
     console.error("Homework cache read error:", err.message);
     cachedHomework = [];
   }
-  let hasTodayEntry = false;
+  let hasToday = false;
   if (cachedHomework.length > 0) {
-    const now = new Date();
-    const istOffsetMs = 5.5 * 60 * 60 * 1000;
-    const nowIst = new Date(now.getTime() + (now.getTimezoneOffset() * 60 * 1000) + istOffsetMs);
-    const day = nowIst.getDate();
-    const month = nowIst.getMonth() + 1;
-    const year = nowIst.getFullYear();
-    const monthNames = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    const monthShort = monthNames[nowIst.getMonth()];
-    const dStr = String(day).padStart(2, "0");
-    const mStr = String(month).padStart(2, "0");
-
-    hasTodayEntry = cachedHomework.some((item) => {
-      const str = (item?.date || "").toLowerCase().trim();
-      if (!str) return false;
-      if (str.includes(`${dStr} ${monthShort}`) || str.includes(`${day} ${monthShort}`)) return true;
-      if (str.includes(`${year}-${mStr}-${dStr}`) || str.includes(`${dStr}-${mStr}-${year}`) || str.includes(`${dStr}/${mStr}/${year}`) || str.includes(`${dStr}.${mStr}.${year}`)) return true;
-      return false;
-    });
+    // A cached list with no entry for today (IST school calendar) has not
+    // proved today is empty — force revalidation so the first paint shows a
+    // skeleton instead of a false empty state. Year is compared, so last
+    // year's same day/month does NOT count.
+    hasToday = hasTodayEntry(cachedHomework);
   }
 
-  if (!hasTodayEntry) {
+  if (!hasToday) {
     cacheStale = true;
   }
 
@@ -275,11 +264,19 @@ router.patch("/homework/:id/note", requireAuth, async (req, res) => {
     return res.status(500).json({ error: "Failed to update personal note." });
   }
 });
-// POST /fetch-homework (Legacy direct cookie fetch)
-router.post("/fetch-homework", async (req, res) => {
+// POST /api/fetch-homework (Legacy direct cookie fetch, deprecated)
+// Kept for old cached public/app.js clients. New code must use the
+// authenticated GET /api/homework + POST /api/homework/refresh flow.
+// Rate-limited separately because each call scrapes the school portal.
+async function handleLegacyFetchHomework(req, res) {
   const cookies = req.body?.cookies;
-  if (!cookies) {
+  if (typeof cookies !== "string" || cookies.trim().length < 10 || cookies.length > 8192) {
     return res.status(400).json({ error: "No cookies provided." });
+  }
+  // customUrl was sent by legacy clients but the portal URL is fixed
+  // server-side (see HOMEWORK_URL). Accepted-and-ignored for compat.
+  if (req.body?.customUrl !== undefined && typeof req.body.customUrl !== "string") {
+    return res.status(400).json({ error: "Invalid customUrl." });
   }
 
   try {
@@ -299,6 +296,12 @@ router.post("/fetch-homework", async (req, res) => {
       error: err?.message || "Failed to fetch homework from school server.",
     });
   }
-});
+}
+router.post(
+  "/fetch-homework",
+  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 30 }),
+  handleLegacyFetchHomework
+);
 
 module.exports = router;
+module.exports.handleLegacyFetchHomework = handleLegacyFetchHomework;

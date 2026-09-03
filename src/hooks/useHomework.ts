@@ -330,7 +330,18 @@ export function useHomework() {
         forceRefresh,
         (staleResult) => {
           applyResult(staleResult.items, staleResult.schoolSessionExpired);
-          hasSettledFirstHomeworkFetch.current = true;
+          const staleHasToday = staleResult.items.some((item) =>
+            Boolean(item?.date && isTodayDate(item.date))
+          );
+          if (staleHasToday) {
+            hasSettledFirstHomeworkFetch.current = true;
+          }
+          if (!hasSettledFirstHomeworkFetch.current) {
+            // First settlement still pending and the stale cache proves
+            // nothing about today: keep the skeleton instead of flashing a
+            // false "no homework" empty state while the fresh scrape runs.
+            return;
+          }
           setIsLoading(false);
           setIsRefreshing(true);
         },

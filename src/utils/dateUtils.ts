@@ -46,7 +46,7 @@ export function parseHomeworkDate(dateStr?: string | null): Date | null {
   str = str.replace(/[,]?\s*(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?$/i, '').trim();
 
   // Strip ordinal suffixes on days: "1st", "2nd", "3rd", "4th", "11th", "21st", "22nd", "23rd", "31st"
-  str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/i, '$1');
+  str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/gi, '$1');
 
   // 1. Explicit ISO YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD
   const isoMatch = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);

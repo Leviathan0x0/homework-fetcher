@@ -196,3 +196,14 @@ describe('dateUtils - formatRelativeDateHeader', () => {
     expect(formatRelativeDateHeader(yesterdayStr)).toBe('Yesterday');
   });
 });
+
+describe('dateUtils - isWithinLast7Days future intent', () => {
+  it('excludes future dates from Recent (past 0..7 days only)', () => {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+    // Documented behaviour: Recent is past-only; future-dated posts surface in Today/All/Calendar.
+    expect(isWithinLast7Days(tStr)).toBe(false);
+  });
+});

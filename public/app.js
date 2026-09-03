@@ -133,7 +133,7 @@
 
     str = str.replace(/^(?:sun(?:day)?|mon(?:day)?|tue(?:sday)?|wed(?:nesday)?|thu(?:rsday)?|fri(?:day)?|sat(?:urday)?)[,\s-]+/i, '').trim();
     str = str.replace(/[,]?\s*(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?$/i, '').trim();
-    str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/i, '$1');
+    str = str.replace(/\b(\d{1,2})(?:st|nd|rd|th)\b/gi, '$1');
 
     const isoMatch = str.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})$/);
     if (isoMatch) {
@@ -243,7 +243,7 @@
   }
 
   /* --------------------------------------------------------------------------
-     5. Data Fetching Logic (POST /fetch-homework)
+     5. Data Fetching Logic (POST /api/fetch-homework)
      -------------------------------------------------------------------------- */
   async function fetchHomework() {
     if (!state.cookies) {
@@ -251,17 +251,23 @@
       return;
     }
 
-    state.isLoading = true;
     state.errorMessage = null;
     hideErrorBanner();
-    renderSkeletons();
+    // Keep stale today rows on screen while revalidating (button shows the
+    // spinner). Only blank to skeletons when there is no today entry yet —
+    // otherwise every launch flashes a loader over useful data.
+    const hadToday = state.homework.some(item => isTodayDate(item?.date));
+    state.isLoading = !hadToday;
+    if (!hadToday) {
+      renderSkeletons();
+    }
 
     if (elements.refreshBtn) {
       elements.refreshBtn.classList.add('loading');
     }
 
     try {
-      const response = await fetch('/fetch-homework', {
+      const response = await fetch('/api/fetch-homework', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

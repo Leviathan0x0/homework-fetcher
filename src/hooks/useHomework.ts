@@ -171,6 +171,9 @@ export function useHomework() {
   // changing identity would make it fetch itself in a loop.
   const homeworkRef = useRef<HomeworkEntry[]>(homework);
   const homeworkRequestInFlightRef = useRef(false);
+  // Throttle the 60s visible-tab auto-refresh so a slow portal scrape doesn't
+  // stack a new forced refresh on top of the one still running.
+  const lastFetchStartedAtRef = useRef<number>(0);
   useEffect(() => {
     homeworkRef.current = homework;
   }, [homework]);
@@ -230,11 +233,10 @@ export function useHomework() {
         setUser(null);
         setIsAuthenticated(false);
         setSessionStatus("disconnected");
-        // Keep isLoading honest: with no account and no homework we still
-        // have nothing to adjudicate, so the next fetch (after login) starts
-        // from loading rather than a false empty state.
+        // Offline with no cached account: show the login screen, not an
+        // infinite skeleton. login() sets isLoading=true when auth starts.
         hasSettledFirstHomeworkFetch.current = false;
-        setIsLoading(true);
+        setIsLoading(false);
         setIsRefreshing(false);
       }
     } finally {
@@ -282,6 +284,7 @@ export function useHomework() {
     if (!user || !usesSchoolPortal(user)) return;
     if (homeworkRequestInFlightRef.current) return;
     homeworkRequestInFlightRef.current = true;
+    lastFetchStartedAtRef.current = Date.now();
     // Preserve useful cached rows during a refresh. When the page is empty,
     // however, the centered loading state is the only honest status until the
     // request completes; a spinner in the distant refresh button is too easy
@@ -441,6 +444,8 @@ export function useHomework() {
       console.error("Logout error:", err);
     } finally {
       clearCachedAccount(previousUserId);
+      hasAppliedRoleView.current = false;
+      hasSettledFirstHomeworkFetch.current = false;
       setUser(null);
       setIsAuthenticated(false);
       homeworkRef.current = [];
@@ -467,7 +472,11 @@ export function useHomework() {
     if (!isAuthenticated || isAuthChecking || !usesSchoolPortal(user) || schoolSessionExpired) return;
 
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") fetchHomework(true);
+      if (document.visibilityState !== "visible") return;
+      // The portal scrape is slow (up to 60s); don't stack a forced refresh
+      // on top of a recent one. Online-event refreshes bypass this.
+      if (Date.now() - lastFetchStartedAtRef.current < 120_000) return;
+      fetchHomework(true);
     };
     const refreshWhenOnline = () => fetchHomework(true);
     const interval = window.setInterval(refreshWhenVisible, 60 * 1000);

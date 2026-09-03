@@ -199,7 +199,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const encouragement = progressEncouragement(completedCount, totalCount);
 
   const hasHolidayToday = todayHolidays.length > 0;
-  const isContentLoading = isLoading || (Boolean(isRefreshing) && todayEntries.length === 0);
+  // Skeleton only for the initial load (isLoading covers "no today entry yet
+  // proved" via the useHomework settlement flag). Background revalidation
+  // (isRefreshing) keeps the settled empty-state/data + RefreshButton spinner
+  // instead of flashing a full skeleton every 60s auto-refresh.
+  const isContentLoading = isLoading;
 
   const subtitle = hasHolidayToday
     ? 'School is off today.'

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
@@ -6,6 +6,7 @@ import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
+import { SubjectFilterPills } from './SubjectFilterPills';
 
 interface AttachmentsViewProps {
   homework: HomeworkEntry[];
@@ -32,6 +33,18 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
   const attachmentEntries = validHomework.filter((item) => Boolean(item?.attachment));
   const isContentLoading = isLoading;
 
+  const [selectedSubject, setSelectedSubject] = useState<string>('All');
+
+  const subjectOf = (item: HomeworkEntry) =>
+    detectSubject(item?.homework || '', item?.subject, item?.type).name;
+
+  const availableSubjects = Array.from(new Set(attachmentEntries.map(subjectOf)));
+
+  const visibleEntries =
+    selectedSubject === 'All'
+      ? attachmentEntries
+      : attachmentEntries.filter((item) => subjectOf(item) === selectedSubject);
+
   const getEntryId = (item: HomeworkEntry) => {
     if (!item) return '';
     const d = item.date || '';
@@ -47,13 +60,27 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
         actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />}
       />
 
+      <SubjectFilterPills
+        subjects={availableSubjects}
+        selectedSubject={selectedSubject}
+        onSelectSubject={setSelectedSubject}
+      />
+
       {isContentLoading ? (
         <LoadingSkeleton label="Loading attachments…" />
-      ) : attachmentEntries.length === 0 ? (
-        <EmptyState type="attachments" />
+      ) : visibleEntries.length === 0 ? (
+        selectedSubject !== 'All' ? (
+          <EmptyState
+            type="attachments"
+            title={`No ${selectedSubject} attachments`}
+            subtitle="Try another subject or clear the filter."
+          />
+        ) : (
+          <EmptyState type="attachments" />
+        )
       ) : (
         <div className="space-y-3 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
-          {attachmentEntries.map((item, idx) => {
+          {visibleEntries.map((item, idx) => {
             const entryId = getEntryId(item);
             return (
               <HomeworkCard

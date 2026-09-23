@@ -44,6 +44,10 @@ const TeacherView = lazy(() => import('./TeacherView').then((m) => ({ default: m
 const FilePreviewSidebar = lazy(() => import('./FilePreviewSidebar').then((m) => ({ default: m.FilePreviewSidebar })));
 const ReconnectSchoolDialog = lazy(() => import('./ReconnectSchoolDialog').then((m) => ({ default: m.ReconnectSchoolDialog })));
 const DisplayNamePrompt = lazy(() => import('./DisplayNamePrompt').then((m) => ({ default: m.DisplayNamePrompt })));
+import { NotFoundView } from './NotFoundView';
+
+/** URL paths the SPA owns; anything else is a client-side 404. */
+const KNOWN_PATHS = new Set(['/', '/admin', '/teacher', '/student']);
 
 /** Placeholder shown while a screen's code is still downloading. */
 const ViewFallback: React.FC = () => (
@@ -335,9 +339,14 @@ export const AppShell: React.FC = () => {
     };
   }, [isAuthenticated, fetchUnreadCount]);
 
+  const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/';
+  if (!KNOWN_PATHS.has(normalizedPath)) {
+    return <NotFoundView />;
+  }
+
   if (isAuthChecking) {
     return (
-      <div className="min-h-screen w-full bg-neutral-50 dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen w-full bg-[#f8f8f8] dark:bg-[#09090b] flex flex-col items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center p-1 border border-neutral-200/80 dark:border-neutral-800 shadow-2xs overflow-hidden">
             <img src="/logo.png" alt="MMSS Mohali" className="w-full h-full object-contain" />
@@ -374,7 +383,7 @@ export const AppShell: React.FC = () => {
         isLoading={isLoading || isRefreshing}
       />
 
-      <SidebarInset className={cn("bg-neutral-50/50 dark:bg-[#09090b]", activeView === 'messages' && "h-dvh max-h-dvh overflow-hidden flex flex-col")}>
+      <SidebarInset className={cn("bg-[#f8f8f8]/50 dark:bg-[#09090b]", activeView === 'messages' && "h-dvh max-h-dvh overflow-hidden flex flex-col")}>
         <SiteHeader
           activeView={activeView}
           role={appRole}

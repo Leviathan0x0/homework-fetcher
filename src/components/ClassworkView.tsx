@@ -7,10 +7,11 @@ import { Reicon, Reillustration } from './ui/reicon';
 import FolderComponent from './ui/folder-component';
 import { useTheme } from '../hooks/useTheme';
 import { ClassworkEntry, SubjectInfo } from '../types/homework';
-import { detectSubject } from '../utils/subjectDetector';
+import { detectSubject, CANONICAL_SUBJECT_NAMES } from '../utils/subjectDetector';
 import { parseHomeworkDate } from '../utils/dateUtils';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
+import { SubjectCombobox } from './SubjectCombobox';
 import { Ring } from "@/components/loading-ui/ring";
 interface ClassworkViewProps {
   userSection?: string;
@@ -28,6 +29,12 @@ const COMMON_SUBJECTS = [
   'General Knowledge',
   'Art & Craft'
 ];
+
+// Every known subject: familiar defaults first, then the full canonical list
+// from subjectDetector (Physics, Chemistry, History, French, …), deduped.
+const UPLOAD_SUBJECT_OPTIONS = Array.from(
+  new Set([...COMMON_SUBJECTS, ...CANONICAL_SUBJECT_NAMES])
+);
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -278,7 +285,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Subject Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar">
-          {availableSubjects.slice(0, 7).map((subj) => {
+          {availableSubjects.map((subj) => {
             const isActive = selectedSubject === subj;
             return (
               <button
@@ -347,7 +354,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                 </div>
               </div>
               <div className="h-28 w-full rounded-xl bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
-              <div className="pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex justify-between">
+              <div className="pt-3 border-t border-neutral-200 dark:border-neutral-800/80 flex justify-between">
                 <div className="h-3 w-28 rounded bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
                 <div className="h-6 w-16 rounded-lg bg-neutral-100 dark:bg-neutral-800 animate-pulse" />
               </div>
@@ -355,7 +362,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
           ))}
         </div>
       ) : filteredClasswork.length === 0 ? (
-        <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
+        <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-300 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
           <div className="mb-2">
             <Reillustration name="classwork-empty" size="md" />
           </div>
@@ -496,9 +503,9 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
       {/* Upload Classwork Modal */}
       {isUploadOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-6 relative overflow-hidden">
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl p-6 space-y-6 relative">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-neutral-100 dark:border-neutral-800">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
               <div className="flex items-center gap-2">
                 <div className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400">
                   <Reicon name="upload-cloud" size={20} preset="lift" />
@@ -535,18 +542,15 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                 <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
                   Subject *
                 </label>
-                <select
+                <SubjectCombobox
                   value={uploadSubject}
-                  onChange={(e) => setUploadSubject(e.target.value)}
-                  className="w-full text-xs sm:text-sm h-11 px-3 rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-400/20"
-                >
-                  {COMMON_SUBJECTS.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                  <option value="Other">Other / Custom Subject</option>
-                </select>
+                  onChange={setUploadSubject}
+                  aria-label="Subject"
+                  options={[
+                    ...UPLOAD_SUBJECT_OPTIONS.map((s) => ({ value: s, label: s })),
+                    { value: 'Other', label: 'Other / Custom Subject' },
+                  ]}
+                />
               </div>
 
               {/* Custom Subject Input if 'Other' */}
@@ -591,7 +595,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                     'border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center transition-colors cursor-pointer relative',
                     selectedFile
                       ? 'border-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20'
-                      : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-300 dark:hover:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50'
+                      : 'border-neutral-300 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/50'
                   )}
                 >
                   <input
@@ -634,7 +638,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-neutral-100 dark:border-neutral-800">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
                 <button
                   type="button"
                   onClick={() => setIsUploadOpen(false)}

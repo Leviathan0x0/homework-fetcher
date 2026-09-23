@@ -1,12 +1,12 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { HomeworkEntry, ClassworkEntry, SectionRequest } from '../types/homework';
-import { formatToISODate } from '../utils/dateUtils';
+import { formatToISODate, parseHomeworkDate, RECENT_HOMEWORK_WINDOW_DAYS } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
 import { usePagination } from '../hooks/usePagination';
 import { classworkService, requestService } from '../services/api';
 import { HomeworkCard } from './HomeworkCard';
 import { DateHeader } from './DateHeader';
-import { SearchBar } from './SearchBar';
+import { SearchBar, type SearchTypeFilter } from './SearchBar';
 import { DateFilter } from './DateFilter';
 import { SubjectFilterPills } from './SubjectFilterPills';
 import { EmptyState } from './EmptyState';
@@ -35,6 +35,13 @@ interface AllHomeworkViewProps {
   onNavigate?: (view: string) => void;
 }
 
+const getEntryId = (item: HomeworkEntry) => {
+  if (!item) return '';
+  const d = item.date || '';
+  const hw = item.homework || '';
+  return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
+};
+
 export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   homework,
   isLoading,
@@ -53,6 +60,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 }) => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
+  const [typeFilter, setTypeFilter] = useState<SearchTypeFilter>('all');
   const [classwork, setClasswork] = useState<ClassworkEntry[]>([]);
   const [requests, setRequests] = useState<SectionRequest[]>([]);
   const [isSupportingContentLoading, setIsSupportingContentLoading] = useState(true);
@@ -116,8 +124,33 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
       result = result.filter((item) => formatToISODate(item?.date) === selectedDateFilter);
     }
 
+    if (typeFilter !== 'all') {
+      if (typeFilter === 'recent') {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const windowStart = new Date(todayStart);
+        windowStart.setDate(windowStart.getDate() - (RECENT_HOMEWORK_WINDOW_DAYS - 1));
+        const windowStartMs = windowStart.getTime();
+        const todayStartMs = todayStart.getTime();
+        result = result.filter((item) => {
+          const time = parseHomeworkDate(item?.date)?.getTime();
+          return time !== undefined && time >= windowStartMs && time <= todayStartMs;
+        });
+      } else if (typeFilter === 'attachment') {
+        result = result.filter((item) => Boolean(item?.attachment));
+      } else if (typeFilter === 'completed') {
+        result = result.filter(
+          (item) => Boolean(completedMap[getEntryId(item)]) || item.completed === true
+        );
+      } else if (typeFilter === 'pending') {
+        result = result.filter(
+          (item) => !(Boolean(completedMap[getEntryId(item)]) || item.completed === true)
+        );
+      }
+    }
+
     return result;
-  }, [validHomework, selectedSubject, q, selectedDateFilter]);
+  }, [validHomework, selectedSubject, q, selectedDateFilter, typeFilter, completedMap]);
 
   const matchedClasswork = useMemo(() => {
     if (!q) return [];
@@ -142,13 +175,6 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   }, [requests, q]);
 
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
-
-  const getEntryId = (item: HomeworkEntry) => {
-    if (!item) return '';
-    const d = item.date || '';
-    const hw = item.homework || '';
-    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-  };
 
   const grouped: { date: string; entries: HomeworkEntry[] }[] = [];
   const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
@@ -177,7 +203,13 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
       />
 
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <SearchBar value={searchQuery} onChange={onSearchChange} inputRef={searchInputRef} />
+        <SearchBar
+          value={searchQuery}
+          onChange={onSearchChange}
+          inputRef={searchInputRef}
+          typeFilter={typeFilter}
+          onTypeFilterChange={setTypeFilter}
+        />
         <DateFilter value={selectedDateFilter} onChange={onDateFilterChange} />
       </div>
 

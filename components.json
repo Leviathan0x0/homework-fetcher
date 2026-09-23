@@ -23,6 +23,7 @@
   },
   "registries": {
     "@lucide-animated": "https://lucide-animated.com/r/{name}.json",
-    "@loading-ui": "https://loading-ui.com/r/{name}.json"
+    "@loading-ui": "https://loading-ui.com/r/{name}.json",
+    "@magicui": "https://magicui.design/r/{name}"
   }
 }

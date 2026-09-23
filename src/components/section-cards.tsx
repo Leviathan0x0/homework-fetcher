@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { HomeworkEntry, SessionStatus } from "../types/homework"
-import { isTodayDate, isWithinLast7Days } from "../utils/dateUtils"
+import { isTodayDate, selectRecentHomework } from "../utils/dateUtils"
 import { Reicon } from "@/components/ui/reicon"
 
 interface SectionCardsProps {
@@ -12,7 +12,7 @@ interface SectionCardsProps {
 
 export function SectionCards({ homework, completedMap, sessionStatus }: SectionCardsProps) {
   const todayEntries = homework.filter((item) => isTodayDate(item.date));
-  const recentEntries = homework.filter((item) => isWithinLast7Days(item.date));
+  const recentEntries = selectRecentHomework(homework);
   const attachmentEntries = homework.filter((item) => Boolean(item.attachment));
 
   const getEntryId = (item: HomeworkEntry) =>
@@ -46,7 +46,7 @@ export function SectionCards({ homework, completedMap, sessionStatus }: SectionC
       {/* Recent Card */}
       <Card className="shadow-2xs border-neutral-200/80 dark:border-neutral-800 rounded-3xl">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <CardDescription className="text-xs font-medium">Last 7 days</CardDescription>
+          <CardDescription className="text-xs font-medium">Last 5 homeworks</CardDescription>
           <Reicon name="clock" size={16} className="text-muted-foreground" />
         </CardHeader>
         <CardContent>

@@ -250,7 +250,7 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
       ) : filtered.length === 0 ? (
         <div className="py-16 px-4 rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-[#141417]/50 flex flex-col items-center justify-center text-center space-y-4">
           <div className="mb-2">
-            <Reillustration name="student-requests-empty" size="md" />
+            <Reillustration name="student-requests-empty" size="md" interactive />
           </div>
           <div className="space-y-1 max-w-sm">
             <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-200">

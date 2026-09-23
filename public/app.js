@@ -379,15 +379,16 @@
            homeworkDate.getFullYear() === today.getFullYear();
   }
 
-  function isWithinLast7Days(dateStr) {
-    const homeworkDate = parseHomeworkDate(dateStr);
-    if (!homeworkDate) return true;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(homeworkDate.getFullYear(), homeworkDate.getMonth(), homeworkDate.getDate());
-    const diffTime = today.getTime() - target.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays >= 0 && diffDays <= 7;
+  function selectRecentHomework(entries, count) {
+    const limit = count || 5;
+    return entries
+      .map(function (entry) {
+        const parsed = parseHomeworkDate(entry && entry.date);
+        return { entry: entry, time: parsed ? parsed.getTime() : 0 };
+      })
+      .sort(function (a, b) { return b.time - a.time; })
+      .slice(0, limit)
+      .map(function (item) { return item.entry; });
   }
 
   function formatToISODate(dateStr) {
@@ -451,7 +452,7 @@
     if (state.activeView === 'today') {
       filtered = filtered.filter(item => isTodayDate(item.date));
     } else if (state.activeView === 'recent') {
-      filtered = filtered.filter(item => isWithinLast7Days(item.date));
+      filtered = selectRecentHomework(filtered);
     } else if (state.activeView === 'attachments') {
       filtered = filtered.filter(item => Boolean(item.attachment));
     }

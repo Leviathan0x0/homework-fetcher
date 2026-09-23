@@ -81,7 +81,7 @@ export const AppShell: React.FC = () => {
     dismissError,
   } = useHomework();
 
-  const { theme, resolvedTheme, setTheme, toggleTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isReconnectOpen, setIsReconnectOpen] = useState(false);
@@ -379,7 +379,7 @@ export const AppShell: React.FC = () => {
           activeView={activeView}
           role={appRole}
           theme={resolvedTheme}
-          onToggleTheme={toggleTheme}
+          onThemeChange={setTheme}
           onRefresh={() => fetchHomework(true)}
           onOpenSettings={handleOpenSettings}
           isLoading={isLoading || isRefreshing}

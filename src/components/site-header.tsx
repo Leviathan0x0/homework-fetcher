@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { ViewType, ThemeMode } from "../types/homework"
 import { Reicon } from "@/components/ui/reicon"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { NotificationPopover } from "./NotificationPopover"
 import { PWAInstallPrompt } from "./PWAInstallPrompt"
 
@@ -17,7 +18,7 @@ interface SiteHeaderProps {
   activeView: ViewType;
   role: 'student' | 'teacher' | 'admin';
   theme: ThemeMode;
-  onToggleTheme: () => void;
+  onThemeChange: (theme: "light" | "dark") => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
   isLoading: boolean;
@@ -30,7 +31,7 @@ export function SiteHeader({
   activeView,
   role,
   theme,
-  onToggleTheme,
+  onThemeChange,
   onOpenSettings,
   unreadCount,
   onNavigate,
@@ -135,20 +136,13 @@ export function SiteHeader({
           onCountChange={onUnreadCountChange}
         />
 
-        <button
-          onClick={onToggleTheme}
-          onMouseEnter={() => setHoveredButton('theme')}
-          onMouseLeave={() => setHoveredButton(null)}
+        <AnimatedThemeToggler
+          theme={theme === "dark" ? "dark" : "light"}
+          onThemeChange={onThemeChange}
           className="inline-flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 dark:focus-visible:ring-neutral-600/50"
           title="Toggle theme"
           aria-label="Toggle theme"
-        >
-          {theme === "dark" ? (
-            <Reicon name="sun" size={16} preset="rotate" isActive={hoveredButton === 'theme'} />
-          ) : (
-            <Reicon name="moon" size={16} preset="scale" isActive={hoveredButton === 'theme'} />
-          )}
-        </button>
+        />
 
         <button
           onClick={onOpenSettings}

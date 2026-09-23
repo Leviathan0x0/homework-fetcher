@@ -143,16 +143,24 @@ export function isTodayDate(dateStr?: string | null): boolean {
          homeworkDate.getFullYear() === today.getFullYear();
 }
 
-export function isWithinLast7Days(dateStr?: string | null): boolean {
-  if (!dateStr || typeof dateStr !== 'string') return false;
-  const homeworkDate = parseHomeworkDate(dateStr);
-  if (!homeworkDate) return true;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(homeworkDate.getFullYear(), homeworkDate.getMonth(), homeworkDate.getDate());
-  const diffTime = today.getTime() - target.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= 7;
+/** How many homework entries the Recent timeline shows, no matter their date. */
+export const RECENT_HOMEWORK_LIMIT = 5;
+
+/**
+ * Returns the N most recent homework entries (newest first), regardless of how
+ * old they are. Entries with unparseable dates sort oldest but still count.
+ */
+export function selectRecentHomework<T extends HomeworkEntry>(
+  entries: T[],
+  count: number = RECENT_HOMEWORK_LIMIT,
+): T[] {
+  if (!Array.isArray(entries) || entries.length === 0) return [];
+  return entries
+    .filter(Boolean)
+    .map((entry) => ({ entry, time: parseHomeworkDate(entry?.date)?.getTime() ?? 0 }))
+    .sort((a, b) => b.time - a.time)
+    .slice(0, Math.max(0, count))
+    .map(({ entry }) => entry);
 }
 
 export function formatToISODate(dateStr?: string | null): string {

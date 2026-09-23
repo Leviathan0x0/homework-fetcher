@@ -737,16 +737,18 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                           role="switch"
                           aria-checked={enabled}
                           aria-label={`${enabled ? 'Disable' : 'Enable'} ${control.title}`}
-                          onClick={() => handleToggleSetting(control.key, enabled)}
+                          onClick={(e) => {
+                            e.currentTarget.classList.add('is-init');
+                            handleToggleSetting(control.key, enabled);
+                          }}
+                          data-on={enabled ? 'true' : 'false'}
                           className={cn(
-                            'relative h-6 w-11 shrink-0 rounded-full p-0.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50',
+                            't-toggle relative h-6 w-11 shrink-0 rounded-full p-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50',
                             enabled ? 'bg-emerald-600' : 'bg-neutral-300 dark:bg-neutral-700'
                           )}
+                          style={{ '--toggle-travel': '20px', '--toggle-track': '200ms' } as React.CSSProperties}
                         >
-                          <span className={cn(
-                            'block size-5 rounded-full bg-white shadow-sm transition-transform',
-                            enabled && 'translate-x-5'
-                          )} />
+                          <span className="t-toggle-thumb block size-5 rounded-full bg-white shadow-sm" />
                         </button>
                       </div>
                       <p className="mt-3 text-xs font-semibold text-neutral-900 dark:text-white">{control.title}</p>

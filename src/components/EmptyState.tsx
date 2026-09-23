@@ -35,6 +35,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     defaultTitle = 'No homework posted today';
     defaultSubtitle = 'Nothing has been sent yet. Check back later.';
     defaultIllustration = 'empty-today';
+  } else if (type === 'recent') {
+    defaultTitle = 'No recent homework';
+    defaultSubtitle = 'There are no homework assignments among the last 5 entries.';
+    defaultIllustration = 'empty-recent';
   } else if (type === 'attachments') {
     defaultTitle = 'No attachments found';
     defaultSubtitle = 'None of your homework entries contain attached files.';

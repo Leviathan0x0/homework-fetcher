@@ -2,8 +2,7 @@ import React from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { SettingsPanel } from './SettingsModal';
-import { InteractiveAnimatedIcon } from './ui/interactive-animated-icon';
-import { ArrowLeftIcon } from './ui/arrow-left';
+import { Reicon } from './ui/reicon';
 
 interface SettingsViewProps {
   user: UserAccount | null;
@@ -40,7 +39,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           aria-label="Back"
           className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer active:scale-95"
         >
-          <InteractiveAnimatedIcon icon={ArrowLeftIcon} size={16} className="w-4 h-4" />
+          <Reicon name="arrow-left" size={16} preset="lift" className="w-4 h-4" />
         </button>
         <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Settings & account</h2>
       </div>

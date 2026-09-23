@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { ViewType, SessionStatus } from '../types/homework';
-import { CalendarCheckIcon } from '@/components/ui/calendar-check';
-import { ClockIcon } from '@/components/ui/clock';
-import { LayersIcon } from '@/components/ui/layers';
-import { AttachFileIcon } from '@/components/ui/attach-file';
-import { SettingsIcon } from '@/components/ui/settings';
+import { Reicon, type ReiconName } from '@/components/ui/reicon';
 import { cn } from '../utils/cn';
 
 interface SidebarProps {
@@ -22,11 +18,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [hoveredId, setHoveredId] = useState<ViewType | null>(null);
 
-  const navItems: { id: ViewType; label: string; IconComponent: React.ComponentType<{ size?: number; className?: string; isAnimated?: boolean }>; badge?: number }[] = [
-    { id: 'today', label: 'Today', IconComponent: CalendarCheckIcon, badge: todayCount > 0 ? todayCount : undefined },
-    { id: 'recent', label: 'Recent', IconComponent: ClockIcon },
-    { id: 'all', label: 'All Homework', IconComponent: LayersIcon },
-    { id: 'attachments', label: 'Attachments', IconComponent: AttachFileIcon },
+  const navItems: { id: ViewType; label: string; iconName: ReiconName; preset?: 'rotate' | 'gear' | 'scale' | 'ring'; badge?: number }[] = [
+    { id: 'today', label: 'Today', iconName: 'calendar-check', preset: 'scale', badge: todayCount > 0 ? todayCount : undefined },
+    { id: 'recent', label: 'Recent', iconName: 'clock', preset: 'rotate' },
+    { id: 'all', label: 'All Homework', iconName: 'layers', preset: 'scale' },
+    { id: 'attachments', label: 'Attachments', iconName: 'paperclip', preset: 'ring' },
   ];
 
   return (
@@ -45,7 +41,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation List */}
         <nav className="space-y-1">
           {navItems.map((item) => {
-            const IconComp = item.IconComponent;
             const isActive = activeView === item.id;
             const isHovered = hoveredId === item.id;
             return (
@@ -62,7 +57,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
               >
                 <div className="flex items-center gap-2.5">
-                  <IconComp size={16} isAnimated={isActive || isHovered} className={cn('shrink-0', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')} />
+                  <Reicon
+                    name={item.iconName}
+                    size={16}
+                    preset={item.preset || 'scale'}
+                    isActive={isActive || isHovered}
+                    className={cn('shrink-0', isActive ? 'text-neutral-900 dark:text-neutral-100' : 'text-neutral-400')}
+                  />
                   <span>{item.label}</span>
                 </div>
 
@@ -90,7 +91,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-200/50 dark:hover:bg-neutral-800/50'
           )}
         >
-          <SettingsIcon size={16} isAnimated={activeView === 'settings' || hoveredId === 'settings'} className="text-neutral-400 shrink-0" />
+          <Reicon
+            name="settings"
+            size={16}
+            preset="gear"
+            isActive={activeView === 'settings' || hoveredId === 'settings'}
+            className="text-neutral-400 shrink-0"
+          />
           <span>Settings</span>
         </button>
 

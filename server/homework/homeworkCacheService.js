@@ -87,6 +87,32 @@ function normalizeContentForHashing(text = "") {
 }
 
 /**
+ * Deduplicates raw incoming homework items by (date + normalizedContent).
+ * @param {Array<object>} items
+ * @returns {Array<object>}
+ */
+function deduplicateIncomingHomework(items = []) {
+  const seen = new Map();
+  for (const item of items) {
+    if (!item || !item.homework) continue;
+    const date = (item.date || "").trim();
+    const content = (item.homework || "").trim();
+    if (!content) continue;
+    const norm = normalizeContentForHashing(content);
+    const key = `${date}\u0000${norm}`;
+    if (!seen.has(key)) {
+      seen.set(key, item);
+    } else {
+      const existing = seen.get(key);
+      if ((!existing.attachment && item.attachment) || (!existing.subject && item.subject)) {
+        seen.set(key, item);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
+/**
  * Generates a stable deterministic SHA-256 ID for a homework entry based on content.
  * Prevents duplicate insertions when subjects or tracking shortlinks update.
  * @param {string} userId 
@@ -169,6 +195,9 @@ function clientHomeworkRows(rows) {
   return Array.from(unique.values());
 }
 
+// Per-user queue to prevent concurrent upsert collisions.
+const upsertQueues = new Map();
+
 class HomeworkCacheService {
   /**
    * Upserts fresh homework entries fetched from EduSecure into SQLite.
@@ -180,6 +209,31 @@ class HomeworkCacheService {
   async upsertHomework(userId, parsedHomework) {
     if (!userId || !Array.isArray(parsedHomework)) return [];
 
+    const queue = upsertQueues.get(userId) || Promise.resolve();
+    const current = queue
+      .catch(() => {})
+      .then(() => this._executeUpsertHomework(userId, parsedHomework));
+
+    upsertQueues.set(userId, current);
+
+    try {
+      return await current;
+    } finally {
+      if (upsertQueues.get(userId) === current) {
+        upsertQueues.delete(userId);
+      }
+    }
+  }
+
+  /**
+   * Internal execution of upsertHomework.
+   * Preserves existing user completion states and notes in homework_user_state.
+   * @param {string} userId 
+   * @param {Array<{type: string, date: string, homework: string, attachment: string|null}>} parsedHomework 
+   * @returns {Array} List of saved homework items with user state
+   */
+  async _executeUpsertHomework(userId, parsedHomework) {
+    const deduplicatedHomework = deduplicateIncomingHomework(parsedHomework);
     const now = new Date().toISOString();
 
     // Read both homework and personal state once. Besides avoiding per-entry
@@ -227,7 +281,7 @@ class HomeworkCacheService {
     const writes = [];
     const resultRows = new Map(existingRows.map((row) => [row.id, row]));
 
-    for (const item of parsedHomework) {
+    for (const item of deduplicatedHomework) {
       const type = item.type || "Homework";
       const date = (item.date || "").trim();
       const content = (item.homework || "").trim();
@@ -280,6 +334,17 @@ class HomeworkCacheService {
               type,
               createdAt: now,
               updatedAt: now,
+            })
+            .onConflictDoUpdate({
+              target: schema.homework.id,
+              set: {
+                date,
+                subject,
+                content,
+                attachmentUrl,
+                type,
+                updatedAt: now,
+              },
             })
         );
       }

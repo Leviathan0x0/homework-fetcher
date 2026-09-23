@@ -168,7 +168,7 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
       ) : notices.length === 0 ? (
         <EmptyState
           type="notices"
-          illustration="empty-notices"
+          illustration={kind === 'circulars' ? 'circulars-empty' : 'important-empty'}
           title={config.emptyTitle}
           description={config.emptyDescription}
         />

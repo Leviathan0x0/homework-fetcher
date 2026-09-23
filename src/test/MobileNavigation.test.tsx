@@ -112,11 +112,12 @@ describe('MobileNavigation', () => {
     expect(todayButton).toHaveAttribute('aria-current', 'page');
     expect(dock.className).toContain('bg-white/95');
     expect(dock.className).toContain('dark:bg-[#151518]/95');
-    expect(todayButton.className).toContain('bg-neutral-900');
-    expect(todayButton.className).toContain('text-white');
+    // Spring pill is a motion.span with layoutId, rendered for the active tab only.
+    expect(dock.querySelector('[style*="border-radius"]')).toBeInTheDocument();
+    expect(todayButton.querySelector('.text-white')).toBeInTheDocument();
 
     expect(classworkButton).not.toHaveAttribute('aria-current');
-    expect(classworkButton.className).toContain('bg-transparent');
+    expect(classworkButton.querySelector('.text-white')).toBeNull();
   });
 
   it('calls onViewChange when an inactive tab is clicked', () => {

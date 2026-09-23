@@ -4,11 +4,13 @@ import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageC
 import { MAX_UPLOAD_BYTES } from '../lib/api';
 import { friendlyContentError } from '../utils/friendlyErrors';
 import { Reicon, Reillustration } from './ui/reicon';
+import FolderComponent from './ui/folder-component';
+import { useTheme } from '../hooks/useTheme';
 import { ClassworkEntry, SubjectInfo } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
+import { parseHomeworkDate } from '../utils/dateUtils';
 import { cn } from '../utils/cn';
 import { PageHeader } from './PageHeader';
-import { AuthenticatedImage } from './AuthenticatedImage';
 import { Ring } from "@/components/loading-ui/ring";
 interface ClassworkViewProps {
   userSection?: string;
@@ -33,14 +35,62 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function getFileIcon(mimeType: string | null | undefined, filename: string) {
-  const ext = filename.split('.').pop()?.toLowerCase() || '';
-  if (mimeType?.startsWith('image/') || ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
-    return <Reicon name="image" size={20} className="text-neutral-500 dark:text-neutral-400" />;
-  }
-  if (mimeType === 'application/pdf' || ext === 'pdf') return <Reicon name="file-text" size={20} className="text-neutral-500 dark:text-neutral-400" />;
-  if (ext === 'doc' || ext === 'docx' || mimeType?.includes('word')) return <Reicon name="file-text" size={20} className="text-neutral-500 dark:text-neutral-400" />;
-  return <Reicon name="file" size={20} className="text-neutral-500 dark:text-neutral-400" />;
+const TAILWIND_HEX: Record<string, string> = {
+  indigo: '#6366f1',
+  orange: '#f97316',
+  violet: '#8b5cf6',
+  cyan: '#06b6d4',
+  teal: '#14b8a6',
+  amber: '#f59e0b',
+  rose: '#f43f5e',
+  blue: '#3b82f6',
+  lime: '#84cc16',
+  green: '#22c55e',
+  sky: '#0ea5e9',
+  emerald: '#10b981',
+  purple: '#a855f7',
+  red: '#ef4444',
+  pink: '#ec4899',
+  stone: '#78716c',
+  slate: '#64748b',
+  fuchsia: '#d946ef',
+  neutral: '#a1a1aa',
+};
+
+function subjectFolderColor(subjInfo: SubjectInfo): string {
+  const match = subjInfo.accentBorderClass.match(/border-l-([a-z]+)-/);
+  return (match && TAILWIND_HEX[match[1]]) || TAILWIND_HEX.neutral;
+}
+
+function formatClassworkDate(dateStr?: string): string {
+  if (!dateStr) return '';
+  const parsed = parseHomeworkDate(dateStr);
+  if (!parsed) return dateStr;
+  return parsed.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function AddClassworkFolder() {
+  const { resolvedTheme } = useTheme();
+  const folderColor = resolvedTheme === 'dark' ? 'black' : 'white';
+
+  return (
+    <div className="relative w-full h-full" aria-hidden>
+      <FolderComponent
+        color={folderColor}
+        size="sm"
+        showCards={false}
+        disableOpen
+        className="w-full h-full"
+      />
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="transition-transform duration-300 ease-out group-hover:-translate-y-2">
+          <span className="flex size-11 items-center justify-center rounded-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 shadow-md ring-2 ring-white dark:ring-neutral-900">
+            <Reicon name="plus" size={22} />
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export const ClassworkView: React.FC<ClassworkViewProps> = ({
@@ -276,7 +326,7 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
 
       {/* Classwork List / Loading / Empty State */}
       {isLoading && classwork.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-busy="true" aria-label="Loading classwork">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading classwork">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
@@ -331,117 +381,75 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         </div>
       ) : (
         <div className={cn(
-          'grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity',
+          'mt-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 transition-opacity',
           isLoading && classwork.length > 0 && 'opacity-60'
         )}>
           {filteredClasswork.map((item) => {
             const subjInfo: SubjectInfo = detectSubject(item.subject);
-            const isImage =
-              Boolean(item.mimeType?.startsWith('image/')) ||
-              Boolean(item.originalFilename?.match(/\.(jpe?g|png|webp|gif)$/i));
-            const isPdf =
-              item.mimeType === 'application/pdf' ||
-              Boolean(item.originalFilename?.match(/\.pdf$/i));
-            const isWordDocument =
-              Boolean(item.mimeType?.includes('word')) ||
-              Boolean(item.originalFilename?.match(/\.docx?$/i));
+            const folderColor = subjectFolderColor(subjInfo);
+            const rawTitle = typeof item.title === 'string' ? item.title.trim() : '';
+            const displayTitle = rawTitle || item.originalFilename || 'Untitled';
+            const uploaderName = (item.studentId || '').trim() || 'Unknown';
+            const uploaderInitials = uploaderName
+              .split(/\s+/)
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((part: string) => part[0]?.toUpperCase() ?? '')
+              .join('') || '?';
 
             return (
               <div
                 key={item.id}
-                className="group relative rounded-2xl border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] p-4 flex flex-col justify-between transition-all duration-200 hover:shadow-xs hover:border-neutral-300 dark:hover:border-neutral-700"
+                className="group relative rounded-2xl p-2 flex flex-col items-center transition-all duration-200"
               >
-                <div className="space-y-3">
-                  {/* Card Header: Subject Pill & Date */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span
-                      className={cn(
-                        'px-2.5 py-0.5 rounded-full text-[11px] font-semibold border',
-                        subjInfo.badgeClass
-                      )}
-                    >
-                      {item.subject}
-                    </span>
-                    <span className="text-[11px] text-neutral-400 dark:text-neutral-500 font-medium flex items-center gap-1">
-                      <Reicon name="calendar" size={12} />
-                      {item.date === todayStr ? 'Today' : item.date}
-                    </span>
-                  </div>
-
-                  {/* Title & Filename */}
-                  <div>
-                    {item.title && (
-                      <h4 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-snug line-clamp-2">
-                        {item.title}
-                      </h4>
-                    )}
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="p-1.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 shrink-0">
-                        {getFileIcon(item.mimeType, item.originalFilename || item.filename || '')}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-neutral-700 dark:text-neutral-300 truncate">
-                          {item.originalFilename}
-                        </p>
-                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
-                          {formatFileSize(item.fileSize)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="w-full max-w-[209px] aspect-[209/176] shrink-0">
+                  <FolderComponent
+                    color={folderColor}
+                    size="sm"
+                    className="w-full h-full cursor-pointer"
+                    onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open ${displayTitle}`}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onOpenPreview(item.fileUrl, item.originalFilename);
+                      }
+                    }}
+                  />
                 </div>
 
-                {/* Image Preview Thumbnail if applicable */}
-                {isImage && (
-                  <div
-                    onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
-                    className="mt-3 relative h-32 w-full rounded-xl overflow-hidden bg-neutral-100 dark:bg-neutral-900 border border-neutral-200/60 dark:border-neutral-800 cursor-pointer group/img"
+                <div className="mt-4 w-full max-w-[220px] text-center">
+                  <h4
+                    className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-snug truncate"
+                    title={displayTitle}
                   >
-                    <AuthenticatedImage
-                      src={item.fileUrl}
-                      alt={`Preview of ${item.originalFilename}`}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover/img:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-medium gap-1.5">
-                      <Reicon name="eye" size={16} preset="scale" className="w-4 h-4" />
-                      <span>Preview</span>
-                    </div>
-                  </div>
-                )}
+                    {displayTitle}
+                  </h4>
+                  <p className="mt-0.5 text-[11px] text-neutral-400 dark:text-neutral-500 truncate">
+                    {formatClassworkDate(item.date)} · {item.subject}
+                  </p>
+                </div>
 
-                {/* Card Footer: Uploader info & Actions */}
-                <div className="mt-4 pt-3 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 text-[11px]">
-                    <span className="font-medium text-neutral-600 dark:text-neutral-400">
-                      Uploaded by <span className="font-semibold text-neutral-800 dark:text-neutral-200">{item.studentId}</span>
-                    </span>
-                    {item.isOwner && (
-                      <span className="px-1.5 py-0.2 rounded bg-neutral-100 dark:bg-neutral-800 text-[10px] text-neutral-500">
-                        You
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1">
-                    {(isImage || isPdf || isWordDocument) && (
-                      <button
-                        onClick={() => onOpenPreview(item.fileUrl, item.originalFilename)}
-                        className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                        title="Preview File"
-                      >
-                        <Reicon name="eye" size={14} preset="scale" className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    <a
-                      href={item.fileUrl}
-                      download={item.originalFilename}
-                      className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-                      title="Download File"
+                <div className="mt-4 w-full flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-1.5 text-neutral-400 dark:text-neutral-500 text-[11px] min-w-0">
+                    <span
+                      className="flex size-5 shrink-0 items-center justify-center rounded-full bg-neutral-900 dark:bg-neutral-100 text-[9px] font-bold text-white dark:text-neutral-900"
+                      aria-hidden
                     >
-                      <Reicon name="download" size={14} preset="bounce" className="w-3.5 h-3.5" />
-                    </a>
+                      {uploaderInitials}
+                    </span>
+                    <span className="truncate font-medium text-neutral-600 dark:text-neutral-400">
+                      {uploaderName}
+                      {item.isOwner ? ' · You' : ''}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[11px] text-neutral-300 dark:text-neutral-600 tabular-nums">
+                      {formatFileSize(item.fileSize)}
+                    </span>
 
                     {item.isOwner && (
                       <button
@@ -467,16 +475,17 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
           <button
             type="button"
             onClick={() => setIsUploadOpen(true)}
-            className="group relative rounded-2xl border-2 border-dashed border-neutral-300 dark:border-neutral-700/80 hover:border-neutral-400 dark:hover:border-neutral-500 bg-neutral-50/50 dark:bg-[#141417]/50 p-6 flex flex-col items-center justify-center text-center gap-3 transition-all duration-200 cursor-pointer min-h-[180px] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+            className="group relative rounded-2xl p-2 flex flex-col items-center transition-all duration-200 cursor-pointer active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
           >
-            <div className="w-10 h-10 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-600 dark:text-neutral-300 shadow-2xs group-hover:scale-110 group-hover:bg-neutral-900 group-hover:text-white dark:group-hover:bg-white dark:group-hover:text-neutral-900 transition-all duration-200">
-              <Reicon name="plus" size={20} preset="scale" className="w-5 h-5" />
+            <div className="w-full max-w-[209px] aspect-[209/176] shrink-0">
+              <AddClassworkFolder />
             </div>
-            <div>
-              <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
+
+            <div className="mt-4 w-full max-w-[220px] text-center">
+              <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-snug block truncate">
                 Upload Classwork
               </span>
-              <span className="text-[11px] text-neutral-400 dark:text-neutral-500 mt-0.5 block">
+              <span className="mt-0.5 text-[11px] text-neutral-400 dark:text-neutral-500 block truncate">
                 Share notes or files with your section
               </span>
             </div>

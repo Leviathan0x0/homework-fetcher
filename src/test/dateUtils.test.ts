@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseHomeworkDate,
   isTodayDate,
-  isWithinLast7Days,
+  selectRecentHomework,
   sortHomeworkNewestFirst,
   formatToISODate,
   formatRelativeDateHeader,
@@ -143,23 +143,55 @@ describe('dateUtils - isTodayDate', () => {
   });
 });
 
-describe('dateUtils - isWithinLast7Days', () => {
-  it('identifies dates within last 7 days', () => {
+describe('dateUtils - selectRecentHomework', () => {
+  const entry = (id: string, date: string): HomeworkEntry => ({
+    id, date, type: 'Homework', homework: `Homework ${id}`, attachment: null,
+  });
+
+  it('takes the 5 newest entries no matter how old they are', () => {
     const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    expect(isWithinLast7Days(`${yyyy}-${mm}-${dd}`)).toBe(true);
+    const ymd = (offsetDays: number) => {
+      const d = new Date(today);
+      d.setDate(d.getDate() + offsetDays);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
 
-    const twoDaysAgo = new Date(today);
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-    const d2Str = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(twoDaysAgo.getDate()).padStart(2, '0')}`;
-    expect(isWithinLast7Days(d2Str)).toBe(true);
+    const entries: HomeworkEntry[] = [
+      entry('old-1', '10 Jul 2026'),
+      entry('old-2', '01 Aug 2026'),
+      entry('old-3', '15 Aug 2026'),
+      entry('old-4', '20 Aug 2026'),
+      entry('old-5', '01 Sep 2026'),
+      entry('recent-1', ymd(-1)),
+      entry('recent-2', ymd(0)),
+    ];
 
-    const twentyDaysAgo = new Date(today);
-    twentyDaysAgo.setDate(twentyDaysAgo.getDate() - 20);
-    const d20Str = `${twentyDaysAgo.getFullYear()}-${String(twentyDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(twentyDaysAgo.getDate()).padStart(2, '0')}`;
-    expect(isWithinLast7Days(d20Str)).toBe(false);
+    const recent = selectRecentHomework(entries);
+    expect(recent.map((e) => e.id)).toEqual([
+      'recent-2', 'recent-1', 'old-5', 'old-4', 'old-3',
+    ]);
+  });
+
+  it('includes future dates as the newest entries', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+
+    const entries: HomeworkEntry[] = [
+      entry('today', '2026-09-01'),
+      entry('tomorrow', tStr),
+      entry('very-old', '01 Jan 2026'),
+    ];
+
+    const recent = selectRecentHomework(entries, 2);
+    expect(recent.map((e) => e.id)).toEqual(['tomorrow', 'today']);
+  });
+
+  it('returns all entries when fewer than the limit exist', () => {
+    const entries: HomeworkEntry[] = [entry('a', '01 Sep 2026'), entry('b', '02 Sep 2026')];
+    const recent = selectRecentHomework(entries);
+    expect(recent.map((e) => e.id)).toEqual(['b', 'a']);
+    expect(selectRecentHomework([])).toEqual([]);
   });
 });
 
@@ -197,13 +229,3 @@ describe('dateUtils - formatRelativeDateHeader', () => {
   });
 });
 
-describe('dateUtils - isWithinLast7Days future intent', () => {
-  it('excludes future dates from Recent (past 0..7 days only)', () => {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
-    // Documented behaviour: Recent is past-only; future-dated posts surface in Today/All/Calendar.
-    expect(isWithinLast7Days(tStr)).toBe(false);
-  });
-});

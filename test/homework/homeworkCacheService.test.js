@@ -145,3 +145,49 @@ test("upsert keeps personal state, removes duplicates, and returns the saved row
     .get();
   assert.equal(duplicate, undefined);
 });
+
+test("handles concurrent simultaneous upserts without UNIQUE constraint errors", async () => {
+  const userId = "concurrent-user";
+  const now = new Date().toISOString();
+  await db.insert(schema.users).values({
+    id: userId,
+    studentId: "concurrent-student",
+    displayName: "Concurrent Tester",
+    section: "10-A",
+    role: "student",
+    createdAt: now,
+    updatedAt: now,
+  }).run();
+
+  const payload = [
+    {
+      type: "Homework",
+      date: "21 Sep 2026",
+      homework: "MATHEMATICS: Practice quadratic equations",
+      attachment: null,
+    },
+    {
+      type: "Homework",
+      date: "21 Sep 2026",
+      homework: "CHEMISTRY: Balance chemical equations",
+      attachment: null,
+    },
+    // Intra-batch duplicate item
+    {
+      type: "Homework",
+      date: "21 Sep 2026",
+      homework: "MATHEMATICS: Practice quadratic equations https://tiny.edusecure.in/dup123",
+      attachment: "https://school.edu/math.pdf",
+    },
+  ];
+
+  const [res1, res2, res3] = await Promise.all([
+    homeworkCacheService.upsertHomework(userId, payload),
+    homeworkCacheService.upsertHomework(userId, payload),
+    homeworkCacheService.upsertHomework(userId, payload),
+  ]);
+
+  assert.equal(res1.length, 3);
+  assert.equal(res2.length, 3);
+  assert.equal(res3.length, 3);
+});

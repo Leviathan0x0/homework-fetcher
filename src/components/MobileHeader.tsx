@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { ThemeMode } from '../types/homework';
-import { SunIcon } from '@/components/ui/sun';
-import { MoonIcon } from '@/components/ui/moon';
-import { SettingsIcon } from '@/components/ui/settings';
+import { Reicon } from '@/components/ui/reicon';
+import { AnimatedThemeToggler } from '@/components/ui/animated-theme-toggler';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface MobileHeaderProps {
   theme: ThemeMode;
-  onToggleTheme: () => void;
+  onThemeChange: (theme: "light" | "dark") => void;
   onRefresh: () => void;
   onOpenSettings: () => void;
   isLoading: boolean;
@@ -15,7 +14,7 @@ interface MobileHeaderProps {
 
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   theme,
-  onToggleTheme,
+  onThemeChange,
   onOpenSettings,
 }) => {
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
@@ -34,19 +33,13 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
       <div className="flex items-center gap-1.5 shrink-0">
         <PWAInstallPrompt variant="button" />
 
-        <button
-          onClick={onToggleTheme}
-          onMouseEnter={() => setHoveredButton('theme')}
-          onMouseLeave={() => setHoveredButton(null)}
-          className="group/theme p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
+        <AnimatedThemeToggler
+          theme={theme === 'dark' ? 'dark' : 'light'}
+          onThemeChange={onThemeChange}
+          className="p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Toggle Theme"
-        >
-          {theme === 'dark' ? (
-            <SunIcon size={16} isAnimated={hoveredButton === 'theme'} />
-          ) : (
-            <MoonIcon size={16} isAnimated={hoveredButton === 'theme'} />
-          )}
-        </button>
+          aria-label="Toggle Theme"
+        />
 
         <button
           onClick={onOpenSettings}
@@ -55,7 +48,12 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           className="group/set p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200/60 dark:active:bg-neutral-800/60 transition-all duration-200 touch-manipulation cursor-pointer active:scale-90"
           title="Settings"
         >
-          <SettingsIcon size={16} isAnimated={hoveredButton === 'settings'} />
+            <Reicon
+              name="settings"
+              size={16}
+              preset="gear"
+              isActive={hoveredButton === 'settings'}
+            />
         </button>
       </div>
     </header>

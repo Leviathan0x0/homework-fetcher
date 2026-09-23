@@ -288,6 +288,156 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
     </g>
   ),
 
+  'empty-recent': (
+    <g className="illustration-empty-recent">
+      {/* Background aura */}
+      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
+      <circle cx="60" cy="60" r="36" className="fill-sky-100/50 dark:fill-sky-900/20" />
+
+      {/* Back calendar sheet */}
+      <rect
+        x="34"
+        y="34"
+        width="52"
+        height="52"
+        rx="12"
+        className="fill-white dark:fill-neutral-900 stroke-neutral-200/90 dark:stroke-neutral-700/80"
+        strokeWidth="2"
+      />
+      <path d="M34 48h52" className="stroke-neutral-200 dark:stroke-neutral-700/80" strokeWidth="2" />
+      <rect x="44" y="30" width="4" height="10" rx="2" className="fill-sky-500" />
+      <rect x="72" y="30" width="4" height="10" rx="2" className="fill-sky-500" />
+
+      {/* Clock badge overlapping the calendar */}
+      <g transform="translate(72 66)">
+        <circle cx="16" cy="16" r="18" className="fill-white dark:fill-neutral-900 stroke-sky-500" strokeWidth="2.5" />
+        <path
+          d="M16 8v8l5 3"
+          fill="none"
+          className="stroke-sky-600 dark:stroke-sky-400"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+
+      {/* Small 7-day arc hint */}
+      <path
+        d="M44 66h16M44 74h12"
+        className="stroke-neutral-300 dark:stroke-neutral-600"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+
+      {/* Accent sparkle */}
+      <path d="M24 30l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
+      <circle cx="96" cy="34" r="2.5" className="fill-emerald-400" />
+    </g>
+  ),
+
+  'circulars-empty': (
+    <g className="illustration-circulars-empty">
+      {/* Background aura */}
+      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
+
+      {/* Rolled circular / official document */}
+      <g transform="translate(30 28) rotate(-6)">
+        <rect
+          x="0"
+          y="0"
+          width="60"
+          height="72"
+          rx="8"
+          className="fill-white dark:fill-neutral-900 stroke-sky-500"
+          strokeWidth="2"
+        />
+        {/* Header seal line */}
+        <circle cx="30" cy="20" r="10" className="fill-sky-100 dark:fill-sky-950 stroke-sky-500" strokeWidth="1.5" />
+        <path
+          d="M30 14v12M24 20h12"
+          className="stroke-sky-600 dark:stroke-sky-400"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+        />
+        {/* Content lines */}
+        <path
+          d="M12 42h36M12 52h28M12 62h20"
+          className="stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </g>
+
+      {/* Secondary sheet peeking behind */}
+      <rect
+        x="66"
+        y="36"
+        width="28"
+        height="36"
+        rx="5"
+        transform="rotate(8 80 54)"
+        className="fill-sky-100 dark:fill-sky-950/60 stroke-sky-300 dark:stroke-sky-800"
+        strokeWidth="1.5"
+      />
+
+      {/* Official pin / accent */}
+      <circle cx="92" cy="30" r="6" className="fill-sky-500 stroke-white dark:stroke-slate-900" strokeWidth="2" />
+      <path d="M24 96h72" className="stroke-neutral-300 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M20 24l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
+    </g>
+  ),
+
+  'important-empty': (
+    <g className="illustration-important-empty">
+      {/* Background aura */}
+      <circle cx="60" cy="60" r="48" className="fill-amber-50 dark:fill-amber-950/30" />
+      <circle cx="60" cy="60" r="36" className="fill-amber-100/50 dark:fill-amber-900/20" />
+
+      {/* Priority envelope */}
+      <g transform="translate(24 34)">
+        <rect
+          x="0"
+          y="0"
+          width="72"
+          height="52"
+          rx="10"
+          className="fill-white dark:fill-neutral-900 stroke-amber-500"
+          strokeWidth="2.5"
+        />
+        {/* Envelope flap */}
+        <path
+          d="M6 8l30 22L66 8"
+          fill="none"
+          className="stroke-amber-500"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Bottom fold */}
+        <path
+          d="M6 44l22-18M66 44L44 26"
+          fill="none"
+          className="stroke-amber-400/70"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </g>
+
+      {/* Alert star badge */}
+      <g transform="translate(78 24)">
+        <circle cx="14" cy="14" r="14" className="fill-amber-400 stroke-white dark:stroke-slate-900" strokeWidth="2.5" />
+        <path
+          d="M14 7l2 4.2 4.6.6-3.4 3.2.8 4.6L14 17.4l-4 2.2.8-4.6-3.4-3.2 4.6-.6z"
+          className="fill-white"
+        />
+      </g>
+
+      {/* Accent */}
+      <path d="M26 32l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-rose-400" />
+      <circle cx="28" cy="84" r="3" className="fill-emerald-400" />
+    </g>
+  ),
+
   'celebration-holiday': (
     <g className="illustration-celebration-holiday">
       {/* Warm ambient celebration aura */}
@@ -577,12 +727,61 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
 
   'student-requests-empty': (
     <g className="illustration-student-requests-empty">
+      {/* Background aura */}
       <circle cx="60" cy="60" r="48" className="fill-amber-50 dark:fill-amber-950/30" />
-      {/* Collaboration book & handshake */}
-      <path d="M30 40h24a8 8 0 0 1 8 8v32a8 8 0 0 0-8-8H30z" className="fill-white dark:fill-neutral-900 stroke-amber-500" strokeWidth="2" />
-      <path d="M90 40H66a8 8 0 0 0-8 8v32a8 8 0 0 1 8-8h24z" className="fill-white dark:fill-neutral-900 stroke-amber-500" strokeWidth="2" />
-      <circle cx="60" cy="40" r="14" className="fill-amber-500 text-white shadow-sm" />
-      <path d="M54 40l4 4 8-8" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="60" cy="60" r="36" className="fill-amber-100/40 dark:fill-amber-900/20" />
+
+      {/* Two overlapping request cards */}
+      <g transform="translate(22 34) rotate(-6)">
+        <rect
+          x="0"
+          y="0"
+          width="52"
+          height="64"
+          rx="9"
+          className="fill-white dark:fill-neutral-900 stroke-amber-400"
+          strokeWidth="2"
+        />
+        <path
+          d="M10 16h32M10 26h24M10 36h28M10 46h18"
+          className="stroke-neutral-200 dark:stroke-neutral-700"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+      </g>
+
+      <g transform="translate(52 30) rotate(7)">
+        <rect
+          x="0"
+          y="0"
+          width="48"
+          height="60"
+          rx="9"
+          className="fill-amber-400 dark:fill-amber-500 stroke-amber-600"
+          strokeWidth="2"
+        />
+        <path
+          d="M10 16h28M10 26h20"
+          fill="none"
+          className="stroke-white/90"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+        />
+        {/* Heart-handshake style request badge */}
+        <circle cx="24" cy="44" r="10" className="fill-white/95" />
+        <path
+          d="M19 44l3.5 3.5 7-7"
+          fill="none"
+          className="stroke-amber-600"
+          strokeWidth="2.25"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+
+      {/* Accent */}
+      <path d="M24 28l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
+      <circle cx="96" cy="80" r="3" className="fill-emerald-400" />
     </g>
   ),
 

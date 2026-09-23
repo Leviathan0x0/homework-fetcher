@@ -130,29 +130,7 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
         {/* Right side compact celebration illustration & action */}
         <div className="relative flex items-center gap-2.5 shrink-0">
           <div className="hidden sm:flex shrink-0 items-center justify-center" aria-hidden>
-            <svg
-              viewBox="0 0 48 48"
-              className="size-9 text-rose-500 select-none overflow-visible"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <circle cx="24" cy="24" r="20" className="fill-rose-100/80 dark:fill-rose-950/40" />
-              <circle cx="24" cy="24" r="14" className="fill-amber-100/70 dark:fill-amber-950/30" />
-              <circle cx="12" cy="32" r="1.5" className="fill-emerald-400" />
-              <circle cx="37" cy="30" r="1.5" className="fill-indigo-400" />
-              <g transform="translate(16 15)">
-                <path
-                  d="M4 22L2 8l16 8L4 22z"
-                  className="fill-rose-500 stroke-rose-600 dark:stroke-rose-400"
-                  strokeWidth="1.2"
-                  strokeLinejoin="round"
-                />
-                <path d="M2 8l16 8" stroke="white" strokeWidth="1.2" strokeOpacity="0.8" />
-                <path d="M6 10l10 5" stroke="#fcd34d" strokeWidth="1.2" />
-                <path d="M13 6c2-4 6-3 8-1" stroke="#fbbf24" strokeWidth="1.2" strokeLinecap="round" />
-                <path d="M16 10c3-2 6-1 8 2" stroke="#f43f5e" strokeWidth="1.2" strokeLinecap="round" />
-              </g>
-            </svg>
+            <Reillustration name="celebration-holiday" size="xs" interactive />
           </div>
 
           <div className="flex items-center gap-1 text-[11px] font-medium text-rose-600 transition-colors group-hover:text-rose-700 dark:text-rose-400 dark:group-hover:text-rose-300">

@@ -12,6 +12,7 @@ const { eq } = require("drizzle-orm");
 const { resolveUploadType, matchesMagicBytes } = require("../files/fileTypes");
 const { moderateImage } = require("../moderation/openaiModeration");
 const homeworkCacheService = require("../homework/homeworkCacheService");
+const { checkContent } = require("../moderation/checkContent");
 const { ensureSectionConversation } = require("../messaging/sectionConversation");
 const {
   matchTestTeacherLogin,
@@ -82,13 +83,14 @@ router.post("/login", async (req, res) => {
     }
 
     const ADMIN_ID = process.env.ADMIN_USERNAME || "admin_mmss";
-    const ADMIN_PASS = process.env.ADMIN_PASSWORD || "Admin#MMSS2026";
+    const ADMIN_PASS = process.env.ADMIN_PASSWORD || "";
     const isAdminLogin =
       cleanStudentId.toLowerCase() === ADMIN_ID.toLowerCase() ||
       cleanStudentId.toLowerCase() === "admin";
 
     if (isAdminLogin) {
-      if (password !== ADMIN_PASS) {
+      // No baked-in default password: an unset ADMIN_PASSWORD refuses admin login.
+      if (!ADMIN_PASS || password !== ADMIN_PASS) {
         return res.status(401).json({
           authenticated: false,
           error: "Invalid account ID or password."
@@ -214,6 +216,13 @@ router.post("/login", async (req, res) => {
 
     const user = await sessionService.findOrCreateUser(cleanStudentId);
 
+    // Resolve section before any background work closes over it (T10: the
+    // prefetch used to capture `section` from a later `let` binding).
+    let section = user.section;
+    let displayName = user.displayName;
+    let teacherProfile = null;
+    let role = user.role || "student";
+
     // Storing the school session, minting the app session and reading the
     // profile page are independent of each other. Awaiting them one by one
     // added a full school-portal page load plus several database round trips
@@ -231,7 +240,7 @@ router.post("/login", async (req, res) => {
     // blocks the login response now that the Announcement.aspx verification
     // round-trip has been removed from loginToEduSecure.
     fetchHomeworkForSession(sessionCookies)
-      .then((data) => homeworkCacheService.upsertHomework(user.id, data.homework))
+      .then((data) => homeworkCacheService.upsertHomework(user.id, data.homework, { section }))
       .catch((err) => {
         console.error("Failed to prefetch homework cache after login:", err.message);
       });
@@ -240,10 +249,6 @@ router.post("/login", async (req, res) => {
       maxAge: sessionService.SESSION_TTL_MS
     }));
 
-    let section = user.section;
-    let displayName = user.displayName;
-    let teacherProfile = null;
-    let role = user.role || "student";
     try {
       const profile = profileResult || {
         section: null,
@@ -496,6 +501,15 @@ router.patch("/profile", async (req, res) => {
     return res.status(400).json({ error: "Your name must be between 2 and 40 characters." });
   }
 
+  // Display names are shown to other students — run the same text-safety
+  // gate as chat/requests so a swipe cannot slip past via the profile form.
+  const safety = await checkContent({ text: cleaned });
+  if (!safety.ok) {
+    return res.status(422).json({
+      error: "That name can't be used - it doesn't follow school guidelines.",
+    });
+  }
+
   await sessionService.updateDisplayName(activeSession.user.id, cleaned);
 
   return res.json({
@@ -568,7 +582,7 @@ router.post(
     // Warm the homework cache in the background after reconnect (same pattern
     // as the login route; Announcement.aspx is no longer fetched inline).
     fetchHomeworkForSession(sessionCookies)
-      .then((data) => homeworkCacheService.upsertHomework(req.user.id, data.homework))
+      .then((data) => homeworkCacheService.upsertHomework(req.user.id, data.homework, { section: req.user.section }))
       .catch((err) => {
         console.error("Failed to upsert homework cache after reconnect:", err.message);
       });

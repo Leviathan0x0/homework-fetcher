@@ -225,6 +225,7 @@ export const homeworkService = {
       items: deduplicated,
       schoolSessionExpired: Boolean(data.schoolSessionExpired),
       isStale: data.isStale === true,
+      aiPending: data.aiPending === true,
     };
   },
 

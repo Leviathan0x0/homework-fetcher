@@ -23,13 +23,20 @@ const router = express.Router();
  */
 const refreshesInFlight = new Map();
 
-function refreshFromSchool(userId, sessionCookies) {
+// When no entry is dated today, re-check the portal at most this often.
+// Forcing stale unconditionally made every GET re-scrape EduSecure in a
+// tight loop (and every aiPending poll force a POST refresh) whenever
+// today's diary simply doesn't exist yet — or the school hasn't posted
+// in weeks.
+const NO_TODAY_RECHECK_MINUTES = 2;
+
+function refreshFromSchool(userId, sessionCookies, options = {}) {
   const running = refreshesInFlight.get(userId);
   if (running) return running;
 
   const pending = (async () => {
     const data = await fetchHomeworkForSession(sessionCookies);
-    return homeworkCacheService.upsertHomework(userId, data.homework);
+    return homeworkCacheService.upsertHomework(userId, data.homework, options);
   })().finally(() => {
     refreshesInFlight.delete(userId);
   });
@@ -60,8 +67,20 @@ router.get("/homework", requireAuth, async (req, res) => {
       isStale: false,
       isRefreshing: false,
       schoolSessionExpired: false,
+      aiPending: false,
     });
   }
+
+  // Kick off background re-classification (throttled per user). Never await:
+  // a slow AI provider must not delay this response; clients poll aiPending.
+  if (homeworkCacheService.shouldReclassifyRecent(userId)) {
+    homeworkCacheService.reclassifyRecentHomework(userId, {
+      section: req.user?.section,
+    }).catch((err) => {
+      console.error("[homeworkRoutes] Background homework reclassification failed:", err.message);
+    });
+  }
+  const aiPending = homeworkCacheService.isAiPending(userId);
 
   // 1. Retrieve cached homework from SQLite, check staleness and load the
   // school session in the same breath - they are independent reads, so waiting
@@ -82,14 +101,20 @@ router.get("/homework", requireAuth, async (req, res) => {
   let hasToday = false;
   if (cachedHomework.length > 0) {
     // A cached list with no entry for today (IST school calendar) has not
-    // proved today is empty — force revalidation so the first paint shows a
-    // skeleton instead of a false empty state. Year is compared, so last
-    // year's same day/month does NOT count.
+    // proved today is empty — but "no entry today" is the normal state on
+    // weekends/vacations and between the morning scrape and the school
+    // posting the diary, so re-check on a short floor rather than every
+    // request. Year is compared, so last year's same day/month does NOT
+    // count. Age-stale / new-IST-day cases are already true from
+    // isCacheStale above, so the extra query only runs when the default
+    // window says "fresh" but today is still missing.
     hasToday = hasTodayEntry(cachedHomework);
-  }
-
-  if (!hasToday) {
-    cacheStale = true;
+    if (!hasToday && !cacheStale) {
+      cacheStale = await homeworkCacheService.isCacheStale(
+        userId,
+        NO_TODAY_RECHECK_MINUTES
+      );
+    }
   }
 
   const hasSchoolSession = Boolean(eduSession && eduSession.sessionCookies);
@@ -100,7 +125,7 @@ router.get("/homework", requireAuth, async (req, res) => {
     if (cacheStale && hasSchoolSession && !refreshesInFlight.has(userId)) {
       (async () => {
         try {
-          await refreshFromSchool(userId, eduSession.sessionCookies);
+          await refreshFromSchool(userId, eduSession.sessionCookies, { section: req.user?.section });
         } catch (err) {
           console.error("Background homework refresh error:", err.message);
         }
@@ -116,6 +141,7 @@ router.get("/homework", requireAuth, async (req, res) => {
       // tell that nothing new can arrive until the student reconnects - it just
       // kept showing the same list indefinitely.
       schoolSessionExpired: !hasSchoolSession,
+      aiPending,
     });
   }
 
@@ -128,13 +154,14 @@ router.get("/homework", requireAuth, async (req, res) => {
   }
 
   try {
-    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies);
+    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies, { section: req.user?.section });
 
     return res.json({
       count: updatedHomework.length,
       homework: updatedHomework,
       isStale: false,
-      isRefreshing: false
+      isRefreshing: false,
+      aiPending: homeworkCacheService.isAiPending(userId),
     });
   } catch (err) {
     // Only reachable with an empty cache: the branch above returns first
@@ -162,7 +189,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
   const userId = req.user.id;
 
   if (isAdminAccount(req.user)) {
-    return res.json({ count: 0, homework: [], isStale: false });
+    return res.json({ count: 0, homework: [], isStale: false, aiPending: false });
   }
 
   const eduSession = await sessionService.getEduSecureSession(userId);
@@ -175,12 +202,13 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
   }
 
   try {
-    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies);
+    const updatedHomework = await refreshFromSchool(userId, eduSession.sessionCookies, { section: req.user?.section });
 
     return res.json({
       count: updatedHomework.length,
       homework: updatedHomework,
-      isStale: false
+      isStale: false,
+      aiPending: homeworkCacheService.isAiPending(userId),
     });
   } catch (err) {
     if (err instanceof SchoolSessionExpiredError || err.code === "SCHOOL_SESSION_EXPIRED") {
@@ -205,6 +233,7 @@ router.post("/homework/refresh", requireAuth, async (req, res) => {
         isStale: true,
         refreshFailed: true,
         refreshError: err?.message || "EduSecure could not be reached. Cached homework is still shown.",
+        aiPending: homeworkCacheService.isAiPending(userId),
       });
     }
 

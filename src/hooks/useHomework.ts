@@ -280,6 +280,37 @@ export function useHomework() {
     };
   }, [isAuthenticated, isAuthChecking, user, user?.displayName]);
 
+  // Background AI enrichment (subject classify + rewrite) runs after the fast
+  // response; poll briefly so refined subjects land without a manual refresh.
+  const aiPollAttemptsRef = useRef(0);
+  const aiPollTimerRef = useRef<number | null>(null);
+  const clearAiPoll = useCallback(() => {
+    if (aiPollTimerRef.current !== null) {
+      window.clearTimeout(aiPollTimerRef.current);
+      aiPollTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => clearAiPoll, [clearAiPoll]);
+
+  // fetchHomework and scheduleAiPoll form a cycle (fetch schedules the poll,
+  // the poll timer calls fetch). Holding fetchHomework in a ref lets
+  // scheduleAiPoll be declared first without hitting the temporal dead zone,
+  // and keeps scheduleAiPoll stable so fetchHomework's identity only changes
+  // when the user does.
+  const fetchHomeworkRef = useRef<(forceRefresh?: boolean) => Promise<void>>(
+    async () => {}
+  );
+
+  const scheduleAiPoll = useCallback(() => {
+    if (aiPollAttemptsRef.current >= 8) return;
+    if (aiPollTimerRef.current !== null) return;
+    aiPollAttemptsRef.current += 1;
+    aiPollTimerRef.current = window.setTimeout(() => {
+      aiPollTimerRef.current = null;
+      fetchHomeworkRef.current(false);
+    }, 7000);
+  }, []);
+
   const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
     if (!user || !usesSchoolPortal(user)) return;
     if (homeworkRequestInFlightRef.current) return;
@@ -349,6 +380,13 @@ export function useHomework() {
       hasSettledFirstHomeworkFetch.current = true;
       applyResult(result.items, result.schoolSessionExpired);
 
+      if (result.aiPending) {
+        scheduleAiPoll();
+      } else {
+        aiPollAttemptsRef.current = 0;
+        clearAiPoll();
+      }
+
       if (!result.isStale) {
         const timeNow = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         setLastUpdated(timeNow);
@@ -369,7 +407,11 @@ export function useHomework() {
       setIsRefreshing(false);
       homeworkRequestInFlightRef.current = false;
     }
-  }, [user]);
+  }, [user, scheduleAiPoll, clearAiPoll]);
+
+  useEffect(() => {
+    fetchHomeworkRef.current = fetchHomework;
+  }, [fetchHomework]);
 
   /** Called once the school portal has accepted the password again. */
   const handleSchoolReconnected = useCallback(() => {
@@ -449,6 +491,8 @@ export function useHomework() {
   const logout = useCallback(async () => {
     setIsLoading(true);
     const previousUserId = user?.id;
+    aiPollAttemptsRef.current = 0;
+    clearAiPoll();
     try {
       await authService.logout();
     } catch (err) {
@@ -471,7 +515,7 @@ export function useHomework() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [user]);
+  }, [user, clearAiPoll]);
 
   useEffect(() => {
     if (isAuthenticated && !isAuthChecking && usesSchoolPortal(user)) {

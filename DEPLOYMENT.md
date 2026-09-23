@@ -156,7 +156,7 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 | `UPLOADS_DIR` | Directory for uploaded files (persistent volume) |
 | `ENCRYPTION_KEY` | **Required.** 32+ character root secret for session cookie signing and EduSecure session encryption |
 | `OPENAI_API_KEY` | See **Content safety** below |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Administrator sign-in. Both fall back to the values in the source, so set them on any real deployment |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Administrator sign-in. There is no source fallback password — if `ADMIN_PASSWORD` is unset, admin login is refused. Set both on any real deployment |
 | `TEACHER_TEST_USERNAME` / `TEACHER_TEST_PASSWORD` | Demo teacher sign-in. See **Demo teacher account** below |
 | `EDUSECURE_TEACHER_IDS` | Comma-separated EduSecure IDs that get the teacher portal on login |
 | `EDUSECURE_ATTENDANCE_URL` | Optional comma-separated EduSecure attendance page URL(s); defaults to Manav Mangal’s `/Parents/studentAttendance.aspx` and checks common fallback page names |

@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run test:server && npm run test:frontend",
     "test:server": "node --test test/**/*.test.js",
+    "test:reclassify": "node scripts/test-reclassify.js",
     "test:frontend": "vitest run",
     "test:frontend:watch": "vitest",
     "test:e2e": "playwright test",

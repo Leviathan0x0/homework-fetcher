@@ -17,6 +17,23 @@ function protocolValue(value) {
 }
 
 global.fetch = async (_url, options) => {
+  if (typeof _url === "string" && _url.includes("typesafe.ai")) {
+    return new Response(
+      JSON.stringify({
+        model: "jev-1.13.0",
+        answers: {
+          subject: {
+            type: "choice",
+            choice: "Mathematics",
+          },
+        },
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
   const payload = JSON.parse(options.body);
   pipelines.push(payload);
   const results = payload.requests.map((request) => {
@@ -61,20 +78,26 @@ test("remote upsert and duplicate cleanup stay in two requests without Drizzle b
   const originalBatch = db.batch;
   db.batch = undefined;
   try {
-    const homework = await homeworkCacheService.upsertHomework("remote-user", [
-      {
-        type: "Homework",
-        date: "11 Aug 2026",
-        homework: "MATHEMATICS: Complete exercise 8",
-        attachment: null,
-      },
-      {
-        type: "Homework",
-        date: "11 Aug 2026",
-        homework: "SCIENCE: Read chapter 3",
-        attachment: null,
-      },
-    ]);
+    const homework = await homeworkCacheService.upsertHomework(
+      "remote-user",
+      [
+        {
+          type: "Homework",
+          date: "11 Aug 2026",
+          homework: "MATHEMATICS: Complete exercise 8",
+          attachment: null,
+        },
+        {
+          type: "Homework",
+          date: "11 Aug 2026",
+          homework: "SCIENCE: Read chapter 3",
+          attachment: null,
+        },
+      ],
+      // Background AI would enqueue its own DB pipeline and break the
+      // "exactly two requests" assertion this test guards.
+      { skipAi: true }
+    );
     assert.equal(homework.length, 2);
   } finally {
     db.batch = originalBatch;
@@ -121,14 +144,18 @@ test("remote upsert and duplicate cleanup stay in two requests without Drizzle b
   pipelines.length = 0;
   db.batch = undefined;
   try {
-    const homework = await homeworkCacheService.upsertHomework("remote-user", [
-      {
-        type: "Homework",
-        date: "12 Aug 2026",
-        homework: "MATHEMATICS: Complete exercise 9",
-        attachment: null,
-      },
-    ]);
+    const homework = await homeworkCacheService.upsertHomework(
+      "remote-user",
+      [
+        {
+          type: "Homework",
+          date: "12 Aug 2026",
+          homework: "MATHEMATICS: Complete exercise 9",
+          attachment: null,
+        },
+      ],
+      { skipAi: true }
+    );
     assert.equal(homework.length, 1);
     assert.equal(
       homework[0].id,

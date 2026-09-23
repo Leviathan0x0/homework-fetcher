@@ -1,9 +1,40 @@
 const crypto = require("crypto");
 const { eq, and, inArray, sql } = require("drizzle-orm");
 const { db, schema, runBatch } = require("../db/client");
-const { toIstWallDate } = require("./homeworkDateUtils");
+const { toIstWallDate, parseHomeworkDate } = require("./homeworkDateUtils");
+const { classifyHomework } = require("../typesafe/typesafeClient");
+const { formatHomeworkEntry } = require("../formatting/homeworkFormatter");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
+
+/**
+ * Executes async tasks with controlled concurrency.
+ * @param {Array<any>} items
+ * @param {number} concurrency
+ * @param {Function} fn
+ * @returns {Promise<Array<any>>}
+ */
+async function mapConcurrent(items, concurrency, fn) {
+  if (!items || items.length === 0) return [];
+  const results = new Array(items.length);
+  let index = 0;
+
+  async function worker() {
+    while (index < items.length) {
+      const currentIndex = index++;
+      results[currentIndex] = await fn(items[currentIndex], currentIndex);
+    }
+  }
+
+  const workers = [];
+  const workerCount = Math.min(items.length, Math.max(1, concurrency));
+  for (let i = 0; i < workerCount; i++) {
+    workers.push(worker());
+  }
+
+  await Promise.all(workers);
+  return results;
+}
 
 /**
  * Detects subject from homework text or type string.
@@ -12,7 +43,9 @@ const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES
  * @param {string} classworkType 
  * @returns {string}
  */
-function detectSubjectFromText(text = "", explicitSubject = "", classworkType = "") {
+function detectSubjectFromText(_text = "", explicitSubject = "", _classworkType = "") {
+  /* [OLD CODE COMMENTED OUT]: Legacy regex / rule-based subject detection
+
   // Priority 1: Detect subject from actual homework content text first (e.g. "SOCIAL SCIENCE- GEOGRAPHY")
   const upperText = (text || "").toUpperCase();
   if (/\b(HISTORY|HIST)\b/.test(upperText)) return "History";
@@ -69,7 +102,11 @@ function detectSubjectFromText(text = "", explicitSubject = "", classworkType = 
     if (/\b(FRENCH)\b/.test(upperCw)) return "French";
   }
 
-  // Priority 4: Default fallback
+  */
+
+  if (explicitSubject && typeof explicitSubject === "string" && explicitSubject.trim()) {
+    return explicitSubject.trim();
+  }
   return "School Diary";
 }
 
@@ -172,11 +209,11 @@ function clientHomeworkRows(rows) {
   for (const row of rows) {
     const normalizedContent = normalizeContentForHashing(row.content);
     const key = `${(row.date || "").trim()}:${normalizedContent}`;
-    const resolvedSubject = detectSubjectFromText(row.content, row.subject, row.type);
+    // [OLD CODE COMMENTED OUT]: const resolvedSubject = detectSubjectFromText(row.content, row.subject, row.type);
+    const resolvedSubject = row.subject || "School Diary";
     if (
       !unique.has(key) ||
-      (resolvedSubject !== "School Diary" && unique.get(key).subject === "School Diary") ||
-      (resolvedSubject === "Social Science" && unique.get(key).subject !== "Social Science")
+      (resolvedSubject !== "School Diary" && unique.get(key).subject === "School Diary")
     ) {
       unique.set(key, {
         id: row.id,
@@ -195,24 +232,140 @@ function clientHomeworkRows(rows) {
   return Array.from(unique.values());
 }
 
-// Per-user queue to prevent concurrent upsert collisions.
-const upsertQueues = new Map();
+// Reclassification runs on every load-in (throttled per user). Set
+// ENABLE_PAST_DAYS_RECLASSIFY=false or a RECLASSIFY_UNTIL date to disable it.
+const lastRecentReclassification = new Map();
+const RECLASSIFY_THROTTLE_MS = 30 * 60 * 1000; // 30 minutes throttle per user
+const DEFAULT_RECLASSIFY_LIMIT = 5; // last N homework entries, no matter their date
+const upsertQueues = new Map(); // Per-user queue to prevent concurrent upsert collisions
+
+// Per-user background AI passes (classify + filter + rewrite). HTTP responses
+// never wait on these: a slow or down AI provider must not delay homework loads.
+const aiPassesInFlight = new Map();
+
+/**
+ * Chains fn onto any AI pass already running for this user so two passes
+ * never write the same rows concurrently. The map entry is set synchronously
+ * so isAiPending() is accurate the moment a pass is requested.
+ * @param {string} userId
+ * @param {() => Promise<any>} fn
+ * @returns {Promise<any>}
+ */
+function enqueueAiPass(userId, fn) {
+  const running = aiPassesInFlight.get(userId);
+  const base = running ? running.catch(() => {}) : Promise.resolve();
+  const pending = base.then(fn).finally(() => {
+    if (aiPassesInFlight.get(userId) === pending) {
+      aiPassesInFlight.delete(userId);
+    }
+  });
+  aiPassesInFlight.set(userId, pending);
+  return pending;
+}
+
+function isRecentReclassifyActive() {
+  if (process.env.ENABLE_PAST_DAYS_RECLASSIFY === "false") {
+    return false;
+  }
+  if (process.env.RECLASSIFY_UNTIL) {
+    const expiry = new Date(process.env.RECLASSIFY_UNTIL).getTime();
+    if (Number.isFinite(expiry) && Date.now() > expiry) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Runs the combined Jev pass (subject + format verdict, one request) and,
+ * only for entries Jev flags as unformatted, the AI Studio Gemma rewrite.
+ * Persists only the rows whose subject or content changed.
+ * "School Diary" from TypeSafe fails open (provider error) and must not
+ * clobber an already-resolved subject.
+ * @param {string} userId
+ * @param {Array<{id: string, date?: string, subject?: string|null, content?: string}>} rows
+ * @param {string} section
+ * @returns {Promise<{ count: number, updated: number }>}
+ */
+async function applyAiToRows(userId, rows, section = "") {
+  if (!rows || rows.length === 0) return { count: 0, updated: 0 };
+
+  const aiTextOf = (row) => (row.aiText ?? row.content ?? "").trim();
+  const uniqueTexts = Array.from(
+    new Set(rows.map(aiTextOf).filter(Boolean))
+  );
+
+  const textToSubject = new Map();
+  const textToFormatted = new Map();
+  await mapConcurrent(uniqueTexts, 4, async (text) => {
+    try {
+      const { subject, isFormatted } = await classifyHomework(text, { section });
+      textToSubject.set(text, subject);
+      // Jev says the entry is already clean, or the verdict failed open:
+      // show the subject and skip AI Studio (protects its rate limits).
+      if (!isFormatted) {
+        const formatRes = await formatHomeworkEntry(text, subject);
+        // Only apply a real rewrite. A rate-limited, timed-out, or failed
+        // format passes the raw text through with updated=false — writing
+        // that over an already-formatted row reverted the stored body and
+        // made the dashboard flip formatted ↔ unformatted on every flaky call.
+        if (formatRes?.updated && formatRes.formattedText) {
+          textToFormatted.set(text, formatRes.formattedText);
+        }
+      }
+    } catch (err) {
+      console.error("[homeworkCacheService] Error classifying/formatting:", err.message);
+    }
+  });
+
+  const now = new Date().toISOString();
+  const writes = [];
+  let updatedCount = 0;
+
+  for (const row of rows) {
+    const text = aiTextOf(row);
+    const aiSubject = textToSubject.get(text);
+    const newSubject = aiSubject && aiSubject !== "School Diary" ? aiSubject : row.subject;
+    const newContent = textToFormatted.get(text) || row.content;
+    const subjectChanged = newSubject && newSubject !== row.subject;
+    const contentChanged = newContent && newContent !== row.content;
+
+    if (subjectChanged || contentChanged) {
+      writes.push(
+        db.update(schema.homework)
+          .set({
+            subject: newSubject,
+            content: newContent,
+            updatedAt: now,
+          })
+          .where(eq(schema.homework.id, row.id))
+      );
+      updatedCount++;
+    }
+  }
+
+  if (writes.length > 0) {
+    await runBatch(writes);
+  }
+
+  return { count: rows.length, updated: updatedCount };
+}
 
 class HomeworkCacheService {
   /**
    * Upserts fresh homework entries fetched from EduSecure into SQLite.
-   * Preserves existing user completion states and notes in homework_user_state.
+   * Serialized per userId to prevent race condition write conflicts.
    * @param {string} userId 
    * @param {Array<{type: string, date: string, homework: string, attachment: string|null}>} parsedHomework 
    * @returns {Array} List of saved homework items with user state
    */
-  async upsertHomework(userId, parsedHomework) {
+  async upsertHomework(userId, parsedHomework, options = {}) {
     if (!userId || !Array.isArray(parsedHomework)) return [];
 
     const queue = upsertQueues.get(userId) || Promise.resolve();
     const current = queue
       .catch(() => {})
-      .then(() => this._executeUpsertHomework(userId, parsedHomework));
+      .then(() => this._executeUpsertHomework(userId, parsedHomework, options));
 
     upsertQueues.set(userId, current);
 
@@ -232,7 +385,7 @@ class HomeworkCacheService {
    * @param {Array<{type: string, date: string, homework: string, attachment: string|null}>} parsedHomework 
    * @returns {Array} List of saved homework items with user state
    */
-  async _executeUpsertHomework(userId, parsedHomework) {
+  async _executeUpsertHomework(userId, parsedHomework, options = {}) {
     const deduplicatedHomework = deduplicateIncomingHomework(parsedHomework);
     const now = new Date().toISOString();
 
@@ -278,8 +431,58 @@ class HomeworkCacheService {
       }
     }
 
+    let userSection = options.section || "";
+    if (!userSection && userId && userId !== "remote-user") {
+      try {
+        const user = db
+          .select({ section: schema.users.section })
+          .from(schema.users)
+          .where(eq(schema.users.id, userId))
+          .get();
+        userSection = user?.section || "";
+      } catch (err) {
+        console.error("[homeworkCacheService] Error resolving user section:", err.message);
+      }
+    }
+
+    // Phase 1 (this method): write rows fast using existing/pipeline subjects —
+    // no AI calls on the request path. Phase 2 (background): classify every
+    // item via enqueueAiPass so a slow provider never delays the scrape.
+    const resolvedExistingSubjects = new Map();
+
+    for (const item of deduplicatedHomework) {
+      const date = (item.date || "").trim();
+      const content = (item.homework || "").trim();
+      if (!content) continue;
+
+      const generatedId = generateHomeworkId(userId, date, content);
+      const normalizedKey = `${date}\u0000${normalizeContentForHashing(content)}`;
+      const candidates = [
+        byId.get(generatedId),
+        byDateContent.get(`${date}\u0000${content}`),
+        byNormalizedDateContent.get(normalizedKey),
+      ].filter(Boolean);
+      const existing = candidates.reduce(
+        (preferred, candidate) =>
+          !preferred || preferDuplicateCandidate(candidate, preferred) ? candidate : preferred,
+        null
+      );
+
+      if (existing?.subject && existing.subject !== "School Diary") {
+        resolvedExistingSubjects.set(content, existing.subject);
+      } else if (
+        item.subject &&
+        typeof item.subject === "string" &&
+        item.subject.trim() &&
+        !["HOMEWORK", "SCHOOL DIARY", "ANNOUNCEMENT"].includes(item.subject.trim().toUpperCase())
+      ) {
+        resolvedExistingSubjects.set(content, item.subject.trim());
+      }
+    }
+
     const writes = [];
     const resultRows = new Map(existingRows.map((row) => [row.id, row]));
+    const rowsForAi = [];
 
     for (const item of deduplicatedHomework) {
       const type = item.type || "Homework";
@@ -288,7 +491,12 @@ class HomeworkCacheService {
       if (!content) continue;
 
       const attachmentUrl = item.attachment || null;
-      const subject = detectSubjectFromText(content, item.subject || "", type);
+      // Keep an already-stored (possibly AI-rewritten) body for matches; only
+      // fresh rows start from the raw scraped text. Background AI rewrites later.
+      const subject =
+        resolvedExistingSubjects.get(content) ||
+        (item.subject && typeof item.subject === "string" && item.subject.trim() ? item.subject.trim() : null) ||
+        "School Diary";
       const generatedId = generateHomeworkId(userId, date, content);
 
       const normalizedKey = `${date}\u0000${normalizeContentForHashing(content)}`;
@@ -306,6 +514,7 @@ class HomeworkCacheService {
       // Updating a referenced primary key before homework_user_state would
       // violate SQLite's foreign key constraint and can discard personal state.
       const homeworkId = existing?.id || generatedId;
+      const finalContent = existing?.content || content;
 
       if (existing) {
         writes.push(
@@ -313,7 +522,7 @@ class HomeworkCacheService {
             .set({
               date,
               subject,
-              content,
+              content: finalContent,
               attachmentUrl,
               type,
               updatedAt: now,
@@ -329,7 +538,7 @@ class HomeworkCacheService {
               sourceIdentifier: "edusecure",
               date,
               subject,
-              content,
+              content: finalContent,
               attachmentUrl,
               type,
               createdAt: now,
@@ -340,7 +549,7 @@ class HomeworkCacheService {
               set: {
                 date,
                 subject,
-                content,
+                content: finalContent,
                 attachmentUrl,
                 type,
                 updatedAt: now,
@@ -349,13 +558,22 @@ class HomeworkCacheService {
         );
       }
 
+      // AI always sees the raw scraped text (stable key into the caches) and
+      // updates by primary key afterwards; content holds the stored body so
+      // change detection does not rewrite an already-formatted row every scrape.
+      rowsForAi.push({ id: homeworkId, date, subject, content: finalContent, aiText: content });
+
       const merged = {
         ...existing,
         id: homeworkId,
         userId,
         type,
         date,
-        content,
+        // Must mirror the DB write above: returning the raw scrape here made
+        // every refresh response show the unformatted text even though the
+        // stored body was already AI-formatted, so the dashboard flip-flopped
+        // between raw and formatted on every refresh/poll cycle.
+        content: finalContent,
         subject,
         attachmentUrl,
         createdAt: existing?.createdAt || now,
@@ -381,6 +599,15 @@ class HomeworkCacheService {
     // Remote writes and duplicate cleanup are all executed in one Turso
     // pipeline. The local driver keeps the same ordering in process.
     await runBatch(writes);
+
+    // Phase 2: classify + filter + rewrite every item in the background.
+    // skipAi is for tests that need a deterministic write pipeline.
+    if (options.skipAi !== true && rowsForAi.length > 0) {
+      enqueueAiPass(userId, () => applyAiToRows(userId, rowsForAi, userSection)).catch((err) => {
+        console.error("[homeworkCacheService] Background AI enrichment failed:", err.message);
+      });
+    }
+
     return clientHomeworkRows(Array.from(resultRows.values()));
   }
 
@@ -585,6 +812,124 @@ class HomeworkCacheService {
       success: true,
       note: cleanNote,
     };
+  }
+
+  /**
+   * Whether the user qualifies for recent-homework re-classification on load-in.
+   * Throttled per user to avoid redundant calls.
+   * @param {string} userId
+   * @param {boolean} force
+   * @returns {boolean}
+   */
+  shouldReclassifyRecent(userId, force = false) {
+    if (!userId) return false;
+    if (!isRecentReclassifyActive()) return false;
+    if (force) return true;
+    const lastTime = lastRecentReclassification.get(userId);
+    if (!lastTime) return true;
+    return Date.now() - lastTime > RECLASSIFY_THROTTLE_MS;
+  }
+
+  /**
+   * True while a background AI pass (classify + filter + rewrite) is queued or
+   * running for this user. Responses report it so clients can re-fetch shortly
+   * after the pass lands instead of waiting for the next periodic refresh.
+   * @param {string} userId
+   * @returns {boolean}
+   */
+  isAiPending(userId) {
+    return Boolean(userId) && aiPassesInFlight.has(userId);
+  }
+
+  /**
+   * Resolves once every queued/running AI pass for this user has settled.
+   * Intended for tests and graceful shutdown.
+   * @param {string} userId
+   * @returns {Promise<void>}
+   */
+  async whenAiIdle(userId) {
+    if (!userId) return;
+    while (aiPassesInFlight.has(userId)) {
+      try {
+        await aiPassesInFlight.get(userId);
+      } catch {
+        // Pass errors are already logged; keep waiting for later chained work.
+      }
+    }
+  }
+
+  /**
+   * Resends the user's last N cached homework entries (default: 5, no matter
+   * their date) to TypeSafe AI for the subject + format check in one Jev
+   * request, then to AI Studio (Gemma) only for entries flagged unformatted.
+   *
+   * The AI work is enqueued synchronously (so isAiPending flips immediately)
+   * and runs in the background — callers must not await this on a request path.
+   *
+   * @param {string} userId
+   * @param {{ section?: string, force?: boolean, limit?: number }} options
+   * @returns {Promise<{ count: number, updated: number, skipped?: boolean }>}
+   */
+  reclassifyRecentHomework(userId, options = {}) {
+    if (!userId) return Promise.resolve({ count: 0, updated: 0 });
+    const defaultLimit = parseInt(process.env.RECLASSIFY_LIMIT || String(DEFAULT_RECLASSIFY_LIMIT), 10);
+    const { section: passedSection, force = false, limit = defaultLimit } = options;
+
+    if (!this.shouldReclassifyRecent(userId, force)) {
+      return Promise.resolve({ count: 0, updated: 0, skipped: true });
+    }
+
+    lastRecentReclassification.set(userId, Date.now());
+
+    return enqueueAiPass(userId, async () => {
+      // 1. Fetch cached homework for this user
+      const rows = await db
+        .select({
+          id: schema.homework.id,
+          date: schema.homework.date,
+          subject: schema.homework.subject,
+          content: schema.homework.content,
+        })
+        .from(schema.homework)
+        .where(eq(schema.homework.userId, userId))
+        .all();
+
+      if (!rows || rows.length === 0) {
+        return { count: 0, updated: 0 };
+      }
+
+      // 2. Keep the last N entries by date, regardless of how old they are.
+      // Unparseable dates sort oldest so real dated homework wins the window.
+      const recentRows = rows
+        .map((row) => ({ row, time: parseHomeworkDate(row.date)?.getTime() ?? 0 }))
+        .sort((a, b) => b.time - a.time)
+        .slice(0, Math.max(1, limit))
+        .map(({ row }) => row);
+      if (recentRows.length === 0) {
+        return { count: 0, updated: 0 };
+      }
+
+      // 3. Resolve user section if not provided
+      let userSection = passedSection || "";
+      if (!userSection && userId !== "remote-user") {
+        try {
+          const user = db
+            .select({ section: schema.users.section })
+            .from(schema.users)
+            .where(eq(schema.users.id, userId))
+            .get();
+          userSection = user?.section || "";
+        } catch (err) {
+          console.error("[homeworkCacheService] Error resolving user section:", err.message);
+        }
+      }
+
+      const result = await applyAiToRows(userId, recentRows, userSection);
+      if (result.updated > 0) {
+        console.log(`[homeworkCacheService] Re-classified ${result.updated} of ${result.count} cached homework items for user ${userId}`);
+      }
+      return result;
+    });
   }
 }
 

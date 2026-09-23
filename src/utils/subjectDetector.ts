@@ -28,26 +28,61 @@ const SUBJECT_RULES: SubjectRule[] = [
   },
   {
     name: 'History',
-    aliases: ['history', 'hist', 'historyandcivics', 'histcivics'],
-    keywords: ['HISTORY', 'HIST'],
+    aliases: ['history', 'hist'],
+    keywords: ['HISTORY', 'HIST', 'इतिहास', 'ਇਤਿਹਾਸ'],
     badgeClass: 'bg-orange-50 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 border-orange-200/60 dark:border-orange-800/40',
     bgStyle: 'bg-orange-50 dark:bg-orange-950/40',
     textStyle: 'text-orange-700 dark:text-orange-300',
     accentBorderClass: 'border-l-orange-500',
   },
   {
-    // Checked after History so "History" is distinct from "Social Science".
+    name: 'Civics',
+    aliases: ['civics', 'civic'],
+    keywords: ['CIVICS', 'CIVIC', 'नागरिक शास्त्र'],
+    badgeClass: 'bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border-violet-200/60 dark:border-violet-800/40',
+    bgStyle: 'bg-violet-50 dark:bg-violet-950/40',
+    textStyle: 'text-violet-700 dark:text-violet-300',
+    accentBorderClass: 'border-l-violet-500',
+  },
+  {
+    name: 'Political Science',
+    aliases: ['politicalscience', 'polscience', 'polsci', 'pol.sci', 'political.science', 'pol-sci', 'politics'],
+    keywords: ['POLITICAL SCIENCE', 'POL SCI', 'POL. SCI.', 'POLSCIENCE', 'राजनीति विज्ञान'],
+    badgeClass: 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-200/60 dark:border-cyan-800/40',
+    bgStyle: 'bg-cyan-50 dark:bg-cyan-950/40',
+    textStyle: 'text-cyan-800 dark:text-cyan-300',
+    accentBorderClass: 'border-l-cyan-600',
+  },
+  {
+    name: 'Geography',
+    aliases: ['geography', 'geo', 'geog'],
+    keywords: ['GEOGRAPHY', 'GEOG', 'भूगोल'],
+    badgeClass: 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40',
+    bgStyle: 'bg-teal-50 dark:bg-teal-950/40',
+    textStyle: 'text-teal-800 dark:text-teal-300',
+    accentBorderClass: 'border-l-teal-600',
+  },
+  {
+    name: 'Economics',
+    aliases: ['economics', 'eco', 'econ'],
+    keywords: ['ECONOMICS', 'अर्थशास्त्र'],
+    badgeClass: 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40',
+    bgStyle: 'bg-amber-50 dark:bg-amber-950/40',
+    textStyle: 'text-amber-800 dark:text-amber-300',
+    accentBorderClass: 'border-l-amber-500',
+  },
+  {
     name: 'Social Science',
     aliases: [
       'socialscience', 'socialsciences', 'socialstudies', 'socialstudy', 'social',
-      'sst', 'ssc', 'sostudies', 'sscience', 'civics', 'geography',
+      'sst', 'ssc', 'sostudies', 'sscience',
       'socalscience', 'socalsciences', 'socalstudies', 'socalstudy', 'socal',
       'ssciences', 'soscience', 's-science', 's.science'
     ],
     keywords: [
       'SOCIAL SCIENCE', 'SOCAL SCIENCE', 'SOCIAL STUDIES', 'SOCAL STUDIES',
       'SOCIAL', 'SOCAL', 'S.ST', 'SST', 'SSC', 'S.SCIENCE', 'S SCIENCE',
-      'SO SCIENCE', 'CIVICS', 'GEOGRAPHY', 'POLITICAL SCIENCE', 'सामाजिक'
+      'SO SCIENCE', 'सामाजिक'
     ],
     badgeClass: 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/40',
     bgStyle: 'bg-rose-50 dark:bg-rose-950/40',
@@ -100,8 +135,8 @@ const SUBJECT_RULES: SubjectRule[] = [
   },
   {
     name: 'Science',
-    aliases: ['science', 'sciences', 'sci', 'generalscience', 'evs', 'environmentalstudies'],
-    keywords: ['SCIENCE', 'SCI', 'EVS', 'विज्ञान'],
+    aliases: ['science', 'sciences', 'sci', 'generalscience'],
+    keywords: ['SCIENCE', 'SCI', 'विज्ञान'],
     badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
     bgStyle: 'bg-emerald-50 dark:bg-emerald-950/40',
     textStyle: 'text-emerald-700 dark:text-emerald-300',
@@ -126,6 +161,15 @@ const SUBJECT_RULES: SubjectRule[] = [
     accentBorderClass: 'border-l-amber-500',
   },
   {
+    name: 'Physical Edu.',
+    aliases: ['physicaledu', 'physical education', 'physicaledu.', 'physicaled', 'pe', 'ped', 'p.e.', 'p.e', 'sports'],
+    keywords: ['PHYSICAL EDU', 'PHYSICAL EDUCATION', 'P.E.', 'P.E', 'SPORTS', 'शारीरिक शिक्षा'],
+    badgeClass: 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-200/60 dark:border-red-800/40',
+    bgStyle: 'bg-red-50 dark:bg-red-950/40',
+    textStyle: 'text-red-700 dark:text-red-300',
+    accentBorderClass: 'border-l-red-500',
+  },
+  {
     name: 'Punjabi',
     aliases: ['punjabi', 'panjabi', 'pbi', 'pnb', 'ਪੰਜਾਬੀ', 'पंजाबी'],
     keywords: ['PUNJABI', 'PANJABI', 'ਪੰਜਾਬੀ', 'पंजाबी'],
@@ -133,6 +177,78 @@ const SUBJECT_RULES: SubjectRule[] = [
     bgStyle: 'bg-orange-50 dark:bg-orange-950/40',
     textStyle: 'text-orange-800 dark:text-orange-300',
     accentBorderClass: 'border-l-orange-600',
+  },
+  {
+    name: 'Art Education',
+    aliases: ['arteducation', 'art education', 'art', 'arts', 'drawing', 'craft', 'artandcraft', 'artcraft', 'painting'],
+    keywords: ['ART EDUCATION', 'ART', 'DRAWING', 'CRAFT', 'PAINTING', 'कला'],
+    badgeClass: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40',
+    bgStyle: 'bg-teal-50 dark:bg-teal-950/40',
+    textStyle: 'text-teal-700 dark:text-teal-300',
+    accentBorderClass: 'border-l-teal-500',
+  },
+  {
+    name: 'Kaushal Vikas',
+    aliases: ['kaushalvikas', 'kaushal vikas', 'skilldevelopment', 'skill development', 'vocational'],
+    keywords: ['KAUSHAL VIKAS', 'SKILL DEVELOPMENT', 'कौशल विकास'],
+    badgeClass: 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/40',
+    bgStyle: 'bg-amber-50 dark:bg-amber-950/40',
+    textStyle: 'text-amber-700 dark:text-amber-300',
+    accentBorderClass: 'border-l-amber-600',
+  },
+  {
+    name: 'Library',
+    aliases: ['library', 'lib', 'reading'],
+    keywords: ['LIBRARY', 'पुस्तकालय'],
+    badgeClass: 'bg-slate-50 dark:bg-slate-900/40 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800/40',
+    bgStyle: 'bg-slate-50 dark:bg-slate-900/40',
+    textStyle: 'text-slate-700 dark:text-slate-300',
+    accentBorderClass: 'border-l-slate-500',
+  },
+  {
+    name: 'Aptitude',
+    aliases: ['aptitude', 'reasoning', 'mentalability', 'mental ability'],
+    keywords: ['APTITUDE', 'REASONING', 'MENTAL ABILITY'],
+    badgeClass: 'bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/40',
+    bgStyle: 'bg-purple-50 dark:bg-purple-950/40',
+    textStyle: 'text-purple-800 dark:text-purple-300',
+    accentBorderClass: 'border-l-purple-600',
+  },
+  {
+    name: 'Life Skills',
+    aliases: ['lifeskills', 'life skills', 'life skill', 'moralscience', 'moral science', 'valueeducation'],
+    keywords: ['LIFE SKILLS', 'LIFE SKILL', 'MORAL SCIENCE', 'VALUE EDUCATION'],
+    badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
+    bgStyle: 'bg-emerald-50 dark:bg-emerald-950/40',
+    textStyle: 'text-emerald-700 dark:text-emerald-300',
+    accentBorderClass: 'border-l-emerald-500',
+  },
+  {
+    name: 'Dance',
+    aliases: ['dance', 'dancing', 'nritya'],
+    keywords: ['DANCE', 'नृत्य'],
+    badgeClass: 'bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border-pink-200/60 dark:border-pink-800/40',
+    bgStyle: 'bg-pink-50 dark:bg-pink-950/40',
+    textStyle: 'text-pink-700 dark:text-pink-300',
+    accentBorderClass: 'border-l-pink-500',
+  },
+  {
+    name: 'Yoga',
+    aliases: ['yoga', 'yog'],
+    keywords: ['YOGA', 'योग'],
+    badgeClass: 'bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40',
+    bgStyle: 'bg-teal-50 dark:bg-teal-950/40',
+    textStyle: 'text-teal-800 dark:text-teal-300',
+    accentBorderClass: 'border-l-teal-600',
+  },
+  {
+    name: 'EVS',
+    aliases: ['evs', 'environmentalstudies', 'environmental studies', 'environmental education', 'environment'],
+    keywords: ['EVS', 'ENVIRONMENTAL STUDIES', 'पर्यावरण'],
+    badgeClass: 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/40',
+    bgStyle: 'bg-emerald-50 dark:bg-emerald-950/40',
+    textStyle: 'text-emerald-700 dark:text-emerald-300',
+    accentBorderClass: 'border-l-emerald-500',
   },
   {
     name: 'French',
@@ -152,15 +268,6 @@ const SUBJECT_RULES: SubjectRule[] = [
     textStyle: 'text-stone-700 dark:text-stone-300',
     accentBorderClass: 'border-l-stone-500',
   },
-  {
-    name: 'Art',
-    aliases: ['art', 'arts', 'drawing', 'craft', 'artandcraft', 'artcraft'],
-    keywords: ['ART', 'DRAWING', 'CRAFT', 'PAINTING'],
-    badgeClass: 'bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/40',
-    bgStyle: 'bg-teal-50 dark:bg-teal-950/40',
-    textStyle: 'text-teal-700 dark:text-teal-300',
-    accentBorderClass: 'border-l-teal-500',
-  }
 ];
 
 const DEFAULT_SUBJECT: SubjectInfo = {
@@ -172,7 +279,7 @@ const DEFAULT_SUBJECT: SubjectInfo = {
 };
 
 /** Separators school diaries use between the subject label and the task. */
-const LABEL_SEPARATORS = [':', '-', '–', '\u2014', '|'];
+const _LABEL_SEPARATORS = [':', '-', '–', '—', '|'];
 
 /**
  * Reduces a subject label to a comparable key: casing, spacing and punctuation
@@ -254,9 +361,9 @@ function countMatches(text: string, pattern: RegExp): number {
  * stray words never decide the subject on their own.
  */
 function detectLanguageSubject(text: string): SubjectRule | null {
-  const gurmukhi = countMatches(text, /[\u0A00-\u0A7F]/g);
-  const devanagari = countMatches(text, /[\u0900-\u097F]/g);
-  const latin = countMatches(text, /[A-Za-z\u00C0-\u024F]/g);
+  const gurmukhi = countMatches(text, /[਀-੿]/g);
+  const devanagari = countMatches(text, /[ऀ-ॿ]/g);
+  const latin = countMatches(text, /[A-Za-zÀ-ɏ]/g);
   const totalLetters = gurmukhi + devanagari + latin;
 
   if (totalLetters < 20) return null;
@@ -293,16 +400,16 @@ export function normalizeSubjectName(value: string): string {
   return rule ? rule.name : formatSubjectName(trimmed.toUpperCase());
 }
 
-const NON_SUBJECT_HEADERS = new Set([
+const _NON_SUBJECT_HEADERS = new Set([
   'HOMEWORK', 'HOME WORK', 'CLASSWORK', 'CLASS WORK', 'CW', 'HW',
   'C.W.', 'H.W.', 'C.W', 'H.W', 'ANNOUNCEMENT', 'SCHOOL DIARY', 'GENERAL', 'NOTE', 'NOTES'
 ]);
 
 /**
- * Subject detection pipeline following strict priority hierarchy:
- * Priority 1: Specific subject detected from actual homework content (e.g. "SOCIAL SCIENCE- GEOGRAPHY")
- * Priority 2: Explicit subject provided by EduSecure
- * Priority 3: Fallback signal from Classwork (CW)
+ * Subject detection pipeline:
+ * Priority 1: Explicit subject provided by server / EduSecure (classified by TypeSafe AI Jev or stored in DB)
+ * Priority 2: Fallback signal from Classwork (CW)
+ * Priority 3: Direct matching of candidate text if it names a subject
  * Priority 4: Language-based fallback
  */
 export function detectSubject(
@@ -310,16 +417,33 @@ export function detectSubject(
   explicitSubject?: string | null,
   classworkSignal?: string | null
 ): SubjectInfo {
-  // Priority 1: Detect subject from actual homework content text first
+  // Priority 1: Explicit subject provided by server / EduSecure (classified by Jev or stored)
+  if (explicitSubject && typeof explicitSubject === 'string') {
+    const trimmed = explicitSubject.trim();
+    if (
+      trimmed &&
+      !['HOMEWORK', 'ANNOUNCEMENT', 'GENERAL'].includes(trimmed.toUpperCase())
+    ) {
+      const rule = matchAlias(trimmed) || matchKeywords(trimmed);
+      if (rule) return toSubjectInfo(rule);
+      return {
+        name: formatSubjectName(trimmed),
+        badgeClass: DEFAULT_SUBJECT.badgeClass,
+        bgStyle: DEFAULT_SUBJECT.bgStyle,
+        textStyle: DEFAULT_SUBJECT.textStyle,
+        accentBorderClass: DEFAULT_SUBJECT.accentBorderClass,
+      };
+    }
+  }
+
+  /* [OLD CODE COMMENTED OUT]: Aggressive text keyword scan that previously overwrote explicit subjects
   if (text) {
-    // Scan full homework text for subject keywords (e.g. "SOCIAL SCIENCE- GEOGRAPHY")
     const scanned = matchKeywords(text);
     if (scanned) return toSubjectInfo(scanned);
 
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
     const firstLine = lines[0] || text;
 
-    // Explicit label in front of separator ("HISTORY: Chapter 2")
     for (const separator of LABEL_SEPARATORS) {
       const index = firstLine.indexOf(separator);
       if (index <= 0) continue;
@@ -344,27 +468,16 @@ export function detectSubject(
       }
     }
   }
+  */
 
-  // Priority 2: Explicit subject provided by EduSecure
-  if (explicitSubject && typeof explicitSubject === 'string') {
-    const trimmed = explicitSubject.trim();
-    if (
-      trimmed &&
-      !['HOMEWORK', 'SCHOOL DIARY', 'ANNOUNCEMENT', 'GENERAL'].includes(trimmed.toUpperCase())
-    ) {
-      const rule = matchAlias(trimmed) || matchKeywords(trimmed);
-      if (rule) return toSubjectInfo(rule);
-      return {
-        name: formatSubjectName(trimmed),
-        badgeClass: DEFAULT_SUBJECT.badgeClass,
-        bgStyle: DEFAULT_SUBJECT.bgStyle,
-        textStyle: DEFAULT_SUBJECT.textStyle,
-        accentBorderClass: DEFAULT_SUBJECT.accentBorderClass,
-      };
-    }
+  // Direct rule matching if text itself is a subject name (e.g. from Classwork item.subject)
+  if (text && typeof text === 'string') {
+    const trimmed = text.trim();
+    const directRule = matchAlias(trimmed);
+    if (directRule) return toSubjectInfo(directRule);
   }
 
-  // Priority 3: Classwork (CW) signal fallback
+  // Priority 2: Fallback signal from Classwork (CW)
   if (classworkSignal && typeof classworkSignal === 'string') {
     const trimmedCw = classworkSignal.trim();
     if (trimmedCw) {
@@ -373,7 +486,7 @@ export function detectSubject(
     }
   }
 
-  // Priority 4: Language-based fallback logic (Punjabi, Hindi, French)
+  // Priority 3: Language-based fallback logic (Punjabi, Hindi, French)
   if (text) {
     const language = detectLanguageSubject(text);
     if (language) return toSubjectInfo(language);

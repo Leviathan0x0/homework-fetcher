@@ -1,5 +1,6 @@
 /**
- * Single entry for content safety: rules first, then OpenAI Moderations.
+ * Single entry for content safety: TypeSafe AI (Jev) for swear words,
+ * OpenAI Moderations for image safety.
  *
  * @typedef {{
  *   ok: true
@@ -11,8 +12,31 @@
  * }} CheckResult
  */
 
-const { checkBadWords, GUIDELINE_MESSAGE } = require("./badWords");
-const { moderateText, moderateImage } = require("./openaiModeration");
+const { GUIDELINE_MESSAGE, checkBadWords } = require("./badWords");
+// [OLD CODE COMMENTED OUT]: OpenAI text moderation (replaced by Jev + local fallback)
+// const { moderateText } = require("./openaiModeration");
+const { moderateImage } = require("./openaiModeration");
+const { classifySwear } = require("../typesafe/typesafeClient");
+
+/**
+ * Text safety check: Jev first, local rules whenever Jev is unavailable so an
+ * outage does not open the floodgates (availability fail-open, not policy).
+ * @param {string} trimmed
+ * @returns {Promise<{ ok: true } | { ok: false, reason: string, kind: 'text', strikeable: boolean }>}
+ */
+async function checkTextSafety(trimmed) {
+  const swearCheck = await classifySwear(trimmed);
+  if (swearCheck.isSwear) {
+    return { ok: false, reason: GUIDELINE_MESSAGE, kind: "text", strikeable: true };
+  }
+  if (!swearCheck.ok) {
+    const rules = checkBadWords(trimmed);
+    if (!rules.ok) {
+      return { ok: false, reason: rules.reason, kind: "text", strikeable: true };
+    }
+  }
+  return { ok: true };
+}
 
 /**
  * @param {{
@@ -27,19 +51,8 @@ async function checkContent({ text = null, filePath = null, buffer = null, mimeT
   const trimmed = typeof text === "string" ? text.trim() : "";
 
   if (trimmed) {
-    const rules = checkBadWords(trimmed);
-    if (!rules.ok) return { ...rules, kind: "text", strikeable: true };
-
-    // Submit every message when AI moderation is configured. Short abusive text
-    // is exactly where harassment occurs, so length must not bypass that layer.
-    const aiText = await moderateText(trimmed);
-    if (!aiText.ok) {
-      return {
-        ...aiText,
-        kind: "text",
-        strikeable: aiText.strikeable !== false,
-      };
-    }
+    const textCheck = await checkTextSafety(trimmed);
+    if (!textCheck.ok) return textCheck;
   }
 
   if (mimeType && String(mimeType).startsWith("image/")) {
@@ -74,20 +87,12 @@ async function checkRequestText(title, body) {
   const combined = [title, body].filter(Boolean).join("\n");
   if (!combined.trim()) return { ok: true };
 
-  const rules = checkBadWords(combined);
-  if (!rules.ok) return { ...rules, kind: "text", strikeable: true };
-
-  // Moderate fields separately so short titles aren't diluted by long bodies.
+  // TypeSafe AI (Jev) first, local rules as fallback — same policy as checkContent.
   for (const part of [title, body]) {
-    if (!part || !String(part).trim()) continue;
-    const ai = await moderateText(String(part).trim());
-    if (!ai.ok) {
-      return {
-        ...ai,
-        kind: "text",
-        strikeable: ai.strikeable !== false,
-      };
-    }
+    const trimmedPart = typeof part === "string" ? part.trim() : "";
+    if (!trimmedPart) continue;
+    const textCheck = await checkTextSafety(trimmedPart);
+    if (!textCheck.ok) return textCheck;
   }
 
   return { ok: true };

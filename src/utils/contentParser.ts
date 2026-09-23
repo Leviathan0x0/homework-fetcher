@@ -39,6 +39,23 @@ export function parseHomeworkContent(rawText: string, subjectName: string): Pars
 
   let cleaned = rawText.trim();
 
+  // Support structured JSON containing distinct homework and classwork fields
+  if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(cleaned);
+      if (parsedJson && typeof parsedJson === 'object') {
+        const hw = parsedJson.homework || parsedJson.homeWork;
+        const cw = parsedJson.classwork || parsedJson.classWork;
+        if (hw || cw) {
+          return {
+            homeWork: typeof hw === 'string' ? hw.trim() : undefined,
+            classWork: typeof cw === 'string' ? cw.trim() : undefined,
+          };
+        }
+      }
+    } catch {}
+  }
+
   // 1. Separate sub-subject headers embedded without whitespace (e.g. "symbolsChemistry ch-9:")
   // \b ensures subjects like IT don't match inside words like "UNIT"
   const subjectsPattern = '\\b(?:MATHEMATICS|MATHS|MATH|SOCIAL SCIENCE|SOCIAL STUDIES|SOCAL SCIENCE|SOCAL STUDIES|SOCAL|SOCIAL|S\\.ST|SST|COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|SCIENCE|PHYSICS|CHEMISTRY|BIOLOGY|ENGLISH|HINDI|IT|HISTORY|CIVICS|GEOGRAPHY|PUNJABI|ART)\\b';

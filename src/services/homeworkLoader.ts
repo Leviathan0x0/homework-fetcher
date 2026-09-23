@@ -2,6 +2,8 @@ export interface HomeworkLoadResult<T> {
   items: T[];
   schoolSessionExpired: boolean;
   isStale: boolean;
+  /** True while the server's background AI pass is still rewriting subjects/content. */
+  aiPending?: boolean;
 }
 
 export function getHomeworkRequest(forceRefresh = false): {

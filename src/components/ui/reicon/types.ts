@@ -140,7 +140,14 @@ export type ReillustrationName =
   | 'study-desk'
   | 'exam-countdown'
   | 'announcements-bulletin'
-  | 'maintenance-tuning';
+  | 'maintenance-tuning'
+  | 'construction-workers'
+  | 'work-in-progress'
+  | 'page-not-found';
+
+export type IllustrationEntry =
+  | { kind: 'file'; src: string; darkSrc: string }
+  | { kind: 'svg'; node: React.ReactNode };
 
 export type ReiconPreset =
   | 'bounce'

@@ -11,7 +11,7 @@ const SIZE_MAP: Record<'xs' | 'sm' | 'md' | 'lg' | 'xl', number> = {
   xl: 240,
 };
 
-export const Reillustration = React.forwardRef<SVGSVGElement, ReillustrationProps>(
+export const Reillustration = React.forwardRef<SVGSVGElement | HTMLImageElement, ReillustrationProps>(
   (
     {
       name,
@@ -25,16 +25,54 @@ export const Reillustration = React.forwardRef<SVGSVGElement, ReillustrationProp
     },
     ref
   ) => {
-    const illustrationContent = ILLUSTRATION_REGISTRY[name] || null;
+    const entry = ILLUSTRATION_REGISTRY[name] || null;
     const pixelSize = typeof size === 'number' ? size : SIZE_MAP[size] || SIZE_MAP.md;
 
     const isHidden = ariaHidden !== undefined ? ariaHidden : ariaLabel ? undefined : true;
     const computedRole = role || (ariaLabel ? 'img' : undefined);
+    const wrapperClass = cn('inline-flex items-center justify-center shrink-0', `illustration-${name}`);
+
+    if (entry && entry.kind === 'file') {
+      const imgA11y = {
+        'aria-hidden': isHidden,
+        'aria-label': ariaLabel,
+        role: computedRole,
+      } as const;
+      const imgProps = props as React.ImgHTMLAttributes<HTMLImageElement>;
+
+      return (
+        <div className={wrapperClass}>
+          <img
+            ref={ref as React.Ref<HTMLImageElement>}
+            src={entry.src}
+            alt=""
+            width={pixelSize}
+            height={pixelSize}
+            {...imgA11y}
+            className={cn(
+              'shrink-0 select-none object-contain dark:hidden',
+              // Light UI: unDraw's pale grays (#f2f2f2/#ccc/#fff) wash out on white cards.
+              'saturate-125 brightness-95',
+              className
+            )}
+            {...imgProps}
+          />
+          <img
+            src={entry.darkSrc}
+            alt=""
+            width={pixelSize}
+            height={pixelSize}
+            aria-hidden
+            className={cn('hidden shrink-0 select-none object-contain dark:block', className)}
+          />
+        </div>
+      );
+    }
 
     return (
-      <div className="inline-flex items-center justify-center shrink-0">
+      <div className={wrapperClass}>
         <svg
-          ref={ref}
+          ref={ref as React.Ref<SVGSVGElement>}
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 120 120"
           width={pixelSize}
@@ -43,9 +81,9 @@ export const Reillustration = React.forwardRef<SVGSVGElement, ReillustrationProp
           aria-label={ariaLabel}
           role={computedRole}
           className={cn('shrink-0 select-none overflow-visible', className)}
-          {...props}
+          {...(props as React.SVGAttributes<SVGSVGElement>)}
         >
-          {illustrationContent}
+          {entry && entry.kind === 'svg' ? entry.node : null}
         </svg>
       </div>
     );

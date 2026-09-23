@@ -1,57 +1,119 @@
 import React from 'react';
-import type { ReillustrationName } from './types';
+import type { IllustrationEntry, ReillustrationName } from './types';
 
-export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> = {
-  'empty-today': (
-    <g className="illustration-empty-today">
-      {/* Soft ambient background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-neutral-100 dark:fill-neutral-800/60" />
-      <circle cx="60" cy="60" r="36" className="fill-primary/5 dark:fill-primary/10" />
+import emptyToday from '../../../../Illustrations/undraw_empty-mailbox_ef0e.svg';
+import emptyRecent from '../../../../Illustrations/undraw_files-missing_ntwe.svg';
+import emptySearch from '../../../../Illustrations/undraw_searching-everywhere_tffi.svg';
+import emptyCompleted from '../../../../Illustrations/undraw_checklist_bwxa.svg';
+import examPrep from '../../../../Illustrations/undraw_exam-prep_nmly.svg';
+import errorWarning from '../../../../Illustrations/undraw_warning_tl76.svg';
+import circularsEmpty from '../../../../Illustrations/undraw_no-data_ig65.svg';
+import importantEmpty from '../../../../Illustrations/undraw_confidential-letter_k1ni.svg';
+import celebrationHoliday from '../../../../Illustrations/undraw_festivities_q090.svg';
+import emptyNotifications from '../../../../Illustrations/undraw_fresh-notification_hnv2.svg';
+import classworkEmpty from '../../../../Illustrations/undraw_files-uploading_qf8u.svg';
+import studentRequestsEmpty from '../../../../Illustrations/undraw_looking-for-answers_5p23.svg';
+import messagesEmptyStudent from '../../../../Illustrations/undraw_message-sent_iyz6.svg';
+import offlineDisconnected from '../../../../Illustrations/undraw_connection-lost_am29.svg';
+import authShield from '../../../../Illustrations/undraw_secure-login_m11a.svg';
+import welcomeStudent from '../../../../Illustrations/undraw_welcome_nk8k.svg';
+import filterNoResults from '../../../../Illustrations/undraw_searching_pqji.svg';
+import securityLockout from '../../../../Illustrations/undraw_blocked_ldel.svg';
+import studyDesk from '../../../../Illustrations/undraw_studying_n5uj.svg';
+import examCountdown from '../../../../Illustrations/undraw_the-right-time_n3ys.svg';
+import announcementsBulletin from '../../../../Illustrations/undraw_happy-announcement_23nf.svg';
+import constructionWorkers from '../../../../Illustrations/undraw_construction-workers_z99i.svg';
+import workInProgress from '../../../../Illustrations/undraw_work-in-progress_m95a.svg';
+import pageNotFound from '../../../../Illustrations/undraw_page-not-found_6wni.svg';
 
-      {/* Floating sparkles */}
-      <path
-        d="M26 34l2 4 4 2-4 2-2 4-2-4-4-2 4-2z"
-        className="fill-amber-400/80 dark:fill-amber-300/80"
-      />
-      <path
-        d="M92 30l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z"
-        className="fill-primary/60 dark:fill-primary/70"
-      />
-      <circle cx="94" cy="82" r="2.5" className="fill-emerald-400/80" />
-      <circle cx="28" cy="80" r="2" className="fill-neutral-300 dark:fill-neutral-600" />
+import emptyTodayDark from '../../../../Illustrations/dark/undraw_empty-mailbox_ef0e.svg';
+import emptyRecentDark from '../../../../Illustrations/dark/undraw_files-missing_ntwe.svg';
+import emptySearchDark from '../../../../Illustrations/dark/undraw_searching-everywhere_tffi.svg';
+import emptyCompletedDark from '../../../../Illustrations/dark/undraw_checklist_bwxa.svg';
+import examPrepDark from '../../../../Illustrations/dark/undraw_exam-prep_nmly.svg';
+import errorWarningDark from '../../../../Illustrations/dark/undraw_warning_tl76.svg';
+import circularsEmptyDark from '../../../../Illustrations/dark/undraw_no-data_ig65.svg';
+import importantEmptyDark from '../../../../Illustrations/dark/undraw_confidential-letter_k1ni.svg';
+import celebrationHolidayDark from '../../../../Illustrations/dark/undraw_festivities_q090.svg';
+import emptyNotificationsDark from '../../../../Illustrations/dark/undraw_fresh-notification_hnv2.svg';
+import classworkEmptyDark from '../../../../Illustrations/dark/undraw_files-uploading_qf8u.svg';
+import studentRequestsEmptyDark from '../../../../Illustrations/dark/undraw_looking-for-answers_5p23.svg';
+import messagesEmptyStudentDark from '../../../../Illustrations/dark/undraw_message-sent_iyz6.svg';
+import offlineDisconnectedDark from '../../../../Illustrations/dark/undraw_connection-lost_am29.svg';
+import authShieldDark from '../../../../Illustrations/dark/undraw_secure-login_m11a.svg';
+import welcomeStudentDark from '../../../../Illustrations/dark/undraw_welcome_nk8k.svg';
+import filterNoResultsDark from '../../../../Illustrations/dark/undraw_searching_pqji.svg';
+import securityLockoutDark from '../../../../Illustrations/dark/undraw_blocked_ldel.svg';
+import studyDeskDark from '../../../../Illustrations/dark/undraw_studying_n5uj.svg';
+import examCountdownDark from '../../../../Illustrations/dark/undraw_the-right-time_n3ys.svg';
+import announcementsBulletinDark from '../../../../Illustrations/dark/undraw_happy-announcement_23nf.svg';
+import constructionWorkersDark from '../../../../Illustrations/dark/undraw_construction-workers_z99i.svg';
+import workInProgressDark from '../../../../Illustrations/dark/undraw_work-in-progress_m95a.svg';
+import pageNotFoundDark from '../../../../Illustrations/dark/undraw_page-not-found_6wni.svg';
 
-      {/* Calendar card container */}
-      <g className="translate-y-0.5">
-        <rect
-          x="34"
-          y="36"
-          width="52"
-          height="52"
-          rx="12"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-200/90 dark:stroke-neutral-700/80"
-          strokeWidth="2"
-        />
-        {/* Calendar top header bar */}
-        <path
-          d="M34 48h52"
-          className="stroke-neutral-200 dark:stroke-neutral-700/80"
-          strokeWidth="2"
-        />
-        {/* Binder rings */}
-        <rect x="44" y="30" width="4" height="10" rx="2" className="fill-primary" />
-        <rect x="72" y="30" width="4" height="10" rx="2" className="fill-primary" />
+type FileIllustration = { src: string; darkSrc: string };
 
-        {/* Checkmark inside calendar */}
-        <circle cx="60" cy="67" r="14" className="fill-primary/10 dark:fill-primary/20" />
-        <path
-          d="M54 67l4 4 8-8"
-          fill="none"
-          className="stroke-primary"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+const FILE_ILLUSTRATIONS = {
+  'empty-today': { src: emptyToday, darkSrc: emptyTodayDark },
+  'empty-recent': { src: emptyRecent, darkSrc: emptyRecentDark },
+  'empty-search': { src: emptySearch, darkSrc: emptySearchDark },
+  'empty-completed': { src: emptyCompleted, darkSrc: emptyCompletedDark },
+  'exam-prep': { src: examPrep, darkSrc: examPrepDark },
+  'error-warning': { src: errorWarning, darkSrc: errorWarningDark },
+  'circulars-empty': { src: circularsEmpty, darkSrc: circularsEmptyDark },
+  'important-empty': { src: importantEmpty, darkSrc: importantEmptyDark },
+  'celebration-holiday': { src: celebrationHoliday, darkSrc: celebrationHolidayDark },
+  'empty-notifications': { src: emptyNotifications, darkSrc: emptyNotificationsDark },
+  'classwork-empty': { src: classworkEmpty, darkSrc: classworkEmptyDark },
+  'student-requests-empty': { src: studentRequestsEmpty, darkSrc: studentRequestsEmptyDark },
+  'messages-empty-student': { src: messagesEmptyStudent, darkSrc: messagesEmptyStudentDark },
+  'offline-disconnected': { src: offlineDisconnected, darkSrc: offlineDisconnectedDark },
+  'auth-shield': { src: authShield, darkSrc: authShieldDark },
+  'welcome-student': { src: welcomeStudent, darkSrc: welcomeStudentDark },
+  'filter-no-results': { src: filterNoResults, darkSrc: filterNoResultsDark },
+  'security-lockout': { src: securityLockout, darkSrc: securityLockoutDark },
+  'study-desk': { src: studyDesk, darkSrc: studyDeskDark },
+  'exam-countdown': { src: examCountdown, darkSrc: examCountdownDark },
+  'announcements-bulletin': { src: announcementsBulletin, darkSrc: announcementsBulletinDark },
+  'construction-workers': { src: constructionWorkers, darkSrc: constructionWorkersDark },
+  'work-in-progress': { src: workInProgress, darkSrc: workInProgressDark },
+  'page-not-found': { src: pageNotFound, darkSrc: pageNotFoundDark },
+} satisfies Partial<Record<ReillustrationName, FileIllustration>>;
+
+const HAND_DRAWN_ILLUSTRATIONS = {
+  'empty-attachments': (
+    <g className="illustration-empty-attachments">
+      {/* A small, complete file-desk scene rather than a single placeholder icon. */}
+      <path d="M18 48c4-22 24-34 45-32 23 2 40 18 41 42 1 22-16 41-42 44-25 3-49-17-44-54z" className="fill-sky-50 dark:fill-sky-950/30" />
+      <ellipse cx="61" cy="99" rx="39" ry="5" className="fill-slate-200/70 dark:fill-slate-800/70" />
+
+      {/* Files peeking out of the open folder. */}
+      <g transform="rotate(-8 48 55)">
+        <rect x="28" y="27" width="39" height="51" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
+        <path d="M54 27v12h13" className="fill-sky-100 dark:fill-sky-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M36 48h21M36 55h17M36 62h20" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
       </g>
+      <g transform="rotate(7 74 54)">
+        <rect x="57" y="25" width="35" height="48" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
+        <rect x="63" y="33" width="23" height="17" rx="3" className="fill-amber-100 dark:fill-amber-950/60" />
+        <circle cx="79" cy="38" r="3" className="fill-amber-400" />
+        <path d="M64 48l7-7 5 5 4-3 6 7" className="fill-sky-300 dark:fill-sky-700 stroke-sky-500 dark:stroke-sky-500" strokeWidth="1.2" strokeLinejoin="round" />
+        <path d="M64 58h20M64 64h13" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
+      </g>
+
+      {/* Open folder, with a dimensional front flap. */}
+      <path d="M20 52a6 6 0 0 1 6-6h25l7 7h34a7 7 0 0 1 7 7v28H20z" className="fill-sky-500 dark:fill-sky-700 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M21 64h30l7-7h38a5 5 0 0 1 5 6l-7 28a7 7 0 0 1-7 5H31a7 7 0 0 1-7-6z" className="fill-sky-400 dark:fill-sky-600 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M31 72h58" className="stroke-white/50" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Paperclip and floating file-type accents. */}
+      <path d="M52 72v12a7 7 0 0 0 14 0V70a5 5 0 0 0-10 0v12a3 3 0 0 0 6 0v-9" fill="none" className="stroke-white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <g transform="translate(91 29) rotate(9)">
+        <rect width="18" height="20" rx="5" className="fill-indigo-500 stroke-white dark:stroke-slate-900" strokeWidth="1.5" />
+        <path d="M6 6h6M6 10h6M6 14h4" className="stroke-white" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      <path d="M22 31l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
+      <circle cx="99" cy="78" r="3" className="fill-emerald-400" />
     </g>
   ),
 
@@ -99,161 +161,6 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
     </g>
   ),
 
-  'empty-attachments': (
-    <g className="illustration-empty-attachments">
-      {/* A small, complete file-desk scene rather than a single placeholder icon. */}
-      <path d="M18 48c4-22 24-34 45-32 23 2 40 18 41 42 1 22-16 41-42 44-25 3-49-17-44-54z" className="fill-sky-50 dark:fill-sky-950/30" />
-      <ellipse cx="61" cy="99" rx="39" ry="5" className="fill-slate-200/70 dark:fill-slate-800/70" />
-
-      {/* Files peeking out of the open folder. */}
-      <g transform="rotate(-8 48 55)">
-        <rect x="28" y="27" width="39" height="51" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
-        <path d="M54 27v12h13" className="fill-sky-100 dark:fill-sky-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M36 48h21M36 55h17M36 62h20" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
-      </g>
-      <g transform="rotate(7 74 54)">
-        <rect x="57" y="25" width="35" height="48" rx="5" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.8" />
-        <rect x="63" y="33" width="23" height="17" rx="3" className="fill-amber-100 dark:fill-amber-950/60" />
-        <circle cx="79" cy="38" r="3" className="fill-amber-400" />
-        <path d="M64 48l7-7 5 5 4-3 6 7" className="fill-sky-300 dark:fill-sky-700 stroke-sky-500 dark:stroke-sky-500" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d="M64 58h20M64 64h13" className="stroke-slate-300 dark:stroke-slate-600" strokeWidth="2" strokeLinecap="round" />
-      </g>
-
-      {/* Open folder, with a dimensional front flap. */}
-      <path d="M20 52a6 6 0 0 1 6-6h25l7 7h34a7 7 0 0 1 7 7v28H20z" className="fill-sky-500 dark:fill-sky-700 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M21 64h30l7-7h38a5 5 0 0 1 5 6l-7 28a7 7 0 0 1-7 5H31a7 7 0 0 1-7-6z" className="fill-sky-400 dark:fill-sky-600 stroke-sky-600 dark:stroke-sky-500" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M31 72h58" className="stroke-white/50" strokeWidth="2" strokeLinecap="round" />
-
-      {/* Paperclip and floating file-type accents. */}
-      <path d="M52 72v12a7 7 0 0 0 14 0V70a5 5 0 0 0-10 0v12a3 3 0 0 0 6 0v-9" fill="none" className="stroke-white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
-      <g transform="translate(91 29) rotate(9)">
-        <rect width="18" height="20" rx="5" className="fill-indigo-500 stroke-white dark:stroke-slate-900" strokeWidth="1.5" />
-        <path d="M6 6h6M6 10h6M6 14h4" className="stroke-white" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-      <path d="M22 31l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
-      <circle cx="99" cy="78" r="3" className="fill-emerald-400" />
-    </g>
-  ),
-
-  'empty-search': (
-    <g className="illustration-empty-search">
-      {/* Desk plane and contact shadow */}
-      <ellipse cx="60" cy="93" rx="45" ry="11" className="fill-neutral-100 dark:fill-neutral-800/50" />
-      <ellipse cx="57" cy="93" rx="33" ry="4.5" className="fill-neutral-200/80 dark:fill-neutral-950/60" />
-
-      {/* Misplaced sheet slipped behind the notebook */}
-      <g transform="rotate(-13 37 42)">
-        <rect
-          x="25"
-          y="24"
-          width="24"
-          height="36"
-          rx="3"
-          className="fill-neutral-50 dark:fill-neutral-800 stroke-neutral-300 dark:stroke-neutral-700"
-          strokeWidth="1.5"
-        />
-        <line x1="30" y1="32" x2="44" y2="32" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="30" y1="38" x2="40" y2="38" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-
-      {/* Index card slipped between the pages */}
-      <rect
-        x="64"
-        y="78"
-        width="17"
-        height="11"
-        rx="2.5"
-        className="fill-amber-200 dark:fill-amber-500/40 stroke-amber-300 dark:stroke-amber-600"
-        strokeWidth="1.5"
-      />
-
-      {/* Open notebook — right page */}
-      <path
-        d="M54 48L85 42.6A3 3 0 0 1 88 45.6V77A3 3 0 0 1 85 80L54 86z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      <line x1="59" y1="55" x2="82" y2="51" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="59" y1="61.5" x2="82" y2="57.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="59" y1="68" x2="82" y2="64" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="59" y1="74.5" x2="75" y2="71.7" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-
-      {/* Open notebook — left page */}
-      <path
-        d="M54 48L23 42.6A3 3 0 0 0 20 45.6V77A3 3 0 0 0 23 80L54 86z"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="1.75"
-        strokeLinejoin="round"
-      />
-      {/* Highlighted line the student was scanning */}
-      <line x1="28" y1="50.9" x2="44" y2="53.7" className="stroke-amber-200 dark:stroke-amber-500/40" strokeWidth="5" strokeLinecap="round" />
-      <line x1="26" y1="50.5" x2="49" y2="54.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="26" y1="57" x2="49" y2="61" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="26" y1="63.5" x2="49" y2="67.5" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="26" y1="70" x2="49" y2="74" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      <line x1="26" y1="76.5" x2="41" y2="79.1" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.75" strokeLinecap="round" />
-      {/* Handwritten notes */}
-      <line x1="29" y1="51" x2="43" y2="53.4" className="stroke-neutral-400 dark:stroke-neutral-500" strokeWidth="2" strokeLinecap="round" />
-      <line x1="29" y1="64" x2="39" y2="65.7" className="stroke-neutral-400 dark:stroke-neutral-500" strokeWidth="2" strokeLinecap="round" />
-
-      {/* Magnifier handle */}
-      <g transform="translate(85.6 58.6) rotate(-45)">
-        <rect x="-3.25" y="1" width="6.5" height="20" rx="3.25" className="fill-amber-400 dark:fill-amber-500 stroke-amber-500 dark:stroke-amber-600" strokeWidth="1.25" />
-        <rect x="-4" y="-2" width="8" height="6" rx="2" className="fill-neutral-600 dark:fill-neutral-300" />
-      </g>
-
-      {/* Magnifier lens over the searched page */}
-      <circle
-        cx="75"
-        cy="48"
-        r="15"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-600 dark:stroke-neutral-300"
-        strokeWidth="2.5"
-      />
-      <circle cx="75" cy="48" r="12" fill="none" className="stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.25" />
-      {/* Magnified rules with nothing written on them */}
-      <line x1="66" y1="43" x2="85" y2="43" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="65" y1="51" x2="83" y2="51" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="67" y1="58" x2="79" y2="58" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="2.5" strokeLinecap="round" />
-      {/* Glass glint */}
-      <path
-        d="M64.5 44a11.5 11.5 0 0 1 8-8"
-        fill="none"
-        className="stroke-sky-300/80 dark:stroke-sky-400/50"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </g>
-  ),
-
-  'empty-completed': (
-    <g className="illustration-empty-completed">
-      {/* Background glow & sunburst */}
-      <circle cx="60" cy="60" r="48" className="fill-emerald-50/80 dark:fill-emerald-950/20" />
-      <circle cx="60" cy="60" r="36" className="fill-emerald-100/50 dark:fill-emerald-900/30" />
-
-      {/* Celebration bursts */}
-      <path d="M60 14v6M60 100v6M14 60h6M100 60h6M27 27l4 4M89 89l4 4M27 93l4-4M89 31l4-4" fill="none" className="stroke-emerald-400 dark:stroke-emerald-500" strokeWidth="2" strokeLinecap="round" />
-
-      {/* Main check badge */}
-      <circle
-        cx="60"
-        cy="60"
-        r="24"
-        className="fill-emerald-500 dark:fill-emerald-500 text-white shadow-lg"
-      />
-      <path
-        d="M50 60l7 7 14-14"
-        fill="none"
-        stroke="white"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </g>
-  ),
-
   'empty-notices': (
     <g className="illustration-empty-notices">
       {/* Background aura */}
@@ -284,363 +191,6 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
           strokeWidth="2.5"
           strokeLinecap="round"
         />
-      </g>
-    </g>
-  ),
-
-  'empty-recent': (
-    <g className="illustration-empty-recent">
-      {/* Background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-      <circle cx="60" cy="60" r="36" className="fill-sky-100/50 dark:fill-sky-900/20" />
-
-      {/* Back calendar sheet */}
-      <rect
-        x="34"
-        y="34"
-        width="52"
-        height="52"
-        rx="12"
-        className="fill-white dark:fill-neutral-900 stroke-neutral-200/90 dark:stroke-neutral-700/80"
-        strokeWidth="2"
-      />
-      <path d="M34 48h52" className="stroke-neutral-200 dark:stroke-neutral-700/80" strokeWidth="2" />
-      <rect x="44" y="30" width="4" height="10" rx="2" className="fill-sky-500" />
-      <rect x="72" y="30" width="4" height="10" rx="2" className="fill-sky-500" />
-
-      {/* Clock badge overlapping the calendar */}
-      <g transform="translate(72 66)">
-        <circle cx="16" cy="16" r="18" className="fill-white dark:fill-neutral-900 stroke-sky-500" strokeWidth="2.5" />
-        <path
-          d="M16 8v8l5 3"
-          fill="none"
-          className="stroke-sky-600 dark:stroke-sky-400"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
-
-      {/* Small 7-day arc hint */}
-      <path
-        d="M44 66h16M44 74h12"
-        className="stroke-neutral-300 dark:stroke-neutral-600"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-
-      {/* Accent sparkle */}
-      <path d="M24 30l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
-      <circle cx="96" cy="34" r="2.5" className="fill-emerald-400" />
-    </g>
-  ),
-
-  'circulars-empty': (
-    <g className="illustration-circulars-empty">
-      {/* Background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-
-      {/* Rolled circular / official document */}
-      <g transform="translate(30 28) rotate(-6)">
-        <rect
-          x="0"
-          y="0"
-          width="60"
-          height="72"
-          rx="8"
-          className="fill-white dark:fill-neutral-900 stroke-sky-500"
-          strokeWidth="2"
-        />
-        {/* Header seal line */}
-        <circle cx="30" cy="20" r="10" className="fill-sky-100 dark:fill-sky-950 stroke-sky-500" strokeWidth="1.5" />
-        <path
-          d="M30 14v12M24 20h12"
-          className="stroke-sky-600 dark:stroke-sky-400"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-        {/* Content lines */}
-        <path
-          d="M12 42h36M12 52h28M12 62h20"
-          className="stroke-neutral-200 dark:stroke-neutral-700"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-      </g>
-
-      {/* Secondary sheet peeking behind */}
-      <rect
-        x="66"
-        y="36"
-        width="28"
-        height="36"
-        rx="5"
-        transform="rotate(8 80 54)"
-        className="fill-sky-100 dark:fill-sky-950/60 stroke-sky-300 dark:stroke-sky-800"
-        strokeWidth="1.5"
-      />
-
-      {/* Official pin / accent */}
-      <circle cx="92" cy="30" r="6" className="fill-sky-500 stroke-white dark:stroke-slate-900" strokeWidth="2" />
-      <path d="M24 96h72" className="stroke-neutral-300 dark:stroke-neutral-700" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M20 24l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
-    </g>
-  ),
-
-  'important-empty': (
-    <g className="illustration-important-empty">
-      {/* Background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-amber-50 dark:fill-amber-950/30" />
-      <circle cx="60" cy="60" r="36" className="fill-amber-100/50 dark:fill-amber-900/20" />
-
-      {/* Priority envelope */}
-      <g transform="translate(24 34)">
-        <rect
-          x="0"
-          y="0"
-          width="72"
-          height="52"
-          rx="10"
-          className="fill-white dark:fill-neutral-900 stroke-amber-500"
-          strokeWidth="2.5"
-        />
-        {/* Envelope flap */}
-        <path
-          d="M6 8l30 22L66 8"
-          fill="none"
-          className="stroke-amber-500"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {/* Bottom fold */}
-        <path
-          d="M6 44l22-18M66 44L44 26"
-          fill="none"
-          className="stroke-amber-400/70"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </g>
-
-      {/* Alert star badge */}
-      <g transform="translate(78 24)">
-        <circle cx="14" cy="14" r="14" className="fill-amber-400 stroke-white dark:stroke-slate-900" strokeWidth="2.5" />
-        <path
-          d="M14 7l2 4.2 4.6.6-3.4 3.2.8 4.6L14 17.4l-4 2.2.8-4.6-3.4-3.2 4.6-.6z"
-          className="fill-white"
-        />
-      </g>
-
-      {/* Accent */}
-      <path d="M26 32l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-rose-400" />
-      <circle cx="28" cy="84" r="3" className="fill-emerald-400" />
-    </g>
-  ),
-
-  'celebration-holiday': (
-    <g className="illustration-celebration-holiday">
-      {/* Warm ambient celebration aura */}
-      <circle cx="60" cy="60" r="50" className="fill-rose-100/70 dark:fill-rose-950/30" />
-      <circle cx="60" cy="60" r="38" className="fill-amber-100/60 dark:fill-amber-950/30" />
-
-      {/* Confetti & sparkles */}
-      <path d="M22 34l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" className="fill-amber-400" />
-      <path d="M96 28l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" className="fill-rose-500" />
-      <path d="M88 88l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" className="fill-indigo-500" />
-      <circle cx="28" cy="82" r="3" className="fill-emerald-400" />
-      <circle cx="94" cy="56" r="2.5" className="fill-amber-500" />
-      <circle cx="20" cy="56" r="2" className="fill-rose-400" />
-
-      {/* Floating party popper cone */}
-      <g transform="translate(36 34)">
-        <path
-          d="M8 44L4 16l32 16L8 44z"
-          className="fill-rose-500 stroke-rose-600 dark:stroke-rose-400"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        <path d="M4 16l32 16" fill="none" className="stroke-white/80" strokeWidth="2" />
-        <path d="M12 20l20 10" fill="none" className="stroke-amber-300" strokeWidth="2" />
-
-        {/* Popper blast ribbons */}
-        <path
-          d="M26 12c4-8 12-6 16-2s10 4 14-2"
-          fill="none"
-          className="stroke-amber-400"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        <path
-          d="M32 20c6-4 12-2 16 4"
-          fill="none"
-          className="stroke-rose-400"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </g>
-    </g>
-  ),
-
-  'offline-disconnected': (
-    <g className="illustration-offline-disconnected">
-      {/* Ambient aura */}
-      <circle cx="60" cy="60" r="48" className="fill-neutral-100 dark:fill-neutral-800/60" />
-
-      {/* Concentric wifi signal arcs */}
-      <path
-        d="M26 44a48 48 0 0 1 68 0"
-        fill="none"
-        className="stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <path
-        d="M36 56a34 34 0 0 1 48 0"
-        fill="none"
-        className="stroke-neutral-300 dark:stroke-neutral-700"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <path
-        d="M46 68a20 20 0 0 1 28 0"
-        fill="none"
-        className="stroke-neutral-400 dark:stroke-neutral-600"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <circle cx="60" cy="80" r="4" className="fill-amber-500" />
-
-      {/* Disconnect slash */}
-      <line
-        x1="24"
-        y1="24"
-        x2="96"
-        y2="96"
-        className="stroke-rose-500 dark:stroke-rose-400"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-      />
-    </g>
-  ),
-
-  'error-warning': (
-    <g className="illustration-error-warning">
-      {/* Background warning aura */}
-      <circle cx="60" cy="60" r="48" className="fill-rose-50/80 dark:fill-rose-950/20" />
-
-      {/* Warning shield / triangle */}
-      <path
-        d="M60 22l38 60H22L60 22z"
-        className="fill-white dark:fill-neutral-900 stroke-rose-500 dark:stroke-rose-400"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-      {/* Exclamation mark inside */}
-      <line
-        x1="60"
-        y1="42"
-        x2="60"
-        y2="58"
-        className="stroke-rose-500 dark:stroke-rose-400"
-        strokeWidth="3.5"
-        strokeLinecap="round"
-      />
-      <circle cx="60" cy="70" r="2" className="fill-rose-500 dark:fill-rose-400" />
-    </g>
-  ),
-
-  'auth-shield': (
-    <g className="illustration-auth-shield">
-      {/* Ambient security aura */}
-      <circle cx="60" cy="60" r="48" className="fill-primary/5 dark:fill-primary/10" />
-
-      {/* Security shield container */}
-      <path
-        d="M60 22c16 0 30 6 30 18v22c0 20-14 34-30 40-16-6-30-20-30-40V40c0-12 14-18 30-18z"
-        className="fill-white dark:fill-neutral-900 stroke-primary"
-        strokeWidth="3"
-        strokeLinejoin="round"
-      />
-
-      {/* Inner lock mechanism */}
-      <rect
-        x="48"
-        y="54"
-        width="24"
-        height="18"
-        rx="4"
-        className="fill-primary text-white"
-      />
-      <path
-        d="M52 54V47a8 8 0 0 1 16 0v7"
-        fill="none"
-        className="stroke-primary"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-      <circle cx="60" cy="62" r="2" fill="white" />
-      <line x1="60" y1="64" x2="60" y2="67" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-    </g>
-  ),
-
-  'exam-prep': (
-    <g className="illustration-exam-prep">
-      {/* Ambient backdrop */}
-      <circle cx="60" cy="60" r="48" className="fill-indigo-50 dark:fill-indigo-950/30" />
-
-      {/* Open book / test booklet */}
-      <path
-        d="M60 48v36M60 48c-8-6-20-6-34 0v36c14-6 26-6 34 0M60 48c8-6 20-6 34 0v36c-14-6-26-6-34 0"
-        fill="none"
-        className="stroke-indigo-600 dark:stroke-indigo-400 fill-white dark:fill-neutral-900"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-
-      {/* Graduation cap floating above */}
-      <g transform="translate(60 30)">
-        <polygon
-          points="0,-10 24,0 0,10 -24,0"
-          className="fill-indigo-600 dark:fill-indigo-500 stroke-neutral-900 dark:stroke-neutral-100"
-          strokeWidth="1.5"
-        />
-        <path d="M-12 5v10c0 4 6 7 12 7s12-3 12-7V5" fill="none" className="stroke-indigo-600 dark:stroke-indigo-400" strokeWidth="1.5" />
-        <path d="M24 0v12" fill="none" className="stroke-amber-400" strokeWidth="2" strokeLinecap="round" />
-      </g>
-    </g>
-  ),
-
-  'messages-empty-student': (
-    <g className="illustration-messages-empty-student">
-      {/* Ambient background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-      <circle cx="60" cy="60" r="36" className="fill-sky-100/50 dark:fill-sky-900/20" />
-
-      {/* Floating accents */}
-      <circle cx="26" cy="34" r="3" className="fill-amber-400" />
-      <circle cx="94" cy="30" r="2.5" className="fill-emerald-400" />
-      <path d="M88 84l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" className="fill-sky-500" />
-
-      {/* Left conversation bubble */}
-      <g transform="translate(24 30)">
-        <path
-          d="M6 0h40a6 6 0 0 1 6 6v22a6 6 0 0 1-6 6H16l-10 8v-8H6a6 6 0 0 1-6-6V6a6 6 0 0 1 6-6z"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700"
-          strokeWidth="2"
-        />
-        <circle cx="16" cy="17" r="2.5" className="fill-sky-500" />
-        <circle cx="26" cy="17" r="2.5" className="fill-sky-400" />
-        <circle cx="36" cy="17" r="2.5" className="fill-sky-300" />
-      </g>
-
-      {/* Right companion bubble */}
-      <g transform="translate(56 50)">
-        <path
-          d="M4 0h32a5 5 0 0 1 5 5v16a5 5 0 0 1-5 5h-4l-6 6v-6H4a5 5 0 0 1-5-5V5a5 5 0 0 1 5-5z"
-          className="fill-sky-500 text-white"
-        />
-        <path d="M10 13h16M10 8h10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" />
       </g>
     </g>
   ),
@@ -686,7 +236,7 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       {/* Broadcast beacon / antenna */}
       <circle cx="60" cy="40" r="8" className="fill-violet-600 text-white" />
       <path d="M60 48v36M50 84h20" fill="none" className="stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="2.5" strokeLinecap="round" />
-      
+
       {/* Signal waves */}
       <path d="M46 32a20 20 0 0 0 0 16M74 32a20 20 0 0 1 0 16" fill="none" className="stroke-violet-500" strokeWidth="2.5" strokeLinecap="round" />
       <path d="M38 24a32 32 0 0 0 0 32M82 24a32 32 0 0 1 0 32" fill="none" className="stroke-violet-400/70" strokeWidth="2" strokeLinecap="round" />
@@ -725,100 +275,6 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
     </g>
   ),
 
-  'student-requests-empty': (
-    <g className="illustration-student-requests-empty">
-      {/* Background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-amber-50 dark:fill-amber-950/30" />
-      <circle cx="60" cy="60" r="36" className="fill-amber-100/40 dark:fill-amber-900/20" />
-
-      {/* Two overlapping request cards */}
-      <g transform="translate(22 34) rotate(-6)">
-        <rect
-          x="0"
-          y="0"
-          width="52"
-          height="64"
-          rx="9"
-          className="fill-white dark:fill-neutral-900 stroke-amber-400"
-          strokeWidth="2"
-        />
-        <path
-          d="M10 16h32M10 26h24M10 36h28M10 46h18"
-          className="stroke-neutral-200 dark:stroke-neutral-700"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-      </g>
-
-      <g transform="translate(52 30) rotate(7)">
-        <rect
-          x="0"
-          y="0"
-          width="48"
-          height="60"
-          rx="9"
-          className="fill-amber-400 dark:fill-amber-500 stroke-amber-600"
-          strokeWidth="2"
-        />
-        <path
-          d="M10 16h28M10 26h20"
-          fill="none"
-          className="stroke-white/90"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {/* Heart-handshake style request badge */}
-        <circle cx="24" cy="44" r="10" className="fill-white/95" />
-        <path
-          d="M19 44l3.5 3.5 7-7"
-          fill="none"
-          className="stroke-amber-600"
-          strokeWidth="2.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
-
-      {/* Accent */}
-      <path d="M24 28l1.7 3.5 3.5 1.7-3.5 1.7-1.7 3.5-1.7-3.5-3.5-1.7 3.5-1.7z" className="fill-amber-400" />
-      <circle cx="96" cy="80" r="3" className="fill-emerald-400" />
-    </g>
-  ),
-
-  'classwork-empty': (
-    <g className="illustration-classwork-empty">
-      {/* A warm study-table vignette built from layered, theme-aware SVG art. */}
-      <path d="M17 53c1-23 19-39 43-39 27 0 46 19 44 45-2 27-19 43-46 44-25 0-42-21-41-50z" className="fill-amber-50 dark:fill-amber-950/25" />
-      <circle cx="88" cy="31" r="12" className="fill-sky-100 dark:fill-sky-950/70" />
-      <path d="M16 88h88" className="stroke-slate-300 dark:stroke-slate-700" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M26 88l-4 17M94 88l4 17" className="stroke-slate-400 dark:stroke-slate-600" strokeWidth="3" strokeLinecap="round" />
-
-      {/* Open ruled notebook. */}
-      <path d="M25 47c13-4 24-2 35 5v34c-11-7-22-9-35-5z" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M95 47c-13-4-24-2-35 5v34c11-7 22-9 35-5z" className="fill-white dark:fill-slate-900 stroke-slate-300 dark:stroke-slate-700" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M60 52v34" className="stroke-slate-300 dark:stroke-slate-700" strokeWidth="1.5" />
-      <path d="M32 58c8-1 15 0 21 3M32 65c8-1 15 0 21 3M32 72c8-1 15 0 21 3M67 60c7-3 14-4 21-2M67 67c7-3 14-4 21-2M67 74c6-2 11-3 16-2" fill="none" className="stroke-sky-300 dark:stroke-sky-700" strokeWidth="1.8" strokeLinecap="round" />
-      <rect x="69" y="42" width="16" height="16" rx="2" transform="rotate(5 77 50)" className="fill-amber-300 dark:fill-amber-500" />
-      <path d="M73 48h8M73 52h6" className="stroke-amber-700 dark:stroke-amber-950" strokeWidth="1.2" strokeLinecap="round" />
-
-      {/* Pencil resting across the page. */}
-      <g transform="translate(31 81) rotate(-13)">
-        <rect width="48" height="6" rx="3" className="fill-rose-400 stroke-rose-500" strokeWidth="1.2" />
-        <path d="M48 0l9 3-9 3z" className="fill-amber-100 stroke-slate-600 dark:stroke-slate-400" strokeWidth="1" strokeLinejoin="round" />
-        <path d="M55 2l3 1-3 1z" className="fill-slate-700 dark:fill-slate-200" />
-        <rect x="4" y="0" width="5" height="6" className="fill-amber-300" />
-      </g>
-
-      {/* Upload badge ties the illustration to the classwork action. */}
-      <g transform="translate(78 16)">
-        <circle cx="10" cy="10" r="10" className="fill-sky-500 dark:fill-sky-600 stroke-white dark:stroke-slate-900" strokeWidth="2" />
-        <path d="M10 15V6M6.5 9.5L10 6l3.5 3.5" fill="none" className="stroke-white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-      <path d="M22 31l1.8 3.6 3.6 1.8-3.6 1.8-1.8 3.6-1.8-3.6-3.6-1.8 3.6-1.8z" className="fill-emerald-400" />
-      <circle cx="101" cy="68" r="2.5" className="fill-rose-400" />
-    </g>
-  ),
-
   'empty-leave': (
     <g className="illustration-empty-leave">
       {/* Ambient background disc */}
@@ -844,60 +300,6 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       <circle cx="24" cy="28" r="2.5" className="fill-amber-400" />
       <circle cx="92" cy="36" r="3" className="fill-emerald-400" />
       <path d="M88 78l1.5 3 3 1.5-3 1.5-1.5 3-1.5-3-3-1.5 3-1.5z" className="fill-amber-500" />
-    </g>
-  ),
-
-  'empty-notifications': (
-    <g className="illustration-empty-notifications">
-      {/* Calm ambient background aura */}
-      <circle cx="60" cy="60" r="48" className="fill-neutral-100/90 dark:fill-neutral-800/50" />
-      <circle cx="60" cy="60" r="36" className="fill-indigo-50/50 dark:fill-indigo-950/20" />
-
-      {/* Gentle ZZZ floating arcs */}
-      <path d="M82 28h8l-8 8h8" fill="none" className="stroke-indigo-400 dark:stroke-indigo-400" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M92 20h6l-6 6h6" fill="none" className="stroke-indigo-300 dark:stroke-indigo-500" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-
-      {/* Peaceful bell */}
-      <g transform="translate(36 30)">
-        <path
-          d="M24 6a14 14 0 0 0-14 14v12l-4 6h36l-4-6V20A14 14 0 0 0 24 6z"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-800 dark:stroke-neutral-200"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-        <circle cx="24" cy="42" r="4" className="fill-amber-400 stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="1.5" />
-        <circle cx="24" cy="4" r="3" className="fill-neutral-800 dark:fill-neutral-200" />
-      </g>
-
-      {/* Sparkles */}
-      <circle cx="26" cy="40" r="2.5" className="fill-amber-400" />
-      <circle cx="30" cy="80" r="2" className="fill-neutral-300 dark:fill-neutral-600" />
-    </g>
-  ),
-
-  'welcome-student': (
-    <g className="illustration-welcome-student">
-      {/* Back glow */}
-      <circle cx="60" cy="60" r="48" className="fill-sky-50 dark:fill-sky-950/30" />
-      <circle cx="60" cy="60" r="36" className="fill-sky-100/50 dark:fill-sky-900/20" />
-
-      {/* Student backpack */}
-      <g transform="translate(38 28)">
-        <rect x="4" y="12" width="36" height="42" rx="10" className="fill-sky-500 stroke-sky-600 dark:stroke-sky-400" strokeWidth="2" />
-        <rect x="10" y="24" width="24" height="20" rx="6" className="fill-white dark:fill-neutral-900 stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="2" />
-        <path d="M14 12V6a6 6 0 0 1 12 0v6" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="22" cy="34" r="2.5" className="fill-amber-400" />
-      </g>
-
-      {/* Floating pencil & ruler */}
-      <g transform="translate(24 48) rotate(-24)">
-        <rect x="0" y="0" width="6" height="30" rx="1.5" className="fill-amber-400 stroke-neutral-800 dark:stroke-neutral-900" strokeWidth="1.5" />
-        <polygon points="0,30 6,30 3,36" className="fill-neutral-200 stroke-neutral-800 dark:stroke-neutral-900" strokeWidth="1" />
-      </g>
-
-      {/* Floating star */}
-      <path d="M88 34l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" className="fill-amber-400" />
-      <circle cx="90" cy="80" r="3" className="fill-emerald-400" />
     </g>
   ),
 
@@ -978,120 +380,6 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
     </g>
   ),
 
-  'filter-no-results': (
-    <g className="illustration-filter-no-results">
-      {/* Background disc */}
-      <circle cx="60" cy="60" r="48" className="fill-neutral-100 dark:fill-neutral-800/60" />
-
-      {/* Funnel shape */}
-      <g transform="translate(32 26)">
-        <path
-          d="M4 8h48l-18 20v24l-12-6V28L4 8z"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-800 dark:stroke-neutral-200"
-          strokeWidth="2.5"
-          strokeLinejoin="round"
-        />
-        <line x1="12" y1="16" x2="44" y2="16" className="stroke-neutral-300 dark:stroke-neutral-700" strokeWidth="2" strokeLinecap="round" />
-      </g>
-
-      {/* Tiny filtered particle drops */}
-      <circle cx="60" cy="84" r="2.5" className="fill-primary" />
-      <circle cx="60" cy="94" r="1.5" className="fill-neutral-400" />
-      <circle cx="86" cy="38" r="3" className="fill-amber-400" />
-    </g>
-  ),
-
-  'security-lockout': (
-    <g className="illustration-security-lockout">
-      {/* Aura */}
-      <circle cx="60" cy="60" r="48" className="fill-rose-50/70 dark:fill-rose-950/30" />
-
-      {/* Big padlock container */}
-      <g transform="translate(36 28)">
-        <path d="M12 24V14a12 12 0 0 1 24 0v10" fill="none" className="stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="3" strokeLinecap="round" />
-        <rect x="4" y="24" width="40" height="34" rx="8" className="fill-rose-500 stroke-rose-600" strokeWidth="2" />
-        {/* Keyhole */}
-        <circle cx="24" cy="38" r="3.5" fill="white" />
-        <line x1="24" y1="41.5" x2="24" y2="47" stroke="white" strokeWidth="2" strokeLinecap="round" />
-      </g>
-
-      {/* Safety ring */}
-      <circle cx="60" cy="60" r="44" fill="none" className="stroke-rose-400/50" strokeWidth="1.5" strokeDasharray="4 4" />
-    </g>
-  ),
-
-  'study-desk': (
-    <g className="illustration-study-desk">
-      {/* Ambient background disc */}
-      <circle cx="60" cy="60" r="48" className="fill-amber-50/60 dark:fill-amber-950/20" />
-
-      {/* Stacked books */}
-      <rect x="30" y="68" width="50" height="10" rx="3" className="fill-indigo-600 stroke-neutral-900 dark:stroke-neutral-100" strokeWidth="1.5" />
-      <rect x="34" y="58" width="44" height="10" rx="3" className="fill-amber-500 stroke-neutral-900 dark:stroke-neutral-100" strokeWidth="1.5" />
-      <rect x="38" y="48" width="38" height="10" rx="3" className="fill-emerald-500 stroke-neutral-900 dark:stroke-neutral-100" strokeWidth="1.5" />
-
-      {/* Desk lamp shining light */}
-      <g transform="translate(74 24)">
-        <path d="M6 34L14 8l10 6" fill="none" className="stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="2.5" strokeLinecap="round" />
-        <polygon points="20,10 32,2 26,20" className="fill-amber-400 stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="1.5" />
-        {/* Cone light beam */}
-        <path d="M26 20L8 50h-16L20 10" fill="none" className="stroke-amber-300/60 dark:stroke-amber-400/30" strokeWidth="1" strokeDasharray="3 3" />
-      </g>
-    </g>
-  ),
-
-  'exam-countdown': (
-    <g className="illustration-exam-countdown">
-      {/* Background glow */}
-      <circle cx="60" cy="60" r="48" className="fill-indigo-50/80 dark:fill-indigo-950/30" />
-
-      {/* Hourglass */}
-      <g transform="translate(42 26)">
-        <path d="M6 4h24M6 60h24" className="stroke-neutral-800 dark:stroke-neutral-200" strokeWidth="3" strokeLinecap="round" />
-        <path
-          d="M8 4l10 28L8 60h20l-10-28L28 4H8z"
-          className="fill-white dark:fill-neutral-900 stroke-neutral-800 dark:stroke-neutral-200"
-          strokeWidth="2"
-          strokeLinejoin="round"
-        />
-        {/* Falling golden sand */}
-        <polygon points="12,12 24,12 18,24" className="fill-amber-400" />
-        <polygon points="14,54 22,54 18,44" className="fill-amber-400" />
-        <line x1="18" y1="24" x2="18" y2="44" className="stroke-amber-400" strokeWidth="1.5" strokeDasharray="2 2" />
-      </g>
-
-      {/* Floating timer rings */}
-      <circle cx="86" cy="38" r="3" className="fill-indigo-500" />
-      <circle cx="30" cy="74" r="2.5" className="fill-amber-400" />
-    </g>
-  ),
-
-  'announcements-bulletin': (
-    <g className="illustration-announcements-bulletin">
-      {/* Ambient background disc */}
-      <circle cx="60" cy="60" r="48" className="fill-amber-50/70 dark:fill-amber-950/20" />
-
-      {/* Wooden cork board */}
-      <rect x="24" y="26" width="72" height="60" rx="8" className="fill-amber-100 dark:fill-neutral-900 stroke-amber-700 dark:stroke-neutral-700" strokeWidth="3" />
-
-      {/* Pinned note 1 */}
-      <g transform="translate(32 34) rotate(-6)">
-        <rect x="0" y="0" width="26" height="24" rx="2" className="fill-amber-300 dark:fill-amber-400 shadow-sm" />
-        <circle cx="13" cy="3" r="2" className="fill-rose-500" />
-        <line x1="4" y1="10" x2="22" y2="10" stroke="rgba(0,0,0,0.3)" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="4" y1="16" x2="18" y2="16" stroke="rgba(0,0,0,0.3)" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-
-      {/* Pinned note 2 */}
-      <g transform="translate(62 44) rotate(4)">
-        <rect x="0" y="0" width="24" height="30" rx="2" className="fill-white dark:fill-neutral-800 stroke-neutral-200 dark:stroke-neutral-700" strokeWidth="1.5" />
-        <circle cx="12" cy="3" r="2" className="fill-sky-500" />
-        <line x1="4" y1="12" x2="20" y2="12" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1="4" y1="18" x2="16" y2="18" className="stroke-neutral-300 dark:stroke-neutral-600" strokeWidth="1.5" strokeLinecap="round" />
-      </g>
-    </g>
-  ),
-
   'maintenance-tuning': (
     <g className="illustration-maintenance-tuning">
       {/* Background aura */}
@@ -1111,4 +399,28 @@ export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, React.ReactNode> 
       </g>
     </g>
   ),
-};
+} satisfies Partial<Record<ReillustrationName, React.ReactNode>>;
+
+type UncoveredIllustration = Exclude<
+  ReillustrationName,
+  keyof typeof FILE_ILLUSTRATIONS | keyof typeof HAND_DRAWN_ILLUSTRATIONS
+>;
+
+// Compile-time guard: every illustration name must have file or hand-drawn art.
+const _allIllustrationsCovered: UncoveredIllustration extends never ? true : never = true;
+void _allIllustrationsCovered;
+
+function buildRegistry(): Record<ReillustrationName, IllustrationEntry> {
+  const registry = {} as Record<ReillustrationName, IllustrationEntry>;
+
+  for (const [name, { src, darkSrc }] of Object.entries(FILE_ILLUSTRATIONS)) {
+    registry[name as ReillustrationName] = { kind: 'file', src, darkSrc };
+  }
+  for (const [name, node] of Object.entries(HAND_DRAWN_ILLUSTRATIONS)) {
+    registry[name as ReillustrationName] = { kind: 'svg', node };
+  }
+
+  return registry;
+}
+
+export const ILLUSTRATION_REGISTRY: Record<ReillustrationName, IllustrationEntry> = buildRegistry();

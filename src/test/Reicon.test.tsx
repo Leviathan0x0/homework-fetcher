@@ -103,12 +103,11 @@ describe('Reicon', () => {
 describe('Reillustration', () => {
   it('renders default illustration with responsive size', () => {
     const { container } = render(<Reillustration name="empty-today" size="md" />);
-    const svg = container.querySelector('svg');
+    const img = container.querySelector('img');
 
-    expect(svg).toBeInTheDocument();
-    expect(svg).toHaveAttribute('viewBox', '0 0 120 120');
-    expect(svg).toHaveAttribute('width', '140');
-    expect(svg).toHaveAttribute('height', '140');
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('width', '140');
+    expect(img).toHaveAttribute('height', '140');
   });
 
   it('renders all registered illustration names', () => {
@@ -117,27 +116,26 @@ describe('Reillustration', () => {
 
     for (const name of illustrationNames) {
       const { container, unmount } = render(<Reillustration name={name} />);
-      const svg = container.querySelector('svg');
-      expect(svg).toBeInTheDocument();
+      expect(container.querySelector('svg, img')).toBeInTheDocument();
       unmount();
     }
   });
 
   it('maps named size presets to numeric pixel sizes', () => {
     const { container: xs } = render(<Reillustration name="empty-today" size="xs" />);
-    expect(xs.querySelector('svg')).toHaveAttribute('width', '48');
+    expect(xs.querySelector('img')).toHaveAttribute('width', '48');
 
     const { container: sm } = render(<Reillustration name="empty-today" size="sm" />);
-    expect(sm.querySelector('svg')).toHaveAttribute('width', '96');
+    expect(sm.querySelector('img')).toHaveAttribute('width', '96');
 
     const { container: lg } = render(<Reillustration name="empty-today" size="lg" />);
-    expect(lg.querySelector('svg')).toHaveAttribute('width', '180');
+    expect(lg.querySelector('img')).toHaveAttribute('width', '180');
 
     const { container: xl } = render(<Reillustration name="empty-today" size="xl" />);
-    expect(xl.querySelector('svg')).toHaveAttribute('width', '240');
+    expect(xl.querySelector('img')).toHaveAttribute('width', '240');
 
     const { container: custom } = render(<Reillustration name="empty-today" size={160} />);
-    expect(custom.querySelector('svg')).toHaveAttribute('width', '160');
+    expect(custom.querySelector('img')).toHaveAttribute('width', '160');
   });
 
   it('supports accessible labels on illustrations', () => {

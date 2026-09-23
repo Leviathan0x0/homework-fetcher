@@ -5,7 +5,7 @@ import { LoadingState } from "./LoadingState";
 import { leaveService } from "../services/api";
 
 
-const inputClass = "h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-950";
+const inputClass = "h-10 w-full rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950";
 const REASON_OPTIONS = [
   "Illness",
   "Medical appointment",
@@ -93,7 +93,7 @@ export const LeaveView: React.FC = () => {
                 <p className="text-[11px] text-neutral-400 mt-0.5">Submit your first request using the form.</p>
               </div>
             ) : (
-              <div className="space-y-2">{requests.map((request) => <div key={request.id} className="rounded-xl border border-neutral-100 p-3 dark:border-neutral-800"><div className="flex items-center justify-between gap-3"><p className="text-xs font-medium">{request.fromDate} → {request.toDate}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${request.status === "approved" ? "bg-emerald-100 text-emerald-700" : request.status === "rejected" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>{request.status}</span></div><p className="mt-1 text-xs text-neutral-500">{request.reason}</p>{request.reviewerNote && <p className="mt-2 text-[11px] text-neutral-400">Teacher note: {request.reviewerNote}</p>}</div>)}</div>
+              <div className="space-y-2">{requests.map((request) => <div key={request.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-800"><div className="flex items-center justify-between gap-3"><p className="text-xs font-medium">{request.fromDate} → {request.toDate}</p><span className={`rounded-full px-2 py-1 text-[10px] font-semibold capitalize ${request.status === "approved" ? "bg-emerald-100 text-emerald-700" : request.status === "rejected" ? "bg-rose-100 text-rose-700" : "bg-amber-100 text-amber-700"}`}>{request.status}</span></div><p className="mt-1 text-xs text-neutral-500">{request.reason}</p>{request.reviewerNote && <p className="mt-2 text-[11px] text-neutral-400">Teacher note: {request.reviewerNote}</p>}</div>)}</div>
             )}
           </section>
         </div>

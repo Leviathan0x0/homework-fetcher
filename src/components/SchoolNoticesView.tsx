@@ -89,7 +89,7 @@ function NoticeCard({
       </div>
 
       {attachments.length > 0 && (
-        <div className="border-t border-neutral-100 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
+        <div className="border-t border-neutral-200 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
           <div className="divide-y divide-neutral-100 dark:divide-neutral-800/80">
             {attachments.map((attachment, index) => {
               const name = attachment.name || `Attachment ${index + 1}`;

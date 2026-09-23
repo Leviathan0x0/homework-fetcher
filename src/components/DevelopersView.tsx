@@ -102,7 +102,7 @@ export const DevelopersView: React.FC = () => {
       </motion.section>
 
       <section
-        className="grid border-b border-neutral-200/80 dark:border-neutral-800/80 md:grid-cols-2 md:divide-x md:divide-neutral-200/80 md:dark:divide-neutral-800/80"
+        className="grid border-b border-neutral-200/80 dark:border-neutral-800/80 md:grid-cols-2 md:divide-x md:divide-neutral-100/80 md:dark:divide-neutral-800/80"
         aria-label="Equal contributors"
       >
         {DEVELOPERS.map((dev, index) => (

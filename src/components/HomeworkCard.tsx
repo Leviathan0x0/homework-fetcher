@@ -78,7 +78,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   };
 
   const noteArea = isEditingNote ? (
-    <div className="relative animate-in fade-in-0 slide-in-from-top-1 rounded-xl border border-neutral-300 bg-white p-2.5 shadow-2xs transition-[border-color,box-shadow] duration-200 focus-within:ring-1 focus-within:ring-neutral-400 dark:border-neutral-700/80 dark:bg-[#121215] dark:focus-within:ring-neutral-600">
+    <div className="relative animate-in fade-in-0 slide-in-from-top-1 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-2xs transition-[border-color,box-shadow] duration-200 focus-within:ring-1 focus-within:ring-neutral-400 dark:border-neutral-700/80 dark:bg-[#121215] dark:focus-within:ring-neutral-600">
       <textarea
         value={noteText}
         onChange={(e) => setNoteText(e.target.value)}
@@ -88,7 +88,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         className="w-full resize-none bg-transparent text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-100 dark:placeholder:text-neutral-500"
       />
 
-      <div className="mt-1 flex items-center justify-between border-t border-neutral-100 pt-2 dark:border-neutral-800/80">
+      <div className="mt-1 flex items-center justify-between border-t border-neutral-200 pt-2 dark:border-neutral-800/80">
         {item.note ? (
           <button
             type="button"
@@ -192,7 +192,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                   'w-5 h-5 rounded-lg border flex items-center justify-center transition-colors duration-200 cursor-pointer shrink-0 touch-manipulation',
                   isCompleted
                     ? 'bg-neutral-900 border-neutral-900 text-white dark:bg-white dark:border-white dark:text-neutral-900 shadow-2xs'
-                    : 'border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 bg-transparent'
+                    : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-500 bg-transparent'
                 )}
                 title={isCompleted ? 'Mark as pending' : 'Mark as done'}
               >
@@ -280,14 +280,14 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
         </div>
 
         {!hasAttachment && (
-          <div className="mt-2.5 border-t border-neutral-100 pt-2 dark:border-neutral-800/60">
+          <div className="mt-2.5 border-t border-neutral-200 pt-2 dark:border-neutral-800/60">
             {noteArea}
           </div>
         )}
       </div>
 
       {hasAttachment && item.attachment && (
-        <div className="border-t border-neutral-100 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
+        <div className="border-t border-neutral-200 px-3.5 py-2 dark:border-neutral-800/80 sm:px-4">
           <div className="space-y-1">
             {noteArea}
             <AttachmentPreviewRow

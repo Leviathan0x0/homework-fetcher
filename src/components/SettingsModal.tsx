@@ -229,7 +229,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       {/* Section 2: Profile picture and display name shown to other students */}
-      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
           Profile picture
         </h3>
@@ -277,7 +277,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         {pictureSaved && !pictureError && <p className="text-xs text-emerald-600 dark:text-emerald-400">Profile picture updated.</p>}
       </div>
 
-      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
           Your name in messages
         </h3>
@@ -309,7 +309,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       {/* Section 3: PWA Installation App Option */}
-      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
@@ -318,7 +318,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div>
               <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
                 <span>Install Application</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-300/60 dark:border-neutral-700/60">PWA</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700/60">PWA</span>
               </div>
               <div className="text-xs text-neutral-500 dark:text-neutral-400">
                 {isInstalled
@@ -350,7 +350,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       {/* Section 4: Appearance Theme */}
-      <div className="space-y-3 pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
         <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
           Appearance
         </h3>
@@ -374,7 +374,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       </div>
 
       {/* Section 5: App Identity & Security Info */}
-      <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
+      <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
         <span className="flex items-center gap-1.5 group/sec">
           <Reicon name="shield-check" size={16} preset="scale" className="w-4 h-4 text-emerald-500" />
           <span>Secure HTTP-only session</span>
@@ -384,7 +384,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
       {/* Footer Actions */}
       {onDone && (
-        <div className="flex items-center justify-end pt-4 border-t border-neutral-100 dark:border-neutral-800/80">
+        <div className="flex items-center justify-end pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
           <button
             type="button"
             onClick={onDone}

@@ -8,9 +8,9 @@ const THEME_STORAGE_KEY = 'theme';
 function getSavedTheme(): ThemeMode {
   try {
     const saved = localStorage.getItem(THEME_STORAGE_KEY);
-    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+    return saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'light';
   } catch {
-    return 'system';
+    return 'light';
   }
 }
 

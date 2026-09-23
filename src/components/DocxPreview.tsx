@@ -51,7 +51,7 @@ function DocumentBlock({ block }: { block: DocxBlock }) {
           {block.rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
               {row.map((cell, cellIndex) => (
-                <td key={cellIndex} className="border border-neutral-300 px-3 py-2 align-top">
+                <td key={cellIndex} className="border border-neutral-200 px-3 py-2 align-top">
                   {cell.map((paragraph, paragraphIndex) => (
                     <Paragraph key={paragraphIndex} paragraph={paragraph} />
                   ))}

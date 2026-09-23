@@ -122,7 +122,7 @@ export const ReconnectSchoolDialog: React.FC<ReconnectSchoolDialogProps> = ({
               className={cn(
                 'h-11 w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900/60 pl-10 pr-11 text-sm',
                 'text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 outline-none transition-colors duration-150',
-                'focus:border-neutral-400 dark:focus:border-neutral-600 focus:bg-white dark:focus:bg-neutral-900',
+                'focus:border-neutral-300 dark:focus:border-neutral-600 focus:bg-white dark:focus:bg-neutral-900',
                 'disabled:opacity-50'
               )}
             />

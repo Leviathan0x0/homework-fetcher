@@ -5,7 +5,7 @@
     const saved = localStorage.getItem('theme');
     const preference = saved === 'light' || saved === 'dark' || saved === 'system'
       ? saved
-      : 'system';
+      : 'light';
     const resolved = preference === 'system'
       ? (systemIsDark() ? 'dark' : 'light')
       : preference;
@@ -18,6 +18,7 @@
       resolved === 'dark' ? '#09090b' : '#fafafa'
     );
   } catch {
-    document.documentElement.classList.toggle('dark', systemIsDark());
+    document.documentElement.classList.remove('dark');
+    document.documentElement.style.colorScheme = 'light';
   }
 })();

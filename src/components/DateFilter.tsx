@@ -21,7 +21,7 @@ export const DateFilter: React.FC<DateFilterProps> = ({ value, onChange }) => {
     <div className="relative flex items-center w-full sm:w-auto group/datefilter">
       <div
         onClick={handleOpenPicker}
-        className="relative flex items-center bg-white dark:bg-[#18181b] border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 sm:px-2.5 h-10 sm:h-9 w-full sm:w-auto transition-all duration-200 focus-within:border-neutral-400 dark:focus-within:border-neutral-600 focus-within:ring-2 focus-within:ring-neutral-400/20 cursor-pointer"
+        className="relative flex items-center bg-white dark:bg-[#18181b] border border-neutral-200 dark:border-neutral-800 rounded-lg px-3 sm:px-2.5 h-10 sm:h-9 w-full sm:w-auto transition-all duration-200 focus-within:border-neutral-300 dark:focus-within:border-neutral-600 focus-within:ring-2 focus-within:ring-neutral-400/20 cursor-pointer"
       >
         <Reicon name="calendar" size={16} className="text-neutral-400 mr-2 shrink-0 pointer-events-none" />
         <input

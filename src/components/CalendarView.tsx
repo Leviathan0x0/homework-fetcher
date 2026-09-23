@@ -338,7 +338,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 ))}
               </div>
 
-              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-100 px-0.5 pt-3 text-[10px] font-medium text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+              <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-neutral-200 px-0.5 pt-3 text-[10px] font-medium text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
                 <span className="inline-flex items-center gap-1.5 text-rose-600 dark:text-rose-300">
                   <span className="size-1.5 rounded-full bg-rose-500" /> Holiday
                 </span>

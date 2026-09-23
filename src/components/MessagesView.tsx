@@ -1111,7 +1111,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             value={searchQuery}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder="Find by name or student ID"
-            className="w-full text-[13px] h-9 pl-9 pr-8 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600"
+            className="w-full text-[13px] h-9 pl-9 pr-8 rounded-lg border border-neutral-200/80 dark:border-neutral-800 bg-white dark:bg-[#141417] text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 focus:outline-none focus:border-neutral-300 dark:focus:border-neutral-600"
           />
           {searchQuery && (
             <button
@@ -1623,7 +1623,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                           "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 not-italic opacity-90",
                           isMine
                             ? "border-white/35 dark:border-black/30"
-                            : "border-neutral-300 dark:border-neutral-700"
+                            : "border-neutral-200 dark:border-neutral-700"
                         )}>
                           <div className="font-medium flex items-center gap-1">
                             <Reicon name="heart-handshake" size={12} className="shrink-0 opacity-80" />
@@ -1648,7 +1648,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
                           "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 italic opacity-70",
                           isMine
                             ? "border-white/30 dark:border-black/30"
-                            : "border-neutral-300 dark:border-neutral-700"
+                            : "border-neutral-200 dark:border-neutral-700"
                         )}>
                           <div className="font-medium">{m.replyTo.senderName || 'User'}</div>
                           <div className="line-clamp-2">{m.replyTo.content || '[attachment]'}</div>
@@ -1937,7 +1937,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       {showMembers && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl bg-white dark:bg-[#141417] border border-neutral-200 dark:border-neutral-800 shadow-2xl max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-neutral-100 dark:border-neutral-800 shrink-0">
+            <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 border-b border-neutral-200 dark:border-neutral-800 shrink-0">
               <div className="min-w-0">
                 <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
                   {classGroupLabel(activeConv?.section || userSection)}

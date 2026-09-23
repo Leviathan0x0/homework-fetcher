@@ -506,7 +506,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-neutral-200 py-8 text-center text-xs text-neutral-400 dark:border-neutral-800">No recent activity.</div>
+                <div className="rounded-xl border border-dashed border-neutral-300 py-8 text-center text-xs text-neutral-400 dark:border-neutral-800">No recent activity.</div>
               )}
             </section>
           </div>
@@ -524,7 +524,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
                 placeholder="Search registered ID or display name..."
-                className="h-9 w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 pl-9 pr-3 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 outline-none focus:border-neutral-400"
+                className="h-9 w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 pl-9 pr-3 text-xs text-neutral-900 dark:text-white placeholder:text-neutral-400 outline-none focus:border-neutral-300"
               />
             </div>
 
@@ -634,11 +634,11 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
             {teachersLoadState === 'loading' ? (
               <DirectoryLoading label="Loading teachers..." />
             ) : teachersLoadState === 'error' && teachers.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-neutral-200 p-6 text-center text-xs text-neutral-400 dark:border-neutral-800">
+              <div className="rounded-xl border border-dashed border-neutral-300 p-6 text-center text-xs text-neutral-400 dark:border-neutral-800">
                 Teacher accounts could not be loaded. Try refreshing.
               </div>
             ) : teachers.length === 0 ? (
-              <div className="p-6 text-center text-xs text-neutral-400 border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+              <div className="p-6 text-center text-xs text-neutral-400 border border-dashed border-neutral-300 dark:border-neutral-800 rounded-xl">
                 No teacher accounts registered in the database yet. When faculty members log in, their accounts will appear here automatically.
               </div>
             ) : (
@@ -768,7 +768,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
             </section>
 
             <section className="overflow-hidden rounded-2xl border border-neutral-200/80 bg-white shadow-2xs dark:border-neutral-800 dark:bg-[#0c0c0e]">
-              <div className="flex items-start justify-between gap-3 border-b border-neutral-100 p-4 dark:border-neutral-800">
+              <div className="flex items-start justify-between gap-3 border-b border-neutral-200 p-4 dark:border-neutral-800">
                 <div>
                   <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">Active mutes</h3>
                   <p className="mt-1 text-[11px] text-neutral-500">Accounts currently unable to post.</p>
@@ -822,7 +822,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                 </p>
               </div>
               {pendingClasswork.length === 0 ? (
-                <p className="text-xs text-neutral-400 py-4 text-center border border-dashed border-neutral-200 dark:border-neutral-800 rounded-xl">
+                <p className="text-xs text-neutral-400 py-4 text-center border border-dashed border-neutral-300 dark:border-neutral-800 rounded-xl">
                   No pending classwork uploads.
                 </p>
               ) : (
@@ -882,7 +882,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                   value={newAlertTitle}
                   onChange={(e) => setNewAlertTitle(e.target.value)}
                   placeholder="e.g. Timetable Adjustment"
-                  className="h-9 w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-400"
+                  className="h-9 w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 px-3 text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-300"
                   required
                 />
               </div>
@@ -894,7 +894,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
                   onChange={(e) => setNewAlertMessage(e.target.value)}
                   placeholder="Write clear instructions..."
                   rows={3}
-                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-3 text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-400"
+                  className="w-full rounded-xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 p-3 text-xs text-neutral-900 dark:text-white outline-none focus:border-neutral-300"
                   required
                 />
               </div>

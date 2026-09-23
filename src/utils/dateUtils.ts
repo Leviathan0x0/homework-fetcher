@@ -146,6 +146,9 @@ export function isTodayDate(dateStr?: string | null): boolean {
 /** How many homework entries the Recent timeline shows, no matter their date. */
 export const RECENT_HOMEWORK_LIMIT = 5;
 
+/** How many calendar days (including today) the Recent tab covers. */
+export const RECENT_HOMEWORK_WINDOW_DAYS = 7;
+
 /**
  * Returns the N most recent homework entries (newest first), regardless of how
  * old they are. Entries with unparseable dates sort oldest but still count.
@@ -160,6 +163,38 @@ export function selectRecentHomework<T extends HomeworkEntry>(
     .map((entry) => ({ entry, time: parseHomeworkDate(entry?.date)?.getTime() ?? 0 }))
     .sort((a, b) => b.time - a.time)
     .slice(0, Math.max(0, count))
+    .map(({ entry }) => entry);
+}
+
+/**
+ * Returns homework dated within the trailing `windowDays` calendar days
+ * (including today), newest first. Only looks backward: entries dated after
+ * today or with unparseable dates are excluded.
+ */
+export function selectHomeworkFromLastDays<T extends HomeworkEntry>(
+  entries: T[],
+  windowDays: number = RECENT_HOMEWORK_WINDOW_DAYS,
+): T[] {
+  if (!Array.isArray(entries) || entries.length === 0) return [];
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const windowStart = new Date(todayStart);
+  windowStart.setDate(windowStart.getDate() - (Math.max(1, windowDays) - 1));
+  const windowStartMs = windowStart.getTime();
+  const todayStartMs = todayStart.getTime();
+
+  return entries
+    .filter(Boolean)
+    .map((entry) => {
+      const time = parseHomeworkDate(entry?.date)?.getTime();
+      return { entry, time };
+    })
+    .filter(
+      (item): item is { entry: T; time: number } =>
+        item.time !== undefined && item.time >= windowStartMs && item.time <= todayStartMs,
+    )
+    .sort((a, b) => b.time - a.time)
     .map(({ entry }) => entry);
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { HomeworkEntry } from '../types/homework';
-import { selectRecentHomework } from '../utils/dateUtils';
+import { selectHomeworkFromLastDays } from '../utils/dateUtils';
 import { detectSubject } from '../utils/subjectDetector';
 import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
@@ -39,7 +39,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
   const validHomework = useMemo(() => (Array.isArray(homework) ? homework.filter(Boolean) : []), [homework]);
 
   const recentAllEntries = useMemo(() => {
-    return selectRecentHomework(validHomework);
+    return selectHomeworkFromLastDays(validHomework);
   }, [validHomework]);
 
   // Extract unique subjects
@@ -81,7 +81,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
     <div className="space-y-6">
       <PageHeader
         title="Recent homework"
-        description="Your 5 most recent assignments"
+        description="Homework from the last 7 days"
         actions={<RefreshButton onRefresh={() => onRefresh(true)} isRefreshing={isLoading || isRefreshing} />}
       />
 
@@ -95,7 +95,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
       {isContentLoading ? (
         <LoadingSkeleton label="Loading recent homework…" />
       ) : grouped.length === 0 ? (
-        <EmptyState type="recent" title="No recent homework" subtitle="There are no homework assignments matching your filter among the last 5 entries." />
+        <EmptyState type="recent" title="No recent homework" subtitle="There are no homework assignments matching your filter in the last 7 days." />
       ) : (
         <div className="space-y-8 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {grouped.map((group, gIdx) => (

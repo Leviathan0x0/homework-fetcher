@@ -3,6 +3,7 @@ import {
   parseHomeworkDate,
   isTodayDate,
   selectRecentHomework,
+  selectHomeworkFromLastDays,
   sortHomeworkNewestFirst,
   formatToISODate,
   formatRelativeDateHeader,
@@ -192,6 +193,58 @@ describe('dateUtils - selectRecentHomework', () => {
     const recent = selectRecentHomework(entries);
     expect(recent.map((e) => e.id)).toEqual(['b', 'a']);
     expect(selectRecentHomework([])).toEqual([]);
+  });
+});
+
+describe('dateUtils - selectHomeworkFromLastDays', () => {
+  const entry = (id: string, date: string): HomeworkEntry => ({
+    id, date, type: 'Homework', homework: `Homework ${id}`, attachment: null,
+  });
+
+  const ymd = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  it('keeps only entries from the last 7 days including today', () => {
+    const entries: HomeworkEntry[] = [
+      entry('today', ymd(0)),
+      entry('two-days-ago', ymd(-2)),
+      entry('six-days-ago', ymd(-6)),
+      entry('seven-days-ago', ymd(-7)),
+      entry('old', '01 Jan 2026'),
+    ];
+
+    const recent = selectHomeworkFromLastDays(entries);
+    expect(recent.map((e) => e.id)).toEqual(['today', 'two-days-ago', 'six-days-ago']);
+  });
+
+  it('does not cap the count when more than 5 entries fall in the window', () => {
+    const entries: HomeworkEntry[] = [
+      entry('d0', ymd(0)),
+      entry('d1', ymd(-1)),
+      entry('d2', ymd(-2)),
+      entry('d3', ymd(-3)),
+      entry('d4', ymd(-4)),
+      entry('d5', ymd(-5)),
+    ];
+
+    const recent = selectHomeworkFromLastDays(entries);
+    expect(recent).toHaveLength(6);
+    expect(recent.map((e) => e.id)).toEqual(['d0', 'd1', 'd2', 'd3', 'd4', 'd5']);
+  });
+
+  it('excludes future and unparseable dates', () => {
+    const entries: HomeworkEntry[] = [
+      entry('tomorrow', ymd(1)),
+      entry('broken', 'not a date'),
+      entry('today', ymd(0)),
+    ];
+
+    const recent = selectHomeworkFromLastDays(entries);
+    expect(recent.map((e) => e.id)).toEqual(['today']);
+    expect(selectHomeworkFromLastDays([])).toEqual([]);
   });
 });
 

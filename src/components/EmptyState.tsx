@@ -37,7 +37,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     defaultIllustration = 'empty-today';
   } else if (type === 'recent') {
     defaultTitle = 'No recent homework';
-    defaultSubtitle = 'There are no homework assignments among the last 5 entries.';
+    defaultSubtitle = 'There are no homework assignments in the last 7 days.';
     defaultIllustration = 'empty-recent';
   } else if (type === 'attachments') {
     defaultTitle = 'No attachments found';
@@ -67,7 +67,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
     <div
       className={
         className ||
-        'flex flex-col items-center justify-center text-center px-6 py-12 sm:py-14 bg-white/60 dark:bg-[#18181b]/50 border border-dashed border-neutral-200 dark:border-neutral-800 rounded-3xl'
+        'flex flex-col items-center justify-center text-center px-6 py-12 sm:py-14 bg-white/60 dark:bg-[#18181b]/50 border border-dashed border-neutral-300 dark:border-neutral-800 rounded-3xl'
       }
     >
       {icon ? (

@@ -427,6 +427,23 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                   />
                 </div>
 
+                {item.isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deletingId === item.id}
+                    className="absolute right-4 top-4 z-10 flex size-8 items-center justify-center rounded-full border border-neutral-200/80 bg-white/90 text-rose-500 shadow-sm backdrop-blur-sm transition-all hover:border-rose-200 hover:bg-white hover:text-rose-600 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 dark:border-neutral-700 dark:bg-neutral-900/90 dark:hover:border-rose-800 dark:hover:bg-neutral-900 dark:hover:text-rose-400"
+                    aria-label={`Delete ${displayTitle}`}
+                    title="Delete Upload"
+                  >
+                    {deletingId === item.id ? (
+                      <Ring className="size-3.5" />
+                    ) : (
+                      <Reicon name="trash-2" size={15} />
+                    )}
+                  </button>
+                )}
+
                 <div className="mt-4 w-full max-w-[220px] text-center">
                   <h4
                     className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 leading-snug truncate"
@@ -457,21 +474,6 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
                     <span className="text-[11px] text-neutral-300 dark:text-neutral-600 tabular-nums">
                       {formatFileSize(item.fileSize)}
                     </span>
-
-                    {item.isOwner && (
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        disabled={deletingId === item.id}
-                        className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer disabled:opacity-50"
-                        title="Delete Upload"
-                      >
-                        {deletingId === item.id ? (
-                          <Ring className="size-3.5" />
-                        ) : (
-                          <Reicon name="trash-2" size={14} />
-                        )}
-                      </button>
-                    )}
                   </div>
                 </div>
               </div>

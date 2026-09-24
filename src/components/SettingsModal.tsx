@@ -8,31 +8,86 @@ import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { AutoRefreshMinutes } from '../utils/appPreferences';
+
+export type SettingsSection = 'profile' | 'account' | 'preferences' | 'appearance' | 'app';
 
 interface SettingsPanelProps {
   user: UserAccount | null;
   onLogout: () => void;
   onUserChange?: (user: UserAccount) => void;
   sessionStatus: SessionStatus;
-  /** True when the school portal ended its session but the app login is fine. */
   schoolSessionExpired?: boolean;
   onReconnect?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
-  /** Renders the closing action. Omitted when settings are a page of their own. */
-  onDone?: () => void;
+  autoRefreshMinutes?: AutoRefreshMinutes;
+  onAutoRefreshChange?: (minutes: AutoRefreshMinutes) => void;
+  inAppNotifications?: boolean;
+  onInAppNotificationsChange?: (enabled: boolean) => void;
+  section: SettingsSection;
   className?: string;
 }
 
-interface SettingsModalProps extends Omit<SettingsPanelProps, 'onDone' | 'className'> {
-  isOpen: boolean;
-  onClose: () => void;
+interface SettingsCardProps {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
 }
 
-/**
- * The settings form itself, shared by the desktop modal and the mobile page so
- * both surfaces stay in sync.
- */
+function SettingsCard({ title, description, icon, children, className }: SettingsCardProps) {
+  return (
+    <section
+      className={cn(
+        'rounded-2xl border border-neutral-200/80 bg-white p-5 shadow-2xs sm:p-6 dark:border-neutral-800/80 dark:bg-[#111114]',
+        className
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{title}</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">{description}</p>
+        </div>
+      </div>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
+
+interface ToggleProps {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+}
+
+function Toggle({ checked, onCheckedChange, label }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onCheckedChange(!checked)}
+      className={cn(
+        'relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-600/50 dark:focus-visible:ring-offset-[#111114]',
+        checked ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-700'
+      )}
+    >
+      <span
+        className={cn(
+          'size-5 rounded-full bg-white shadow-sm transition-transform duration-200 dark:bg-neutral-900',
+          checked ? 'translate-x-4' : 'translate-x-0'
+        )}
+      />
+    </button>
+  );
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   user,
   onLogout,
@@ -42,7 +97,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onReconnect,
   theme,
   onThemeChange,
-  onDone,
+  autoRefreshMinutes = 2,
+  onAutoRefreshChange,
+  inAppNotifications = true,
+  onInAppNotificationsChange,
+  section,
   className,
 }) => {
   const [nameDraft, setNameDraft] = useState(user?.displayName || '');
@@ -53,7 +112,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [pictureError, setPictureError] = useState<string | null>(null);
   const [pictureSaved, setPictureSaved] = useState(false);
   const pictureInputRef = useRef<HTMLInputElement>(null);
-
   const { canInstall, isInstalled, isChecking, supportsInstallPrompt, install } = usePWAInstall();
   const [isInstalling, setIsInstalling] = useState(false);
   const [showPasswordHelp, setShowPasswordHelp] = useState(false);
@@ -88,11 +146,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     } finally {
       setSavingName(false);
     }
-  };
-
-  const handleSignOut = () => {
-    onLogout();
-    onDone?.();
   };
 
   const handlePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,260 +192,339 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }
   };
 
+  const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin');
+  const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
+  const hasSchoolPortal = !isAdmin && !isTeacher;
+  const hasActiveSession = sessionStatus === 'connected' && !schoolSessionExpired;
+  const connectionLabel = hasSchoolPortal
+    ? schoolSessionExpired
+      ? 'School portal disconnected'
+      : hasActiveSession
+        ? 'School session active'
+        : 'School session expired'
+    : hasActiveSession
+      ? 'Account active'
+      : 'Account session unavailable';
+
   return (
-    <div className={cn('p-5 sm:p-6 space-y-6', className)}>
-      {/* Section 1: User Account & Session Status */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-            School account
-          </h3>
-          <div className="flex items-center gap-1.5 text-xs">
-            {schoolSessionExpired ? (
-              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <Reicon name="alert-triangle" size={14} /> School portal disconnected
-              </span>
-            ) : sessionStatus === 'connected' ? (
-              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                <Reicon name="circle-check" size={14} /> Session active
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                <Reicon name="alert-triangle" size={14} /> Session expired
-              </span>
+    <div className={cn('mx-auto w-full max-w-3xl', className)}>
+      {section === 'profile' && (
+      <SettingsCard
+        title="Your profile"
+        description="Choose how you appear to classmates and how your photo is handled."
+        icon={<Reicon name="user" size={17} />}
+        className="lg:col-span-2"
+      >
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <ProfileAvatar
+            src={user?.profilePictureUrl}
+            name={user?.displayName || user?.studentId}
+            className="size-20 shrink-0 text-lg sm:size-24 sm:text-xl"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-base font-semibold tracking-tight text-neutral-950 dark:text-neutral-50">
+                  {user?.displayName || 'Your profile'}
+                </p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Student ID {user?.studentId || '—'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={pictureInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handlePictureChange}
+                />
+                <button
+                  type="button"
+                  disabled={pictureBusy}
+                  onClick={() => pictureInputRef.current?.click()}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
+                >
+                  <Reicon name="upload" size={14} className="size-3.5" />
+                  {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
+                </button>
+                {user?.profilePictureUrl && (
+                  <button
+                    type="button"
+                    disabled={pictureBusy}
+                    onClick={handleRemovePicture}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:border-rose-900 dark:hover:text-rose-400"
+                  >
+                    <Reicon name="trash-2" size={14} className="size-3.5" /> Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Use a clear, school-appropriate photo. Uploads are checked for unsafe content before they are saved.
+            </p>
+            {(pictureError || pictureSaved) && (
+              <p
+                className={cn(
+                  'mt-2 text-xs',
+                  pictureError ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                )}
+                aria-live="polite"
+              >
+                {pictureError || 'Profile photo updated.'}
+              </p>
             )}
           </div>
         </div>
 
-        <div className="p-4 rounded-xl bg-neutral-50 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <ProfileAvatar
-                src={user?.profilePictureUrl}
-                name={user?.displayName || user?.studentId}
-                className="size-9"
-              />
-              <div>
-                <div className="text-xs text-neutral-400 dark:text-neutral-500 font-medium">Student ID</div>
-                <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                  {user?.studentId || 'Authenticated'}
-                </div>
-              </div>
-            </div>
-
+        <div className="mt-5 border-t border-neutral-200/80 pt-5 dark:border-neutral-800/80">
+          <label htmlFor="settings-display-name" className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+            Name in messages
+          </label>
+          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            Classmates will see this instead of your student ID.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="settings-display-name"
+              type="text"
+              value={nameDraft}
+              onChange={(event) => setNameDraft(event.target.value)}
+              placeholder="e.g. Aarav Sharma"
+              maxLength={40}
+              className="min-h-10 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-400/15 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-600 dark:focus:bg-neutral-900"
+            />
             <button
               type="button"
-              onClick={handleSignOut}
-              className="group/logout inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer active:scale-95"
+              onClick={handleSaveName}
+              disabled={savingName || !nameDraft.trim() || nameDraft.trim() === (user?.displayName || '')}
+              className="min-h-10 rounded-xl border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 transition hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
             >
-              <Reicon name="logout" size={14} preset="lift" className="w-3.5 h-3.5" />
-              <span>Sign out</span>
+              {savingName ? 'Saving…' : 'Save name'}
             </button>
           </div>
-
-          {schoolSessionExpired && onReconnect && (
-            <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800 space-y-2.5">
-              <p className="text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
-                The school portal ended its own session, so new homework has stopped arriving. You
-                are still signed in here - reconnect with your school password to start it again.
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  onDone?.();
-                  onReconnect();
-                }}
-                className="group/reconnect inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition-colors duration-150 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
-              >
-                <Reicon name="key" size={14} preset="scale" className="w-3.5 h-3.5" />
-                <span>Reconnect to school portal</span>
-              </button>
-            </div>
-          )}
-
-          <div className="pt-3 border-t border-neutral-200/80 dark:border-neutral-800">
-            <button
-              type="button"
-              onClick={() => setShowPasswordHelp(true)}
-              className="group/password inline-flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-neutral-100/80 dark:hover:bg-neutral-800/60 cursor-pointer"
-            >
-              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
-                <Reicon name="key" size={14} className="h-3.5 w-3.5 text-neutral-500" />
-                Forgot or change password
-              </span>
-              <span className="text-[11px] text-neutral-400 dark:text-neutral-500">
-                Via school office
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Section 2: Profile picture and display name shown to other students */}
-      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Profile picture
-        </h3>
-        <div className="flex items-center gap-3">
-          <ProfileAvatar
-            src={user?.profilePictureUrl}
-            name={user?.displayName || user?.studentId}
-            className="size-14 text-sm"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-              Use a clear, school-appropriate photo. Every upload is checked for NSFW, violence, hate, and other unsafe content before it is saved.
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <input
-                ref={pictureInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={handlePictureChange}
-              />
-              <button
-                type="button"
-                disabled={pictureBusy}
-                onClick={() => pictureInputRef.current?.click()}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-              >
-                <Reicon name="upload" size={14} preset="lift" className="size-3.5" />
-                {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
-              </button>
-              {user?.profilePictureUrl && (
-                <button
-                  type="button"
-                  disabled={pictureBusy}
-                  onClick={handleRemovePicture}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:border-rose-900 dark:hover:text-rose-400"
-                >
-                  <Reicon name="trash-2" size={14} className="size-3.5" /> Remove
-                </button>
+          {(nameError || nameSaved) && (
+            <p
+              className={cn(
+                'mt-2 text-xs',
+                nameError ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
               )}
-            </div>
-          </div>
+              aria-live="polite"
+            >
+              {nameError || 'Saved. Classmates now see this name.'}
+            </p>
+          )}
         </div>
-        {pictureError && <p className="text-xs text-rose-600 dark:text-rose-400">{pictureError}</p>}
-        {pictureSaved && !pictureError && <p className="text-xs text-emerald-600 dark:text-emerald-400">Profile picture updated.</p>}
-      </div>
+      </SettingsCard>
+      )}
 
-      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Your name in messages
-        </h3>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Classmates see this name instead of your student ID when they search for you or chat with you.
-        </p>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            placeholder="e.g. Aarav Sharma"
-            maxLength={40}
-            className="flex-1 text-sm h-9 px-3 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-1 focus:ring-neutral-400"
-          />
+      {section === 'account' && (
+      <SettingsCard
+        title={hasSchoolPortal ? 'School connection' : 'Account access'}
+        description={hasSchoolPortal
+          ? 'Keep your homework connection healthy and manage your session.'
+          : 'Manage access to your MMSS Mohali account.'}
+        icon={<Reicon name={hasSchoolPortal ? 'key' : 'shield-check'} size={17} />}
+      >
+        <div
+          className={cn(
+            'rounded-xl border p-4',
+            hasActiveSession
+              ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/60 dark:bg-emerald-950/20'
+              : 'border-amber-200/80 bg-amber-50/70 dark:border-amber-900/60 dark:bg-amber-950/20'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <Reicon
+              name={hasActiveSession ? 'circle-check' : 'alert-triangle'}
+              size={16}
+              className={hasActiveSession ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}
+            />
+            <p className="text-xs font-semibold text-neutral-900 dark:text-neutral-100">{connectionLabel}</p>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-neutral-600 dark:text-neutral-400">
+            {hasSchoolPortal
+              ? 'Your school session lets MMSS fetch homework and classwork. Your app sign-in stays active if the school session expires.'
+              : 'Your role and account permissions are managed by the MMSS Mohali system.'}
+          </p>
+        </div>
+
+        {hasSchoolPortal && schoolSessionExpired && onReconnect && (
           <button
             type="button"
-            onClick={handleSaveName}
-            disabled={savingName || !nameDraft.trim() || nameDraft.trim() === (user?.displayName || '')}
-            className="px-3 h-9 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold disabled:opacity-40 cursor-pointer active:scale-95 transition-transform"
+            onClick={onReconnect}
+            className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-3 text-xs font-semibold text-white transition hover:bg-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
           >
-            {savingName ? 'Saving…' : 'Save'}
+            <Reicon name="key" size={15} /> Reconnect school portal
           </button>
-        </div>
-        {nameError && <p className="text-xs text-rose-600 dark:text-rose-400">{nameError}</p>}
-        {nameSaved && !nameError && (
-          <p className="text-xs text-emerald-600 dark:text-emerald-400">Saved. Classmates now see this name.</p>
         )}
-      </div>
 
-      {/* Section 3: PWA Installation App Option */}
-      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-neutral-200 dark:bg-neutral-800 flex items-center justify-center text-neutral-700 dark:text-neutral-300 font-semibold text-xs">
-              <Reicon name="smartphone" size={16} className="w-4 h-4" />
+        <div className="mt-4 space-y-1">
+          <button
+            type="button"
+            onClick={() => setShowPasswordHelp(true)}
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
+          >
+            <span className="inline-flex items-center gap-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              <Reicon name="lock" size={15} className="text-neutral-500" /> Forgot or change password
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+              School office <Reicon name="chevron-right" size={13} />
+            </span>
+          </button>
+          <div className="border-t border-neutral-200/80 pt-3 dark:border-neutral-800/80">
+            <button
+              type="button"
+              onClick={onLogout}
+              className="inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+            >
+              <Reicon name="logout" size={15} /> Sign out
+            </button>
+          </div>
+        </div>
+      </SettingsCard>
+      )}
+
+      {section === 'preferences' && (
+      <SettingsCard
+        title="Updates & alerts"
+        description="Decide what MMSS checks automatically and which updates reach you."
+        icon={<Reicon name="bell" size={17} />}
+      >
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800/80">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">In-app notifications</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Show homework, messages, and announcement alerts in the header.
+            </p>
+          </div>
+          <Toggle
+            checked={inAppNotifications}
+            onCheckedChange={(enabled) => onInAppNotificationsChange?.(enabled)}
+            label="In-app notifications"
+          />
+        </div>
+
+        {hasSchoolPortal && (
+          <div className="mt-3 rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800/80">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div className="min-w-0">
+                <label htmlFor="settings-auto-refresh" className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                  Background updates
+                </label>
+                <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  How often to check the school portal while the app is open.
+                </p>
+              </div>
+              <select
+                id="settings-auto-refresh"
+                value={autoRefreshMinutes}
+                onChange={(event) => onAutoRefreshChange?.(Number(event.target.value) as AutoRefreshMinutes)}
+                className="h-9 shrink-0 rounded-lg border border-neutral-200 bg-white px-3 text-xs font-medium text-neutral-700 outline-none transition focus:border-neutral-400 focus:ring-2 focus:ring-neutral-400/15 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+              >
+                <option value={0}>Off</option>
+                <option value={2}>Every 2 minutes</option>
+                <option value={5}>Every 5 minutes</option>
+                <option value={10}>Every 10 minutes</option>
+              </select>
+            </div>
+            <p className="mt-3 border-t border-neutral-200/80 pt-3 text-[10px] leading-relaxed text-neutral-400 dark:border-neutral-800/80 dark:text-neutral-500">
+              Manual refresh is always available from the header.
+            </p>
+          </div>
+        )}
+      </SettingsCard>
+      )}
+
+      {section === 'appearance' && (
+      <SettingsCard
+        title="Appearance"
+        description="Choose a theme that feels comfortable in your environment."
+        icon={<Reicon name="sun" size={17} />}
+      >
+        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Color theme">
+          {([
+            { value: 'light', label: 'Light', icon: 'sun' },
+            { value: 'dark', label: 'Dark', icon: 'moon' },
+            { value: 'system', label: 'System', icon: 'monitor' },
+          ] as const).map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              aria-pressed={theme === mode.value}
+              onClick={() => onThemeChange(mode.value)}
+              className={cn(
+                'flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-[11px] font-semibold transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
+                theme === mode.value
+                  ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                  : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400 dark:hover:border-neutral-700'
+              )}
+            >
+              <Reicon name={mode.icon} size={17} />
+              {mode.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[10px] leading-relaxed text-neutral-400 dark:text-neutral-500">
+          Changes apply immediately. System follows your device setting.
+        </p>
+      </SettingsCard>
+      )}
+
+      {section === 'app' && (
+      <SettingsCard
+        title="MMSS Mohali app"
+        description="Install the app for quicker access and an app-like experience."
+        icon={<Reicon name="smartphone" size={17} />}
+        className="lg:col-span-2"
+      >
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200/80 p-4 sm:flex-row sm:items-center dark:border-neutral-800/80">
+          <div className="flex items-start gap-3">
+            <div
+              className={cn(
+                'flex size-9 shrink-0 items-center justify-center rounded-lg',
+                isInstalled
+                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300'
+                  : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
+              )}
+            >
+              <Reicon name={isInstalled ? 'circle-check' : 'download'} size={17} />
             </div>
             <div>
-              <div className="text-xs font-semibold text-neutral-900 dark:text-neutral-100 flex items-center gap-1.5">
-                <span>Install Application</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700/60">PWA</span>
-              </div>
-              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                {isInstalled ? 'App installed' : canInstall ? 'Ready to install' : isChecking ? 'Checking install support…' : 'Install from your browser'}
+              </p>
+              <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
                 {isInstalled
-                  ? 'App is installed on your device.'
+                  ? 'You can open MMSS Mohali from your home screen or app drawer.'
                   : canInstall
-                    ? 'Ready for your browser\'s built-in install.'
+                    ? 'Use your browser’s built-in install flow to add MMSS Mohali to this device.'
                     : isChecking
-                      ? 'Checking for your browser\'s built-in install…'
+                      ? 'Checking whether this browser supports one-tap installation.'
                       : supportsInstallPrompt
-                        ? 'App works here; Install is unavailable in this browser session.'
-                        : 'App works here; this browser has no one-click install API.'}
-              </div>
+                        ? 'This browser session does not currently offer installation.'
+                        : 'Your browser can still add MMSS Mohali from its Share or browser menu.'}
+              </p>
             </div>
           </div>
-
           {canInstall && !isInstalled && (
             <button
               type="button"
               onClick={handleInstallClick}
               disabled={isInstalling}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900 text-xs font-semibold hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer active:scale-95 transition-transform disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
               aria-busy={isInstalling}
             >
-              <Reicon name="download" size={14} preset="bounce" className="w-3.5 h-3.5" />
-              <span>{isInstalling ? 'Opening…' : 'Install'}</span>
+              <Reicon name="download" size={15} />
+              {isInstalling ? 'Opening…' : 'Install app'}
             </button>
           )}
         </div>
-      </div>
-
-      {/* Section 4: Appearance Theme */}
-      <div className="space-y-3 pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
-        <h3 className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
-          Appearance
-        </h3>
-        <div className="grid grid-cols-3 gap-2">
-          {(['light', 'dark', 'system'] as ThemeMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => onThemeChange(mode)}
-              className={cn(
-                'py-2 px-3 rounded-lg border text-xs font-medium capitalize transition-colors duration-150 cursor-pointer text-center active:scale-95',
-                theme === mode
-                  ? 'border-neutral-900 dark:border-neutral-100 bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-2xs font-semibold'
-                  : 'border-neutral-200 dark:border-neutral-800 text-neutral-600 dark:text-neutral-400 hover:border-neutral-300 dark:hover:border-neutral-700'
-              )}
-            >
-              {mode}
-            </button>
-          ))}
+        <div className="mt-3 flex items-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500">
+          <Reicon name="shield-check" size={14} className="text-emerald-500" />
+          Your session uses secure, HTTP-only cookies.
         </div>
-      </div>
-
-      {/* Section 5: App Identity & Security Info */}
-      <div className="pt-4 border-t border-neutral-200 dark:border-neutral-800/80 flex items-center justify-between text-xs text-neutral-400">
-        <span className="flex items-center gap-1.5 group/sec">
-          <Reicon name="shield-check" size={16} preset="scale" className="w-4 h-4 text-emerald-500" />
-          <span>Secure HTTP-only session</span>
-        </span>
-        <span className="text-[11px] font-medium">mmss64 · v1.1.0</span>
-      </div>
-
-      {/* Footer Actions */}
-      {onDone && (
-        <div className="flex items-center justify-end pt-4 border-t border-neutral-200 dark:border-neutral-800/80">
-          <button
-            type="button"
-            onClick={onDone}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors duration-150 cursor-pointer touch-manipulation active:scale-95"
-          >
-            Done
-          </button>
-        </div>
+      </SettingsCard>
       )}
 
       <ForgotPasswordDialog
@@ -400,65 +532,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onClose={() => setShowPasswordHelp(false)}
         variant="change"
       />
-    </div>
-  );
-};
-
-export const SettingsModal: React.FC<SettingsModalProps> = ({
-  isOpen,
-  onClose,
-  user,
-  onLogout,
-  onUserChange,
-  sessionStatus,
-  schoolSessionExpired,
-  onReconnect,
-  theme,
-  onThemeChange,
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 pt-[env(safe-area-inset-top)] bg-black/40 dark:bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-xl bg-white dark:bg-[#121215] text-neutral-900 dark:text-neutral-100 border border-neutral-200 dark:border-neutral-800 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200/80 dark:border-neutral-800/80 shrink-0 bg-neutral-50/80 dark:bg-[#141418]/80">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-neutral-200 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 flex items-center justify-center font-bold text-xs">
-              <Reicon name="user" size={16} className="w-4 h-4" />
-            </div>
-            <h2 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
-              Profile & Settings
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="group/close p-2 rounded-xl text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-150 cursor-pointer active:scale-90"
-            title="Close"
-          >
-            <Reicon name="x" size={18} />
-          </button>
-        </div>
-
-        <SettingsPanel
-          user={user}
-          onLogout={onLogout}
-          onUserChange={onUserChange}
-          sessionStatus={sessionStatus}
-          schoolSessionExpired={schoolSessionExpired}
-          onReconnect={onReconnect}
-          theme={theme}
-          onThemeChange={onThemeChange}
-          onDone={onClose}
-          className="overflow-y-auto flex-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
-        />
-      </div>
     </div>
   );
 };

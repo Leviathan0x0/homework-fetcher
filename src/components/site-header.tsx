@@ -23,6 +23,7 @@ interface SiteHeaderProps {
   onOpenSettings: () => void;
   isLoading: boolean;
   unreadCount: number;
+  showNotifications: boolean;
   onNavigate: (view: string) => void;
   onUnreadCountChange: (count: number) => void;
 }
@@ -34,6 +35,7 @@ export function SiteHeader({
   onThemeChange,
   onOpenSettings,
   unreadCount,
+  showNotifications,
   onNavigate,
   onUnreadCountChange,
 }: SiteHeaderProps) {
@@ -129,12 +131,14 @@ export function SiteHeader({
       <div className="flex items-center gap-2">
         <PWAInstallPrompt variant="button" />
 
-        <NotificationPopover
-          role={role}
-          unreadCount={unreadCount}
-          onNavigate={onNavigate}
-          onCountChange={onUnreadCountChange}
-        />
+        {showNotifications && (
+          <NotificationPopover
+            role={role}
+            unreadCount={unreadCount}
+            onNavigate={onNavigate}
+            onCountChange={onUnreadCountChange}
+          />
+        )}
 
         <AnimatedThemeToggler
           theme={theme === "dark" ? "dark" : "light"}

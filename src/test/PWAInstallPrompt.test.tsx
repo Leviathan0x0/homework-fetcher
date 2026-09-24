@@ -54,10 +54,11 @@ describe('PWAInstallPrompt', () => {
         sessionStatus="connected"
         theme="light"
         onThemeChange={vi.fn()}
+        section="app"
       />,
     );
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Install' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Install app' }));
 
     expect(prompt).toHaveBeenCalledOnce();
     expect(screen.queryByText(/select your device for instructions/i)).not.toBeInTheDocument();
@@ -84,12 +85,13 @@ describe('PWAInstallPrompt', () => {
         sessionStatus="connected"
         theme="light"
         onThemeChange={vi.fn()}
+        section="app"
       />,
     );
 
-    expect(screen.getByText('App is installed on your device.')).toBeInTheDocument();
+    expect(screen.getByText('App installed')).toBeInTheDocument();
     expect(getInstalledRelatedApps).toHaveBeenCalledOnce();
-    expect(screen.queryByText(/has no one-click install API/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/does not currently offer installation/i)).not.toBeInTheDocument();
     delete (navigator as Navigator & { getInstalledRelatedApps?: unknown }).getInstalledRelatedApps;
   });
 });

@@ -3,6 +3,7 @@ import { HomeworkEntry, ViewType, SessionStatus } from "../types/homework";
 import { sortHomeworkNewestFirst, isTodayDate } from "../utils/dateUtils";
 import { authService, homeworkService } from "../services/api";
 import { loadHomeworkWithRevalidation } from "../services/homeworkLoader";
+import { readAppPreferences, subscribeToAppPreferences } from "../utils/appPreferences";
 
 export interface UserAccount {
   id: string;
@@ -121,6 +122,7 @@ export function useHomework() {
   const [activeView, setActiveView] = useState<ViewType>(
     () => (initialUser ? defaultViewForUser(initialUser) : (localStorage.getItem("activeView") as ViewType)) || "today"
   );
+  const [autoRefreshMinutes, setAutoRefreshMinutes] = useState(() => readAppPreferences().autoRefreshMinutes);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDateFilter, setSelectedDateFilter] = useState<string>("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("All");
@@ -181,6 +183,10 @@ export function useHomework() {
   useEffect(() => {
     localStorage.setItem("activeView", activeView);
   }, [activeView]);
+
+  useEffect(() => subscribeToAppPreferences(() => {
+    setAutoRefreshMinutes(readAppPreferences().autoRefreshMinutes);
+  }), []);
 
   const checkAuth = useCallback(async () => {
     // ponytail: show the full-screen session gate only when we have nothing cached to paint
@@ -524,17 +530,22 @@ export function useHomework() {
   }, [isAuthenticated, user, isAuthChecking, fetchHomework]);
 
   useEffect(() => {
-    if (!isAuthenticated || isAuthChecking || !usesSchoolPortal(user) || schoolSessionExpired) return;
+    if (
+      !isAuthenticated ||
+      isAuthChecking ||
+      !usesSchoolPortal(user) ||
+      schoolSessionExpired ||
+      autoRefreshMinutes === 0
+    ) return;
 
+    const refreshIntervalMs = autoRefreshMinutes * 60 * 1000;
     const refreshWhenVisible = () => {
       if (document.visibilityState !== "visible") return;
-      // The portal scrape is slow (up to 60s); don't stack a forced refresh
-      // on top of a recent one. Online-event refreshes bypass this.
-      if (Date.now() - lastFetchStartedAtRef.current < 120_000) return;
+      if (Date.now() - lastFetchStartedAtRef.current < refreshIntervalMs) return;
       fetchHomework(true);
     };
     const refreshWhenOnline = () => fetchHomework(true);
-    const interval = window.setInterval(refreshWhenVisible, 60 * 1000);
+    const interval = window.setInterval(refreshWhenVisible, refreshIntervalMs);
 
     document.addEventListener("visibilitychange", refreshWhenVisible);
     window.addEventListener("online", refreshWhenOnline);
@@ -543,7 +554,7 @@ export function useHomework() {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       window.removeEventListener("online", refreshWhenOnline);
     };
-  }, [isAuthenticated, isAuthChecking, user, schoolSessionExpired, fetchHomework]);
+  }, [autoRefreshMinutes, isAuthenticated, isAuthChecking, user, schoolSessionExpired, fetchHomework]);
 
   return {
     user,

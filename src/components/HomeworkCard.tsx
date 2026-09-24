@@ -294,6 +294,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               url={item.attachment}
               name={attachmentLabel}
               onOpenPreview={onOpenPreview || (() => undefined)}
+              iconColorClassName={subjectInfo.textStyle}
               fallbackDetail="Homework attachment"
             />
           </div>

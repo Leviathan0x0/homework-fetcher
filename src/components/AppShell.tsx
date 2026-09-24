@@ -17,6 +17,7 @@ import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
 import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
 import { SHOW_LEAVE_AND_ABSENCE } from '../utils/features';
+import { readAppPreferences, saveAppPreferences } from '../utils/appPreferences';
 import { Ring } from "@/components/loading-ui/ring";
 
 type AppRole = 'student' | 'teacher' | 'admin';
@@ -36,7 +37,6 @@ const ClassworkView = lazy(() => import('./ClassworkView').then((m) => ({ defaul
 const RequestsView = lazy(() => import('./RequestsView').then((m) => ({ default: m.RequestsView })));
 const LeaveView = lazy(() => import('./LeaveView').then((m) => ({ default: m.LeaveView })));
 const MessagesView = lazy(() => import('./MessagesView').then((m) => ({ default: m.MessagesView })));
-const SettingsModal = lazy(() => import('./SettingsModal').then((m) => ({ default: m.SettingsModal })));
 const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })));
 const DevelopersView = lazy(() => import('./DevelopersView').then((m) => ({ default: m.DevelopersView })));
 const AdminView = lazy(() => import('./AdminView').then((m) => ({ default: m.AdminView })));
@@ -87,7 +87,7 @@ export const AppShell: React.FC = () => {
 
   const { theme, resolvedTheme, setTheme } = useTheme();
   const isMobile = useIsMobile();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [appPreferences, setAppPreferences] = useState(readAppPreferences);
   const [isReconnectOpen, setIsReconnectOpen] = useState(false);
   const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
   const [previewOriginalFilename, setPreviewOriginalFilename] = useState<string | null>(null);
@@ -105,6 +105,11 @@ export const AppShell: React.FC = () => {
       localStorage.setItem('cachedUser', JSON.stringify(merged));
     } catch {}
   }, [setUser, user]);
+
+  const updateAppPreferences = useCallback((patch: Parameters<typeof saveAppPreferences>[1]) => {
+    const next = saveAppPreferences(appPreferences, patch);
+    setAppPreferences(next);
+  }, [appPreferences]);
 
   const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin' || user?.studentId === 'admin_mmss');
   const isTeacher = !isAdmin && Boolean(user?.isTeacher || user?.role === 'teacher' || user?.role === 'class_teacher');
@@ -214,14 +219,7 @@ export const AppShell: React.FC = () => {
     },
   });
 
-  // Phones get a dedicated settings page; desktop keeps the modal.
   const handleOpenSettings = () => handleViewChange('settings');
-  const handleCloseSettings = () => {
-    setIsSettingsOpen(false);
-    if (activeView === 'settings') {
-      setActiveView('today');
-    }
-  };
 
   const handleLeaveSettings = useCallback(() => {
     setActiveView(viewBeforeSettings.current === 'settings' ? 'today' : viewBeforeSettings.current);
@@ -240,25 +238,12 @@ export const AppShell: React.FC = () => {
       }).catch(() => {});
     }
     if (view === 'settings') {
-      if (isMobile) {
-        if (activeView !== 'settings') viewBeforeSettings.current = activeView;
-        setActiveView('settings');
-      } else {
-        setIsSettingsOpen(true);
-      }
+      if (activeView !== 'settings') viewBeforeSettings.current = activeView;
+      setActiveView('settings');
       return;
     }
     setActiveView(view);
-  }, [activeView, isMobile, isViewAllowed, roleHome, setActiveView]);
-
-  useEffect(() => {
-    if (activeView !== 'settings') return;
-    // Checked directly so the first render, before the media query resolves,
-    // cannot mistake a phone for a desktop.
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return;
-    handleLeaveSettings();
-    setIsSettingsOpen(true);
-  }, [isMobile, activeView, handleLeaveSettings]);
+  }, [activeView, isViewAllowed, roleHome, setActiveView]);
 
   useEffect(() => {
     if (isAuthChecking || isAuthenticated) return;
@@ -325,6 +310,10 @@ export const AppShell: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (!appPreferences.inAppNotifications) {
+      setUnreadCount(0);
+      return;
+    }
     fetchUnreadCount();
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchUnreadCount();
@@ -337,7 +326,7 @@ export const AppShell: React.FC = () => {
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
       window.removeEventListener('notifications_unread_changed', onUnreadChanged);
     };
-  }, [isAuthenticated, fetchUnreadCount]);
+  }, [appPreferences.inAppNotifications, isAuthenticated, fetchUnreadCount]);
 
   const normalizedPath = window.location.pathname.replace(/\/+$/, '') || '/';
   if (!KNOWN_PATHS.has(normalizedPath)) {
@@ -393,6 +382,7 @@ export const AppShell: React.FC = () => {
           onOpenSettings={handleOpenSettings}
           isLoading={isLoading || isRefreshing}
           unreadCount={unreadCount}
+          showNotifications={appPreferences.inAppNotifications}
           onNavigate={handleNavigate}
           onUnreadCountChange={setUnreadCount}
         />
@@ -571,6 +561,10 @@ export const AppShell: React.FC = () => {
               onReconnect={() => setIsReconnectOpen(true)}
               theme={theme}
               onThemeChange={setTheme}
+              autoRefreshMinutes={appPreferences.autoRefreshMinutes}
+              onAutoRefreshChange={(autoRefreshMinutes) => updateAppPreferences({ autoRefreshMinutes })}
+              inAppNotifications={appPreferences.inAppNotifications}
+              onInAppNotificationsChange={(inAppNotifications) => updateAppPreferences({ inAppNotifications })}
               onBack={handleLeaveSettings}
             />
           )}
@@ -593,23 +587,6 @@ export const AppShell: React.FC = () => {
             messagesUnread={messagesUnread}
             openRequests={unseenRequestsCount}
           />
-        )}
-
-        {isSettingsOpen && (
-          <Suspense fallback={null}>
-            <SettingsModal
-              isOpen={isSettingsOpen}
-              onClose={handleCloseSettings}
-              user={user}
-              onLogout={logout}
-              onUserChange={handleUserChange}
-              sessionStatus={sessionStatus}
-              schoolSessionExpired={schoolSessionExpired}
-              onReconnect={() => setIsReconnectOpen(true)}
-              theme={theme}
-              onThemeChange={setTheme}
-            />
-          </Suspense>
         )}
 
         {isReconnectOpen && (

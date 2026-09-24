@@ -64,7 +64,7 @@ const DayCell = memo(function DayCell({
       aria-label={`${dayNumber}${hasHoliday ? ', holiday' : ''}${hwCount ? `, ${hwCount} homework` : ''}`}
       aria-pressed={isSelected}
       className={cn(
-        'group relative flex aspect-square min-h-[2.5rem] sm:min-h-[2.75rem] w-full flex-col items-center justify-center rounded-xl text-xs tabular-nums select-none touch-manipulation',
+        'group relative flex h-[2.75rem] w-full min-w-0 flex-col items-center justify-center rounded-xl text-xs tabular-nums select-none touch-manipulation sm:h-12 xl:h-[3.125rem]',
         'transition-[background-color,color] duration-150 ease-out',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
         !isCurrentMonth && 'text-neutral-300/60 dark:text-neutral-700/70',

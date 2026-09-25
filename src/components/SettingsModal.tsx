@@ -9,6 +9,7 @@ import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { AutoRefreshMinutes } from '../utils/appPreferences';
+import { AppTheme, ThemeAppearance, themesForMode } from '../themes';
 
 export type SettingsSection = 'profile' | 'account' | 'preferences' | 'appearance' | 'app';
 
@@ -21,6 +22,11 @@ interface SettingsPanelProps {
   onReconnect?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
+  /** Light or dark, after `system` has been resolved. */
+  resolvedTheme: ThemeAppearance;
+  /** Id of the active palette for `resolvedTheme`. */
+  themeId: string;
+  onThemeIdChange: (id: string) => void;
   autoRefreshMinutes?: AutoRefreshMinutes;
   onAutoRefreshChange?: (minutes: AutoRefreshMinutes) => void;
   inAppNotifications?: boolean;
@@ -88,6 +94,78 @@ function Toggle({ checked, onCheckedChange, label }: ToggleProps) {
   );
 }
 
+interface ThemeCardProps {
+  theme: AppTheme;
+  active: boolean;
+  onSelect: (id: string) => void;
+}
+
+function ThemeCard({ theme, active, onSelect }: ThemeCardProps) {
+  const { background, surface, accent, foreground } = theme.swatch;
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      aria-label={`${theme.name} theme`}
+      onClick={() => onSelect(theme.id)}
+      className={cn(
+        'group overflow-hidden rounded-xl border text-left transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
+        active
+          ? 'border-neutral-900 shadow-sm ring-2 ring-neutral-900/15 dark:border-neutral-100 dark:ring-neutral-100/15'
+          : 'border-neutral-200 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-700'
+      )}
+    >
+      <span className="relative block h-16 w-full overflow-hidden" style={{ backgroundColor: background }}>
+        <span
+          className="absolute left-2.5 top-2.5 h-11 w-16 rounded-lg shadow-sm"
+          style={{ backgroundColor: surface }}
+        >
+          <span
+            className="absolute left-2 top-2 h-1.5 w-8 rounded-full"
+            style={{ backgroundColor: foreground, opacity: 0.4 }}
+          />
+          <span
+            className="absolute left-2 top-5 h-1.5 w-11 rounded-full"
+            style={{ backgroundColor: foreground, opacity: 0.2 }}
+          />
+          <span
+            className="absolute bottom-2 left-2 h-3 w-7 rounded-full"
+            style={{ backgroundColor: accent }}
+          />
+        </span>
+        <span
+          className="absolute right-2.5 top-2.5 size-6 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
+        <span
+          className="absolute bottom-2.5 right-2.5 h-2.5 w-12 rounded-full"
+          style={{ backgroundColor: foreground, opacity: 0.3 }}
+        />
+      </span>
+      <span className="flex items-center justify-between gap-1.5 px-2.5 py-2">
+        <span className="min-w-0">
+          <span className="block truncate text-[11px] font-semibold text-neutral-800 dark:text-neutral-200">
+            {theme.name}
+          </span>
+          <span className="mt-0.5 block truncate text-[10px] text-neutral-400 dark:text-neutral-500">
+            {theme.mode === 'light' ? 'Light palette' : 'Dark palette'}
+          </span>
+        </span>
+        <Reicon
+          name="circle-check"
+          size={15}
+          className={cn(
+            'shrink-0 transition-opacity',
+            active
+              ? 'text-emerald-600 opacity-100 dark:text-emerald-400'
+              : 'opacity-0'
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   user,
   onLogout,
@@ -97,6 +175,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onReconnect,
   theme,
   onThemeChange,
+  resolvedTheme,
+  themeId,
+  onThemeIdChange,
   autoRefreshMinutes = 2,
   onAutoRefreshChange,
   inAppNotifications = true,
@@ -439,7 +520,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       {section === 'appearance' && (
       <SettingsCard
         title="Appearance"
-        description="Choose a theme that feels comfortable in your environment."
+        description="Pick a light or dark mode, then choose a palette for it."
         icon={<Reicon name="sun" size={17} />}
       >
         <div className="grid grid-cols-3 gap-2" role="group" aria-label="Color theme">
@@ -465,9 +546,35 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </button>
           ))}
         </div>
-        <p className="mt-3 text-[10px] leading-relaxed text-neutral-400 dark:text-neutral-500">
-          Changes apply immediately. System follows your device setting.
-        </p>
+
+        <div className="mt-5 border-t border-neutral-200/80 pt-4 dark:border-neutral-800/80">
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+              {resolvedTheme === 'dark' ? 'Dark themes' : 'Light themes'}
+            </p>
+            <p className="text-[10px] text-neutral-400 dark:text-neutral-500">
+              {themesForMode(resolvedTheme).length} palettes
+            </p>
+          </div>
+          <div
+            className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+            role="group"
+            aria-label="Theme palette"
+          >
+            {themesForMode(resolvedTheme).map((option) => (
+              <ThemeCard
+                key={option.id}
+                theme={option}
+                active={option.id === themeId}
+                onSelect={onThemeIdChange}
+              />
+            ))}
+          </div>
+          <p className="mt-3 text-[10px] leading-relaxed text-neutral-400 dark:text-neutral-500">
+            Themes apply immediately and are remembered separately for light and dark mode.
+            System follows your device setting.
+          </p>
+        </div>
       </SettingsCard>
       )}
 

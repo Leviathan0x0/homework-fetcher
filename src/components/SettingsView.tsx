@@ -6,6 +6,7 @@ import { Reicon } from './ui/reicon';
 import { PageHeader } from './PageHeader';
 import { ProfileAvatar } from './ProfileAvatar';
 import { AutoRefreshMinutes } from '../utils/appPreferences';
+import { getTheme, ThemeAppearance, THEMES } from '../themes';
 
 interface SettingsViewProps {
   user: UserAccount | null;
@@ -16,6 +17,9 @@ interface SettingsViewProps {
   onReconnect?: () => void;
   theme: ThemeMode;
   onThemeChange: (theme: ThemeMode) => void;
+  resolvedTheme: ThemeAppearance;
+  themeId: string;
+  onThemeIdChange: (id: string) => void;
   autoRefreshMinutes: AutoRefreshMinutes;
   onAutoRefreshChange: (minutes: AutoRefreshMinutes) => void;
   inAppNotifications: boolean;
@@ -96,7 +100,7 @@ const SETTING_GROUPS: Array<{
         section: 'appearance',
         icon: <Reicon name="sun" size={18} />,
         title: 'Appearance',
-        description: 'Light, dark, or system theme',
+        description: `Mode plus ${THEMES.length} colour themes`,
       },
     ],
   },
@@ -128,7 +132,7 @@ const SECTION_COPY: Record<SettingsSection, { title: string; description: string
   },
   appearance: {
     title: 'Appearance',
-    description: 'Choose the theme that works best for you.',
+    description: 'Choose a mode, then a theme that suits your environment.',
   },
   app: {
     title: 'MMSS Mohali app',
@@ -145,6 +149,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onReconnect,
   theme,
   onThemeChange,
+  resolvedTheme,
+  themeId,
+  onThemeIdChange,
   autoRefreshMinutes,
   onAutoRefreshChange,
   inAppNotifications,
@@ -246,7 +253,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       : item.section === 'preferences'
                         ? preferenceValue
                         : item.section === 'appearance'
-                          ? theme === 'system' ? 'System' : theme === 'dark' ? 'Dark' : 'Light'
+                          ? `${getTheme(themeId)?.name ?? 'Default'}${theme === 'system' ? ' · System' : ''}`
                           : undefined;
                     return (
                       <SettingRow
@@ -283,6 +290,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           onReconnect={onReconnect}
           theme={theme}
           onThemeChange={onThemeChange}
+          resolvedTheme={resolvedTheme}
+          themeId={themeId}
+          onThemeIdChange={onThemeIdChange}
           autoRefreshMinutes={autoRefreshMinutes}
           onAutoRefreshChange={onAutoRefreshChange}
           inAppNotifications={inAppNotifications}

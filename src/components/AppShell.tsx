@@ -85,7 +85,7 @@ export const AppShell: React.FC = () => {
     dismissError,
   } = useHomework();
 
-  const { theme, resolvedTheme, setTheme } = useTheme();
+  const { theme, resolvedTheme, themeId, setTheme, setThemeId } = useTheme();
   const isMobile = useIsMobile();
   const [appPreferences, setAppPreferences] = useState(readAppPreferences);
   const [isReconnectOpen, setIsReconnectOpen] = useState(false);
@@ -561,6 +561,9 @@ export const AppShell: React.FC = () => {
               onReconnect={() => setIsReconnectOpen(true)}
               theme={theme}
               onThemeChange={setTheme}
+              resolvedTheme={resolvedTheme}
+              themeId={themeId}
+              onThemeIdChange={setThemeId}
               autoRefreshMinutes={appPreferences.autoRefreshMinutes}
               onAutoRefreshChange={(autoRefreshMinutes) => updateAppPreferences({ autoRefreshMinutes })}
               inAppNotifications={appPreferences.inAppNotifications}

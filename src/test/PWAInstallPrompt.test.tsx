@@ -54,6 +54,9 @@ describe('PWAInstallPrompt', () => {
         sessionStatus="connected"
         theme="light"
         onThemeChange={vi.fn()}
+        resolvedTheme="light"
+        themeId="daylight"
+        onThemeIdChange={vi.fn()}
         section="app"
       />,
     );
@@ -85,6 +88,9 @@ describe('PWAInstallPrompt', () => {
         sessionStatus="connected"
         theme="light"
         onThemeChange={vi.fn()}
+        resolvedTheme="light"
+        themeId="daylight"
+        onThemeIdChange={vi.fn()}
         section="app"
       />,
     );

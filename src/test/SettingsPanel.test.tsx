@@ -9,6 +9,9 @@ const baseProps = {
   sessionStatus: 'connected' as const,
   theme: 'light' as const,
   onThemeChange: vi.fn(),
+  resolvedTheme: 'light' as const,
+  themeId: 'daylight',
+  onThemeIdChange: vi.fn(),
 };
 
 describe('SettingsPanel', () => {

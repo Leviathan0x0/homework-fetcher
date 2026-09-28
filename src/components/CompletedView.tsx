@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
-import { detectSubject } from '../utils/subjectDetector';
+import { detectSubject, homeworkSubjectName } from '../utils/subjectDetector';
 import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
@@ -48,13 +48,13 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
   });
 
   const availableSubjects = Array.from(
-    new Set(completedEntries.map((item) => detectSubject(item?.homework || '').name))
+    new Set(completedEntries.map((item) => homeworkSubjectName(item)))
   );
 
   const filteredEntries =
     selectedSubject === 'All'
       ? completedEntries
-      : completedEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
+      : completedEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
   const isContentLoading = isLoading;
 
   const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);

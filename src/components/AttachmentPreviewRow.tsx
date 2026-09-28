@@ -1,7 +1,6 @@
 import React from 'react';
 import { cn } from '../utils/cn';
 import { Reicon } from './ui/reicon';
-import { FolderIcon } from './FolderIcon';
 
 interface AttachmentPreviewRowProps {
   url: string;
@@ -45,13 +44,33 @@ const FOLDER_PALETTES: Record<string, readonly [string, string]> = {
   fuchsia: ['#d946ef', '#d486f0'],
   pink: ['#ec4899', '#e585b8'],
   slate: ['#64748b', '#94a3b0'],
+  neutral: ['#737373', '#a3a3a3'],
 };
 
-function folderPalette(iconColorClassName?: string) {
+// Greys are never used for folder glyphs — every attachment gets a vivid color.
+const GREY_PALETTES = new Set(['neutral', 'slate']);
+const VIVID_PALETTES = Object.keys(FOLDER_PALETTES).filter((name) => !GREY_PALETTES.has(name));
+
+function hashIndex(seed: string, modulo: number) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return Math.abs(hash) % modulo;
+}
+
+function folderPalette(iconColorClassName: string | undefined, seed: string) {
   const paletteName = Object.keys(FOLDER_PALETTES).find((name) =>
     iconColorClassName?.includes(`${name}-`)
   );
-  return FOLDER_PALETTES[paletteName || 'sky'];
+  if (paletteName && !GREY_PALETTES.has(paletteName)) return FOLDER_PALETTES[paletteName];
+  // No (or a grey) subject color: pick a distinctive color stable per file.
+  return FOLDER_PALETTES[VIVID_PALETTES[hashIndex(seed, VIVID_PALETTES.length)]];
+}
+
+function withAlpha(hex: string, alpha: number) {
+  const value = hex.replace('#', '');
+  const full = value.length === 3 ? value.replace(/./g, (c) => c + c) : value;
+  const num = Number.parseInt(full, 16);
+  return `rgba(${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}, ${alpha})`;
 }
 
 export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
@@ -65,7 +84,8 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
   fallbackDetail = 'Attachment file',
 }) => {
   const detail = attachmentDetails(name, url, fallbackDetail);
-  const [defaultPrimaryColor, defaultSecondaryColor] = folderPalette(iconColorClassName);
+  const [defaultPrimaryColor, defaultSecondaryColor] = folderPalette(iconColorClassName, name);
+  const folderColor = iconPrimaryColor || defaultPrimaryColor;
 
   return (
     <button
@@ -75,14 +95,16 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
       className="group/file flex w-full min-w-0 cursor-pointer items-center gap-2.5 py-2 text-left transition-colors duration-200 hover:text-neutral-950 dark:hover:text-white"
     >
       <span
+        style={{ backgroundColor: withAlpha(folderColor, 0.16) }}
         className={cn(
-          'flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-300',
+          'flex size-8 shrink-0 items-center justify-center rounded-lg',
           iconColorClassName
         )}
       >
-        <FolderIcon
-          className="size-6"
-          primaryColor={iconPrimaryColor || defaultPrimaryColor}
+        <Reicon
+          name="folder-files"
+          size={24}
+          color={folderColor}
           secondaryColor={iconSecondaryColor || defaultSecondaryColor}
         />
       </span>

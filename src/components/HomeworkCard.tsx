@@ -3,6 +3,7 @@ import type { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
 import { cn } from '../utils/cn';
+import { linkifyText } from '../utils/linkify';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 import { Reicon } from './ui/reicon';
 
@@ -240,11 +241,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               </span>
               <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
                 <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
-                  {hwHierarchy.action}
+                  {linkifyText(hwHierarchy.action)}
                 </p>
                 {hwHierarchy.detail && (
                   <p className="mt-0.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap break-words">
-                    {hwHierarchy.detail}
+                    {linkifyText(hwHierarchy.detail)}
                   </p>
                 )}
               </div>
@@ -262,7 +263,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                   isCompleted && 'line-through'
                 )}
               >
-                {parsed.classWork}
+                {linkifyText(parsed.classWork)}
               </span>
             </div>
           )}
@@ -274,7 +275,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
               )}
             >
-              {item.homework}
+              {linkifyText(item.homework)}
             </p>
           )}
         </div>

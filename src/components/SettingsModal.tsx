@@ -9,7 +9,7 @@ import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { AutoRefreshMinutes } from '../utils/appPreferences';
-import { AppTheme, ThemeAppearance, themesForMode } from '../themes';
+import { AppTheme, DEFAULT_THEME_ID, ThemeAppearance, themesForMode } from '../themes';
 
 export type SettingsSection = 'profile' | 'account' | 'preferences' | 'appearance' | 'app';
 
@@ -122,14 +122,14 @@ function ThemeCard({ theme, active, onSelect }: ThemeCardProps) {
         >
           <span
             className="absolute left-2 top-2 h-1.5 w-8 rounded-full"
-            style={{ backgroundColor: foreground, opacity: 0.4 }}
+            style={{ backgroundColor: foreground, opacity: 0.45 }}
           />
           <span
-            className="absolute left-2 top-5 h-1.5 w-11 rounded-full"
+            className="absolute left-2 top-[17px] h-1.5 w-11 rounded-full"
             style={{ backgroundColor: foreground, opacity: 0.2 }}
           />
           <span
-            className="absolute bottom-2 left-2 h-3 w-7 rounded-full"
+            className="absolute bottom-2 left-2 h-2.5 w-7 rounded-full"
             style={{ backgroundColor: accent }}
           />
         </span>
@@ -148,7 +148,9 @@ function ThemeCard({ theme, active, onSelect }: ThemeCardProps) {
             {theme.name}
           </span>
           <span className="mt-0.5 block truncate text-[10px] text-neutral-400 dark:text-neutral-500">
-            {theme.mode === 'light' ? 'Light palette' : 'Dark palette'}
+            {theme.id === DEFAULT_THEME_ID[theme.mode]
+              ? `Default · ${theme.mode === 'light' ? 'Light' : 'Dark'} palette`
+              : `${theme.mode === 'light' ? 'Light' : 'Dark'} palette`}
           </span>
         </span>
         <Reicon
@@ -571,8 +573,8 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             ))}
           </div>
           <p className="mt-3 text-[10px] leading-relaxed text-neutral-400 dark:text-neutral-500">
-            Themes apply immediately and are remembered separately for light and dark mode.
-            System follows your device setting.
+            Daylight is the default theme. Themes apply immediately and are remembered separately
+            for light and dark mode. System follows your device setting.
           </p>
         </div>
       </SettingsCard>

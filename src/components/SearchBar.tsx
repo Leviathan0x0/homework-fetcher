@@ -51,7 +51,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div
       className={cn(
-        'group/search relative flex-1 flex items-center gap-2 h-11 sm:h-10 pl-3.5 pr-2 rounded-xl border shadow-2xs transition-all duration-200',
+        'group/search relative flex-auto flex items-center gap-2 h-11 sm:h-10 pl-3.5 pr-2 rounded-xl border shadow-2xs transition-all duration-200',
         'bg-white dark:bg-[#141417] border-neutral-300/80 dark:border-neutral-800',
         'hover:border-neutral-400/70 dark:hover:border-neutral-700',
         'focus-within:border-neutral-400 dark:focus-within:border-neutral-600 focus-within:ring-2 focus-within:ring-neutral-400/15 dark:focus-within:ring-neutral-600/20 focus-within:shadow-xs'
@@ -133,7 +133,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         </div>
       )}
 
-      {value ? (
+      {value && (
         <div className="shrink-0 flex items-center">
           <button
             type="button"
@@ -143,12 +143,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           >
             <Reicon name="x" size={14} className="transition-transform duration-200 group-hover/clear:rotate-90" />
           </button>
-        </div>
-      ) : (
-        <div className="shrink-0 flex items-center pointer-events-none">
-          <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-sans font-medium text-neutral-400 bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-full transition-all duration-200 group-focus-within/search:opacity-50">
-            /
-          </kbd>
         </div>
       )}
     </div>

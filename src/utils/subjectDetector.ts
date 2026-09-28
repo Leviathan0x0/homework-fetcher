@@ -427,6 +427,11 @@ export function detectSubject(
       trimmed &&
       !['HOMEWORK', 'ANNOUNCEMENT', 'GENERAL'].includes(trimmed.toUpperCase())
     ) {
+      // The stored tag wins, so a "School Diary" tag keeps its canonical casing
+      // instead of being title-cased into "School diary" by the fallback below.
+      if (normalizeSubjectKey(trimmed) === normalizeSubjectKey(DEFAULT_SUBJECT.name)) {
+        return DEFAULT_SUBJECT;
+      }
       const rule = matchAlias(trimmed) || matchKeywords(trimmed);
       if (rule) return toSubjectInfo(rule);
       return {
@@ -496,4 +501,18 @@ export function detectSubject(
   }
 
   return DEFAULT_SUBJECT;
+}
+
+/**
+ * Subject name for one homework entry, matching the badge HomeworkCard shows:
+ * the stored subject tag is authoritative, then the homework text.
+ *
+ * Subject pills and filters must use this rather than text-only detection,
+ * otherwise every unlabelled entry collapses into "School Diary" and picking
+ * that pill returns the whole list.
+ */
+export function homeworkSubjectName(
+  item: { homework?: string | null; subject?: string | null; type?: string | null } | null | undefined
+): string {
+  return detectSubject(item?.homework || '', item?.subject, item?.type).name;
 }

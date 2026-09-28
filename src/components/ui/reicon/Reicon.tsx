@@ -73,8 +73,6 @@ import {
   Refresh,
   Refresh2,
   Search,
-  SearchZoomIn,
-  SearchZoomOut,
   Send as ReiconSend,
   Settings,
   Share,
@@ -97,6 +95,8 @@ import {
   Xmark,
 } from 'reicon-react';
 import { cn } from '../../../utils/cn';
+import { FolderFilesDuotone } from './duotone';
+import { ZoomInIcon, ZoomOutIcon } from './zoom-icons';
 import type { ReiconName, ReiconPreset, ReiconProps } from './types';
 
 export const ReiconPlaneFilledIcon = ReiconSend;
@@ -172,12 +172,13 @@ export const REICON_MAP: Record<ReiconName, React.ComponentType<any>> = {
   loader: ReiconLoader,
   clock: Clock,
   folder: Folder,
+  'folder-files': FolderFilesDuotone,
   'folder-open': FolderOpen,
   inbox: Inbox,
   'external-link': ArrowUpRight,
   filter: Filter,
-  'zoom-in': SearchZoomIn,
-  'zoom-out': SearchZoomOut,
+  'zoom-in': ZoomInIcon,
+  'zoom-out': ZoomOutIcon,
   sun: Sun,
   moon: ReiconMoon,
   flag: Flag,

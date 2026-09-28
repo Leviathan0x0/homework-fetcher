@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { HomeworkEntry, ViewType, SchoolCalendarEvent } from '../types/homework';
 import { isTodayDate, formatContextualDate, getTimeGreeting, formatYmd } from '../utils/dateUtils';
-import { detectSubject } from '../utils/subjectDetector';
+import { homeworkSubjectName } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
 import { HolidayCard } from './HolidayCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
@@ -57,11 +57,11 @@ function readDismissedAlerts(): string[] {
 }
 
 function progressEncouragement(done: number, total: number): string {
-  if (total === 0) return 'Nothing due today — enjoy the quiet.';
-  if (done === 0) return 'Start with one — momentum builds fast.';
+  if (total === 0) return 'Nothing due today, enjoy the quiet.';
+  if (done === 0) return 'Start with one, momentum builds fast.';
   if (done >= total) return 'All done for today. Nice work.';
-  if (done / total >= 0.66) return 'Almost there — keep going.';
-  return 'Keep going — you are making progress.';
+  if (done / total >= 0.66) return 'Almost there, keep going.';
+  return 'Keep going, you are making progress.';
 }
 
 export const TodayView: React.FC<TodayViewProps> = ({
@@ -179,16 +179,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
   }, [homework]);
 
   const availableSubjects = useMemo(() => {
-    return Array.from(
-      new Set(todayEntries.map((item) => detectSubject(item?.homework || '').name))
-    );
+    return Array.from(new Set(todayEntries.map((item) => homeworkSubjectName(item))));
   }, [todayEntries]);
 
   const filteredEntries = useMemo(() => {
     if (selectedSubject === 'All') return todayEntries;
-    return todayEntries.filter(
-      (item) => detectSubject(item?.homework || '').name === selectedSubject
-    );
+    return todayEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
   }, [todayEntries, selectedSubject]);
 
   const getEntryId = (item: HomeworkEntry) => item.id || `${item.date}_${item.homework}`;

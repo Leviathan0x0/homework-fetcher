@@ -1,4 +1,5 @@
 import React from 'react';
+import { LINK_CLASS, isAllowedLink, linkifyText, toLinkHref } from '../utils/linkify';
 
 interface MarkdownRendererProps {
   content: string;
@@ -55,19 +56,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
       }
       const linkMatch = token.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (linkMatch) {
-        return (
-          <a
-            key={index}
-            href={linkMatch[2]}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:opacity-80 font-medium"
-          >
-            {linkMatch[1]}
-          </a>
-        );
+        const label = linkMatch[1];
+        const href = linkMatch[2].trim();
+        // Only allow-listed destinations become links; the label still shows
+        // for anything else (unknown scheme, scheme-less foreign domain).
+        if (isAllowedLink(href)) {
+          return (
+            <a
+              key={index}
+              href={toLinkHref(href)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={LINK_CLASS}
+            >
+              {label}
+            </a>
+          );
+        }
+        return <React.Fragment key={index}>{linkifyText(label)}</React.Fragment>;
       }
-      return token;
+      return <React.Fragment key={index}>{linkifyText(token)}</React.Fragment>;
     });
   };
 

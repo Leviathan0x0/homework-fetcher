@@ -256,10 +256,12 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
         title="Classwork Uploads"
         description="Access and share today's class notes, slides, and documents with classmates in your section."
         badge={
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200/60 dark:border-neutral-700 text-xs font-medium">
-            <Reicon name="user-check" size={12} className="text-neutral-500 dark:text-neutral-400" />
-            {sectionName}
-          </span>
+          sectionName ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/50 text-xs font-medium">
+              <Reicon name="user-check" size={12} className="text-sky-600 dark:text-sky-400" />
+              {sectionName}
+            </span>
+          ) : undefined
         }
       />
 

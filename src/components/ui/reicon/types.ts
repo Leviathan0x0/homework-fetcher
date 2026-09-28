@@ -70,6 +70,7 @@ export type ReiconName =
   | 'loader'
   | 'clock'
   | 'folder'
+  | 'folder-files'
   | 'folder-open'
   | 'inbox'
   | 'external-link'
@@ -171,6 +172,7 @@ export interface ReiconProps extends React.SVGAttributes<SVGSVGElement> {
   isActive?: boolean;
   isFilled?: boolean;
   color?: string;
+  secondaryColor?: string;
   strokeWidth?: number | string;
   weight?: string;
 }

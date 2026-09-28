@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { selectHomeworkFromLastDays } from '../utils/dateUtils';
-import { detectSubject } from '../utils/subjectDetector';
+import { detectSubject, homeworkSubjectName } from '../utils/subjectDetector';
 import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { DateHeader } from './DateHeader';
@@ -44,13 +44,13 @@ export const RecentView: React.FC<RecentViewProps> = ({
 
   // Extract unique subjects
   const availableSubjects = useMemo(() => {
-    return Array.from(new Set(recentAllEntries.map((item) => detectSubject(item?.homework || '').name)));
+    return Array.from(new Set(recentAllEntries.map((item) => homeworkSubjectName(item))));
   }, [recentAllEntries]);
 
   const filteredEntries = useMemo(() => {
     return selectedSubject === 'All'
       ? recentAllEntries
-      : recentAllEntries.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
+      : recentAllEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
   }, [recentAllEntries, selectedSubject]);
 
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);

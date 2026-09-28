@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { HomeworkEntry, ClassworkEntry, SectionRequest } from '../types/homework';
 import { formatToISODate, parseHomeworkDate, RECENT_HOMEWORK_WINDOW_DAYS } from '../utils/dateUtils';
-import { detectSubject } from '../utils/subjectDetector';
+import { detectSubject, homeworkSubjectName, CANONICAL_SUBJECT_NAMES } from '../utils/subjectDetector';
 import { usePagination } from '../hooks/usePagination';
 import { classworkService, requestService } from '../services/api';
 import { HomeworkCard } from './HomeworkCard';
@@ -92,7 +92,8 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const validHomework = useMemo(() => (Array.isArray(homework) ? homework.filter(Boolean) : []), [homework]);
 
   const availableSubjects = useMemo(() => {
-    return Array.from(new Set(validHomework.map((item) => detectSubject(item?.homework || '').name)));
+    const fromData = validHomework.map((item) => homeworkSubjectName(item));
+    return Array.from(new Set(['School Diary', ...CANONICAL_SUBJECT_NAMES, ...fromData]));
   }, [validHomework]);
 
   const q = searchQuery.toLowerCase().trim();
@@ -101,14 +102,14 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
     let result = [...validHomework];
 
     if (selectedSubject !== 'All') {
-      result = result.filter((item) => detectSubject(item?.homework || '').name === selectedSubject);
+      result = result.filter((item) => homeworkSubjectName(item) === selectedSubject);
     }
 
     if (q) {
       result = result.filter((item) => {
         const hwText = item?.homework || '';
         const dateText = item?.date || '';
-        const subject = detectSubject(hwText).name.toLowerCase();
+        const subject = homeworkSubjectName(item).toLowerCase();
         const noteStr = (item?.note || '').toLowerCase();
         return (
           hwText.toLowerCase().includes(q) ||

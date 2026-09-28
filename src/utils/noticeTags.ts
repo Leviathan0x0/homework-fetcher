@@ -15,31 +15,31 @@ export interface NoticeTagMeta {
 export const NOTICE_TAG_META: Record<NoticeTag, NoticeTagMeta> = {
   leave: {
     label: 'Leave',
-    badgeClass: 'border-emerald-200/60 bg-emerald-50 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/40 dark:text-emerald-300',
+    badgeClass: 'border-emerald-200/60 bg-emerald-100 text-emerald-700 dark:border-emerald-800/40 dark:bg-emerald-950/60 dark:text-emerald-300',
     iconColorClassName: 'text-emerald-700 dark:text-emerald-300',
     iconPrimaryColor: '#10b981',
     iconSecondaryColor: '#2dc992',
   },
   'fee-payment': {
     label: 'Fee Payment',
-    badgeClass: 'border-amber-200/60 bg-amber-50 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/40 dark:text-amber-300',
+    badgeClass: 'border-amber-200/60 bg-amber-100 text-amber-800 dark:border-amber-800/40 dark:bg-amber-950/60 dark:text-amber-300',
     iconColorClassName: 'text-amber-700 dark:text-amber-300',
     iconPrimaryColor: '#f59e0b',
     iconSecondaryColor: '#eaa718',
   },
   other: {
     label: 'Other',
-    badgeClass: 'border-sky-200/60 bg-sky-50 text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/40 dark:text-sky-300',
-    iconColorClassName: 'text-sky-700 dark:text-sky-300',
-    iconPrimaryColor: '#4fb6e5',
-    iconSecondaryColor: '#3ea1d4',
+    badgeClass: 'border-violet-200/60 bg-violet-100 text-violet-700 dark:border-violet-800/40 dark:bg-violet-950/60 dark:text-violet-300',
+    iconColorClassName: 'text-violet-700 dark:text-violet-300',
+    iconPrimaryColor: '#a78bfa',
+    iconSecondaryColor: '#8b5cf6',
   },
   circular: {
     label: 'Circular',
-    badgeClass: 'border-sky-200/60 bg-sky-50 text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/40 dark:text-sky-300',
+    badgeClass: 'border-sky-200/60 bg-sky-100 text-sky-700 dark:border-sky-800/40 dark:bg-sky-950/60 dark:text-sky-300',
     iconColorClassName: 'text-sky-700 dark:text-sky-300',
-    iconPrimaryColor: '#4fb6e5',
-    iconSecondaryColor: '#3ea1d4',
+    iconPrimaryColor: '#0284c7',
+    iconSecondaryColor: '#0369a1',
   },
 };
 

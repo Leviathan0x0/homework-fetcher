@@ -134,20 +134,6 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
 
   const activeTagMeta = selectedTag === 'all' ? null : NOTICE_TAG_META[selectedTag];
 
-  const tagCounts = useMemo(() => {
-    const counts: Record<ImportantNoticeFilter, number> = {
-      all: notices.length,
-      leave: 0,
-      'fee-payment': 0,
-      other: 0,
-    };
-    for (const notice of notices) {
-      const tag = getNoticeTag(notice);
-      if (tag !== 'circular') counts[tag] += 1;
-    }
-    return counts;
-  }, [notices]);
-
   return (
     <div className="space-y-5">
       <PageHeader
@@ -184,11 +170,10 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
                   'px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 shrink-0 cursor-pointer active:scale-95 inline-flex items-center gap-1.5',
                   isSelected
                     ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs font-semibold'
-                    : 'bg-neutral-100/80 dark:bg-neutral-800/60 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200/70 dark:hover:bg-neutral-800'
+                    : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800'
                 )}
               >
                 <span>{filter.label}</span>
-                <span className="text-[10px] tabular-nums opacity-60">{tagCounts[filter.key]}</span>
               </button>
             );
           })}

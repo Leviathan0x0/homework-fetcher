@@ -33,7 +33,6 @@ const adminRoutes = require("./server/routes/adminRoutes");
 const teacherRoutes = require("./server/routes/teacherRoutes");
 const { allowedOrigins, isAllowedOrigin } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
-const { isTestTeacherEnabled, testTeacherDiagnostics } = require("./server/teacher/teacherService");
 const { ensureDatabaseReady, isRemote, db, schema, ready: dbReady } = require("./server/db/client");
 const { seedDefaultSettings } = require("./server/admin/settingsService");
 const { purgeTestContent } = require("./server/admin/purgeTestContent");
@@ -141,9 +140,8 @@ app.use((req, res, next) => {
     res.setHeader("Vary", "Origin");
     if (req.method === "OPTIONS") return res.sendStatus(204);
   } else if (req.method === "OPTIONS" && req.path.startsWith("/api")) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", corsRequestHeaders);
+    // No ACAO for unlisted origins: preflight must fail closed so a random
+    // site can't probe the API. Actual responses also omit ACAO below.
     return res.sendStatus(204);
   } else if (origin && allowedOrigins.length && req.path.startsWith("/api")) {
     console.warn(`Blocked cross-origin API request from ${origin}. Add it to ALLOWED_ORIGINS to allow it.`);
@@ -154,6 +152,25 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(cookieParser());
+
+// Cookie logins are ambient: the browser sends them even from evil.com.
+// Bearer logins (mobile) carry an explicit header, so they skip this.
+// With no Origin/Referer (same-origin fetch, curl, mobile) there is nothing to check.
+app.use("/api", (req, res, next) => {
+  if (!["POST", "PATCH", "PUT", "DELETE"].includes(req.method)) return next();
+  const auth = req.get("authorization") || "";
+  if (/^Bearer\s+/i.test(auth.trim())) return next();
+  if (!req.cookies?.app_session) return next();
+  const origin = req.headers.origin;
+  const referer = req.headers.referer;
+  const candidate = origin || (referer ? (() => { try { return new URL(referer).origin; } catch { return null; } })() : null);
+  if (!candidate) return next();
+  if (isAllowedOrigin(candidate)) return next();
+  // Same-origin POST has Origin === Host origin; allow it without config.
+  const host = req.get("host");
+  if (host && candidate.endsWith(`://${host}`)) return next();
+  return res.status(403).json({ error: "Cross-site request blocked." });
+});
 
 // Exact dependency and end-to-end durations are available in the browser's
 // Server-Timing panel; external and slow calls also become structured logs.
@@ -185,36 +202,31 @@ app.use("/api", (req, res, next) => {
   measureRequestTiming("database_ready", () => ensureDatabaseReady()).then(() => next()).catch((err) => {
     console.error("Database unavailable:", err.message);
     res.status(503).json({
-      error: err?.message || "Database unavailable. Check the database configuration.",
+      error: "Database unavailable. Check the database configuration.",
     });
   });
 });
 
-// GET /api/health - configuration diagnostics (no secrets), useful to check a deployment
+// GET /api/health - minimal liveness check. No config details: attackers
+// used the old flags to learn if a key was missing or demo login was on.
 app.get("/api/health", async (req, res) => {
   const status = {
     ok: true,
-    database: isRemote ? "hosted (libSQL)" : "local SQLite file",
     persistent: isRemote || !process.env.VERCEL,
-    encryptionKeyConfigured: isConfigured(),
-    uploadsDirConfigured: !!process.env.UPLOADS_DIR,
-    testTeacherEnabled: isTestTeacherEnabled(),
-    // Enough to tell apart the three ways a demo teacher sign-in fails,
-    // without putting the username or the password itself on a public page.
-    testTeacher: testTeacherDiagnostics(),
   };
 
-  if (!status.encryptionKeyConfigured) {
+  if (!isConfigured()) {
     status.ok = false;
-    status.error = MISSING_KEY_MESSAGE;
+    status.error = "Server is not configured correctly. Please try again later.";
   }
 
   try {
     await ensureDatabaseReady();
     await db.select().from(schema.users).limit(1).all();
   } catch (err) {
+    console.error("Health database check failed:", err.message);
     status.ok = false;
-    status.error = err.message;
+    status.error = "Database unavailable. Check the database configuration.";
   }
 
   if (!status.persistent) {
@@ -236,7 +248,7 @@ app.use("/api", homeworkRoutes);
 // isConfigured, ensureDatabaseReady). Remove this once legacy clients expire.
 app.post(
   "/fetch-homework",
-  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 30 }),
+  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 10 }),
   homeworkRoutes.handleLegacyFetchHomework
 );
 app.use("/api", classworkRoutes);
@@ -274,7 +286,7 @@ setupExpressErrorHandler(app);
 app.use("/api", (err, req, res, next) => {
   console.error(`API error on ${req.method} /api${req.path}:`, err);
   if (res.headersSent) return next(err);
-  res.status(500).json({ error: err?.message || "Unexpected server error." });
+  res.status(500).json({ error: "Unexpected server error." });
 });
 
 // Fallback SPA routing to index.html (Express 5 compatible catch-all)
@@ -294,7 +306,7 @@ app.use((err, req, res, next) => {
   if (res.headersSent) return next(err);
   res.status(500).json({
     authenticated: false,
-    error: err.message || "An unexpected server error occurred."
+    error: "An unexpected server error occurred."
   });
 });
 

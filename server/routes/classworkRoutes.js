@@ -82,8 +82,7 @@ router.get("/classwork", requireAuth, async (req, res) => {
       const isOwner = item.userId === req.user.id;
       const isAdmin =
         req.user.studentId === "admin_mmss" ||
-        req.user.role === "admin" ||
-        req.user.section === "Admin";
+        req.user.role === "admin";
       // Pending/rejected uploads stay private to the owner (and admin) until approved.
       if (status !== "approved" && !isOwner && !isAdmin) return false;
       return true;

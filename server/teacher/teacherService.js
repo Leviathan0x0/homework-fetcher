@@ -86,11 +86,10 @@ function normalizeTeacherProfile(profile) {
 }
 
 /**
- * Password used by the shared demo teacher account when none is configured.
- * It is published in this repository, so it is only ever accepted outside
- * production.
+ * Demo teacher account is env-only. No default password lives in the repo:
+ * set TEACHER_TEST_PASSWORD locally and in Vercel, or the account stays
+ * disabled and login refuses with a clear message.
  */
-const DEFAULT_TEST_TEACHER_PASSWORD = "Teacher#MMSS2026";
 
 /** Constant-time comparison so a wrong password cannot be probed byte by byte. */
 function matchesSecret(given, expected) {
@@ -102,10 +101,8 @@ function matchesSecret(given, expected) {
 /**
  * Credentials for the demo teacher account.
  *
- * The account works in production, but only once the deployment has chosen its
- * own password: a live install serves real rosters, attendance and teacher
- * notes about named students, so the password committed to this repository
- * must not be enough to reach any of it.
+ * Env-only: set TEACHER_TEST_PASSWORD locally and in Vercel. Without it
+ * the account is disabled everywhere.
  *
  * @returns {{username: string, password: string|null, enabled: boolean}}
  */
@@ -114,8 +111,7 @@ function testTeacherCredentials() {
   const configured = (process.env.TEACHER_TEST_PASSWORD || "").trim();
 
   if (configured) return { username, password: configured, enabled: true };
-  if (process.env.NODE_ENV === "production") return { username, password: null, enabled: false };
-  return { username, password: DEFAULT_TEST_TEACHER_PASSWORD, enabled: true };
+  return { username, password: null, enabled: false };
 }
 
 /**
@@ -193,8 +189,7 @@ function matchTestTeacherLogin(studentId, password) {
       warnedAboutMissingTestPassword = true;
       console.error(
         `[auth] Rejected "${username}" because TEACHER_TEST_PASSWORD is not set. ` +
-          "Set it in the deployment environment to enable the demo teacher account here; " +
-          "the default password is published in the repository and is never accepted in production."
+          "Set it in the deployment environment to enable the demo teacher account here."
       );
     }
     return TEST_TEACHER_MATCH.DISABLED;

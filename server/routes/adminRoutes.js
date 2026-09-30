@@ -23,8 +23,7 @@ async function requireAdmin(req, res, next) {
   const user = activeSession.user;
   const isAdmin =
     user.studentId === "admin_mmss" ||
-    user.role === "admin" ||
-    user.section === "Admin";
+    user.role === "admin";
   if (!isAdmin) {
     return res.status(403).json({ error: "Access denied. Administrator privileges required." });
   }
@@ -36,8 +35,7 @@ async function requireAdmin(req, res, next) {
 function isAdminUser(u) {
   return (
     u.studentId === "admin_mmss" ||
-    u.role === "admin" ||
-    u.section === "Admin"
+    u.role === "admin"
   );
 }
 

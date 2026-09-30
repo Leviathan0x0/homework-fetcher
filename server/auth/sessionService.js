@@ -889,8 +889,7 @@ function isAdminAccount(user) {
   if (!user) return false;
   return (
     user.role === "admin" ||
-    user.studentId === "admin_mmss" ||
-    user.section === "Admin"
+    user.studentId === "admin_mmss"
   );
 }
 

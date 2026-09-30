@@ -54,9 +54,19 @@ function now() {
 function normalizeAttachment(raw) {
   if (!raw || typeof raw !== "object") return null;
   const filename = String(raw.filename || "attachment").trim().slice(0, 160);
-  const mimeType = String(raw.mimeType || "application/octet-stream").trim().slice(0, 120);
+  const mimeType = String(raw.mimeType || "").trim().slice(0, 120);
+  const allowed = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]);
+  if (!allowed.has(mimeType)) return null;
   const data = String(raw.data || "");
-  if (!data.startsWith("data:") || data.length > 8 * 1024 * 1024) return null;
+  // Require the data URL to declare the same type it claims, so a stored
+  // HTML/SVG can't be smuggled in as an "image" and run in another student's session.
+  if (!data.startsWith(`data:${mimeType};base64,`) || data.length > 8 * 1024 * 1024) return null;
   return { filename, mimeType, data };
 }
 
@@ -234,8 +244,15 @@ router.get("/assignments/:id/attachment", async (req, res) => {
     if (!attachment) return res.status(404).json({ error: "Attachment not found." });
     const match = attachment.data.match(/^data:[^;]+;base64,(.*)$/s);
     const buffer = Buffer.from(match ? match[1] : attachment.data, "base64");
-    res.setHeader("Content-Type", attachment.mimeType);
-    res.setHeader("Content-Disposition", `inline; filename="${attachment.filename.replace(/["\r\n]/g, "")}"`);
+    // Same origin serves the file, so never render attacker-controlled bytes
+    // as a page: verified images/PDFs inline in a sandbox, everything else forced download.
+    const { applyDownloadHeaders } = require("../files/fileTypes");
+    applyDownloadHeaders(res, {
+      contentType: attachment.mimeType,
+      filename: attachment.filename,
+      head: buffer.subarray(0, 16),
+    });
+    res.setHeader("Content-Length", String(buffer.length));
     return res.send(buffer);
   } catch (err) {
     console.error("Teacher assignment attachment error:", err);

@@ -257,7 +257,7 @@ router.get(
 router.post(
   "/users/resolve",
   requireAuth,
-  rateLimit({ name: "user-resolve", windowMs: 60 * 1000, max: 60 }),
+  rateLimit({ name: "user-resolve", windowMs: 60 * 1000, max: 20 }),
   async (req, res) => {
     try {
       const typedId = cleanStudentId(req.body?.studentId);
@@ -414,7 +414,7 @@ router.post("/conversations/notice-token", requireAuth, async (req, res) => {
   }
 });
 
-router.post("/conversations", requireAuth, async (req, res) => {
+router.post("/conversations", requireAuth, rateLimit({ name: "create-conversation", windowMs: 60 * 1000, max: 20 }), async (req, res) => {
   try {
     let { participantId, studentId, noticeToken } = req.body || {};
 

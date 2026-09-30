@@ -328,7 +328,7 @@ async function handleLegacyFetchHomework(req, res) {
 }
 router.post(
   "/fetch-homework",
-  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 30 }),
+  rateLimit({ name: "legacy-fetch", windowMs: 60 * 1000, max: 10 }),
   handleLegacyFetchHomework
 );
 

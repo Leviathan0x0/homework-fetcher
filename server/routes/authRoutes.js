@@ -308,7 +308,7 @@ router.post("/login", async (req, res) => {
         displayName: displayName || null,
         section: isUnknownSection(section) ? null : section,
         profilePictureUrl: await profilePictureUrlFor(user.id),
-        isAdmin: role === "admin" || user.studentId === "admin_mmss" || user.section === "Admin",
+        isAdmin: role === "admin" || user.studentId === "admin_mmss",
         isTeacher: role === "teacher" || role === "class_teacher",
         role,
         teacherProfile: teacherProfile ? normalizeTeacherProfile(teacherProfile) : null,
@@ -317,10 +317,9 @@ router.post("/login", async (req, res) => {
 
   } catch (err) {
     console.error("Auth Login Error:", err);
-    const errorMsg = err.message || "An unexpected error occurred during login.";
     return res.status(500).json({
       authenticated: false,
-      error: errorMsg
+      error: "An unexpected error occurred during login."
     });
   }
 });
@@ -341,8 +340,7 @@ router.get("/me", async (req, res) => {
   let displayName = activeSession.user.displayName;
   const isAdmin =
     activeSession.user.studentId === "admin_mmss" ||
-    activeSession.user.role === "admin" ||
-    activeSession.user.section === "Admin";
+    activeSession.user.role === "admin";
   const isTeacher =
     activeSession.user.role === "teacher" ||
     activeSession.user.role === "class_teacher";

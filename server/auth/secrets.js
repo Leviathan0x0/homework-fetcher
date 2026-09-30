@@ -3,9 +3,9 @@ const crypto = require("crypto");
 /**
  * Central handling of ENCRYPTION_KEY.
  *
- * Production deployments should always provide ENCRYPTION_KEY. The stable
- * fallback below is only for development/self-hosted setups where a missing
- * key must not invalidate every remembered session after a restart.
+ * Fail-closed: without a strong ENCRYPTION_KEY the API refuses to sign
+ * sessions or encrypt school portal cookies. No predictable fallback —
+ * a guessable key lets anyone forge a login cookie.
  */
 
 const MIN_SECRET_LENGTH = 32;
@@ -14,36 +14,19 @@ const MISSING_KEY_MESSAGE =
   "ENCRYPTION_KEY is missing or shorter than 32 characters. Generate one with " +
   "`openssl rand -hex 32` and set it in the environment before starting the API.";
 
-let devSecretFallback = null;
-
 /** Derived keys, cached because HKDF runs on every signed-cookie check. */
 const derivedKeys = new Map();
 
 /**
  * @returns {string} the configured secret
+ * @throws when ENCRYPTION_KEY is missing or too short
  */
 function requireSecret() {
   const secret = (process.env.ENCRYPTION_KEY || "").trim();
   if (secret.length >= MIN_SECRET_LENGTH) {
     return secret;
   }
-  if (!devSecretFallback) {
-    const stableSeed = [
-      process.env.DATABASE_URL,
-      process.env.TURSO_DATABASE_URL,
-      process.env.LIBSQL_URL,
-      process.env.SQLITE_DB_PATH,
-      process.cwd(),
-    ].find((value) => String(value || "").trim()) || "homework-fetcher-local";
-    devSecretFallback = crypto
-      .createHash("sha256")
-      .update(`homework-fetcher:${stableSeed}`)
-      .digest("hex");
-    console.warn(
-      "[auth] ENCRYPTION_KEY not found. Using a stable local fallback; configure ENCRYPTION_KEY for production."
-    );
-  }
-  return devSecretFallback;
+  throw new Error(MISSING_KEY_MESSAGE);
 }
 
 /**

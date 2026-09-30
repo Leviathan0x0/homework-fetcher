@@ -6,6 +6,7 @@ import { cn } from '../utils/cn';
 import { linkifyText } from '../utils/linkify';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 import { Reicon } from './ui/reicon';
+import { Check } from 'lucide-react';
 
 interface HomeworkCardProps {
   item: HomeworkEntry;
@@ -197,12 +198,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 )}
                 title={isCompleted ? 'Mark as pending' : 'Mark as done'}
               >
-                <Reicon
-                  name="check"
-                  size={13}
-                  strokeWidth={2.5}
+                <Check
+                  aria-hidden="true"
+                  strokeWidth={2.25}
                   className={cn(
-                    'stroke-[2.5] transition-opacity duration-200',
+                    'size-3.5 shrink-0 transition-opacity duration-200',
                     isCompleted ? 'opacity-100' : 'opacity-0'
                   )}
                 />

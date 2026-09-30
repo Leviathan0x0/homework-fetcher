@@ -9,7 +9,7 @@ describe('EmptyState', () => {
 
     expect(screen.getByText('No homework posted today')).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been sent yet/)).toBeInTheDocument();
-    expect(container.querySelector('.illustration-empty-today')).toBeInTheDocument();
+    expect(container.querySelector('.illustration-celebration-holiday')).toBeInTheDocument();
   });
 
   it('renders search empty state correctly', () => {
@@ -72,6 +72,6 @@ describe('EmptyState', () => {
     );
 
     expect(screen.getByText('Icon Empty State')).toBeInTheDocument();
-    expect(container.querySelector('.illustration-empty-today')).not.toBeInTheDocument();
+    expect(container.querySelector('.illustration-celebration-holiday')).not.toBeInTheDocument();
   });
 });

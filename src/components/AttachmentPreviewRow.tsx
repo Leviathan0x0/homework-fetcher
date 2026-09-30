@@ -95,7 +95,7 @@ export const AttachmentPreviewRow: React.FC<AttachmentPreviewRowProps> = ({
       className="group/file flex w-full min-w-0 cursor-pointer items-center gap-2.5 py-2 text-left transition-colors duration-200 hover:text-neutral-950 dark:hover:text-white"
     >
       <span
-        style={{ backgroundColor: withAlpha(folderColor, 0.16) }}
+        style={{ backgroundColor: withAlpha(folderColor, 0.08) }}
         className={cn(
           'flex size-8 shrink-0 items-center justify-center rounded-lg',
           iconColorClassName

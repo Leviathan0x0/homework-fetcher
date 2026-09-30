@@ -53,7 +53,7 @@ describe('SettingsView', () => {
     await user.click(screen.getByRole('button', { name: 'Sky theme' }));
     expect(onThemeIdChange).toHaveBeenCalledWith('sky');
 
-    await user.click(screen.getByRole('button', { name: 'Dark' }));
+    await user.click(screen.getByRole('radio', { name: 'Dark' }));
     expect(onThemeChange).toHaveBeenCalledWith('dark');
   });
 });

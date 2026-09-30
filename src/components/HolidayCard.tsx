@@ -1,7 +1,7 @@
 import React from 'react';
 import type { SchoolCalendarEvent } from '../types/homework';
 import { cn } from '../utils/cn';
-import { Reicon, Reillustration } from './ui/reicon';
+import { Reicon } from './ui/reicon';
 
 function isHolidayType(type?: string) {
   return /holiday|vacation|break|off/i.test(type || '');
@@ -127,12 +127,8 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
           </div>
         </div>
 
-        {/* Right side compact celebration illustration & action */}
+        {/* Right side compact action */}
         <div className="relative flex items-center gap-2.5 shrink-0">
-          <div className="hidden sm:flex shrink-0 items-center justify-center" aria-hidden>
-            <Reillustration name="celebration-holiday" size="xs" interactive />
-          </div>
-
           <div className="flex items-center gap-1 text-[11px] font-medium text-rose-600 transition-colors group-hover:text-rose-700 dark:text-rose-400 dark:group-hover:text-rose-300">
             <span className="hidden xs:inline">View</span>
             <Reicon
@@ -186,10 +182,6 @@ export const HolidayCard: React.FC<HolidayCardProps> = ({
               No school today — enjoy the break.
             </p>
           </div>
-        </div>
-
-        <div className="hidden sm:flex shrink-0 items-center justify-center">
-          <Reillustration name="celebration-holiday" size="sm" interactive />
         </div>
       </section>
     );

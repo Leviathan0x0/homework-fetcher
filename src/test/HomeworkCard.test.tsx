@@ -40,7 +40,7 @@ describe('HomeworkCard notes', () => {
 
     const completionButton = screen.getByRole('button', { name: 'Mark as pending' });
     expect(completionButton.querySelector('svg')).toBeInTheDocument();
-    expect(completionButton.querySelector('.reicon')).toBeInTheDocument();
+    expect(completionButton.querySelector('.lucide-check')).toBeInTheDocument();
     expect(completionButton.querySelector('[class*="circle-check"]')).not.toBeInTheDocument();
   });
 

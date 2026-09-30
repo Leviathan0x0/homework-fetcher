@@ -30,14 +30,12 @@ function LinkIcon({ kind }: { kind: DeveloperLinkKind }) {
   }
 }
 
-function ConnectionLink({ link, reduceMotion }: { link: DeveloperLink; reduceMotion: boolean }) {
+function ConnectionLink({ link }: { link: DeveloperLink }) {
   return (
-    <motion.a
+    <a
       href={link.href}
       target="_blank"
       rel="noopener noreferrer"
-      whileHover={reduceMotion ? undefined : { y: -1 }}
-      transition={{ duration: 0.16, ease: 'easeOut' }}
       className={cn(
         'group/link inline-flex cursor-pointer items-center gap-1.5 py-1 text-xs font-medium',
         'text-neutral-600 transition-colors duration-200 hover:text-neutral-950',
@@ -49,7 +47,7 @@ function ConnectionLink({ link, reduceMotion }: { link: DeveloperLink; reduceMot
       <span className="border-b border-neutral-200 pb-0.5 transition-colors duration-200 group-hover/link:border-neutral-500 dark:border-neutral-800 dark:group-hover/link:border-neutral-500">
         {link.label}
       </span>
-    </motion.a>
+    </a>
   );
 }
 
@@ -139,7 +137,7 @@ export const DevelopersView: React.FC = () => {
             {dev.links.length > 0 && (
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-1.5" aria-label={`${dev.name} links`}>
                 {dev.links.map((link) => (
-                  <ConnectionLink key={link.href} link={link} reduceMotion={reduceMotion} />
+                  <ConnectionLink key={link.href} link={link} />
                 ))}
               </div>
             )}

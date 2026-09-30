@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ThemeMode, SessionStatus } from '../types/homework';
 import { UserAccount } from '../hooks/useHomework';
 import { authService } from '../services/api';
-import { Reicon } from './ui/reicon';
+import { Reicon, type ReiconName } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
 import { ProfileAvatar } from './ProfileAvatar';
@@ -10,6 +10,9 @@ import { compressImage, formatBytes } from '../utils/imageCompression';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { AutoRefreshMinutes } from '../utils/appPreferences';
 import { AppTheme, DEFAULT_THEME_ID, ThemeAppearance, themesForMode } from '../themes';
+import { Switch } from './ui/switch';
+import { SegmentedControl } from './ui/segmented-control';
+import { Button } from './ui/button';
 
 export type SettingsSection = 'profile' | 'account' | 'preferences' | 'appearance' | 'app';
 
@@ -38,7 +41,7 @@ interface SettingsPanelProps {
 interface SettingsCardProps {
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReiconName;
   children: React.ReactNode;
   className?: string;
 }
@@ -52,9 +55,11 @@ function SettingsCard({ title, description, icon, children, className }: Setting
       )}
     >
       <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
-          {icon}
-        </div>
+        <Reicon
+          name={icon}
+          size={17}
+          className="mt-0.5 shrink-0 text-muted-foreground"
+        />
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-100">{title}</h2>
           <p className="mt-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">{description}</p>
@@ -62,35 +67,6 @@ function SettingsCard({ title, description, icon, children, className }: Setting
       </div>
       <div className="mt-5">{children}</div>
     </section>
-  );
-}
-
-interface ToggleProps {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  label: string;
-}
-
-function Toggle({ checked, onCheckedChange, label }: ToggleProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onCheckedChange(!checked)}
-      className={cn(
-        'relative inline-flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full p-0.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40 focus-visible:ring-offset-2 dark:focus-visible:ring-neutral-600/50 dark:focus-visible:ring-offset-[#111114]',
-        checked ? 'bg-neutral-900 dark:bg-neutral-100' : 'bg-neutral-200 dark:bg-neutral-700'
-      )}
-    >
-      <span
-        className={cn(
-          'size-5 rounded-full bg-white shadow-sm transition-transform duration-200 dark:bg-neutral-900',
-          checked ? 'translate-x-4' : 'translate-x-0'
-        )}
-      />
-    </button>
   );
 }
 
@@ -295,7 +271,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <SettingsCard
         title="Your profile"
         description="Choose how you appear to classmates and how your photo is handled."
-        icon={<Reicon name="user" size={17} />}
+        icon="user"
         className="lg:col-span-2"
       >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
@@ -311,7 +287,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   {user?.displayName || 'Your profile'}
                 </p>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  Student ID {user?.studentId || '—'}
+                  Student ID {user?.studentId ?? 'Not set'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -322,24 +298,26 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   className="hidden"
                   onChange={handlePictureChange}
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="min-h-11 px-3"
                   disabled={pictureBusy}
                   onClick={() => pictureInputRef.current?.click()}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-neutral-900 px-3 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
                 >
                   <Reicon name="upload" size={14} className="size-3.5" />
                   {pictureBusy ? 'Checking…' : user?.profilePictureUrl ? 'Change photo' : 'Add photo'}
-                </button>
+                </Button>
                 {user?.profilePictureUrl && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 px-3 text-xs font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive dark:hover:bg-destructive/20"
                     disabled={pictureBusy}
                     onClick={handleRemovePicture}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-neutral-200 px-3 text-xs font-medium text-neutral-600 transition hover:border-rose-200 hover:text-rose-600 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:border-rose-900 dark:hover:text-rose-400"
                   >
                     <Reicon name="trash-2" size={14} className="size-3.5" /> Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
@@ -377,14 +355,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               maxLength={40}
               className="min-h-10 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-400/15 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-600 dark:focus:bg-neutral-900"
             />
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-11 px-4"
               onClick={handleSaveName}
               disabled={savingName || !nameDraft.trim() || nameDraft.trim() === (user?.displayName || '')}
-              className="min-h-10 rounded-xl border border-neutral-200 bg-white px-4 text-xs font-semibold text-neutral-800 transition hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
             >
               {savingName ? 'Saving…' : 'Save name'}
-            </button>
+            </Button>
           </div>
           {(nameError || nameSaved) && (
             <p
@@ -407,7 +386,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         description={hasSchoolPortal
           ? 'Keep your homework connection healthy and manage your session.'
           : 'Manage access to your MMSS Mohali account.'}
-        icon={<Reicon name={hasSchoolPortal ? 'key' : 'shield-check'} size={17} />}
+        icon={hasSchoolPortal ? 'key' : 'shield-check'}
       >
         <div
           className={cn(
@@ -433,36 +412,38 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
         </div>
 
         {hasSchoolPortal && schoolSessionExpired && onReconnect && (
-          <button
-            type="button"
+          <Button
+            variant="default"
+            size="lg"
+            className="mt-3 w-full"
             onClick={onReconnect}
-            className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-3 text-xs font-semibold text-white transition hover:bg-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
           >
             <Reicon name="key" size={15} /> Reconnect school portal
-          </button>
+          </Button>
         )}
 
         <div className="mt-4 space-y-1">
           <button
             type="button"
             onClick={() => setShowPasswordHelp(true)}
-            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
+            className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3 text-left transition-colors duration-200 ease-out outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
-            <span className="inline-flex items-center gap-2.5 text-xs font-medium text-neutral-700 dark:text-neutral-300">
-              <Reicon name="lock" size={15} className="text-neutral-500" /> Forgot or change password
+            <span className="inline-flex items-center gap-2.5 text-xs font-medium text-foreground">
+              <Reicon name="lock" size={15} className="text-muted-foreground" /> Forgot or change password
             </span>
-            <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               School office <Reicon name="chevron-right" size={13} />
             </span>
           </button>
           <div className="border-t border-neutral-200/80 pt-3 dark:border-neutral-800/80">
-            <button
-              type="button"
+            <Button
+              variant="destructive"
+              size="sm"
+              className="min-h-11 px-3 font-semibold"
               onClick={onLogout}
-              className="inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
             >
               <Reicon name="logout" size={15} /> Sign out
-            </button>
+            </Button>
           </div>
         </div>
       </SettingsCard>
@@ -472,7 +453,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <SettingsCard
         title="Updates & alerts"
         description="Decide what MMSS checks automatically and which updates reach you."
-        icon={<Reicon name="bell" size={17} />}
+        icon="bell"
       >
         <div className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200/80 p-3.5 dark:border-neutral-800/80">
           <div className="min-w-0">
@@ -481,10 +462,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               Show homework, messages, and announcement alerts in the header.
             </p>
           </div>
-          <Toggle
+          <Switch
             checked={inAppNotifications}
             onCheckedChange={(enabled) => onInAppNotificationsChange?.(enabled)}
-            label="In-app notifications"
+            aria-label="In-app notifications"
           />
         </div>
 
@@ -523,31 +504,18 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <SettingsCard
         title="Appearance"
         description="Pick a light or dark mode, then choose a palette for it."
-        icon={<Reicon name="sun" size={17} />}
+        icon="sun"
       >
-        <div className="grid grid-cols-3 gap-2" role="group" aria-label="Color theme">
-          {([
+        <SegmentedControl
+          options={[
             { value: 'light', label: 'Light', icon: 'sun' },
             { value: 'dark', label: 'Dark', icon: 'moon' },
             { value: 'system', label: 'System', icon: 'monitor' },
-          ] as const).map((mode) => (
-            <button
-              key={mode.value}
-              type="button"
-              aria-pressed={theme === mode.value}
-              onClick={() => onThemeChange(mode.value)}
-              className={cn(
-                'flex min-h-16 flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-[11px] font-semibold transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/40',
-                theme === mode.value
-                  ? 'border-neutral-900 bg-neutral-900 text-white shadow-sm dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
-                  : 'border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-400 dark:hover:border-neutral-700'
-              )}
-            >
-              <Reicon name={mode.icon} size={17} />
-              {mode.label}
-            </button>
-          ))}
-        </div>
+          ] as const}
+          value={theme}
+          onValueChange={(next) => onThemeChange(next)}
+          ariaLabel="Color mode"
+        />
 
         <div className="mt-5 border-t border-neutral-200/80 pt-4 dark:border-neutral-800/80">
           <div className="flex items-baseline justify-between gap-3">
@@ -584,7 +552,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
       <SettingsCard
         title="MMSS Mohali app"
         description="Install the app for quicker access and an app-like experience."
-        icon={<Reicon name="smartphone" size={17} />}
+        icon="smartphone"
         className="lg:col-span-2"
       >
         <div className="flex flex-col justify-between gap-4 rounded-xl border border-neutral-200/80 p-4 sm:flex-row sm:items-center dark:border-neutral-800/80">
@@ -617,16 +585,17 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </div>
           </div>
           {canInstall && !isInstalled && (
-            <button
-              type="button"
+            <Button
+              variant="default"
+              size="lg"
+              className="shrink-0"
               onClick={handleInstallClick}
               disabled={isInstalling}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white transition hover:bg-neutral-700 disabled:cursor-wait disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
               aria-busy={isInstalling}
             >
               <Reicon name="download" size={15} />
               {isInstalling ? 'Opening…' : 'Install app'}
-            </button>
+            </Button>
           )}
         </div>
         <div className="mt-3 flex items-center gap-2 text-[10px] text-neutral-400 dark:text-neutral-500">

@@ -49,3 +49,58 @@ Object.defineProperty(globalThis, 'localStorage', {
   value: localStorageMock,
   writable: true,
 });
+
+// jsdom does not implement PointerEvent, which Base UI components such as
+// Switch construct when forwarding clicks. Polyfill it on top of MouseEvent so
+// pointer-driven primitives can be exercised in tests.
+if (typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent implements PointerEvent {
+    readonly pointerId: number;
+    readonly pointerType: string;
+    readonly isPrimary: boolean;
+    readonly width: number;
+    readonly height: number;
+    readonly pressure: number;
+    readonly tangentialPressure: number;
+    readonly tiltX: number;
+    readonly tiltY: number;
+    readonly twist: number;
+    readonly altitudeAngle: number;
+    readonly azimuthAngle: number;
+
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params);
+      this.pointerId = params.pointerId ?? 1;
+      this.pointerType = params.pointerType ?? 'mouse';
+      this.isPrimary = params.isPrimary ?? true;
+      this.width = params.width ?? 1;
+      this.height = params.height ?? 1;
+      this.pressure = params.pressure ?? 0;
+      this.tangentialPressure = params.tangentialPressure ?? 0;
+      this.tiltX = params.tiltX ?? 0;
+      this.tiltY = params.tiltY ?? 0;
+      this.twist = params.twist ?? 0;
+      this.altitudeAngle = params.altitudeAngle ?? 0;
+      this.azimuthAngle = params.azimuthAngle ?? 0;
+    }
+
+    getCoalescedEvents(): PointerEvent[] {
+      return [];
+    }
+
+    getPredictedEvents(): PointerEvent[] {
+      return [];
+    }
+  }
+
+  Object.defineProperty(window, 'PointerEvent', {
+    configurable: true,
+    value: PointerEventPolyfill,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, 'PointerEvent', {
+    configurable: true,
+    value: PointerEventPolyfill,
+    writable: true,
+  });
+}

@@ -56,14 +56,6 @@ function readDismissedAlerts(): string[] {
   }
 }
 
-function progressEncouragement(done: number, total: number): string {
-  if (total === 0) return 'Nothing due today, enjoy the quiet.';
-  if (done === 0) return 'Start with one, momentum builds fast.';
-  if (done >= total) return 'All done for today. Nice work.';
-  if (done / total >= 0.66) return 'Almost there, keep going.';
-  return 'Keep going, you are making progress.';
-}
-
 export const TodayView: React.FC<TodayViewProps> = ({
   homework,
   isLoading,
@@ -192,7 +184,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const completedCount = todayEntries.filter((item) => completedMap[getEntryId(item)]).length;
   const pendingCount = Math.max(0, totalCount - completedCount);
   const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const encouragement = progressEncouragement(completedCount, totalCount);
 
   const hasHolidayToday = todayHolidays.length > 0;
   // Skeleton only for the initial load (isLoading covers "no today entry yet
@@ -394,35 +385,31 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
       {!isContentLoading && totalCount > 0 && (
         <section
-          className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#141417] p-4 sm:p-5 shadow-2xs animate-in fade-in-0 duration-300"
+          className="rounded-2xl border border-neutral-200/80 dark:border-neutral-800/80 bg-white dark:bg-[#141417] px-4 py-3 shadow-2xs animate-in fade-in-0 duration-300"
           aria-label="Today's progress"
         >
-          <div className="flex items-baseline justify-between gap-3 mb-3">
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 tracking-tight">
+          <div className="flex items-center gap-3">
+            <h2 className="shrink-0 text-xs font-semibold text-neutral-900 dark:text-neutral-100">
               Today’s progress
             </h2>
-            <span className="text-xs font-semibold tabular-nums text-neutral-500 dark:text-neutral-400">
-              {completedCount} of {totalCount} done ({progressPercent}%)
+            <div
+              role="progressbar"
+              aria-valuenow={progressPercent}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuetext={`${completedCount} of ${totalCount} homework done`}
+              aria-label="Today's homework completion progress"
+              className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800"
+            >
+              <div
+                style={{ width: `${progressPercent}%` }}
+                className="h-full rounded-full bg-neutral-900 dark:bg-white transition-[width] duration-500 ease-out"
+              />
+            </div>
+            <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+              {completedCount} of {totalCount} done
             </span>
           </div>
-
-          <div
-            role="progressbar"
-            aria-valuenow={progressPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label="Today's homework completion progress"
-            className="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800"
-          >
-            <div
-              style={{ width: `${progressPercent}%` }}
-              className="h-full rounded-full bg-neutral-900 dark:bg-white transition-[width] duration-500 ease-out"
-            />
-          </div>
-
-          <p className="mt-2.5 text-xs text-neutral-500 dark:text-neutral-400">
-            {encouragement}
-          </p>
         </section>
       )}
 
@@ -437,13 +424,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
       {isContentLoading ? (
         <LoadingSkeleton label="Loading today's homework…" />
       ) : filteredEntries.length === 0 ? (
-        hasHolidayToday ? null : (
-          <EmptyState
-            type="today"
-            title="No homework posted today"
-            subtitle="Nothing has been sent yet. Check back later or refresh when your school posts it."
-          />
-        )
+        <EmptyState
+          type="today"
+          title={hasHolidayToday ? 'It’s a holiday today' : 'No homework posted today'}
+          subtitle={
+            hasHolidayToday
+              ? 'No school today — enjoy the break.'
+              : 'Nothing has been sent yet. Check back later or refresh when your school posts it.'
+          }
+        />
       ) : (
         <div className="space-y-3.5 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
           {filteredEntries.map((item, index) => {

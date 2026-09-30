@@ -62,8 +62,8 @@ test("upsert keeps personal state, removes duplicates, and returns the saved row
   );
   assert.equal(initial.length, 2);
 
-  // Phase 1 with skipAi stores subjects as-is ("School Diary"); AI assigns
-  // real subjects later, so identify rows by content instead of subject.
+  // Phase 1 with skipAi labels rows from the text regex; identify fixtures by
+  // content instead of subject so a regex change never breaks the test.
   const mathematics = initial.find((item) =>
     (item.homework || "").includes("Complete exercise 4")
   );
@@ -258,5 +258,56 @@ test("handles concurrent simultaneous upserts without UNIQUE constraint errors",
 
   // Background AI passes must not still be holding the connection open when
   // the suite tears the temp SQLite file down.
+  await homeworkCacheService.whenAiIdle(userId);
+});
+
+test("fills the subject from the first lines or the attachment when the text is unreadable", async () => {
+  const userId = "fallback-subject-user";
+  const now = new Date().toISOString();
+  await db.insert(schema.users).values({
+    id: userId,
+    studentId: "fallback-student",
+    displayName: "Fallback Tester",
+    section: "10-A",
+    role: "student",
+    createdAt: now,
+    updatedAt: now,
+  }).run();
+
+  const initial = await homeworkCacheService.upsertHomework(
+    userId,
+    [
+      // Heavy typo in the first line: strict regex misses, fuzzy catches it.
+      {
+        type: "Homework",
+        date: "05 Sep 2026",
+        homework: "Gography: map work\nread chapter 3 carefully",
+        attachment: null,
+      },
+      // No subject anywhere in the text: the attachment filename decides.
+      {
+        type: "Homework",
+        date: "05 Sep 2026",
+        homework: "complte the qestions given in clas",
+        attachment: "https://school.edu/history-worksheet.pdf",
+      },
+      // The typo'd subject sits on line 6, outside the 5-line fallback window.
+      {
+        type: "Homework",
+        date: "05 Sep 2026",
+        homework: "bring your signed diary\nparent signature pending\n\n\n\n\nHistiry notes for later",
+        attachment: null,
+      },
+    ],
+    { skipAi: true }
+  );
+
+  assert.equal(initial.length, 3);
+  const byContent = (needle) =>
+    initial.find((item) => (item.homework || "").includes(needle));
+  assert.equal(byContent("Gography").subject, "Geography");
+  assert.equal(byContent("complte the qestions").subject, "History");
+  assert.equal(byContent("signed diary").subject, "School Diary");
+
   await homeworkCacheService.whenAiIdle(userId);
 });

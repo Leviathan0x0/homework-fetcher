@@ -39,6 +39,39 @@ const CANONICAL_SUBJECTS = [
   "Science",
 ];
 
+// Choice-primitive descriptions. The two generic buckets are explicitly
+// fenced off ("only when no specific subject applies") so Jev stops
+// collapsing Political Science / Geography / Economics / History /
+// Chemistry / Biology / Physics into them.
+const SUBJECT_HINTS = {
+  Computers: "Computer science, coding, programming, IT, computer applications",
+  Biology: "Living things: cells, plants, animals, human body, ecology",
+  Chemistry: "Elements, compounds, reactions, atoms, periodic table, chemical equations",
+  Physics: "Motion, force, energy, electricity, light, waves, numerical problems",
+  English: "English language, grammar, literature, comprehension, essay writing",
+  Geography: "Maps, landforms, climate, rivers, population, locations, resources",
+  Economics: "Money, markets, budget, trade, inflation, production, demand and supply",
+  History: "Past events, dates, rulers, wars, civilizations, historical sources",
+  Civics: "Government, citizenship, civic institutions",
+  "Political Science": "Government, constitution, democracy, politics, political institutions",
+  Mathematics: "Arithmetic, algebra, geometry, trigonometry, calculations",
+  Hindi: "Hindi language, grammar, हिंदी",
+  "Physical Edu.": "Sports, fitness, physical education, health",
+  Punjabi: "Punjabi language, grammar, ਪੰਜਾਬੀ",
+  "Art Education": "Drawing, craft, painting, art",
+  "Kaushal Vikas": "Skill development, vocational training, कौशल विकास",
+  Library: "Library reading, book reports, reading list",
+  Aptitude: "Reasoning, mental ability, puzzles, logical thinking",
+  "Life Skills": "Moral science, value education, life skills",
+  Dance: "Dance, नृत्य",
+  Yoga: "Yoga, योग",
+  EVS: "Environmental studies, environment, पर्यावरण",
+  "Social Science":
+    "ONLY when no single social-studies subject (History, Geography, Civics, Political Science, Economics) clearly applies",
+  Science:
+    "ONLY when no single science subject (Physics, Chemistry, Biology) clearly applies",
+};
+
 const ROMAN_MAP = {
   I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8,
   IX: 9, X: 10, XI: 11, XII: 12,
@@ -182,9 +215,9 @@ function getSubjectCriteria(isPoliticalScience = false) {
   const criteria = {};
   for (const subject of CANONICAL_SUBJECTS) {
     if (subject === "Civics" && isPoliticalScience) {
-      criteria["Political Science"] = null;
+      criteria["Political Science"] = SUBJECT_HINTS["Political Science"] ?? null;
     } else {
-      criteria[subject] = null;
+      criteria[subject] = SUBJECT_HINTS[subject] ?? null;
     }
   }
   criteria["School Diary"] = "General school notice, circular, holiday update, or non-subject diary entry";

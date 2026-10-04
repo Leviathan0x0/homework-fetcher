@@ -154,6 +154,23 @@ function extractJsonText(raw) {
 }
 
 /**
+ * Builds the stored body from model-extracted fields. The raw text is
+ * returned when neither field survived cleanup, so an empty model answer
+ * never erases the entry. Shared with the local formatter (server/ai/localAi.js).
+ *
+ * @param {string|null} homework
+ * @param {string|null} classwork
+ * @param {string} fallback
+ * @returns {string}
+ */
+function composeFormattedText(homework, classwork, fallback) {
+  if (homework && classwork) return `Homework: ${homework}\nClasswork: ${classwork}`;
+  if (homework) return `Homework: ${homework}`;
+  if (classwork) return `Classwork: ${classwork}`;
+  return fallback;
+}
+
+/**
  * Uses AI Studio (Gemma) to extract and format homework into JSON with
  * distinct classwork and homework fields. Skips (and passes the text
  * through unchanged) when rate-limited, cooling down, or on provider errors.
@@ -256,12 +273,8 @@ async function formatWithAiStudio(text, subject = "") {
     if (cw) cw = cw.replace(/^(?:classwork|class\s*work|cw)[:\s-]*/i, "").trim() || null;
 
     let formattedText = trimmed;
-    if (hw && cw) {
-      formattedText = `Homework: ${hw}\nClasswork: ${cw}`;
-    } else if (hw) {
-      formattedText = `Homework: ${hw}`;
-    } else if (cw) {
-      formattedText = `Classwork: ${cw}`;
+    if (hw || cw) {
+      formattedText = composeFormattedText(hw, cw, trimmed);
     }
 
     const result = {
@@ -314,6 +327,7 @@ module.exports = {
   DEFAULT_MODEL,
   formatWithAiStudio,
   formatHomeworkEntry,
+  composeFormattedText,
   clearFormatterCache,
   getAiStudioUsage,
 };

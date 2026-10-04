@@ -1,0 +1,12 @@
+# MMSS64 nightly backup timer — see mmss64-backup.service for install steps.
+
+[Unit]
+Description=Run MMSS64 backups nightly
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

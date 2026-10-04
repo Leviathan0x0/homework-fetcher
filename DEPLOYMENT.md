@@ -1,13 +1,19 @@
 # Deployment
 
+> **Current production:** the frontend is served by Vercel and `/api/*` is
+> proxied by a Vercel external rewrite to the Azure VPS (Nginx → Express →
+> local SQLite). See **`docs/AZURE-VPS.md`** for the runbook, environment
+> matrix, backups and restore. The Turso/serverless instructions below are the
+> legacy fallback (rollback path) and for understanding older deployments.
+
 The app has two parts:
 
 - a static Vite bundle (`dist/`)
 - an Express API (`server.js` + `server/`) that owns all data: accounts, conversations, messages,
   notifications, requests and classwork
 
-On Vercel the Express app runs as a single function (`api/index.js`) and `vercel.json` rewrites
-every `/api/*` request to it.
+`vercel.json` rewrites every `/api/*` request to the external backend origin; everything else
+serves the Vite build.
 
 ## Required: a hosted database
 
@@ -124,6 +130,10 @@ strict enforcement.
 
 ## Backups
 
+Production (Azure VPS) runs `scripts/backup-sqlite.sh` nightly from a systemd timer —
+SQLite backup API snapshots, attachment archives, retention, optional Azure Blob upload, and the
+full restore procedure are documented in **`docs/AZURE-VPS.md` §6**.
+
 With a hosted libSQL database, backups are the provider's responsibility — Turso keeps
 point-in-time recovery for its databases. To take your own copy:
 
@@ -144,8 +154,6 @@ tar czf /data/uploads-$(date +%F).tar.gz /data/uploads
 - **Realtime messaging.** The client polls (messages every 3s, inbox every 6s, both paused when the
   tab is hidden). WebSockets need a long-lived process, so they only make sense on a Node host, not
   on serverless functions.
-- **Scheduled backups.** These need a cron host; run the commands above from a machine you control,
-  or add a systemd timer when the API moves to a VPS.
 
 ## Environment variables
 

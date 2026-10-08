@@ -1,5 +1,22 @@
 # Deployment
 
+> **Superseded.** This describes the Vercel + Express + libSQL topology, which
+> is no longer the production shape. The frontend is now `web/` (SvelteKit on
+> `@sveltejs/adapter-node`), the API is `mmss-backend/` (Rust, axum, SQLite), and
+> the browser talks to one origin through nginx. **`FINAL_MIGRATION.md` is the
+> current deployment document** — topology, environment variables, systemd
+> units, nginx site, backup and restore, rollback, and the production checklist.
+>
+> This file is kept for the rollback path and for understanding older
+> deployments. Its factual claims about ports, processes and environment
+> variables describe a stack that is no longer what runs in production.
+
+> **Old production topology (this file):** the frontend is served by Vercel and
+> `/api/*` is proxied by a Vercel external rewrite to the Azure VPS (Nginx →
+> Express → local SQLite). See **`docs/AZURE-VPS.md`** for the runbook,
+> environment matrix, backups and restore. The Turso/serverless instructions
+> below are the legacy fallback (rollback path) and for understanding older
+> deployments.
 > **Current production:** the frontend is served by Vercel and `/api/*` is
 > proxied by a Vercel external rewrite to the Azure VPS (Nginx → Express →
 > local SQLite). See **`docs/AZURE-VPS.md`** for the runbook, environment

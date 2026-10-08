@@ -1,5 +1,14 @@
 # Loading delays outside the application
 
+> **Superseded.** This note is about waits imposed by EduSecure scraping, the
+> hosted libSQL database and the Vercel platform. None of those is in the
+> request path any more: R4 stopped scraping the portal, the API is a local
+> Rust process, and the frontend is served from the same VM.
+>
+> The remaining performance-relevant facts are in `FINAL_MIGRATION.md`; the
+> per-request `Server-Timing` header it describes was a `server/` middleware
+> and no longer exists.
+
 Last reviewed: 2026-08-27
 
 This note separates work the application owns from waits imposed by EduSecure,

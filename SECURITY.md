@@ -1,5 +1,15 @@
 # SECURITY.md — Threat verification
 
+> **Superseded.** This is a STRIDE register for the old Node backend
+> (`server/typesafe`, `server/moderation`, `server/formatting`,
+> `POST /fetch-homework`) and the React frontend in `src/`. That backend is the
+> rollback path, not production.
+>
+> The current threat model and its audits live in `mmss-backend/`:
+> `AUDIT.md`, `AUTH_AUDIT.md`, `STUDENT_API_AUDIT.md`, `TEACHER_API_AUDIT.md`
+> and `PRODUCTION_HARDENING.md`. The frontend's own security properties are in
+> `FINAL_MIGRATION.md` §5.
+
 Phase scope: Jev → AI Studio homework pipeline + UI formatting commit `1eed528`.
 Mode: retroactive STRIDE (no plan-time `<threat_model>` existed).
 

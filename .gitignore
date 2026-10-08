@@ -15,3 +15,7 @@ sqlite.db*
 *.log
 scratch/
 .env*
+
+# Generated knowledge-graph output. Tool output, not source: it is regenerated
+# from the repository and its stale index would otherwise be committed.
+graphify-out/

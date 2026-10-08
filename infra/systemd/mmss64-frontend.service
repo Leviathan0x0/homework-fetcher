@@ -1,0 +1,50 @@
+# MMSS64 frontend service — reference copy of /etc/systemd/system/mmss64-frontend.service.
+#
+# The SvelteKit app in web/, built by adapter-node. This is what nginx proxies
+# to once the cutover is done; the old Express unit (mmss64.service, port 3000)
+# stays installed and disabled so the rollback is one `systemctl` away.
+#
+# Build (no environment needed):
+#   cd /opt/mmss64/repo/web && npm ci && npm run build
+#
+# Install:
+#   sudo cp infra/systemd/mmss64-frontend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mmss64-frontend
+#
+# Secrets and addresses live only in /etc/mmss64/mmss.env (root:root, chmod 600)
+# — never inline in this unit.
+
+[Unit]
+Description=MMSS64 SvelteKit frontend (adapter-node)
+After=network.target mmss64-backend.service
+Wants=mmss64-backend.service
+
+[Service]
+Type=simple
+User=mmssapp
+Group=mmssapp
+WorkingDirectory=/opt/mmss64/repo/web
+EnvironmentFile=/etc/mmss64/mmss.env
+# ORIGIN must be the public https origin. Without it adapter-node assumes
+# https, SvelteKit's CSRF check compares it against the browser's Origin and
+# every form action — sign in included — answers 403.
+# BACKEND_URL must point at the Rust API.
+# HOST stays on loopback so only nginx can reach it.
+ExecStart=/usr/bin/node build
+Environment=HOST=127.0.0.1
+Environment=PORT=3002
+Environment=NODE_ENV=production
+# Read the browser's scheme from nginx rather than guessing it. Without this the
+# app decides `Secure` on the session cookie from a default of https, which is
+# right only until a plain-http hop appears in front.
+Environment=PROTOCOL_HEADER=x-forwarded-proto
+Restart=always
+RestartSec=3
+
+# adapter-node drains connections on SIGTERM and waits SHUTDOWN_TIMEOUT (30s by
+# default), so give it longer than that or a deploy kills in-flight requests.
+KillSignal=SIGTERM
+TimeoutStopSec=45
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,37 @@
+# MMSS64 Rust API service — reference copy of
+# /etc/systemd/system/mmss64-backend.service.
+#
+# The rewrite's API. Replaces the Express app in server/ for every route the
+# frontend uses; the old unit (mmss64.service) stays installed and disabled so
+# the rollback is one `systemctl` away.
+#
+# Build:
+#   cd /opt/mmss64/repo/mmss-backend && cargo build --release
+#
+# Install:
+#   sudo cp infra/systemd/mmss64-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mmss64-backend
+#
+# Secrets live only in /etc/mmss64/mmss.env (root:root, chmod 600) — never
+# inline in this unit. See mmss-backend/.env.example for every variable.
+
+[Unit]
+Description=MMSS64 Rust API (mmss-backend)
+After=network.target
+
+[Service]
+Type=simple
+User=mmssapp
+Group=mmssapp
+WorkingDirectory=/opt/mmss64/repo/mmss-backend
+EnvironmentFile=/etc/mmss64/mmss.env
+ExecStart=/opt/mmss64/repo/mmss-backend/target/release/mmss-backend
+Restart=always
+RestartSec=3
+
+# SIGTERM lets the axum server finish in-flight requests and close the pool.
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,14 @@
 # 📚 Homework Fetcher — Complete Feature Showcase
 
+> **Superseded.** This describes the Vite/React frontend in `src/`, including
+> screens that no longer exist — Calendar, Exams, Leave, Messages,
+> All-homework, Completed, Recent, Attachments, the school portal, Holidays and
+> the old admin panel. None has a backend endpoint, most because R4 stopped
+> scraping the EduSecure portal.
+>
+> The features that actually ship are listed in `web/SVELTEKIT_MIGRATION.md`,
+> and what is deliberately deferred is listed in `FINAL_MIGRATION.md`.
+
 Welcome to **Homework Fetcher**, a modern, high-performance web application designed to fetch, organize, and enrich school homework, classwork, exam schedules, and peer communication for EduSecure users.
 
 ---

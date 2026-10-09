@@ -6,8 +6,9 @@
 > the old admin panel. None has a backend endpoint, most because R4 stopped
 > scraping the EduSecure portal.
 >
-> The features that actually ship are listed in `web/SVELTEKIT_MIGRATION.md`,
-> and what is deliberately deferred is listed in `FINAL_MIGRATION.md`.
+> What actually ships is whatever has a route in `mmss-backend/src/routes/`.
+> A screen listed below with no corresponding route does not work and is not
+> in production.
 
 Welcome to **Homework Fetcher**, a modern, high-performance web application designed to fetch, organize, and enrich school homework, classwork, exam schedules, and peer communication for EduSecure users.
 

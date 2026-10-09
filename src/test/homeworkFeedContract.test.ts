@@ -64,7 +64,7 @@ const FEED = {
   isStale: false,
 };
 
-function stubFetch(body: unknown, ok = true, status = 200) {
+function stubFetch(body: unknown, status = 200) {
   return vi.fn(async () =>
     new Response(JSON.stringify(body), {
       status,
@@ -141,7 +141,7 @@ describe("homeworkService.getHomework against the Rust feed", () => {
   it("surfaces a 401 with the code the session layer looks for", async () => {
     vi.stubGlobal(
       "fetch",
-      stubFetch({ error: "Not authenticated.", code: "UNAUTHENTICATED" }, false, 401),
+      stubFetch({ error: "Not authenticated.", code: "UNAUTHENTICATED" }, 401),
     );
 
     await expect(homeworkService.getHomework("1")).rejects.toMatchObject({

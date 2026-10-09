@@ -1,16 +1,16 @@
 # Azure VPS production runbook
 
-> **Superseded.** This runbook is written for the Vercel + Express + libSQL
-> deployment. Production is now nginx → `web/build` (SvelteKit, adapter-node,
-> `:3002`) → `mmss-backend` (Rust, `:3001`) → SQLite, all on this VM.
-> **`FINAL_MIGRATION.md` is the current runbook**, and `infra/systemd/
-> mmss64-backend.service`, `infra/systemd/mmss64-frontend.service` and
-> `infra/nginx/mmss64-sveltekit.conf` are the reference configuration.
+> **Partly superseded.** This runbook is written for the Vercel + Express +
+> libSQL deployment. Production is now Vercel serving the React build from
+> `src/`, with `/api/*` rewritten to this VM: nginx → `mmss-backend` (Rust,
+> `:3001`) → SQLite. The reference unit is
+> `infra/systemd/mmss64-backend.service`; API deployment is documented in
+> `mmss-backend/DEPLOYMENT.md`.
 >
-> Kept for the rollback path and for the VPS facts that are still true: the
-> `/etc/mmss64/` layout, the SQLite backup procedure, and the TLS story. The
-> topology, ports, processes and health checks below are not current — note
-> especially that `GET :3000/api/health` is now `GET :3001/health`.
+> Kept for the VPS facts that are still true: the `/etc/mmss64/` layout, the
+> SQLite backup procedure, and the TLS story. The Express topology, ports,
+> processes and health checks below are not current — note especially that
+> `GET :3000/api/health` is now `GET :3001/health`.
 
 Old architecture (frontend stays on Vercel, backend + data move to the VPS):
 

@@ -76,21 +76,14 @@ jobs:
 
   # The rewrite. `quality` and `browser-smoke` above still gate the archived
   # frontend in src/, which is the rollback path until that tree is deleted.
-  rewrite:
-    name: Rust API + SvelteKit frontend
+  rust-api:
+    name: Rust API
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
 
       - name: Set up Rust
         run: rustup default stable
@@ -103,22 +96,6 @@ jobs:
             ~/.cargo/git
             mmss-backend/target
           key: cargo-${{ hashFiles('mmss-backend/Cargo.lock') }}
-
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: web
-
-      - name: Type-check the frontend
-        run: npm run check
-        working-directory: web
-
-      - name: Test the frontend
-        run: npm test
-        working-directory: web
-
-      - name: Build the frontend
-        run: npm run build
-        working-directory: web
 
       - name: Check Rust formatting
         run: cargo fmt --check

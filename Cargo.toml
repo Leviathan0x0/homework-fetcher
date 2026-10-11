@@ -1,0 +1,26 @@
+# Vercel Function entry point for the MMSS64 backend (preview deployments only).
+#
+# The production API is `mmss-backend/` running as a conventional binary on the Azure
+# VPS; this root package exists so the officially supported Vercel Rust runtime can
+# compile `api/mmss.rs` into a serverless function that reuses the same Axum
+# application. It is deliberately NOT a workspace: `mmss-backend/` keeps its own
+# manifest and target directory so the VPS runbook (`cargo build --release` inside
+# `mmss-backend/`) is unaffected.
+[package]
+name = "mmss-vercel"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+axum = "0.8"
+mmss-backend = { path = "mmss-backend" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["util"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+vercel_runtime = { version = "2.4", features = ["axum"] }
+
+# Each Vercel function is one binary, one file in `api/`.
+[[bin]]
+name = "mmss"
+path = "api/mmss.rs"

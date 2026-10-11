@@ -316,8 +316,11 @@ if (require.main === module) {
     process.exit(1);
   }
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Homework Server running at http://localhost:${PORT}`);
+  // Bind to loopback by default: Nginx on the same host is the public entry
+  // point, so port 3000 must never be reachable from the network.
+  const HOST = process.env.HOST || "127.0.0.1";
+  app.listen(PORT, HOST, () => {
+    console.log(`Homework Server running at http://${HOST}:${PORT}`);
   });
 }
 

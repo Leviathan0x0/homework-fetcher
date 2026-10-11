@@ -25,6 +25,8 @@ interface SettingsViewProps {
   inAppNotifications: boolean;
   onInAppNotificationsChange: (enabled: boolean) => void;
   onBack: () => void;
+  /** Handed to Account Security, which needs it when it ends this browser's session. */
+  onSecuritySignOut?: () => void;
 }
 
 interface SettingRowProps {
@@ -85,6 +87,12 @@ const SETTING_GROUPS: Array<{
         title: 'Login & school connection',
         description: 'Session, password help, and sign out',
       },
+      {
+        section: 'security',
+        icon: <Reicon name="lock" size={18} />,
+        title: 'Devices & security',
+        description: 'Signed-in devices, and your app password',
+      },
     ],
   },
   {
@@ -126,6 +134,10 @@ const SECTION_COPY: Record<SettingsSection, { title: string; description: string
     title: 'Login & security',
     description: 'Manage your school connection and account access.',
   },
+  security: {
+    title: 'Devices & security',
+    description: 'See where you are signed in, and manage your MMSS64 password.',
+  },
   preferences: {
     title: 'Notifications & updates',
     description: 'Choose what you see and how often the app checks for updates.',
@@ -157,6 +169,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   inAppNotifications,
   onInAppNotificationsChange,
   onBack,
+  onSecuritySignOut,
 }) => {
   const [section, setSection] = useState<SettingsSection | null>(null);
   const isAdmin = Boolean(user?.isAdmin || user?.role === 'admin');
@@ -298,6 +311,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           inAppNotifications={inAppNotifications}
           onInAppNotificationsChange={onInAppNotificationsChange}
           section={section}
+          onSignOut={onSecuritySignOut}
         />
       )}
     </div>

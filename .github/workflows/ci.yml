@@ -73,3 +73,38 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  # The rewrite. `quality` and `browser-smoke` above still gate the archived
+  # frontend in src/, which is the rollback path until that tree is deleted.
+  rust-api:
+    name: Rust API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Rust
+        run: rustup default stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            mmss-backend/target
+          key: cargo-${{ hashFiles('mmss-backend/Cargo.lock') }}
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
+        working-directory: mmss-backend
+
+      - name: Test the Rust API
+        run: cargo test
+        working-directory: mmss-backend
+
+      - name: Lint the Rust API
+        run: cargo clippy --all-targets -- -D warnings
+        working-directory: mmss-backend

@@ -12,7 +12,7 @@
     "build": "vite build && npm run check:bundle",
     "preview": "vite preview",
     "start": "node server.js",
-    "lint": "eslint src server api test e2e scripts server.js drizzle.config.js vite.config.ts vitest.config.ts playwright.config.ts eslint.config.mjs --max-warnings=0",
+    "lint": "eslint src server api test e2e scripts server.js drizzle.config.js vite.config.ts vitest.config.ts playwright.config.ts eslint.config.mjs --max-warnings=0 --no-error-on-unmatched-pattern",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:server && npm run test:frontend",
     "test:server": "node --test test/**/*.test.js",

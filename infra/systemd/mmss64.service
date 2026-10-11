@@ -1,0 +1,30 @@
+# MMSS64 backend service — reference copy of /etc/systemd/system/mmss64.service.
+#
+# The production unit already runs this way; keep this file in sync with it.
+# Secrets live only in /etc/mmss64/mmss.env (root:root, chmod 600) — never
+# inline in this unit.
+#
+# Install:
+#   sudo cp infra/systemd/mmss64.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mmss64
+
+[Unit]
+Description=MMSS64 Express backend
+After=network.target
+
+[Service]
+Type=simple
+User=mmssapp
+Group=mmssapp
+WorkingDirectory=/opt/mmss64/repo
+EnvironmentFile=/etc/mmss64/mmss.env
+ExecStart=/usr/bin/node /opt/mmss64/repo/server.js
+Restart=always
+RestartSec=3
+
+# Give in-flight requests a moment to finish before the process is killed.
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

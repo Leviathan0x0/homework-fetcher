@@ -5,6 +5,7 @@ import { authService } from '../services/api';
 import { Reicon, type ReiconName } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { ForgotPasswordDialog } from './ForgotPasswordDialog';
+import { AccountSecurityPanel } from './AccountSecurityPanel';
 import { ProfileAvatar } from './ProfileAvatar';
 import { compressImage, formatBytes } from '../utils/imageCompression';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -14,7 +15,7 @@ import { Switch } from './ui/switch';
 import { SegmentedControl } from './ui/segmented-control';
 import { Button } from './ui/button';
 
-export type SettingsSection = 'profile' | 'account' | 'preferences' | 'appearance' | 'app';
+export type SettingsSection = 'profile' | 'account' | 'security' | 'preferences' | 'appearance' | 'app';
 
 interface SettingsPanelProps {
   user: UserAccount | null;
@@ -36,6 +37,8 @@ interface SettingsPanelProps {
   onInAppNotificationsChange?: (enabled: boolean) => void;
   section: SettingsSection;
   className?: string;
+  /** Called after Account Security ends this browser's own session. */
+  onSignOut?: () => void;
 }
 
 interface SettingsCardProps {
@@ -162,6 +165,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onInAppNotificationsChange,
   section,
   className,
+  onSignOut,
 }) => {
   const [nameDraft, setNameDraft] = useState(user?.displayName || '');
   const [savingName, setSavingName] = useState(false);
@@ -447,6 +451,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
         </div>
       </SettingsCard>
+      )}
+
+      {section === 'security' && (
+        <AccountSecurityPanel onSignOut={onSignOut} />
       )}
 
       {section === 'preferences' && (

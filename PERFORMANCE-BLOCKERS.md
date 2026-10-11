@@ -1,5 +1,14 @@
 # Loading delays outside the application
 
+> **Superseded.** This note is about waits imposed by EduSecure scraping, the
+> hosted libSQL database and the Vercel platform. Most of those are not in the
+> request path any more: R4 stopped scraping the portal, and the API is a local
+> Rust process on the VPS. The frontend itself is a static Vercel build, so
+> its asset loads still depend on Vercel's CDN.
+>
+> The per-request `Server-Timing` header described below was a `server/`
+> middleware and no longer exists.
+
 Last reviewed: 2026-08-27
 
 This note separates work the application owns from waits imposed by EduSecure,

@@ -185,6 +185,167 @@ export const authService = {
   }
 };
 
+// --- ACCOUNT SECURITY SERVICE ---
+//
+// Every value that goes out of here is a password typed by its owner into the form that
+// called it, and none of it is ever written to `localStorage`, `sessionStorage`, a cache
+// or an analytics call: the arguments below are read straight out of component state and
+// handed to `fetch`, which is the only place they exist. Nothing is kept on the returned
+// object either -- these return shapes and booleans, never credentials.
+
+export type DeviceSession = {
+  id: string;
+  deviceLabel: string;
+  createdAt: number;
+  lastUsedAt: number;
+  expiresAt: number;
+  current: boolean;
+};
+
+/** One page of the device list, with the totals a paginated view needs. */
+export type SessionPage = {
+  sessions: DeviceSession[];
+  /** Live sessions this account holds across every page. */
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+};
+
+export type SecurityStatus = {
+  hasMmssPassword: boolean;
+  edusecureCredentialConfigured: boolean;
+  edusecureVerificationAvailable: boolean;
+};
+
+async function readError(res: Response, fallback: string): Promise<string> {
+  try {
+    const data = await apiJson<any>(res);
+    if (typeof data?.error === "string" && data.error) return data.error;
+  } catch {
+    // The server's wording is unavailable; the caller's own is the honest fallback.
+  }
+  return fallback;
+}
+
+export const accountSecurityService = {
+  /** Which controls to offer. Booleans only -- never a credential. */
+  async getStatus() {
+    const res = await apiFetch("/api/auth/security", { headers: { Accept: "application/json" } });
+    if (!res.ok) throw new Error(await readError(res, "Could not load your account security settings."));
+    return (await apiJson<any>(res)) as SecurityStatus;
+  },
+
+  /**
+   * One page of the devices this account is signed in on. Contains no token, by
+   * construction.
+   *
+   * The server sends a page with a `total` rather than the whole list, so a long-lived
+   * account cannot build an unreadable page -- and, more importantly, a bounded list
+   * that hid the rest would be worse than none: a user cannot revoke a device they
+   * cannot see. `total` and `hasMore` are what let the UI say so out loud.
+   */
+  async listSessions(params?: { limit?: number; offset?: number }): Promise<SessionPage> {
+    const query = new URLSearchParams();
+    if (params?.limit != null) query.set("limit", String(params.limit));
+    if (params?.offset != null) query.set("offset", String(params.offset));
+    const suffix = query.size ? `?${query}` : "";
+    const res = await apiFetch(`/api/auth/sessions${suffix}`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not load your signed-in devices."));
+    const data = await apiJson<any>(res);
+    // The frontend is served from Vercel's edge and the backend from the VPS, so during
+    // a rolling deploy the two can be a release apart. An older backend answers with a
+    // bare array; accepting it costs one branch and turns a crash into a first page.
+    const rows = Array.isArray(data) ? data : Array.isArray(data?.sessions) ? data.sessions : [];
+    return {
+      sessions: rows as DeviceSession[],
+      total: typeof data?.total === "number" ? data.total : rows.length,
+      limit: typeof data?.limit === "number" ? data.limit : rows.length,
+      offset: typeof data?.offset === "number" ? data.offset : 0,
+      // Believe the server's own answer when it gave one; fall back to the arithmetic
+      // rather than to `false`, so an unrecognised shape still offers to load more.
+      hasMore:
+        typeof data?.hasMore === "boolean"
+          ? data.hasMore
+          : rows.length > 0 && data?.total > rows.length,
+    };
+  },
+
+  /**
+   * Ends one session. `currentPassword` is required by the server because a stolen
+   * session must not be able to lock the real owner out of their other devices.
+   */
+  async revokeSession(id: string, currentPassword: string) {
+    const res = await apiFetch(`/api/auth/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ currentPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not sign that device out."));
+    return true;
+  },
+
+  /** Ends every session except this browser's. */
+  async revokeOtherSessions(currentPassword: string) {
+    const res = await apiFetch("/api/auth/sessions/others", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ currentPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not sign out your other devices."));
+    return true;
+  },
+
+  /** Ends every session, this browser included. */
+  async revokeAllSessions(currentPassword: string) {
+    const res = await apiFetch("/api/auth/sessions/all", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ currentPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not sign out everywhere."));
+    return true;
+  },
+
+  /**
+   * Gives a legacy account its own MMSS64 password. `edusecurePassword` proves identity to
+   * the school portal; it is never stored here and never sent anywhere but the backend.
+   */
+  async setUpPassword(edusecurePassword: string, newPassword: string, confirmPassword: string) {
+    const res = await apiFetch("/api/auth/security/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ edusecurePassword, newPassword, confirmPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not set your MMSS64 password."));
+    return true;
+  },
+
+  /** Changes the MMSS64 password. Every other device is signed out by the server. */
+  async changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
+    const res = await apiFetch("/api/auth/security/password", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not change your password."));
+    return true;
+  },
+
+  /** Replaces the saved school credential, after the portal verifies the replacement. */
+  async updateEduSecureCredentials(currentPassword: string, newPassword: string) {
+    const res = await apiFetch("/api/auth/security/edusecure", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (!res.ok) throw new Error(await readError(res, "Could not update your school password."));
+    return true;
+  },
+};
+
 // --- HOMEWORK SERVICE ---
 export const homeworkService = {
   async getHomework(userId: string, forceRefresh = false) {
@@ -204,7 +365,11 @@ export const homeworkService = {
     for (const doc of rawList) {
       if (!doc) continue;
       const text = (doc.homework || doc.content || "").trim();
-      const key = `${(doc.date || "").trim()}:${text}`;
+      // The backend keeps homework and classwork as separate fields on one entry.
+      // Deduplicating on `text` alone silently dropped a second classwork-only entry
+      // on the same day, because both of them have no homework text to tell them apart.
+      const classwork = (doc.classwork || "").trim();
+      const key = `${(doc.date || "").trim()}:${text}:${classwork}`;
       if (seen.has(key)) continue;
       seen.add(key);
       deduplicated.push({
@@ -213,6 +378,9 @@ export const homeworkService = {
         date: doc.date || "",
         subject: doc.subject || "School Diary",
         homework: text,
+        // Kept separate rather than merged into `homework`: the backend stores two fields
+        // and the UI picks the one to print. See `HomeworkCard`.
+        classwork,
         attachment: doc.attachment || doc.attachmentUrl || null,
         completed: !!doc.completed,
         note: doc.note || null,

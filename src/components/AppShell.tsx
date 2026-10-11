@@ -569,6 +569,7 @@ export const AppShell: React.FC = () => {
               inAppNotifications={appPreferences.inAppNotifications}
               onInAppNotificationsChange={(inAppNotifications) => updateAppPreferences({ inAppNotifications })}
               onBack={handleLeaveSettings}
+              onSecuritySignOut={logout}
             />
           )}
 

@@ -4,6 +4,13 @@ export interface HomeworkEntry {
   date: string;
   subject?: string;
   homework: string;
+  /**
+   * The second half of the same entry, kept separate by the backend since R2.
+   *
+   * The card falls back to this when `homework` is empty, because an entry can be
+   * classwork-only and used to render as a blank card.
+   */
+  classwork?: string;
   attachment: string | null;
   completed?: boolean;
   note?: string | null;

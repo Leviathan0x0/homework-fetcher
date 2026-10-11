@@ -4,6 +4,7 @@ const { db, schema, runBatch } = require("../db/client");
 const { toIstWallDate, parseHomeworkDate } = require("./homeworkDateUtils");
 const { classifyHomework } = require("../typesafe/typesafeClient");
 const { formatHomeworkEntry } = require("../formatting/homeworkFormatter");
+const { localClassify, localFormat } = require("../ai/localAi");
 
 const DEFAULT_CACHE_MAX_AGE_MINUTES = parseInt(process.env.CACHE_MAX_AGE_MINUTES || "15", 10);
 
@@ -561,9 +562,13 @@ async function applyAiToRows(userId, rows, section = "") {
 
   // Phase 2: Jev refines the subject and supplies the format verdict for
   // every text so unformatted entries still reach the rewrite path.
+  // Local-first: when the local Laya/Gemma services are enabled they answer
+  // here, and any failure (disabled, timeout, crash) falls through to the
+  // remote providers exactly as before.
   await mapConcurrent(uniqueTexts, 4, async (text) => {
     try {
-      const { subject, isFormatted } = await classifyHomework(text, { section });
+      const localVerdict = await localClassify(text, { section });
+      const { subject, isFormatted } = localVerdict || await classifyHomework(text, { section });
       const current = textToSubject.get(text);
       // Upgrade only: fill a gap or replace a generic bucket. A specific
       // regex match (the text literally names the subject) always wins.
@@ -574,7 +579,7 @@ async function applyAiToRows(userId, rows, section = "") {
       // show the subject and skip AI Studio (protects its rate limits).
       if (!isFormatted) {
         const formatSubject = pickSubject(textToSubject.get(text), textToFallback.get(text));
-        const formatRes = await formatHomeworkEntry(text, formatSubject);
+        const formatRes = (await localFormat(text, formatSubject)) || await formatHomeworkEntry(text, formatSubject);
         // Only apply a real rewrite. A rate-limited, timed-out, or failed
         // format passes the raw text through with updated=false — writing
         // that over an already-formatted row reverted the stored body and

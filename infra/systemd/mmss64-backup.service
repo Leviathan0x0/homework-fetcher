@@ -1,0 +1,17 @@
+# MMSS64 nightly backup — reference copy; install both units together:
+#   sudo cp infra/systemd/mmss64-backup.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mmss64-backup.timer
+
+[Unit]
+Description=MMSS64 SQLite + attachments backup
+
+[Service]
+Type=oneshot
+User=mmssapp
+Group=mmssapp
+WorkingDirectory=/opt/mmss64/repo
+EnvironmentFile=/etc/mmss64/mmss.env
+# Optional off-VM upload credentials (container URL + SAS), root:root 600:
+# EnvironmentFile=/etc/mmss64/backup.env
+ExecStart=/opt/mmss64/repo/scripts/backup-sqlite.sh

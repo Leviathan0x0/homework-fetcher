@@ -1,0 +1,9 @@
+# Keep local build artifacts out of the deployment upload.
+# Vercel compiles the Rust functions from source on Linux; the macOS `target/`
+# tree, local databases and build outputs only bloat (or confuse) the upload.
+mmss-backend/target/**
+mmss-backend/data/**
+target/**
+node_modules/**
+dist/**
+sqlite.db*

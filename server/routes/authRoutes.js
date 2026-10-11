@@ -6,6 +6,13 @@ const { loginToEduSecure } = require("../edusecure/edusecureAuth");
 const { fetchHomeworkForSession } = require("../edusecure/homeworkService");
 const { sessionCookieOptions } = require("../config");
 const { getRequestSession, getRequestToken, requireAuth } = require("../auth/requireAuth");
+const {
+  hashPassword,
+  verifyPassword,
+  validatePassword,
+} = require("../auth/passwords");
+const { recordSecurityEvent, EVENTS, OUTCOMES } = require("../auth/securityAudit");
+const passwordResetService = require("../auth/passwordResetService");
 const { rateLimit } = require("../limits");
 const { db, schema } = require("../db/client");
 const { eq } = require("drizzle-orm");
@@ -189,6 +196,77 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    // --- MMSS64 password path ---
+    //
+    // A student who has set their own password signs in with it, and only with it.
+    // The lookup happens without `findOrCreateUser`, so probing an unknown school
+    // ID does not bring an account into existence for it.
+    //
+    // There is no fallback to the portal below. Once an account has a hash, the
+    // portal is no longer an acceptable answer to "who is this", because the
+    // school password and the MMSS64 password are now two different secrets: one
+    // that has been shared with the school and one that has not. Falling back on a
+    // failed app-password check would make the app password advisory.
+    const account = await db
+      .select({
+        id: schema.users.id,
+        studentId: schema.users.studentId,
+        displayName: schema.users.displayName,
+        section: schema.users.section,
+        role: schema.users.role,
+        passwordHash: schema.users.passwordHash,
+      })
+      .from(schema.users)
+      .where(eq(schema.users.studentId, cleanStudentId))
+      .get();
+
+    if (account && account.passwordHash) {
+      const passwordMatches = await verifyPassword(password, account.passwordHash);
+      if (!passwordMatches) {
+        // Identical wording to an unknown ID: no oracle for which school IDs exist.
+        return res.status(401).json({
+          authenticated: false,
+          error: "Invalid student ID or password."
+        });
+      }
+
+      const appToken = await sessionService.createAppSession(account.id, account);
+      res.cookie("app_session", appToken, sessionCookieOptions({
+        maxAge: sessionService.SESSION_TTL_MS
+      }));
+
+      const role = account.role || "student";
+      // The portal is not contacted on this path, so profile fields come from the
+      // row the last successful portal login wrote.
+      let teacherProfile = null;
+      if (role === "teacher" || role === "class_teacher") {
+        const stored = await db
+          .select()
+          .from(schema.teacherProfiles)
+          .where(eq(schema.teacherProfiles.userId, account.id))
+          .get();
+        teacherProfile = stored ? normalizeTeacherProfile(stored) : null;
+      }
+
+      void joinClassGroupInBackground({ id: account.id, section: account.section });
+
+      return res.json({
+        authenticated: true,
+        token: appToken,
+        user: {
+          id: account.id,
+          studentId: account.studentId,
+          displayName: account.displayName || null,
+          section: isUnknownSection(account.section) ? null : account.section,
+          profilePictureUrl: await profilePictureUrlFor(account.id),
+          isAdmin: role === "admin" || account.studentId === "admin_mmss",
+          isTeacher: role === "teacher" || role === "class_teacher",
+          role,
+          teacherProfile,
+        }
+      });
+    }
+
     let sessionCookies;
     try {
       const authResult = await loginToEduSecure(cleanStudentId, password);
@@ -321,6 +399,306 @@ router.post("/login", async (req, res) => {
       authenticated: false,
       error: "An unexpected error occurred during login."
     });
+  }
+});
+
+// ------------------------------------------------------- passwords & recovery
+
+/**
+ * Whether this deployment can prove a student's identity through the school portal
+ * well enough to let them set their own MMSS64 password. It cannot, and a constant
+ * rather than a setting because flipping it on without new evidence is the bug.
+ *
+ * What would make it true: a portal response that *positively* identifies a signed-in
+ * session -- a marker only reachable while authenticated -- that is reliably
+ * distinguishable from invalid credentials, unfamiliar markup, a WAF page, a CAPTCHA,
+ * a lockout, an expired session and a network failure. Proof must come from captured
+ * success and failure responses plus a test account, run against the real
+ * round-trip. Until that exists, the predicate in `server/edusecure/edusecureAuth.js`
+ * is the only thing available: it is a deny-list, so it passes when nothing goes
+ * wrong rather than when authentication succeeds.
+ */
+const EDUSECURE_ENROLLMENT_AVAILABLE = false;
+
+/** Identical wording for "no password" and "wrong password", so the two are one answer. */
+const PASSWORD_REJECTED = "That password is not correct.";
+
+/**
+ * What a student is told when they ask to set their own password. It has to name
+ * the way out, and it must not say whether their account has a password, which
+ * accounts exist, or why the feature is off in words that invite retrying.
+ */
+const ENROLLMENT_UNAVAILABLE_MESSAGE =
+  "Setting your own MMSS64 password is not available on this server yet. " +
+  "Ask an administrator to start a password reset for your account -- they will give " +
+  "you a one-time code that lets you set your own password.";
+
+/** One write, used by the endpoints that can burn CPU proving a password. */
+const PASSWORD_ROUTE_LIMIT = { windowMs: 5 * 60 * 1000, max: 5 };
+
+/** Reads only the fields the security endpoints need. Never the hash itself. */
+async function loadPasswordState(userId) {
+  const user = await db
+    .select({
+      id: schema.users.id,
+      studentId: schema.users.studentId,
+      passwordHash: schema.users.passwordHash,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.id, userId))
+    .get();
+  if (!user) return { found: false, hasPassword: false };
+  const stored = await db
+    .select({ id: schema.edusecureSessions.id })
+    .from(schema.edusecureSessions)
+    .where(eq(schema.edusecureSessions.userId, userId))
+    .get();
+  return {
+    found: true,
+    hasPassword: Boolean(user.passwordHash),
+    edusecureCredentialConfigured: Boolean(stored),
+  };
+}
+
+/**
+ * GET /api/auth/security
+ *
+ * Which controls the settings page should offer. Booleans only -- never a credential,
+ * not its length, not a last-updated timestamp that could be used as an oracle.
+ */
+router.get("/security", requireAuth, async (req, res) => {
+  try {
+    const state = await loadPasswordState(req.user.id);
+    if (!state.found) {
+      return res.status(404).json({ error: "That account no longer exists." });
+    }
+    return res.json({
+      hasMmssPassword: state.hasPassword,
+      edusecureCredentialConfigured: state.edusecureCredentialConfigured,
+      edusecureVerificationAvailable: EDUSECURE_ENROLLMENT_AVAILABLE,
+    });
+  } catch (err) {
+    console.error("Security status error:", err.message);
+    return res.status(500).json({ error: "Could not load your account security settings." });
+  }
+});
+
+/**
+ * POST /api/auth/security/password
+ *
+ * First-time setup of an MMSS64 password. Always refuses: the identity proof this
+ * would need is the fail-open portal check, so the endpoint exists only to say so
+ * and point at the supported process.
+ *
+ * A refusal sent *before* the body is parsed is deliberate. Reading the school
+ * password only to refuse to use it would mean touching a credential this endpoint
+ * has no accepted use for.
+ */
+router.post("/security/password", requireAuth, rateLimit({ ...PASSWORD_ROUTE_LIMIT, name: "password-setup" }), async (req, res) => {
+  await recordSecurityEvent({
+    event: EVENTS.ENROLLMENT_REFUSED,
+    outcome: OUTCOMES.REFUSED,
+    targetUserId: req.user?.id || null,
+    targetStudentId: req.user?.studentId || null,
+    detail: { reason: "enrollment_unavailable", source: "security_password_post" },
+  });
+  return res.status(403).json({
+    error: ENROLLMENT_UNAVAILABLE_MESSAGE,
+    code: "enrollment_unavailable",
+  });
+});
+
+/**
+ * PATCH /api/auth/security/password
+ *
+ * Changes an MMSS64 password that already exists. Requires the current one, refuses
+ * the unchanged-password case, then revokes every session before the new credential
+ * becomes live, and finally issues the caller a fresh session in its place.
+ */
+router.patch("/security/password", requireAuth, rateLimit({ ...PASSWORD_ROUTE_LIMIT, name: "password-change" }), async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body || {};
+    const state = await loadPasswordState(req.user.id);
+    if (!state.found) {
+      return res.status(404).json({ error: "That account no longer exists." });
+    }
+
+    // Validation before verification: an unusable new password is rejected without
+    // spending a scrypt derivation, and the order leaks nothing.
+    const validation = validatePassword(newPassword);
+    if (!validation.ok) {
+      return res.status(400).json({ error: validation.error });
+    }
+    if (typeof newPassword !== "string" || typeof confirmPassword !== "string" || newPassword !== confirmPassword) {
+      return res.status(400).json({ error: "The two passwords do not match." });
+    }
+
+    // No hash and a wrong password answer identically, so this cannot be used to
+    // learn which accounts have been migrated to an MMSS64 password.
+    const stored = await db
+      .select({ passwordHash: schema.users.passwordHash })
+      .from(schema.users)
+      .where(eq(schema.users.id, req.user.id))
+      .get();
+
+    if (!stored?.passwordHash) {
+      return res.status(401).json({ error: PASSWORD_REJECTED });
+    }
+    if (typeof currentPassword !== "string" || !currentPassword) {
+      return res.status(401).json({ error: PASSWORD_REJECTED });
+    }
+    if (!(await verifyPassword(currentPassword, stored.passwordHash))) {
+      return res.status(401).json({ error: PASSWORD_REJECTED });
+    }
+    // A change to the same password re-issues every session while leaving the
+    // credential identical: all the disruption, none of the benefit.
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: "Choose a password different from your current one." });
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+
+    // Revoke before the new credential is live, so there is never a moment when the
+    // new password works and the old sessions still do. If the write below fails the
+    // account is simply signed out and can sign back in with the old password.
+    await sessionService.destroyAllUserSessions(req.user.id, { rethrow: true });
+
+    await db
+      .update(schema.users)
+      .set({ passwordHash, updatedAt: new Date().toISOString() })
+      .where(eq(schema.users.id, req.user.id))
+      .run();
+
+    const appToken = await sessionService.createAppSession(req.user.id, req.user);
+    res.cookie("app_session", appToken, sessionCookieOptions({
+      maxAge: sessionService.SESSION_TTL_MS
+    }));
+
+    await recordSecurityEvent({
+      event: EVENTS.PASSWORD_CHANGED,
+      outcome: OUTCOMES.SUCCESS,
+      actorUserId: req.user.id,
+      targetUserId: req.user.id,
+      targetStudentId: req.user.studentId,
+      detail: { method: "change_password" },
+    });
+    // Every session was revoked above. The count is not recorded: the drivers
+    // report it inconsistently, and a wrong number in an audit row is worse than
+    // the absence of one.
+    await recordSecurityEvent({
+      event: EVENTS.SESSIONS_REVOKED,
+      outcome: OUTCOMES.SUCCESS,
+      actorUserId: req.user.id,
+      targetUserId: req.user.id,
+      targetStudentId: req.user.studentId,
+      detail: { reason: "password_changed", scope: "all_sessions" },
+    });
+
+    return res.json({
+      success: true,
+      separatePasswordEnabled: true,
+      edusecureCredentialConfigured: state.edusecureCredentialConfigured,
+    });
+  } catch (err) {
+    console.error("Password change error:", err.message);
+    return res.status(500).json({ error: "Could not change your password. Try again." });
+  }
+});
+
+/**
+ * POST /api/auth/password-reset-requests
+ *
+ * A student asking for help. Answerable while signed in and while locked out, and
+ * identical for both: the response names nothing about the account, because an
+ * unauthenticated caller who is told "no such student" has just been given a way to
+ * test school IDs. One pending request per student, updated in place.
+ */
+router.post("/password-reset-requests", rateLimit({ name: "password-reset-request", windowMs: 15 * 60 * 1000, max: 5 }), async (req, res) => {
+  try {
+    const { studentId, message } = req.body || {};
+    const cleanedId = String(studentId || "").trim().slice(0, 64);
+    if (!cleanedId) {
+      return res.status(400).json({ error: "Enter your school ID." });
+    }
+
+    // The session is used when present and ignored when not: an unauthenticated
+    // caller supplies the ID, and an authenticated one cannot ask on behalf of
+    // someone else through this body.
+    let account = null;
+    try {
+      account = await getRequestSession(req);
+    } catch {
+      account = null;
+    }
+    const requesterId = account?.user ? account.user.studentId : cleanedId;
+
+    await passwordResetService.createResetRequest({
+      studentId: requesterId,
+      message,
+      userId: account?.user ? account.user.id : null,
+    });
+
+    return res.status(202).json({
+      ok: true,
+      message:
+        "If an administrator can help with that account, they will see your request. " +
+        "Nothing has changed yet.",
+    });
+  } catch (err) {
+    console.error("Password reset request error:", err.message);
+    return res.status(500).json({ error: "Could not submit that request. Try again." });
+  }
+});
+
+/**
+ * GET /api/auth/password-reset-requests
+ *
+ * The requesting student's own requests. The student comes from the session, never
+ * from a query parameter, so there is nothing to edit to read someone else's.
+ */
+router.get("/password-reset-requests", requireAuth, async (req, res) => {
+  try {
+    const requests = await passwordResetService.listOwnResetRequests({
+      userId: req.user.id,
+      studentId: req.user.studentId,
+    });
+    return res.json({ requests });
+  } catch (err) {
+    console.error("Password reset request list error:", err.message);
+    return res.status(500).json({ error: "Could not load your requests." });
+  }
+});
+
+/**
+ * POST /api/auth/password-reset
+ *
+ * Redeems an administrator-issued token and sets the password the student chooses.
+ * No session is created: the student signs in with their new password immediately
+ * afterwards, which is the outcome this flow is meant to reach.
+ */
+router.post("/password-reset", rateLimit({ name: "password-reset-redeem", windowMs: 15 * 60 * 1000, max: 10 }), async (req, res) => {
+  try {
+    const { token, newPassword, confirmPassword } = req.body || {};
+    if (typeof token !== "string" || !token.trim()) {
+      return res.status(400).json({ error: "Enter the reset code your administrator gave you." });
+    }
+    if (typeof newPassword !== "string" || typeof confirmPassword !== "string" || newPassword !== confirmPassword) {
+      return res.status(400).json({ error: "The two passwords do not match." });
+    }
+
+    const result = await passwordResetService.redeemResetToken({ token: token.trim(), newPassword });
+    if (!result.ok) {
+      const status = result.code === "server_error" ? 500 : 400;
+      return res.status(status).json({ error: result.error, code: result.code });
+    }
+
+    return res.json({
+      ok: true,
+      message: "Your password is set. Sign in with your new MMSS64 password.",
+    });
+  } catch (err) {
+    console.error("Password reset redemption error:", err.message);
+    return res.status(500).json({ error: "Could not set your password. Try again." });
   }
 });
 

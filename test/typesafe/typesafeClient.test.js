@@ -259,6 +259,125 @@ test("classifySubject evaluates subject using TypeSafe choice primitive with cor
   clearCache();
 });
 
+test("classifyHomework forwards the regex prediction to Jev and describes it in the prompt", async (t) => {
+  const previousFetch = global.fetch;
+  t.after(() => {
+    global.fetch = previousFetch;
+  });
+
+  let recordedBody = null;
+  global.fetch = async (url, options) => {
+    recordedBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      async json() {
+        return {
+          model: "jev-1.13.0",
+          answers: {
+            subject: { type: "choice", choice: "Computers" },
+            well_formatted: { type: "noul", noul: 0.9 },
+          },
+        };
+      },
+    };
+  };
+
+  const text = "AI: complete the chatbot worksheet on page 45";
+  const res = await classifyHomework(text, {
+    section: "8-A",
+    regexPrediction: "Computers",
+  });
+  assert.equal(res.subject, "Computers");
+
+  // The prior rides in the request as its own field.
+  assert.equal(recordedBody.regex_prediction, "Computers");
+  // ...and the subject question explains what the field is.
+  const instructions = recordedBody.questions.subject.instructions;
+  assert.match(instructions, /regex_prediction/);
+  assert.match(instructions, /null/);
+  assert.match(instructions, /prior/);
+});
+
+test("classifyHomework reports no prior as null and drops subjects Jev cannot choose", async (t) => {
+  const previousFetch = global.fetch;
+  t.after(() => {
+    global.fetch = previousFetch;
+  });
+
+  const bodies = [];
+  global.fetch = async (url, options) => {
+    bodies.push(JSON.parse(options.body));
+    return {
+      ok: true,
+      async json() {
+        return {
+          model: "jev-1.13.0",
+          answers: {
+            subject: { type: "choice", choice: "History" },
+            well_formatted: { type: "noul", noul: 0.9 },
+          },
+        };
+      },
+    };
+  };
+
+  // No scan opinion at all.
+  await classifyHomework("Read about political parties in India", {
+    section: "8-A",
+    regexPrediction: null,
+  });
+  assert.equal(bodies.at(-1).regex_prediction, null);
+
+  // The regex can name subjects the choice list does not offer (French, GK).
+  // Forwarding those would hand Jev a contradiction it has to resolve, so the
+  // request says it has no prior instead.
+  await classifyHomework("French homework", {
+    section: "8-A",
+    regexPrediction: "French",
+  });
+  assert.equal(bodies.at(-1).regex_prediction, null);
+});
+
+test("a different regex prediction is a different question, so it is not answered from cache", async (t) => {
+  const previousFetch = global.fetch;
+  t.after(() => {
+    global.fetch = previousFetch;
+  });
+
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return {
+      ok: true,
+      async json() {
+        return {
+          model: "jev-1.13.0",
+          answers: { subject: { type: "choice", choice: "History" } },
+        };
+      },
+    };
+  };
+
+  const text = "Revise the notes before class";
+  assert.equal(await classifySubject(text, { section: "8-A" }), "History");
+  assert.equal(calls, 1);
+
+  // Same text, same section, new prior: must ask again rather than serve the
+  // verdict the previous prior produced.
+  assert.equal(
+    await classifySubject(text, { section: "8-A", regexPrediction: "History" }),
+    "History"
+  );
+  assert.equal(calls, 2);
+
+  // Repeating an identical question is still served from cache.
+  assert.equal(
+    await classifySubject(text, { section: "8-A", regexPrediction: "History" }),
+    "History"
+  );
+  assert.equal(calls, 2);
+});
+
 test("classifyHomework asks subject and format questions in one Jev request and caches both", async (t) => {
   const previousFetch = global.fetch;
   t.after(() => {

@@ -794,20 +794,30 @@ class SessionService {
 
   /**
    * Revokes every session belonging to a user, on every device.
+   *
    * @param {string} userId
+   * @param {{rethrow?: boolean}} [options]
+   *   `rethrow` is for security paths that must know whether the revocation
+   *   actually happened. If the delete silently fails, old sessions outlive the
+   *   password change they were supposed to be invalidated by -- which is worse
+   *   than a 500 on the request that caused it. Callers that cannot act on the
+   *   failure (logout) keep the swallow.
    */
-  async destroyAllUserSessions(userId) {
+  async destroyAllUserSessions(userId, options = {}) {
     if (!userId) return;
+    const { rethrow = false } = options;
     invalidateCachedSessionsForUser(userId);
     for (const [jti, session] of memAppSessions) {
       if (session.userId === userId) memAppSessions.delete(jti);
     }
     try {
-      await db.delete(schema.appSessions)
+      const result = await db.delete(schema.appSessions)
         .where(eq(schema.appSessions.userId, userId))
         .run();
+      return result;
     } catch (err) {
       console.error("destroyAllUserSessions failed:", err.message);
+      if (rethrow) throw err;
     }
   }
 

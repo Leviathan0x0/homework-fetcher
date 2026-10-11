@@ -10,10 +10,11 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { AttachmentPreviewRow } from './AttachmentPreviewRow';
 import { formatNoticeContent } from '../utils/noticeFormatting';
 import {
+  CIRCULAR_NOTICE_FILTERS,
   getNoticeTag,
   IMPORTANT_NOTICE_FILTERS,
   NOTICE_TAG_META,
-  type ImportantNoticeFilter,
+  type NoticeTag,
 } from '../utils/noticeTags';
 import { Reicon } from './ui/reicon';
 
@@ -120,7 +121,9 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
   onOpenPreview,
 }) => {
   const config = VIEW_CONFIG[kind];
-  const [selectedTag, setSelectedTag] = useState<ImportantNoticeFilter>('all');
+  const [selectedTag, setSelectedTag] = useState<'all' | NoticeTag>('all');
+  const filterOptions =
+    kind === 'circulars' ? CIRCULAR_NOTICE_FILTERS : IMPORTANT_NOTICE_FILTERS;
   const { notices, recentCount, isLoading, error, reload } = useSchoolNotices(kind);
 
   useEffect(() => {
@@ -128,9 +131,9 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
   }, [kind]);
 
   const filteredNotices = useMemo(() => {
-    if (kind !== 'important' || selectedTag === 'all') return notices;
+    if (selectedTag === 'all') return notices;
     return notices.filter((notice) => getNoticeTag(notice) === selectedTag);
-  }, [kind, notices, selectedTag]);
+  }, [notices, selectedTag]);
 
   const activeTagMeta = selectedTag === 'all' ? null : NOTICE_TAG_META[selectedTag];
 
@@ -156,29 +159,31 @@ export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
         }
       />
 
-      {kind === 'important' && (
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar" role="group" aria-label="Filter important updates">
-          {IMPORTANT_NOTICE_FILTERS.map((filter) => {
-            const isSelected = selectedTag === filter.key;
-            return (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => setSelectedTag(filter.key)}
-                aria-pressed={isSelected}
-                className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 shrink-0 cursor-pointer active:scale-95 inline-flex items-center gap-1.5',
-                  isSelected
-                    ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs font-semibold'
-                    : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800'
-                )}
-              >
-                <span>{filter.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div
+        className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar"
+        role="group"
+        aria-label={`Filter ${config.title.toLowerCase()}`}
+      >
+        {filterOptions.map((filter) => {
+          const isSelected = selectedTag === filter.key;
+          return (
+            <button
+              key={filter.key}
+              type="button"
+              onClick={() => setSelectedTag(filter.key)}
+              aria-pressed={isSelected}
+              className={cn(
+                'px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 shrink-0 cursor-pointer active:scale-95 inline-flex items-center gap-1.5',
+                isSelected
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 shadow-2xs font-semibold'
+                  : 'bg-neutral-200/70 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-800'
+              )}
+            >
+              <span>{filter.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {error && notices.length > 0 && (
         <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/80 px-3.5 py-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">

@@ -4,12 +4,13 @@ import { EmptyState } from '../components/EmptyState';
 import { Reicon } from '../components/ui/reicon';
 
 describe('EmptyState', () => {
-  it('renders default empty state with illustration and text', () => {
+  it('renders the mailbox art by default, not the holiday art', () => {
     const { container } = render(<EmptyState />);
 
     expect(screen.getByText('No homework posted today')).toBeInTheDocument();
     expect(screen.getByText(/Nothing has been sent yet/)).toBeInTheDocument();
-    expect(container.querySelector('.illustration-celebration-holiday')).toBeInTheDocument();
+    expect(container.querySelector('.illustration-empty-today')).toBeInTheDocument();
+    expect(container.querySelector('.illustration-celebration-holiday')).not.toBeInTheDocument();
   });
 
   it('renders search empty state correctly', () => {

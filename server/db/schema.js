@@ -11,6 +11,9 @@ const users = sqliteTable(
     mutedReason: text("muted_reason"),
     mutedAt: text("muted_at"),
     role: text("role").notNull().default("student"),
+    // Null until the student sets an MMSS64 password. Never selected into a
+    // response -- see the explicit column lists in the routes.
+    passwordHash: text("password_hash"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -328,6 +331,81 @@ const systemSettings = sqliteTable(
   }
 );
 
+/**
+ * A student asking for help getting back in. `userId` is resolved when an
+ * administrator approves, because a student who has never opened the app has no
+ * user row to reference yet.
+ */
+const passwordResetRequests = sqliteTable(
+  "password_reset_requests",
+  {
+    id: text("id").primaryKey(),
+    studentId: text("student_id").notNull(),
+    userId: text("user_id"),
+    message: text("message"),
+    status: text("status").notNull().default("pending"),
+    adminNote: text("admin_note"),
+    reviewedBy: text("reviewed_by"),
+    reviewedAt: text("reviewed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    index("idx_reset_requests_status_created").on(t.status, t.createdAt),
+    index("idx_reset_requests_student").on(t.studentId),
+  ]
+);
+
+/**
+ * A single-use reset credential. `tokenHash` is SHA-256 of the token that was shown
+ * once; the token itself is never stored, so a dump of this table cannot be used to
+ * sign in to anything.
+ */
+const passwordResetTokens = sqliteTable(
+  "password_reset_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestId: text("request_id").references(() => passwordResetRequests.id, {
+      onDelete: "set null",
+    }),
+    tokenHash: text("token_hash").notNull().unique(),
+    /** Milliseconds since the epoch, compared against Date.now() in the claim. */
+    expiresAt: integer("expires_at").notNull(),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull(),
+    usedAt: text("used_at"),
+    revokedAt: text("revoked_at"),
+  },
+  (t) => [
+    index("idx_reset_tokens_user").on(t.userId),
+    index("idx_reset_tokens_expiry").on(t.expiresAt),
+  ]
+);
+
+/** Security events. `detail` is JSON built from an allowlist, never a secret. */
+const securityAuditLog = sqliteTable(
+  "security_audit_log",
+  {
+    id: text("id").primaryKey(),
+    event: text("event").notNull(),
+    actorUserId: text("actor_user_id"),
+    actorLabel: text("actor_label"),
+    targetUserId: text("target_user_id"),
+    targetStudentId: text("target_student_id"),
+    outcome: text("outcome").notNull(),
+    detail: text("detail"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [
+    index("idx_audit_created").on(t.createdAt),
+    index("idx_audit_target_user").on(t.targetUserId),
+    index("idx_audit_event").on(t.event),
+  ]
+);
+
 const broadcastAlerts = sqliteTable(
   "broadcast_alerts",
   {
@@ -581,6 +659,9 @@ module.exports = {
   monitoringNoticeTokens,
   moderationStrikes,
   adminFlagLog,
+  passwordResetRequests,
+  passwordResetTokens,
+  securityAuditLog,
   schoolCalendarEvents,
   systemSettings,
   broadcastAlerts,

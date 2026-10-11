@@ -21,14 +21,39 @@ describe('getNoticeTag', () => {
     expect(getNoticeTag(importantNotice('Make a payment through the portal.'))).toBe('fee-payment');
   });
 
-  it('keeps circulars as circulars', () => {
+  it('categorises circulars by subject so each one gets its own badge', () => {
+    const circular = (title: string, content = 'Circular details') => ({
+      kind: 'circulars' as const,
+      type: 'Announcement',
+      title,
+      content,
+    });
+
+    expect(getNoticeTag(circular('Annual examination schedule'))).toBe('exam');
+    expect(getNoticeTag(circular('Fee payment camp'))).toBe('fee-payment');
+    expect(getNoticeTag(circular('School remains closed for summer break'))).toBe('holiday');
+    expect(getNoticeTag(circular('Sports Day celebration'))).toBe('event');
+  });
+
+  it('falls back to the generic circular badge when no rule matches', () => {
     expect(
       getNoticeTag({
         kind: 'circulars',
         type: 'Circular',
-        title: 'Fee payment',
+        title: 'Parents meeting',
         content: 'Circular details',
       })
     ).toBe('circular');
+  });
+
+  it('files exam ahead of event when a circular mentions both', () => {
+    expect(
+      getNoticeTag({
+        kind: 'circulars',
+        type: 'Announcement',
+        title: 'Annual exam schedule for the Sports Day week',
+        content: '',
+      })
+    ).toBe('exam');
   });
 });

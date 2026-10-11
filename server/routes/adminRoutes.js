@@ -2,6 +2,7 @@ const express = require("express");
 const { getRequestSession } = require("../auth/requireAuth");
 const { db, schema } = require("../db/client");
 const { eq, desc, count, and, inArray, or } = require("drizzle-orm");
+const { rateLimit } = require("../limits");
 const {
   DEFAULT_SETTINGS,
   getSetting,
@@ -9,6 +10,8 @@ const {
 } = require("../admin/settingsService");
 const { saveTeacherProfile } = require("../teacher/teacherService");
 const { invalidateCachedSessionsForUser } = require("../auth/sessionService");
+const { listSecurityAudit } = require("../auth/securityAudit");
+const passwordResetService = require("../auth/passwordResetService");
 
 const router = express.Router();
 
@@ -549,6 +552,149 @@ router.post("/classwork/approve", requireAdmin, async (req, res) => {
   } catch (err) {
     console.error("Admin approve classwork error:", err);
     return res.status(500).json({ error: "Failed to update classwork approval." });
+  }
+});
+
+// ---------------------------------------------------- password recovery (admin)
+
+const RESET_STATUS_CODES = {
+  not_found: 404,
+  already_resolved: 409,
+  unknown_account: 409,
+  account_mismatch: 409,
+  server_error: 500,
+};
+
+/**
+ * GET /api/admin/password-reset-requests
+ *
+ * The admin queue. Every pending, approved, rejected and revoked request, newest
+ * first, with the request's own message. It never includes a token.
+ */
+router.get("/password-reset-requests", requireAdmin, async (req, res) => {
+  try {
+    const requests = await passwordResetService.listResetRequests({
+      status: req.query.status,
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+    return res.json({ requests });
+  } catch (err) {
+    console.error("Admin password reset request list error:", err);
+    return res.status(500).json({ error: "Failed to load password reset requests." });
+  }
+});
+
+/**
+ * POST /api/admin/password-reset-requests/:id
+ *
+ * The single decision endpoint: `approve` issues a one-time code to hand to the
+ * student, `reject` closes the request with an optional reason, `revoke` cancels an
+ * approval and kills the code it produced.
+ *
+ * The code appears in this response and nowhere else -- not in a log, not in a
+ * second endpoint, not in an email this app cannot send. The server cannot show it
+ * again because it never keeps it.
+ */
+router.post(
+  "/password-reset-requests/:id",
+  requireAdmin,
+  rateLimit({ name: "admin-reset-decision", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const { action, note } = req.body || {};
+      const admin = {
+        adminUserId: req.adminUser.id,
+        adminLabel: req.adminUser.studentId,
+        note,
+      };
+
+      const result = await passwordResetService.decideResetRequest(req.params.id, action, admin);
+      if (!result.ok) {
+        const status = RESET_STATUS_CODES[result.code] || 400;
+        return res.status(status).json({ error: result.error, code: result.code });
+      }
+
+      return res.json({
+        ok: true,
+        status: result.status,
+        // Only set for `approve`. Undefined otherwise, so a rejection cannot
+        // accidentally ship a live credential.
+        token: result.token,
+        expiresAt: result.expiresAt,
+        usage: result.token
+          ? "Hand this code to the student once. It expires in " +
+            `${Math.round(passwordResetService.resetTtlMs() / 60000)} minutes and can be used a single time.`
+          : undefined,
+      });
+    } catch (err) {
+      console.error("Admin password reset decision error:", err);
+      return res.status(500).json({ error: "Failed to record that decision." });
+    }
+  }
+);
+
+/**
+ * POST /api/admin/password-resets
+ *
+ * Starts a reset for any account, including one that has never had an MMSS64
+ * password. This is the path that gives a first-time account its password without
+ * trusting an unverified session. The account is chosen by school ID here because
+ * an administrator may be helping a student who cannot sign in and therefore has no
+ * session to identify them.
+ */
+router.post(
+  "/password-resets",
+  requireAdmin,
+  rateLimit({ name: "admin-reset-initiate", windowMs: 60 * 1000, max: 30 }),
+  async (req, res) => {
+    try {
+      const { studentId, note } = req.body || {};
+      if (!studentId || typeof studentId !== "string" || !studentId.trim()) {
+        return res.status(400).json({ error: "Enter the student's school ID." });
+      }
+
+      const result = await passwordResetService.initiateAdminReset(
+        { studentId: studentId.trim(), note },
+        { adminUserId: req.adminUser.id, adminLabel: req.adminUser.studentId }
+      );
+      if (!result.ok) {
+        const status = RESET_STATUS_CODES[result.code] || 400;
+        return res.status(status).json({ error: result.error, code: result.code });
+      }
+
+      return res.json({
+        ok: true,
+        token: result.token,
+        expiresAt: result.expiresAt,
+        usage:
+          "Hand this code to the student once. It expires in " +
+          `${Math.round(passwordResetService.resetTtlMs() / 60000)} minutes and can be used a single time.`,
+      });
+    } catch (err) {
+      console.error("Admin password reset initiate error:", err);
+      return res.status(500).json({ error: "Failed to start that reset." });
+    }
+  }
+);
+
+/**
+ * GET /api/admin/security-audit
+ *
+ * The audit trail: what was requested, approved, rejected, redeemed or refused, and
+ * by which administrator. Rows are already filtered to non-sensitive fields when
+ * they were written; nothing here re-reads a credential.
+ */
+router.get("/security-audit", requireAdmin, async (req, res) => {
+  try {
+    const events = await listSecurityAudit({
+      limit: req.query.limit,
+      offset: req.query.offset,
+    });
+    return res.json({ events });
+  } catch (err) {
+    console.error("Admin security audit error:", err);
+    return res.status(500).json({ error: "Failed to load the security audit log." });
   }
 });
 

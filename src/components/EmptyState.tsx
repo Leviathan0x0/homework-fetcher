@@ -34,9 +34,10 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   if (type === 'today') {
     defaultTitle = 'No homework posted today';
     defaultSubtitle = 'Nothing has been sent yet. Check back later.';
-    // Replaces the old empty-mailbox art: holidays and homework-free days
-    // both get the celebration illustration instead.
-    defaultIllustration = 'celebration-holiday';
+    // The empty mailbox is the honest default for a quiet day. Callers that
+    // only mean "there is a holiday and no work" pass 'celebration-holiday'
+    // explicitly, so the party art never shows for an ordinary empty day.
+    defaultIllustration = 'empty-today';
   } else if (type === 'recent') {
     defaultTitle = 'No recent homework';
     defaultSubtitle = 'There are no homework assignments in the last 7 days.';

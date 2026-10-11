@@ -110,18 +110,29 @@ function noteSubjectSuccess() {
   subjectCooldownUntil = 0;
 }
 
-function getCachedSubject(text, usePolSci) {
-  const key = `${usePolSci ? "POLSCI" : "CIVICS"}\u0000${text}`;
-  return subjectCache.get(key);
+function getCachedSubject(text, usePolSci, regexPrediction) {
+  return subjectCache.get(subjectCacheKey(text, usePolSci, regexPrediction));
 }
 
-function setCachedSubject(text, usePolSci, subject) {
+function setCachedSubject(text, usePolSci, regexPrediction, subject) {
   if (subjectCache.size >= MAX_CACHE_ENTRIES) {
     const firstKey = subjectCache.keys().next().value;
     subjectCache.delete(firstKey);
   }
-  const key = `${usePolSci ? "POLSCI" : "CIVICS"}\u0000${text}`;
-  subjectCache.set(key, subject);
+  subjectCache.set(subjectCacheKey(text, usePolSci, regexPrediction), subject);
+}
+
+/**
+ * Cache key for one subject verdict.
+ *
+ * The regex prediction is part of the key because it is part of the question
+ * Jev is asked: the same text asked with a different prior is a different
+ * question, and sharing an entry between them would keep answering with the
+ * verdict the older prior produced.
+ */
+function subjectCacheKey(text, usePolSci, regexPrediction) {
+  const prior = regexPrediction === null ? "-" : regexPrediction;
+  return `${usePolSci ? "POLSCI" : "CIVICS"}\u0000${prior}\u0000${text}`;
 }
 
 function getCachedFormat(text) {
@@ -312,21 +323,42 @@ async function classifySwear(text) {
 }
 
 /**
+ * The one line appended to the subject question that tells Jev what the
+ * `regex_prediction` field is and how much to trust it.
+ *
+ * The prior is a keyword scan, so it is strong when it names a subject the
+ * text literally contains and worthless when it is null — it has no way to
+ * read an entry that talks about a subject without naming it.
+ */
+const REGEX_PREDICTION_PROMPT_HINT =
+  "The request carries a regex_prediction field holding the subject a keyword scan of the text already matched, or null when it matched nothing: treat a named subject as a strong prior and only override it when the entry clearly discusses a different one, and when it is null the scan found no explicit subject name so decide from the text alone.";
+
+/** Appends the regex_prediction hint to the subject question's instructions. */
+function withRegexPriorHint(instructions) {
+  return `${instructions} ${REGEX_PREDICTION_PROMPT_HINT}`;
+}
+
+/**
  * Runs the homework questions against Jev, sending only the questions whose
  * answers are not already cached (a second question still costs Jev tokens).
+ *
+ * `regexPrediction` is the subject a local keyword scan already produced for
+ * this text, or null when it matched nothing. It rides along in the request as
+ * a prior so Jev stops answering questions the regex has already settled, and
+ * so a scan it disagrees with is visible rather than silent.
  *
  * On provider failure everything fails open: subject falls back to
  * "School Diary" (uncached) and the formatting verdict assumes "well
  * formatted" so AI Studio quota is not spent on an unknown.
  *
  * @param {string} text
- * @param {{ section?: string, isPoliticalScience?: boolean }} options
+ * @param {{ section?: string, isPoliticalScience?: boolean, regexPrediction?: string|null }} options
  * @param {{ includeFormat?: boolean }} questionOpts
  * @returns {Promise<{ ok: boolean, subject: string, isFormatted: boolean, error?: string }>}
  */
 async function runHomeworkQuestions(
   text,
-  { section = "", isPoliticalScience = null } = {},
+  { section = "", isPoliticalScience = null, regexPrediction = null } = {},
   { includeFormat = false } = {}
 ) {
   const trimmed = typeof text === "string" ? text.trim() : "";
@@ -339,7 +371,18 @@ async function runHomeworkQuestions(
       ? Boolean(isPoliticalScience)
       : isPoliticalScienceClass(section);
 
-  const cachedSubject = getCachedSubject(trimmed, usePolSci);
+  const criteria = getSubjectCriteria(usePolSci);
+  // Only forward a prior Jev could actually choose. A scan naming a subject the
+  // choice list does not offer (French, General Knowledge) would be a
+  // contradiction it has to resolve, so it is reported as no opinion instead.
+  const prior =
+    typeof regexPrediction === "string" &&
+    regexPrediction.trim() &&
+    criteria[regexPrediction.trim()] !== undefined
+      ? regexPrediction.trim()
+      : null;
+
+  const cachedSubject = getCachedSubject(trimmed, usePolSci, prior);
   const cachedFormat = includeFormat ? getCachedFormat(trimmed) : undefined;
   const needSubject = !cachedSubject;
   const needFormat = includeFormat && cachedFormat === undefined;
@@ -363,13 +406,13 @@ async function runHomeworkQuestions(
     };
   }
 
-  const criteria = getSubjectCriteria(usePolSci);
   const questions = {};
   if (needSubject) {
     questions.subject = {
       type: "choice",
-      instructions:
-        "Which academic subject is this school homework or classwork for? If it is a general school announcement, notice, circular, or non-academic entry, choose School Diary.",
+      instructions: withRegexPriorHint(
+        "Which academic subject is this school homework or classwork for? If it is a general school announcement, notice, circular, or non-academic entry, choose School Diary."
+      ),
       criteria,
     };
   }
@@ -385,6 +428,7 @@ async function runHomeworkQuestions(
     model: "jev-latest",
     state: redactContactPii(trimmed),
     questions,
+    regex_prediction: prior,
   };
 
   try {
@@ -409,7 +453,7 @@ async function runHomeworkQuestions(
     if (needSubject) {
       const choice = data?.answers?.subject?.choice;
       subject = choice && criteria[choice] !== undefined ? choice : "School Diary";
-      setCachedSubject(trimmed, usePolSci, subject);
+      setCachedSubject(trimmed, usePolSci, prior, subject);
     }
 
     let isFormatted = cachedFormat ?? true;

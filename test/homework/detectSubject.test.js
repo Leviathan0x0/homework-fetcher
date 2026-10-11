@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const {
   detectSubjectFromText,
+  regexSubjectPrediction,
   pickSubject,
   subjectFromFirstLines,
   subjectFromAttachment,
@@ -73,6 +74,44 @@ test("detectSubjectFromText explicit-label branch covers the nine subjects", () 
   for (const [label, want] of cases) {
     assert.equal(detectSubjectFromText("", label), want, label);
   }
+});
+
+test("regexSubjectPrediction reports the scan's subject, or null when it matched nothing", () => {
+  assert.equal(regexSubjectPrediction("Chemistry: balance these equations"), "Chemistry");
+  assert.equal(regexSubjectPrediction("SST: history and geography revision"), "History");
+  // "School Diary" is the regex's no-match answer, so it must surface as null
+  // rather than be forwarded to Jev as if the scan had an opinion.
+  assert.equal(regexSubjectPrediction("Read about political parties in India"), null);
+  assert.equal(regexSubjectPrediction("Bring your diary signed by parents"), null);
+  assert.equal(regexSubjectPrediction(""), null);
+});
+
+test("regexSubjectPrediction classifies AI work as Computers, not into a science bucket", () => {
+  // "AI" used to fall through to School Diary, leaving the subject entirely to
+  // Jev, which read it as Chemistry.
+  const cases = [
+    "AI: complete the chatbot worksheet on page 45",
+    "ARTIFICIAL INTELLIGENCE: write a prompt for an image generator",
+    "A.I. homework - train a simple neural network",
+    "CS: Python loops worksheet",
+    "Machine learning: collect data for the class survey",
+    "Computers: revise the HTML and CSS tags",
+  ];
+  for (const text of cases) {
+    assert.equal(regexSubjectPrediction(text), "Computers", text);
+  }
+});
+
+test("regexSubjectPrediction does not read chemistry quantities as machine learning", () => {
+  // "ML" is deliberately not a Computers keyword: uppercase diaries write
+  // quantities as "5 ML", and a measurement is not a subject.
+  assert.equal(regexSubjectPrediction("Add 5 ML of water to the beaker"), null);
+  assert.equal(regexSubjectPrediction("Pour 25 ml of acid into the flask"), null);
+  // When the entry really does name Chemistry, the science rule still wins.
+  assert.equal(
+    regexSubjectPrediction("CHEMISTRY: add 5 ML of water and note the reaction"),
+    "Chemistry"
+  );
 });
 
 test("pickSubject never lets a generic bucket downgrade a specific subject", () => {

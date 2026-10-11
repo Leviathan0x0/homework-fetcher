@@ -426,6 +426,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
       ) : filteredEntries.length === 0 ? (
         <EmptyState
           type="today"
+          illustration={hasHolidayToday ? 'celebration-holiday' : 'empty-today'}
           title={hasHolidayToday ? 'It’s a holiday today' : 'No homework posted today'}
           subtitle={
             hasHolidayToday

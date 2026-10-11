@@ -40,6 +40,22 @@ async function mapConcurrent(items, concurrency, fn) {
 /** Broad bucket answers that must never overwrite a specific subject. */
 const GENERIC_SUBJECTS = new Set(["Science", "Social Science"]);
 
+/**
+ * The regex's own verdict for one text, or null when it matched no subject.
+ *
+ * This is what gets forwarded to Jev as `regex_prediction`. "School Diary" is
+ * the regex's *no-match* answer, so it is reported as null rather than passed on
+ * as a subject — telling Jev the scan predicted a diary entry would bias it
+ * toward the catch-all instead of letting it read the text.
+ * @param {string} text
+ * @returns {string|null}
+ */
+function regexSubjectPrediction(text) {
+  const subject = detectSubjectFromText(text, "", "");
+  return subject && subject !== "School Diary" ? subject : null;
+}
+
+/** Returns true when the subject is a real subject rather than a bucket. */
 function isSpecificSubject(subject) {
   return Boolean(subject) && subject !== "School Diary" && !GENERIC_SUBJECTS.has(subject);
 }
@@ -81,6 +97,12 @@ function searchableForms(value) {
  * the individual sciences must win over the Social Science / Science catch-alls.
  * Bare "POLITICAL" is intentionally only matched for explicit labels (below),
  * so an SST chapter mentioning "political parties" stays Social Science.
+ *
+ * Computers carries the CS vocabulary that used to be missing: "AI" alone
+ * resolved to School Diary, so an Artificial Intelligence assignment had no
+ * regex verdict at all and its subject was left entirely to Jev, which read
+ * "AI" as Chemistry. "ML" is deliberately absent — uppercase diaries write
+ * quantities as "5 ML", and that is not machine learning.
  */
 const SUBJECT_SCAN_RULES = [
   ["History", /\b(HISTORY|HIST)\b/],
@@ -91,7 +113,10 @@ const SUBJECT_SCAN_RULES = [
   ["Political Science", /\b(POLITICAL[\s.\-:/]*SCIENCE|POLITICS|POL[\s.\-:/]*(?:SCI|SCIENCE))\b/],
   ["Geography", /\b(GEOGRAPHY|GEOG|GEO)\b/],
   ["Economics", /\b(ECONOMICS|ECONOMY|ECON)\b/],
-  ["Computers", /\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|CODING|PROGRAMMING|ICT|कंप्यूटर)\b/],
+  [
+    "Computers",
+    /\b(COMPUTER SCIENCE|COMPUTER SCI|COMPUTERS|COMPUTER|COMPUTER APPLICATIONS?|INFORMATION TECHNOLOGY|ARTIFICIAL INTELLIGENCE|MACHINE LEARNING|DEEP LEARNING|NEURAL NETWORKS?|CHATBOT|ROBOTICS|DATA STRUCTURES?|ALGORITHMS?|BLOCK CODING|PYTHON|HTML|CSS|CODING|PROGRAMMING|AI|ICT|कंप्यूटर)\b/,
+  ],
   [
     "Social Science",
     /\b(SOCIAL[\s.\-:/]*SCIENCE|SOCAL[\s.\-:/]*SCIENCE|SOCIAL[\s.\-:/]*STUDIES|SOCAL[\s.\-:/]*STUDIES|SOCIAL|SOCAL|S[\s.]*ST|SST|SSC|CIVICS|SO[\s.]*SCIENCE|S[\s.]*SCIENCE|सामाजिक)\b/,
@@ -207,6 +232,16 @@ const SUBJECT_VOCABULARY = [
   ["coding", "Computers"],
   ["programming", "Computers"],
   ["ict", "Computers"],
+  ["ai", "Computers"],
+  ["artificial intelligence", "Computers"],
+  ["machine learning", "Computers"],
+  ["deep learning", "Computers"],
+  ["neural network", "Computers"],
+  ["chatbot", "Computers"],
+  ["robotics", "Computers"],
+  ["python", "Computers"],
+  ["html", "Computers"],
+  ["css", "Computers"],
   ["hindi", "Hindi"],
   ["punjabi", "Punjabi"],
   ["panjabi", "Punjabi"],
@@ -567,8 +602,15 @@ async function applyAiToRows(userId, rows, section = "") {
   // remote providers exactly as before.
   await mapConcurrent(uniqueTexts, 4, async (text) => {
     try {
+      // The regex verdict is the prior Jev is given. Null means the scan found
+      // no keyword it knows, which is itself informative: Jev must then read
+      // the text rather than lean on a guess it was handed.
+      const regexPrediction = regexSubjectPrediction(text);
       const localVerdict = await localClassify(text, { section });
-      const { subject, isFormatted } = localVerdict || await classifyHomework(text, { section });
+      const { subject, isFormatted } = localVerdict || await classifyHomework(text, {
+        section,
+        regexPrediction,
+      });
       const current = textToSubject.get(text);
       // Upgrade only: fill a gap or replace a generic bucket. A specific
       // regex match (the text literally names the subject) always wins.
@@ -593,7 +635,6 @@ async function applyAiToRows(userId, rows, section = "") {
     }
   });
 
-  const now = new Date().toISOString();
   const writes = [];
   let updatedCount = 0;
 
@@ -610,13 +651,18 @@ async function applyAiToRows(userId, rows, section = "") {
     const subjectChanged = newSubject && newSubject !== row.subject;
     const contentChanged = newContent && newContent !== row.content;
 
+    // Deliberately does NOT stamp `updatedAt`. On the homework table that column
+    // is the scrape clock `isCacheStale` reads to decide whether to re-scrape the
+    // portal, and this pass runs on every load-in without touching the portal.
+    // Stamping it here made an arbitrarily old cache answer "fresh", so the
+    // server reported isStale:false and the client never revalidated -- Today's
+    // tab stayed empty until a manual refresh or tab switch forced a scrape.
     if (subjectChanged || contentChanged) {
       writes.push(
         db.update(schema.homework)
           .set({
             subject: newSubject,
             content: newContent,
-            updatedAt: now,
           })
           .where(eq(schema.homework.id, row.id))
       );
@@ -1236,6 +1282,7 @@ const homeworkCacheService = new HomeworkCacheService();
 
 module.exports = homeworkCacheService;
 module.exports.detectSubjectFromText = detectSubjectFromText;
+module.exports.regexSubjectPrediction = regexSubjectPrediction;
 module.exports.pickSubject = pickSubject;
 module.exports.subjectFromFirstLines = subjectFromFirstLines;
 module.exports.subjectFromAttachment = subjectFromAttachment;

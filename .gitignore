@@ -15,6 +15,9 @@ sqlite.db*
 *.log
 scratch/
 .env*
+# Rust build output. `mmss-backend/target` is covered by mmss-backend/.gitignore;
+# this is the root package's target (the Vercel function build).
+/target
 
 # Generated knowledge-graph output. Tool output, not source: it is regenerated
 # from the repository and its stale index would otherwise be committed.

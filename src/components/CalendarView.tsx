@@ -285,7 +285,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       />
 
       <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(20rem,3fr)_minmax(0,7fr)] xl:gap-5">
-        <div className="space-y-3 xl:sticky xl:top-4">
+        {/* On tablet the calendar is thinned to a fixed column and the holiday
+            list moves beside it instead of stacking underneath at full width. */}
+        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-[22rem_minmax(0,1fr)] xl:sticky xl:top-4 xl:grid-cols-1">
           <div className="rounded-2xl border border-neutral-200/80 bg-white p-3 dark:border-neutral-800/80 dark:bg-[#141417] sm:p-4 shadow-xs">
             <div>
               <div className="mb-3 flex items-center justify-between gap-3 px-0.5">

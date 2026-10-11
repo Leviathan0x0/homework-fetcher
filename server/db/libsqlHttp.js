@@ -61,17 +61,49 @@ function decodeValue(cell) {
  */
 function createLibsqlClient(url, authToken) {
   const endpoint = `${toHttpUrl(url)}/v2/pipeline`;
-  const maxAttempts = 3;
-  const defaultTimeoutMs = 2_500;
+  const maxAttempts = 2;
+  // A Mumbai-hosted function reaching a Mumbai-hosted database sits in the same
+  // region, so a normal round trip is tens of milliseconds. 2500 ms was only
+  // ~5x that, which meant ordinary tail latency tripped the ceiling and paid
+  // for retries. 5000 ms leaves room for a slow write path to still commit.
+  const defaultTimeoutMs = 5_000;
 
   const wait = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+  const elapsed = (startedAt) =>
+    Math.round((Number(process.hrtime.bigint() - startedAt) / 1_000_000) * 10) / 10;
+
+  /**
+   * One line per attempt, so a slow request can be attributed to a specific
+   * try instead of inferred from the total. `timedOut` separates "the server
+   * never answered" from "the server answered slowly" -- the two need
+   * different fixes and the total alone cannot tell them apart.
+   *
+   * Never logs the endpoint, the auth token, or statement contents: `sql` may
+   * embed user homework text, and the endpoint can appear in request URLs.
+   */
+  function logAttempt({ attempt, maxAttempts, statements, outcome, status, timedOut, durationMs, timeoutMs }) {
+    console.info(`[libsql] ${JSON.stringify({
+      attempt,
+      maxAttempts,
+      statements,
+      outcome,
+      status,
+      timedOut,
+      durationMs,
+      timeoutMs,
+    })}`);
+  }
 
   async function postPipeline(requests, requestTimeoutMs = defaultTimeoutMs) {
     let lastError = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const controller = new AbortController();
+      const startedAt = process.hrtime.bigint();
       const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+      let outcome = "ok";
+      let status = null;
 
       try {
         const res = await fetch(endpoint, {
@@ -84,16 +116,33 @@ function createLibsqlClient(url, authToken) {
           signal: controller.signal,
         });
 
-        if (res.ok) return res;
+        if (res.ok) {
+          logAttempt({ attempt, maxAttempts, statements: requests.length, outcome, status: res.status, timedOut: false, durationMs: elapsed(startedAt), timeoutMs: requestTimeoutMs });
+          return res;
+        }
 
+        outcome = "http_error";
+        status = res.status;
         const detail = await res.text().catch(() => "");
         const error = new Error(`libSQL request failed with ${res.status}: ${detail.slice(0, 300)}`);
         const retryable = res.status === 408 || res.status === 425 || res.status === 429 || res.status >= 500;
+        // Non-retryable statuses stop here, so log once on the way out rather
+        // than logging here and again from the catch below.
+        if (retryable) {
+          logAttempt({ attempt, maxAttempts, statements: requests.length, outcome, status, timedOut: false, durationMs: elapsed(startedAt), timeoutMs: requestTimeoutMs });
+        }
         if (!retryable) throw error;
         lastError = error;
       } catch (err) {
+        const timedOut = err?.name === "AbortError";
+        // A timeout never reached the "res.ok" branch, so outcome is still
+        // "ok" from its initialiser; a real error keeps the http_error that
+        // the try block already assigned.
+        if (timedOut) outcome = "timeout";
+        else if (outcome === "ok") outcome = "error";
+        logAttempt({ attempt, maxAttempts, statements: requests.length, outcome, status, timedOut, durationMs: elapsed(startedAt), timeoutMs: requestTimeoutMs });
         if (err?.message?.startsWith("libSQL request failed with 4")) throw err;
-        lastError = err?.name === "AbortError"
+        lastError = timedOut
           ? new Error(`libSQL request timed out after ${requestTimeoutMs}ms`)
           : err;
       } finally {

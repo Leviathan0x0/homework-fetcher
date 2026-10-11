@@ -54,7 +54,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
         aria-modal="true"
         aria-labelledby="password-help-title"
         className={cn(
-          'w-full max-w-md space-y-4 rounded-3xl border p-6 shadow-2xl',
+          'w-full max-w-sm space-y-3 rounded-2xl border p-4 shadow-2xl sm:p-5',
           isLoginLook
             ? 'border-white/15 bg-[#141417] text-[#f5f2eb]'
             : 'border-neutral-200 bg-white text-neutral-900 dark:border-neutral-800 dark:bg-[#141417] dark:text-neutral-100'
@@ -64,13 +64,13 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
           <div className="flex items-center gap-3">
             <div
               className={cn(
-                'shrink-0 rounded-2xl p-2.5',
+                'shrink-0 rounded-xl p-2',
                 isLoginLook
                   ? 'bg-white/10 text-[#f5f2eb]'
                   : 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
               )}
             >
-              <Reicon name="key" size={20} preset="scale" />
+              <Reicon name="key" size={18} preset="scale" />
             </div>
             <div>
               <h3
@@ -135,7 +135,7 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
 
         <ol
           className={cn(
-            'space-y-2.5 rounded-2xl border p-3.5 text-xs leading-relaxed',
+            'space-y-2 rounded-xl border p-3 text-xs leading-relaxed',
             isLoginLook
               ? 'border-white/10 bg-black/25 text-[#f5f2eb]/75'
               : 'border-neutral-200/80 bg-neutral-50 text-neutral-600 dark:border-neutral-800 dark:bg-neutral-900/60 dark:text-neutral-300'
@@ -186,12 +186,9 @@ export const ForgotPasswordDialog: React.FC<ForgotPasswordDialogProps> = ({
             >
               3
             </span>
-            <span className="inline-flex items-start gap-1.5">
-              <Reicon name="graduation-cap" size={14} className="mt-0.5 shrink-0 opacity-70" />
-              <span>
-                Admin and demo teacher accounts use deployment passwords. Those
-                are rotated by whoever hosts this app, not by EduSecure.
-              </span>
+            <span>
+              Admin and demo teacher accounts use deployment passwords. Those
+              are rotated by whoever hosts this app, not by EduSecure.
             </span>
           </li>
         </ol>

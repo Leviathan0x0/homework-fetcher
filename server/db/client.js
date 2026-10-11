@@ -515,6 +515,58 @@ CREATE TABLE IF NOT EXISTS users (
     CREATE INDEX IF NOT EXISTS idx_leave_student ON leave_requests(student_id);
     CREATE INDEX IF NOT EXISTS idx_leave_section_status ON leave_requests(section, status);
     CREATE INDEX IF NOT EXISTS idx_leave_dates ON leave_requests(from_date, to_date);
+
+    -- Password recovery. A request is a student asking for help, a token is the
+    -- administrator-approved single-use credential that lets them actually set
+    -- a password. The token itself is never stored, only its hash.
+    CREATE TABLE IF NOT EXISTS password_reset_requests (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      user_id TEXT,
+      message TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_note TEXT,
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reset_requests_status_created ON password_reset_requests(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_reset_requests_student ON password_reset_requests(student_id);
+
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      request_id TEXT REFERENCES password_reset_requests(id) ON DELETE SET NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL,
+      created_by TEXT,
+      created_at TEXT NOT NULL,
+      used_at TEXT,
+      revoked_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON password_reset_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reset_tokens_expiry ON password_reset_tokens(expires_at);
+
+    -- Security events. detail is JSON for non-sensitive context only: never a
+    -- password, a hash, a reset token or an EduSecure cookie.
+    CREATE TABLE IF NOT EXISTS security_audit_log (
+      id TEXT PRIMARY KEY,
+      event TEXT NOT NULL,
+      actor_user_id TEXT,
+      actor_label TEXT,
+      target_user_id TEXT,
+      target_student_id TEXT,
+      outcome TEXT NOT NULL,
+      detail TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON security_audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_target_user ON security_audit_log(target_user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_event ON security_audit_log(event);
 `;
 
 /** Splits the schema script into individual statements. */
@@ -535,6 +587,9 @@ const ADDED_COLUMNS = [
   ["users", "muted_reason", "TEXT"],
   ["users", "muted_at", "TEXT"],
   ["users", "role", "TEXT NOT NULL DEFAULT 'student'"],
+  // Null means "no MMSS64 password yet": the account still signs in through
+  // EduSecure. Nothing is backfilled, so every existing row keeps working.
+  ["users", "password_hash", "TEXT"],
   ["admin_flag_log", "status", "TEXT NOT NULL DEFAULT 'pending'"],
   ["messages", "attachment_url", "TEXT"],
   ["messages", "original_filename", "TEXT"],
@@ -788,6 +843,34 @@ ready.catch(() => {});
  */
 const initialReady = ready;
 
+/**
+ * Runs one write and returns how many rows it changed.
+ *
+ * Drizzle's `.run()` cannot tell us this on both drivers. The remote path runs
+ * through `drizzle-orm/sqlite-proxy`, whose callback maps a `run` to `{ rows: [] }`
+ * and throws the statement's own count away, while the local better-sqlite3 path
+ * returns `{ changes }`. A conditional update -- "claim this row, but only if it is
+ * still unclaimed" -- is the write that has to know the difference between matching
+ * one row and matching none, because that difference is what makes a reset token
+ * single-use without a transaction to hide behind.
+ *
+ * The statement is still built with Drizzle (correct column names, bound
+ * parameters, no string interpolation of user input); only the call goes around
+ * the mapping that loses the count.
+ *
+ * @param {{sql: string, params?: any[]}} statement a `.toSQL()` result
+ * @returns {Promise<number>} rows changed. 0 means the statement matched nothing.
+ */
+async function runWriteWithChanges(statement) {
+  if (startupError) throw startupError;
+  const params = statement.params || [];
+  if (isRemote) {
+    const [result] = await remoteClient.executeBatch([{ sql: statement.sql, args: params }]);
+    return result?.rowsAffected || 0;
+  }
+  return sqlite.prepare(statement.sql).run(...params).changes || 0;
+}
+
 module.exports = {
   db,
   sqlite,
@@ -796,5 +879,6 @@ module.exports = {
   ready: initialReady,
   ensureDatabaseReady,
   runBatch,
+  runWriteWithChanges,
   schema,
 };

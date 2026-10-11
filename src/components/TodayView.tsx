@@ -246,9 +246,17 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </span>
             {greeting}, {name}
           </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
-            {subtitle}
-          </p>
+          {isContentLoading ? (
+            <div
+              data-testid="today-subtitle-skeleton"
+              className="mt-2 h-4 w-44 sm:w-52 rounded-md bg-neutral-200/80 dark:bg-neutral-800/80 animate-pulse"
+              aria-label="Checking today's homework..."
+            />
+          ) : (
+            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1.5 leading-relaxed">
+              {subtitle}
+            </p>
+          )}
         </div>
         <div className="shrink-0 sm:pt-0.5">
           <RefreshButton

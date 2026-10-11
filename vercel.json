@@ -3,17 +3,8 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/api/preview", "destination": "/api/mmss" },
-    { "source": "/api/preview/:path*", "destination": "/api/mmss" },
-    { "source": "/api/:path*", "destination": "http://57.155.88.204/api/:path*" },
+    { "source": "/api", "destination": "/api/index" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "headers": [
-    {
-      "source": "/api/:path*",
-      "headers": [
-        { "key": "x-vercel-enable-rewrite-caching", "value": "0" }
-      ]
-    }
   ]
 }

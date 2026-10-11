@@ -24,6 +24,15 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.APP_ORIGIN ||
 // A separately hosted frontend means the session cookie is sent cross-site.
 const crossSiteCookies = process.env.CROSS_SITE_COOKIES === "true" || allowedOrigins.length > 0;
 
+function extractHostname(val) {
+  if (!val) return null;
+  try {
+    return new URL(val.includes("://") ? val : `https://${val}`).hostname;
+  } catch {
+    return null;
+  }
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) return false;
   const cleanOrigin = stripTrailingSlash(origin);
@@ -33,13 +42,21 @@ function isAllowedOrigin(origin) {
   try {
     const url = new URL(cleanOrigin);
     const hostname = url.hostname;
+    const vercelHostnames = [
+      "mmss64.vercel.app",
+      extractHostname(process.env.VERCEL_URL),
+      extractHostname(process.env.VERCEL_PROJECT_PRODUCTION_URL),
+      extractHostname(process.env.VERCEL_BRANCH_URL),
+    ].filter(Boolean);
+
     if (
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
       hostname === "[::1]" ||
       hostname.endsWith(".localhost") ||
+      vercelHostnames.includes(hostname) ||
       /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
-      /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+      /^10\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
       /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
     ) {
       return true;
@@ -85,10 +102,18 @@ function sessionCookieOptions(extra = {}) {
  */
 function isSameOriginRequest(origin, { host, forwardedHost } = {}) {
   if (!origin) return false;
+  const rawClientHost = (forwardedHost || host || "").split(",")[0].trim();
+  if (!rawClientHost) return false;
+  try {
+    const originUrl = new URL(origin);
+    const cleanClientHost = rawClientHost.replace(/:(80|443)$/, "");
+    const cleanOriginHost = originUrl.host.replace(/:(80|443)$/, "");
+    if (cleanOriginHost === cleanClientHost) return true;
+  } catch {
+    // Fall back to string check below
+  }
   const cleanOrigin = stripTrailingSlash(origin);
-  const clientHost = forwardedHost || host;
-  if (!clientHost) return false;
-  return cleanOrigin.endsWith(`://${clientHost}`);
+  return cleanOrigin.endsWith(`://${rawClientHost}`);
 }
 
 module.exports = {

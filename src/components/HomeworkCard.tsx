@@ -33,8 +33,12 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   onUpdateNote,
   onOpenPreview,
 }) => {
-  const subjectInfo = detectSubject(item.homework, item.subject, item.type);
-  const parsed = parseHomeworkContent(item.homework, subjectInfo.name);
+  // An entry can carry homework, classwork, or both. The backend keeps them as two
+  // fields, so the card picks whichever one the teacher actually wrote rather than
+  // printing a blank card for a classwork-only entry.
+  const body = item.homework?.trim() ? item.homework : item.classwork || '';
+  const subjectInfo = detectSubject(body, item.subject, item.type);
+  const parsed = parseHomeworkContent(body, subjectInfo.name);
   const hwHierarchy = splitTaskHierarchy(parsed.homeWork || '');
 
   const [isEditingNote, setIsEditingNote] = useState(false);
@@ -275,7 +279,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
               )}
             >
-              {linkifyText(item.homework)}
+              {linkifyText(body)}
             </p>
           )}
         </div>

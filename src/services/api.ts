@@ -204,7 +204,11 @@ export const homeworkService = {
     for (const doc of rawList) {
       if (!doc) continue;
       const text = (doc.homework || doc.content || "").trim();
-      const key = `${(doc.date || "").trim()}:${text}`;
+      // The backend keeps homework and classwork as separate fields on one entry.
+      // Deduplicating on `text` alone silently dropped a second classwork-only entry
+      // on the same day, because both of them have no homework text to tell them apart.
+      const classwork = (doc.classwork || "").trim();
+      const key = `${(doc.date || "").trim()}:${text}:${classwork}`;
       if (seen.has(key)) continue;
       seen.add(key);
       deduplicated.push({
@@ -213,6 +217,9 @@ export const homeworkService = {
         date: doc.date || "",
         subject: doc.subject || "School Diary",
         homework: text,
+        // Kept separate rather than merged into `homework`: the backend stores two fields
+        // and the UI picks the one to print. See `HomeworkCard`.
+        classwork,
         attachment: doc.attachment || doc.attachmentUrl || null,
         completed: !!doc.completed,
         note: doc.note || null,

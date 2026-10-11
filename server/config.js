@@ -64,10 +64,38 @@ function sessionCookieOptions(extra = {}) {
   };
 }
 
+/**
+ * Whether a state-changing request came from the same origin the browser addressed.
+ *
+ * The host the browser used is NOT the `Host` header the server sees once a proxy is
+ * in front. Vercel's external rewrite forwards `/api/*` to this VPS by IP, so `Host`
+ * arrives as the rewrite destination while the browser's `Origin` is the Vercel
+ * domain. Comparing those rejected every logged-in POST/PATCH/DELETE from the real
+ * app with 403 "Cross-site request blocked."
+ *
+ * `xForwardedHost` is what the trusted edge says the client addressed, and nginx
+ * passes it through unchanged, so it is preferred; `host` is only the fallback for a
+ * direct connection with no proxy. Allowing the forward header does not weaken the
+ * defence: the browser sets `Origin` and an attacker's page cannot forge it, so a
+ * request from evil.com still arrives with an Origin this function rejects.
+ *
+ * @param {string|null|undefined} origin   the request's Origin header
+ * @param {{host?: string, forwardedHost?: string}} hosts
+ * @returns {boolean}
+ */
+function isSameOriginRequest(origin, { host, forwardedHost } = {}) {
+  if (!origin) return false;
+  const cleanOrigin = stripTrailingSlash(origin);
+  const clientHost = forwardedHost || host;
+  if (!clientHost) return false;
+  return cleanOrigin.endsWith(`://${clientHost}`);
+}
+
 module.exports = {
   isProduction,
   allowedOrigins,
   crossSiteCookies,
   isAllowedOrigin,
+  isSameOriginRequest,
   sessionCookieOptions,
 };

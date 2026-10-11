@@ -31,7 +31,7 @@ const calendarRoutes = require("./server/routes/calendarRoutes");
 const schoolNoticesRoutes = require("./server/routes/schoolNoticesRoutes");
 const adminRoutes = require("./server/routes/adminRoutes");
 const teacherRoutes = require("./server/routes/teacherRoutes");
-const { allowedOrigins, isAllowedOrigin } = require("./server/config");
+const { allowedOrigins, isAllowedOrigin, isSameOriginRequest } = require("./server/config");
 const { isConfigured, MISSING_KEY_MESSAGE } = require("./server/auth/secrets");
 const { ensureDatabaseReady, isRemote, db, schema, ready: dbReady } = require("./server/db/client");
 const { seedDefaultSettings } = require("./server/admin/settingsService");
@@ -166,9 +166,14 @@ app.use("/api", (req, res, next) => {
   const candidate = origin || (referer ? (() => { try { return new URL(referer).origin; } catch { return null; } })() : null);
   if (!candidate) return next();
   if (isAllowedOrigin(candidate)) return next();
-  // Same-origin POST has Origin === Host origin; allow it without config.
-  const host = req.get("host");
-  if (host && candidate.endsWith(`://${host}`)) return next();
+  if (
+    isSameOriginRequest(candidate, {
+      host: req.get("host"),
+      forwardedHost: req.get("x-forwarded-host"),
+    })
+  ) {
+    return next();
+  }
   return res.status(403).json({ error: "Cross-site request blocked." });
 });
 

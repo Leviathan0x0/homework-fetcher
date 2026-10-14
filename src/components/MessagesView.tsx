@@ -594,41 +594,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       contentForSend,
       fileCopy ? `[Attachment] ${fileCopy.name}` : ''
     );
-    const tempId = `temp_${Date.now()}`;
-    const optimistic: Message = {
-      id: tempId,
-      conversationId: convId,
-      senderId: 'local',
-      content: contentForSend,
-      displayContent: bodyText,
-      requestRef: requestCopy
-        ? {
-            id: requestCopy.id,
-            title: requestCopy.title,
-            content: requestCopy.content,
-            category: requestCopy.category,
-          }
-        : null,
-      attachmentUrl: fileCopy && fileCopy.type.startsWith('image/')
-        ? URL.createObjectURL(fileCopy)
-        : null,
-      originalFilename: fileCopy?.name || null,
-      mimeType: fileCopy?.type || null,
-      replyTo: replyToCopy ? {
-        id: replyToCopy.id,
-        senderId: replyToCopy.senderId,
-        senderName: replyToCopy.senderName,
-        content: messagePreviewText(
-          replyToCopy.displayContent ?? replyToCopy.content,
-          'Help request'
-        ).substring(0, 100),
-        attachmentUrl: replyToCopy.attachmentUrl,
-      } : null,
-      readBy: [],
-      createdAt: new Date().toISOString(),
-      isMine: true,
-    };
-
+    // Publish chat content and previews only after server moderation accepts it.
     setSending(true);
     setInputText('');
     setSelectedFile(null);
@@ -637,23 +603,6 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     setFileError(null);
     if (textareaRef.current) textareaRef.current.style.height = '';
     stickToBottomRef.current = true;
-    const alreadyShowingConversation = loadedMessagesConvIdRef.current === convId;
-    loadedMessagesConvIdRef.current = convId;
-    setMessagesConvId(convId);
-    setMessages((prev) => alreadyShowingConversation ? [...prev, optimistic] : [optimistic]);
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId
-          ? {
-              ...c,
-              lastMessagePreview: fileCopy
-                ? `[Attachment] ${fileCopy.name}`
-                : previewText.substring(0, 80),
-              lastMessageAt: optimistic.createdAt,
-            }
-          : c
-      )
-    );
 
     try {
       const sentMessage = await messagingService.sendMessage(
@@ -663,14 +612,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         fileCopy,
         replyToCopy?.id || null
       );
-      if (optimistic.attachmentUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(optimistic.attachmentUrl);
-      }
       if (activeConvIdRef.current === convId) {
+        const alreadyShowingConversation = loadedMessagesConvIdRef.current === convId;
+        loadedMessagesConvIdRef.current = convId;
+        setMessagesConvId(convId);
         setMessages((prev) => {
-          const withoutTemp = prev.filter((m) => m.id !== tempId);
-          if (withoutTemp.some((m) => m.id === sentMessage.id)) return withoutTemp;
-          return [...withoutTemp, sentMessage];
+          const current = alreadyShowingConversation ? prev : [];
+          if (current.some((m) => m.id === sentMessage.id)) return current;
+          return [...current, sentMessage];
         });
       }
       setConversations((prev) =>
@@ -687,11 +636,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         )
       );
     } catch (err: any) {
-      if (optimistic.attachmentUrl?.startsWith('blob:')) {
-        URL.revokeObjectURL(optimistic.attachmentUrl);
-      }
       if (activeConvIdRef.current === convId) {
-        setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setInputText(textCopy);
         setSelectedFile(fileCopy);
         setReplyingTo(replyToCopy);

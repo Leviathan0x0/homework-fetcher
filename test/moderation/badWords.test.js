@@ -136,3 +136,10 @@ test("allows empty and non-string input", () => {
     assert.deepEqual(checkBadWords(value), { ok: true });
   }
 });
+
+test("blocks the literal swear_word term and separator variants", () => {
+  for (const value of ["swear_word", "SWEAR_WORD", "please swear_word", "swear.word"]) {
+    assertBlocked(value);
+  }
+  assert.deepEqual(checkBadWords("swe ar wording"), { ok: true });
+});

@@ -65,3 +65,10 @@ test("blocks deterministic profanity before making an AI request", async (t) => 
   assert.equal(result.strikeable, true);
   assert.equal(called, false);
 });
+
+test("counts the literal swear_word term as a strikeable text violation", async () => {
+  const result = await checkContent({ text: "swear_word" });
+  assert.equal(result.ok, false);
+  assert.equal(result.kind, "text");
+  assert.equal(result.strikeable, true);
+});

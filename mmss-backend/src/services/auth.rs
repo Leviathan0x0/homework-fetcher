@@ -289,7 +289,8 @@ impl<'a> AuthService<'a> {
         if password.is_empty() {
             return Err(AuthError::BadRequest("Password is required."));
         }
-        credentials::set_password_hash(self.db, user_id, &hash_password_async(password).await?).await?;
+        credentials::set_password_hash(self.db, user_id, &hash_password_async(password).await?)
+            .await?;
         Ok(())
     }
 

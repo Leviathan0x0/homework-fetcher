@@ -192,14 +192,9 @@ const CLUSTER_WINDOW_MS = 5 * 60 * 1000;
 /** Downloads a protected attachment, falling back to opening it in a tab. */
 async function downloadAttachment(url: string, filename: string) {
   try {
-    if (url.startsWith('blob:')) {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
-      return;
-    }
-    const res = await apiFetch(url);
+    // Local blob: previews are re-read so the anchor only ever receives an
+    // object URL created here, never a caller-supplied string.
+    const res = url.startsWith('blob:') ? await fetch(url) : await apiFetch(url);
     if (!res.ok) throw new Error('Download failed');
     const blobUrl = URL.createObjectURL(await res.blob());
     const a = document.createElement('a');

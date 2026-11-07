@@ -182,7 +182,8 @@ impl<'a> AccountsService<'a> {
             ));
         }
 
-        credentials::set_password_hash(self.db, user_id, &hash_password_async(password).await?).await?;
+        credentials::set_password_hash(self.db, user_id, &hash_password_async(password).await?)
+            .await?;
         AuthService::new(self.db, self.config)
             .revoke_all_sessions(user_id)
             .await?;
@@ -238,7 +239,8 @@ impl<'a> AccountsService<'a> {
             return Err(LifecycleError::AlreadyHasPassword);
         }
 
-        credentials::set_password_hash(self.db, user.id, &hash_password_async(password).await?).await?;
+        credentials::set_password_hash(self.db, user.id, &hash_password_async(password).await?)
+            .await?;
         account_events::record(
             self.db,
             user.id,

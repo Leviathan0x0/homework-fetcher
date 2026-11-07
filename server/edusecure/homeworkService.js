@@ -29,9 +29,6 @@ async function fetchHomeworkPage(sessionCookies) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= PORTAL_ATTEMPTS; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PORTAL_TIMEOUT_MS);
-
     try {
       const response = await fetch(HOMEWORK_URL, {
         headers: {
@@ -40,7 +37,9 @@ async function fetchHomeworkPage(sessionCookies) {
           "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
         redirect: "manual",
-        signal: controller.signal,
+        // Unlike a timer cleared once headers arrive, this also bounds the body
+        // download that the caller reads afterwards.
+        signal: AbortSignal.timeout(PORTAL_TIMEOUT_MS),
       });
 
       if (response.status === 429 || response.status >= 500) {
@@ -63,13 +62,11 @@ async function fetchHomeworkPage(sessionCookies) {
       if (attempt < PORTAL_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, 750 * attempt));
       }
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
   if (lastError instanceof EduSecurePortalError) throw lastError;
-  const detail = lastError?.name === "AbortError"
+  const detail = lastError?.name === "AbortError" || lastError?.name === "TimeoutError"
     ? `EduSecure did not respond within ${PORTAL_TIMEOUT_MS / 1000} seconds.`
     : `EduSecure could not be reached${lastError?.message ? ` (${lastError.message})` : ""}.`;
   throw new EduSecurePortalError(`${detail} Cached homework will remain available.`);

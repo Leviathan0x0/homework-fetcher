@@ -54,6 +54,11 @@ function decodeValue(cell) {
   }
 }
 
+// Successful round trips are logged only when slow: a line per query is a
+// synchronous write on the hot path. Failures are always logged.
+const SLOW_ATTEMPT_MS = 250;
+const LOG_ALL_ATTEMPTS = process.env.PERFORMANCE_TIMING_LOG_ALL === "true";
+
 /**
  * Creates a libSQL HTTP client.
  * @param {string} url libsql:// or https:// database URL
@@ -117,8 +122,14 @@ function createLibsqlClient(url, authToken) {
         });
 
         if (res.ok) {
-          logAttempt({ attempt, maxAttempts, statements: requests.length, outcome, status: res.status, timedOut: false, durationMs: elapsed(startedAt), timeoutMs: requestTimeoutMs });
-          return res;
+          // Read inside the attempt so the timeout (and the retry) also cover
+          // a response whose body stalls after the headers arrived.
+          const payload = await res.json();
+          const durationMs = elapsed(startedAt);
+          if (LOG_ALL_ATTEMPTS || durationMs >= SLOW_ATTEMPT_MS) {
+            logAttempt({ attempt, maxAttempts, statements: requests.length, outcome, status: res.status, timedOut: false, durationMs, timeoutMs: requestTimeoutMs });
+          }
+          return payload;
         }
 
         outcome = "http_error";
@@ -180,9 +191,7 @@ function createLibsqlClient(url, authToken) {
     }));
     requests.push({ type: "close" });
 
-    const res = await postPipeline(requests, timeoutMs);
-
-    const payload = await res.json();
+    const payload = await postPipeline(requests, timeoutMs);
     const results = [];
     for (const entry of payload.results || []) {
       if (entry.type === "error") {

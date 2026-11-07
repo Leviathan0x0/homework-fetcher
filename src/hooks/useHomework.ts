@@ -173,6 +173,7 @@ export function useHomework() {
   // changing identity would make it fetch itself in a loop.
   const homeworkRef = useRef<HomeworkEntry[]>(homework);
   const homeworkRequestInFlightRef = useRef(false);
+  const lastAppliedHomeworkRef = useRef<{ json: string; list: HomeworkEntry[] } | null>(null);
   // Throttle the 60s visible-tab auto-refresh so a slow portal scrape doesn't
   // stack a new forced refresh on top of the one still running.
   const lastFetchStartedAtRef = useRef<number>(0);
@@ -265,8 +266,18 @@ export function useHomework() {
       return;
     }
 
+    // checkAuth has just fetched the account, so the first look is deferred; the
+    // poll is bounded because an account whose profile lookup never succeeds
+    // used to hit /auth/me every 30s for as long as the tab stayed open.
     let cancelled = false;
+    let attempts = 0;
     const syncMissingDisplayName = async () => {
+      if (document.visibilityState !== "visible") return;
+      attempts += 1;
+      if (attempts > 10) {
+        window.clearInterval(interval);
+        return;
+      }
       try {
         const currentUser = await authService.getCurrentUser();
         if (!cancelled && currentUser?.displayName) {
@@ -278,13 +289,12 @@ export function useHomework() {
       }
     };
 
-    syncMissingDisplayName();
     const interval = window.setInterval(syncMissingDisplayName, 30 * 1000);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
     };
-  }, [isAuthenticated, isAuthChecking, user, user?.displayName]);
+  }, [isAuthenticated, isAuthChecking, user]);
 
   // Background AI enrichment (subject classify + rewrite) runs after the fast
   // response; poll briefly so refined subjects land without a manual refresh.
@@ -303,7 +313,7 @@ export function useHomework() {
   // scheduleAiPoll be declared first without hitting the temporal dead zone,
   // and keeps scheduleAiPoll stable so fetchHomework's identity only changes
   // when the user does.
-  const fetchHomeworkRef = useRef<(forceRefresh?: boolean) => Promise<void>>(
+  const fetchHomeworkRef = useRef<(forceRefresh?: boolean, silent?: boolean) => Promise<void>>(
     async () => {}
   );
 
@@ -313,12 +323,16 @@ export function useHomework() {
     aiPollAttemptsRef.current += 1;
     aiPollTimerRef.current = window.setTimeout(() => {
       aiPollTimerRef.current = null;
-      fetchHomeworkRef.current(false);
+      fetchHomeworkRef.current(false, true);
     }, 7000);
   }, []);
 
-  const fetchHomework = useCallback(async (forceRefresh: boolean = false) => {
-    if (!user || !usesSchoolPortal(user)) return;
+  // Keyed on the account id (not the user object) so a profile update such as
+  // a new display name does not re-create this and trigger another fetch.
+  const userId = user?.id;
+  const userUsesSchoolPortal = usesSchoolPortal(user);
+  const fetchHomework = useCallback(async (forceRefresh: boolean = false, silent: boolean = false) => {
+    if (!userId || !userUsesSchoolPortal) return;
     if (homeworkRequestInFlightRef.current) return;
     homeworkRequestInFlightRef.current = true;
     lastFetchStartedAtRef.current = Date.now();
@@ -329,19 +343,33 @@ export function useHomework() {
     // Honour the settlement flag as well: stale-painting zero today rows after
     const settled = hasSettledFirstHomeworkFetch.current;
     const hasVisibleHomework = settled && homeworkRef.current.length > 0;
-    setIsLoading(!hasVisibleHomework);
-    setIsRefreshing(hasVisibleHomework);
-    setErrorMessage(null);
+    // Background AI polls must not flash the refresh spinner every 7 seconds.
+    const quiet = silent && hasVisibleHomework;
+    if (!quiet) {
+      setIsLoading(!hasVisibleHomework);
+      setIsRefreshing(hasVisibleHomework);
+      setErrorMessage(null);
+    }
 
     try {
       const applyResult = (items: HomeworkEntry[], portalExpired: boolean) => {
-        const sortedList = sortHomeworkNewestFirst(items);
-        homeworkRef.current = sortedList;
-        setHomework(sortedList);
-        writeJson(`${CACHED_HOMEWORK_PREFIX}${user.id}`, sortedList);
         setSchoolSessionExpired(portalExpired);
         if (portalExpired) {
           setErrorMessage("Your school session has expired.");
+        }
+        const sortedList = sortHomeworkNewestFirst(items);
+        // Identical payloads (stale-then-fresh, AI polls, auto refresh) would
+        // otherwise re-render every card and rewrite the cache for nothing.
+        const serialized = JSON.stringify(sortedList);
+        const lastApplied = lastAppliedHomeworkRef.current;
+        if (lastApplied && lastApplied.json === serialized && lastApplied.list === homeworkRef.current) return;
+        lastAppliedHomeworkRef.current = { json: serialized, list: sortedList };
+        homeworkRef.current = sortedList;
+        setHomework(sortedList);
+        try {
+          localStorage.setItem(`${CACHED_HOMEWORK_PREFIX}${userId}`, serialized);
+        } catch {
+          // A full or unavailable storage quota only costs the head start.
         }
 
         const newCompletedMap: Record<string, boolean> = {};
@@ -363,7 +391,7 @@ export function useHomework() {
       };
 
       const result = await loadHomeworkWithRevalidation(
-        (refresh) => homeworkService.getHomework(user.id, refresh),
+        (refresh) => homeworkService.getHomework(userId, refresh),
         forceRefresh,
         (staleResult) => {
           applyResult(staleResult.items, staleResult.schoolSessionExpired);
@@ -413,7 +441,7 @@ export function useHomework() {
       setIsRefreshing(false);
       homeworkRequestInFlightRef.current = false;
     }
-  }, [user, scheduleAiPoll, clearAiPoll]);
+  }, [userId, userUsesSchoolPortal, scheduleAiPoll, clearAiPoll]);
 
   useEffect(() => {
     fetchHomeworkRef.current = fetchHomework;
@@ -426,9 +454,16 @@ export function useHomework() {
     fetchHomework(true);
   }, [fetchHomework]);
 
+  // Read through a ref so the callback stays stable and toggling one card
+  // does not hand every other card a new prop.
+  const completedMapRef = useRef(completedMap);
+  useEffect(() => {
+    completedMapRef.current = completedMap;
+  }, [completedMap]);
   const toggleTaskCompleted = useCallback(async (id: string) => {
-    if (!id || !user) return;
-    const nextState = !completedMap[id];
+    if (!id || !userId) return;
+    const nextState = !completedMapRef.current[id];
+    completedMapRef.current = { ...completedMapRef.current, [id]: nextState };
 
     setCompletedMap((prev) => ({ ...prev, [id]: nextState }));
     setHomework((prev) =>
@@ -436,7 +471,7 @@ export function useHomework() {
     );
 
     try {
-      await homeworkService.toggleCompleted(user.id, id, nextState);
+      await homeworkService.toggleCompleted(userId, id, nextState);
     } catch (err) {
       console.error("Update status error:", err);
       setCompletedMap((prev) => ({ ...prev, [id]: !nextState }));
@@ -444,10 +479,10 @@ export function useHomework() {
         prev.map((item) => (item.id === id ? { ...item, completed: !nextState } : item))
       );
     }
-  }, [completedMap, user]);
+  }, [userId]);
 
   const updateHomeworkNote = useCallback(async (id: string, note: string | null) => {
-    if (!id || !user) return;
+    if (!id || !userId) return;
 
     setNotesMap((prev) => ({ ...prev, [id]: note || "" }));
     setHomework((prev) =>
@@ -455,11 +490,11 @@ export function useHomework() {
     );
 
     try {
-      await homeworkService.updateNote(user.id, id, note);
+      await homeworkService.updateNote(userId, id, note);
     } catch (err) {
       console.error("Update note error:", err);
     }
-  }, [user]);
+  }, [userId]);
 
   const login = useCallback(async (studentId: string, pass: string, chosenSection?: string): Promise<boolean> => {
     setIsLoading(true);
@@ -524,16 +559,16 @@ export function useHomework() {
   }, [user, clearAiPoll]);
 
   useEffect(() => {
-    if (isAuthenticated && !isAuthChecking && usesSchoolPortal(user)) {
+    if (isAuthenticated && !isAuthChecking && userUsesSchoolPortal) {
       fetchHomework(false);
     }
-  }, [isAuthenticated, user, isAuthChecking, fetchHomework]);
+  }, [isAuthenticated, userUsesSchoolPortal, isAuthChecking, fetchHomework]);
 
   useEffect(() => {
     if (
       !isAuthenticated ||
       isAuthChecking ||
-      !usesSchoolPortal(user) ||
+      !userUsesSchoolPortal ||
       schoolSessionExpired ||
       autoRefreshMinutes === 0
     ) return;
@@ -554,7 +589,7 @@ export function useHomework() {
       document.removeEventListener("visibilitychange", refreshWhenVisible);
       window.removeEventListener("online", refreshWhenOnline);
     };
-  }, [autoRefreshMinutes, isAuthenticated, isAuthChecking, user, schoolSessionExpired, fetchHomework]);
+  }, [autoRefreshMinutes, isAuthenticated, isAuthChecking, userUsesSchoolPortal, schoolSessionExpired, fetchHomework]);
 
   return {
     user,

@@ -9,7 +9,23 @@ const calendarCacheService = require("../calendar/calendarCacheService");
 
 const router = express.Router();
 
-async function refreshFromEduSecure(userId) {
+// Refreshes in flight, keyed by user. A stale cache makes every GET start a
+// refresh, and overlapping ones scrape the portal repeatedly and race to insert
+// the same rows.
+const refreshesInFlight = new Map();
+
+function refreshFromEduSecure(userId) {
+  const running = refreshesInFlight.get(userId);
+  if (running) return running;
+
+  const pending = refreshFromEduSecureUncoalesced(userId).finally(() => {
+    refreshesInFlight.delete(userId);
+  });
+  refreshesInFlight.set(userId, pending);
+  return pending;
+}
+
+async function refreshFromEduSecureUncoalesced(userId) {
   const eduSession = await sessionService.getEduSecureSession(userId);
   if (!eduSession || !eduSession.sessionCookies) {
     throw new SchoolSessionExpiredError();
@@ -104,8 +120,7 @@ router.patch("/calendar/:id/selected", requireAuth, async (req, res) => {
 
   try {
     await calendarCacheService.setEventSelected(userId, eventId, selected);
-    const events = await calendarCacheService.getCachedEvents(userId);
-    const updated = events.find((e) => e.id === eventId);
+    const updated = await calendarCacheService.getCachedEvent(userId, eventId);
     if (!updated) {
       return res.status(404).json({ error: "Calendar event not found." });
     }

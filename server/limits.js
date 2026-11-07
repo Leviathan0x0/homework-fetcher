@@ -12,6 +12,8 @@ const MAX_DISPLAY_NAME_CHARS = 40;
 const MAX_SEARCH_QUERY_CHARS = 64;
 
 const buckets = new Map();
+const SWEEP_INTERVAL_MS = 10 * 1000;
+let nextSweepAt = 0;
 
 /**
  * Best-effort in-process rate limiter.
@@ -45,8 +47,10 @@ function rateLimit({ windowMs, max, name }) {
       });
     }
 
-    // Opportunistic cleanup so the map cannot grow without bound.
-    if (buckets.size > 5000) {
+    // Opportunistic cleanup so the map cannot grow without bound. Throttled so
+    // a full map is not rescanned on every request.
+    if (buckets.size > 5000 && now >= nextSweepAt) {
+      nextSweepAt = now + SWEEP_INTERVAL_MS;
       for (const [existingKey, existingBucket] of buckets) {
         if (now > existingBucket.resetAt) buckets.delete(existingKey);
       }

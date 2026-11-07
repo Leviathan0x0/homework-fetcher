@@ -113,16 +113,17 @@ export function parseHomeworkDate(dateStr?: string | null): Date | null {
 export function sortHomeworkNewestFirst(entries: HomeworkEntry[]): HomeworkEntry[] {
   if (!entries || !Array.isArray(entries)) return [];
 
-  return [...entries].filter(Boolean).sort((a, b) => {
-    const dateA = parseHomeworkDate(a?.date);
-    const dateB = parseHomeworkDate(b?.date);
-    if (dateA && dateB) {
-      return dateB.getTime() - dateA.getTime();
-    }
-    if (dateA) return -1;
-    if (dateB) return 1;
-    return 0;
-  });
+  // Parse each date once instead of twice per comparison.
+  return entries
+    .filter(Boolean)
+    .map((entry) => ({ entry, time: parseHomeworkDate(entry?.date)?.getTime() }))
+    .sort((a, b) => {
+      if (a.time !== undefined && b.time !== undefined) return b.time - a.time;
+      if (a.time !== undefined) return -1;
+      if (b.time !== undefined) return 1;
+      return 0;
+    })
+    .map(({ entry }) => entry);
 }
 
 export function isTodayDate(dateStr?: string | null): boolean {

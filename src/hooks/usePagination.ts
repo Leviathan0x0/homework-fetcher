@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 
 export function usePagination<T>(items: T[], pageSize = 25) {
   const [visibleCount, setVisibleCount] = useState(pageSize);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const prevItemsRef = useRef<T[]>(items);
 
   // Reset pagination ONLY when dataset content changes (length or items change),
@@ -21,29 +20,26 @@ export function usePagination<T>(items: T[], pageSize = 25) {
     }
   }, [items, pageSize]);
 
-  const loadMore = useCallback(() => {
-    if (visibleCount >= items.length || isLoadingMore) return;
-    setIsLoadingMore(true);
+  const total = items.length;
 
-    setTimeout(() => {
-      setVisibleCount((prev) => Math.min(prev + pageSize, items.length));
-      setIsLoadingMore(false);
-    }, 200);
-  }, [visibleCount, items.length, pageSize, isLoadingMore]);
+  // Rendering another page is cheap, so reveal it immediately (no artificial delay).
+  const loadMore = useCallback(() => {
+    setVisibleCount((prev) => (prev >= total ? prev : Math.min(prev + pageSize, total)));
+  }, [pageSize, total]);
 
   const resetPagination = useCallback(() => {
     setVisibleCount(pageSize);
   }, [pageSize]);
 
-  const displayedItems = items.slice(0, visibleCount);
-  const hasMore = visibleCount < items.length;
+  const displayedItems = useMemo(() => items.slice(0, visibleCount), [items, visibleCount]);
+  const hasMore = visibleCount < total;
 
   return {
     displayedItems,
     visibleCount,
-    totalCount: items.length,
+    totalCount: total,
     hasMore,
-    isLoadingMore,
+    isLoadingMore: false,
     loadMore,
     resetPagination,
   };

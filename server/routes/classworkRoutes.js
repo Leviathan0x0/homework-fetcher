@@ -4,7 +4,7 @@ const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
 const multer = require("multer");
-const { eq, desc } = require("drizzle-orm");
+const { and, eq, desc } = require("drizzle-orm");
 const { requireAuth } = require("../auth/requireAuth");
 const { db, schema, isRemote } = require("../db/client");
 const { resolveUploadDir, isServerless } = require("../uploads");
@@ -69,12 +69,18 @@ router.get("/classwork", requireAuth, async (req, res) => {
     const records = await db
       .select()
       .from(schema.classworkUploads)
-      .where(eq(schema.classworkUploads.section, section))
+      .where(
+        and(
+          eq(schema.classworkUploads.section, section),
+          // Narrowed in SQL (idx_classwork_section_date) instead of loading the
+          // whole section's history to discard most of it.
+          ...(typeof date === "string" && date ? [eq(schema.classworkUploads.date, date)] : [])
+        )
+      )
       .orderBy(desc(schema.classworkUploads.createdAt))
       .all();
 
     const filtered = records.filter((item) => {
-      if (date && item.date !== date) return false;
       if (subject && subject !== "All" && item.subject.toLowerCase() !== String(subject).toLowerCase()) {
         return false;
       }
@@ -321,6 +327,7 @@ router.get("/classwork/files/:id", requireAuth, async (req, res) => {
         contentType: item.mimeType,
         filename: item.originalFilename,
         head: buffer.subarray(0, 16),
+        cacheSeconds: 3600,
       });
       res.setHeader("Content-Length", String(buffer.length));
       return res.send(buffer);
@@ -332,6 +339,7 @@ router.get("/classwork/files/:id", requireAuth, async (req, res) => {
         contentType: item.mimeType,
         filename: item.originalFilename,
         head: readFileHead(item.filePath),
+        cacheSeconds: 3600,
       });
       return res.sendFile(path.resolve(item.filePath));
     }

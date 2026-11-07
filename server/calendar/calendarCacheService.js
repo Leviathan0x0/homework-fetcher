@@ -43,6 +43,20 @@ async function getCachedEvents(userId) {
   }
 }
 
+async function getCachedEvent(userId, eventId) {
+  const row = await db
+    .select()
+    .from(schema.schoolCalendarEvents)
+    .where(
+      and(
+        eq(schema.schoolCalendarEvents.id, eventId),
+        eq(schema.schoolCalendarEvents.userId, userId)
+      )
+    )
+    .get();
+  return row ? mapRow(row) : null;
+}
+
 async function getCacheUpdatedAt(userId) {
   try {
     const row = await db
@@ -84,6 +98,7 @@ async function upsertEvents(userId, events) {
   const incomingIds = new Set();
   const updates = [];
   const inserts = [];
+  const unchangedIds = [];
   const existingById = new Map(existing.map((row) => [row.id, row]));
 
   for (const event of events) {
@@ -109,6 +124,18 @@ async function upsertEvents(userId, events) {
 
     const found = existingById.get(id);
     if (found) {
+      const changed =
+        (found.sourceId || null) !== values.sourceId ||
+        found.title !== values.title ||
+        found.type !== values.type ||
+        found.date !== values.date ||
+        (found.dateRaw || null) !== values.dateRaw ||
+        (found.monthLabel || null) !== values.monthLabel ||
+        (found.url || null) !== values.url;
+      if (!changed) {
+        unchangedIds.push(id);
+        continue;
+      }
       updates.push(
         db.update(schema.schoolCalendarEvents)
           .set({
@@ -136,16 +163,25 @@ async function upsertEvents(userId, events) {
     );
   }
 
+  // Freshness is the newest updatedAt, so untouched rows still get stamped, but
+  // with one statement rather than one per event.
+  if (unchangedIds.length > 0) {
+    updates.push(
+      db.update(schema.schoolCalendarEvents)
+        .set({ updatedAt: now })
+        .where(inArray(schema.schoolCalendarEvents.id, unchangedIds))
+    );
+  }
+
   await runBatch([...updates, ...inserts]);
 }
 
 async function setEventSelected(userId, eventId, selected) {
   const result = await db
     .update(schema.schoolCalendarEvents)
-    .set({
-      selected: selected ? 1 : 0,
-      updatedAt: new Date().toISOString(),
-    })
+    // updatedAt is left alone: it records the last EduSecure sync, and pinning
+    // an event must not make the cache look freshly synced.
+    .set({ selected: selected ? 1 : 0 })
     .where(
       and(
         eq(schema.schoolCalendarEvents.id, eventId),
@@ -158,6 +194,7 @@ async function setEventSelected(userId, eventId, selected) {
 
 module.exports = {
   getCachedEvents,
+  getCachedEvent,
   isCacheStale,
   upsertEvents,
   setEventSelected,

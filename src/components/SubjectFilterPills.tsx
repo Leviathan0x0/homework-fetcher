@@ -7,7 +7,7 @@ interface SubjectFilterPillsProps {
   onSelectSubject: (subject: string) => void;
 }
 
-export const SubjectFilterPills: React.FC<SubjectFilterPillsProps> = ({
+export const SubjectFilterPills: React.FC<SubjectFilterPillsProps> = React.memo(({
   subjects,
   selectedSubject,
   onSelectSubject,
@@ -44,4 +44,5 @@ export const SubjectFilterPills: React.FC<SubjectFilterPillsProps> = ({
       ))}
     </div>
   );
-};
+});
+SubjectFilterPills.displayName = 'SubjectFilterPills';

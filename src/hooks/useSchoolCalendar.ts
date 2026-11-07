@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { SchoolCalendarEvent } from '../types/homework';
 import { calendarService } from '../services/api';
 
@@ -14,23 +14,35 @@ export function useSchoolCalendar() {
   const [isLoading, setIsLoading] = useState(() => calendarService.getCachedEvents().length === 0);
   const [error, setError] = useState<string | null>(null);
 
+  // Only the latest request may write state (stale response / unmounted guard).
+  const requestIdRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      requestIdRef.current = -1;
+    },
+    []
+  );
+
   const load = useCallback(async (force = false) => {
+    const requestId = ++requestIdRef.current;
+    const isCurrent = () => requestIdRef.current === requestId;
     setIsLoading(true);
     setError(null);
     try {
       const list = force ? await calendarService.refresh() : await calendarService.getEvents();
-      setEvents(list);
+      if (isCurrent()) setEvents(list);
       return list;
     } catch (err: any) {
-      setError(err?.message || 'Could not load school holidays.');
+      if (isCurrent()) setError(err?.message || 'Could not load school holidays.');
       return [] as SchoolCalendarEvent[];
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load(false);
+    void load(false);
   }, [load]);
 
   const setSelected = useCallback(async (event: SchoolCalendarEvent, selected: boolean) => {

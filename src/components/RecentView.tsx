@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { selectHomeworkFromLastDays } from '../utils/dateUtils';
-import { detectSubject, homeworkSubjectName } from '../utils/subjectDetector';
+import { homeworkSubjectName } from '../utils/subjectDetector';
+import { getHomeworkEntryId as getEntryId } from '../utils/homeworkEntryId';
 import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { DateHeader } from './DateHeader';
@@ -47,34 +48,33 @@ export const RecentView: React.FC<RecentViewProps> = ({
     return Array.from(new Set(recentAllEntries.map((item) => homeworkSubjectName(item))));
   }, [recentAllEntries]);
 
+  // A stale selection (its subject vanished from the data) falls back to "All" instead of an empty, unfilterable list.
+  const activeSubject = availableSubjects.includes(selectedSubject) ? selectedSubject : 'All';
+
   const filteredEntries = useMemo(() => {
-    return selectedSubject === 'All'
+    return activeSubject === 'All'
       ? recentAllEntries
-      : recentAllEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
-  }, [recentAllEntries, selectedSubject]);
+      : recentAllEntries.filter((item) => homeworkSubjectName(item) === activeSubject);
+  }, [recentAllEntries, activeSubject]);
 
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
 
-  const getEntryId = (item: HomeworkEntry) => {
-    if (!item) return '';
-    const d = item.date || '';
-    const hw = item.homework || '';
-    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-  };
-
   // Group chronologically by date
-  const grouped: { date: string; entries: HomeworkEntry[] }[] = [];
-  const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
-
-  for (const item of displayedItems) {
-    const d = item.date || 'School Diary';
-    if (!map.has(d)) {
-      const groupObj = { date: d, entries: [] };
-      map.set(d, groupObj);
-      grouped.push(groupObj);
+  const grouped = useMemo(() => {
+    const groups: { date: string; entries: HomeworkEntry[] }[] = [];
+    const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
+    for (const item of displayedItems) {
+      const d = item.date || 'School Diary';
+      let group = map.get(d);
+      if (!group) {
+        group = { date: d, entries: [] };
+        map.set(d, group);
+        groups.push(group);
+      }
+      group.entries.push(item);
     }
-    map.get(d)!.entries.push(item);
-  }
+    return groups;
+  }, [displayedItems]);
   const isContentLoading = isLoading;
 
   return (
@@ -88,7 +88,7 @@ export const RecentView: React.FC<RecentViewProps> = ({
       {/* Subject Filter Pills */}
       <SubjectFilterPills
         subjects={availableSubjects}
-        selectedSubject={selectedSubject}
+        selectedSubject={activeSubject}
         onSelectSubject={setSelectedSubject}
       />
 

@@ -19,6 +19,53 @@ type ImageLoadState = {
   objectUrl: string | null;
 };
 
+// Recently fetched blobs, so re-mounting an image (switching threads, opening
+// the lightbox on an image already in the list) does not hit the network again.
+const BLOB_CACHE_MAX_ENTRIES = 40;
+const BLOB_CACHE_MAX_BYTES = 40 * 1024 * 1024;
+const blobCache = new Map<string, Blob>();
+let blobCacheBytes = 0;
+
+function cacheBlob(key: string, blob: Blob) {
+  if (blob.size > BLOB_CACHE_MAX_BYTES / 4) return;
+  const previous = blobCache.get(key);
+  if (previous) blobCacheBytes -= previous.size;
+  blobCache.delete(key);
+  blobCache.set(key, blob);
+  blobCacheBytes += blob.size;
+  for (const [oldKey, oldBlob] of blobCache) {
+    if (blobCache.size <= BLOB_CACHE_MAX_ENTRIES && blobCacheBytes <= BLOB_CACHE_MAX_BYTES) break;
+    blobCache.delete(oldKey);
+    blobCacheBytes -= oldBlob.size;
+  }
+}
+
+function evictBlob(key: string) {
+  const blob = blobCache.get(key);
+  if (!blob) return;
+  blobCache.delete(key);
+  blobCacheBytes -= blob.size;
+}
+
+async function fetchImageBlob(src: string): Promise<Blob> {
+  const cached = blobCache.get(src);
+  if (cached) {
+    // Refresh recency.
+    blobCache.delete(src);
+    blobCache.set(src, cached);
+    return cached;
+  }
+  const res = await apiFetch(src);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  // JSON error bodies from the API should never be painted as an image.
+  if (blob.type && !blob.type.startsWith('image/') && blob.type !== 'application/octet-stream') {
+    throw new Error(`Unexpected type ${blob.type}`);
+  }
+  cacheBlob(src, blob);
+  return blob;
+}
+
 /**
  * Loads protected upload URLs with credentials and renders via a blob URL.
  * Plain <img src="/api/..."> breaks after refresh when the cookie-gated file
@@ -46,18 +93,16 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
   useEffect(() => {
     let cancelled = false;
     let ownedUrl: string | null = null;
+    let signalCancel: (() => void) | null = null;
 
-    setLoadState({ src, status: 'loading', objectUrl: null });
+    setLoadState((prev) =>
+      prev.src === src && prev.status === 'loading' ? prev : { src, status: 'loading', objectUrl: null }
+    );
 
     (async () => {
       try {
-        const res = await apiFetch(src);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
-        // JSON error bodies from the API should never be painted as an image.
-        if (blob.type && !blob.type.startsWith('image/') && blob.type !== 'application/octet-stream') {
-          throw new Error(`Unexpected type ${blob.type}`);
-        }
+        const blob = await fetchImageBlob(src);
+        if (cancelled) return;
         const objectUrl = URL.createObjectURL(blob);
         ownedUrl = objectUrl;
 
@@ -66,6 +111,13 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
           preload.onload = () => resolve();
           preload.onerror = () => reject(new Error('Image decode failed'));
           preload.src = objectUrl;
+          // Cancel the decode wait if the effect is torn down first.
+          signalCancel = () => {
+            preload.onload = null;
+            preload.onerror = null;
+            preload.src = '';
+            resolve();
+          };
         });
 
         if (cancelled) {
@@ -77,6 +129,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
         ownedUrl = null;
         setLoadState({ src, status: 'ready', objectUrl });
       } catch {
+        evictBlob(src);
         if (ownedUrl) {
           URL.revokeObjectURL(ownedUrl);
           ownedUrl = null;
@@ -90,6 +143,7 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
 
     return () => {
       cancelled = true;
+      signalCancel?.();
       if (ownedUrl) URL.revokeObjectURL(ownedUrl);
     };
   }, [src]);
@@ -141,9 +195,11 @@ export const AuthenticatedImage: React.FC<AuthenticatedImageProps> = ({
     <img
       src={loadState.objectUrl}
       alt={alt}
+      decoding="async"
       className={className}
       onLoad={() => onReadyRef.current?.()}
       onError={() => {
+        evictBlob(src);
         setLoadState({ src, status: 'error', objectUrl: null });
         onFailRef.current?.();
       }}

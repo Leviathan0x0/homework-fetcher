@@ -17,6 +17,8 @@ const {
 const router = express.Router();
 const cache = new Map();
 const refreshesInFlight = new Map();
+// Per-user lists live in process memory, so the oldest are evicted past this.
+const MAX_CACHED_LISTS = 1000;
 const CACHE_MAX_AGE_MS =
   (parseInt(process.env.SCHOOL_NOTICES_CACHE_MAX_AGE_MINUTES || "15", 10) || 15) *
   60 *
@@ -84,7 +86,10 @@ async function refreshFromEduSecure(userId, kind) {
 
     const data = await fetchSchoolNoticesForSession(eduSession.sessionCookies, kind);
     const next = { notices: data.notices, updatedAt: Date.now() };
+    // Delete first so the entry moves to the back of the Map's insertion order.
+    cache.delete(key);
     cache.set(key, next);
+    while (cache.size > MAX_CACHED_LISTS) cache.delete(cache.keys().next().value);
     return next;
   })().finally(() => {
     refreshesInFlight.delete(key);

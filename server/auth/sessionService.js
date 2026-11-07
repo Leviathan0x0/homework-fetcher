@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { eq, sql } = require("drizzle-orm");
+const { eq, lt, sql } = require("drizzle-orm");
 const { db, schema } = require("../db/client");
 const { encrypt, decrypt } = require("./encryption");
 const { deriveKey } = require("./secrets");
@@ -54,8 +54,6 @@ async function fetchProfilePage(url, sessionCookies) {
   let lastError = null;
 
   for (let attempt = 1; attempt <= PROFILE_ATTEMPTS; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROFILE_TIMEOUT_MS);
     try {
       const response = await fetch(url, {
         headers: {
@@ -64,7 +62,8 @@ async function fetchProfilePage(url, sessionCookies) {
           Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
         redirect: "manual",
-        signal: controller.signal,
+        // Also bounds the body download the caller reads after this returns.
+        signal: AbortSignal.timeout(PROFILE_TIMEOUT_MS),
       });
 
       if (response.status === 429 || response.status >= 500) {
@@ -81,12 +80,10 @@ async function fetchProfilePage(url, sessionCookies) {
       if (attempt < PROFILE_ATTEMPTS) {
         await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
       }
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
-  const reason = lastError?.name === "AbortError"
+  const reason = lastError?.name === "AbortError" || lastError?.name === "TimeoutError"
     ? `EduSecure did not respond within ${PROFILE_TIMEOUT_MS / 1000} seconds.`
     : lastError?.message || "EduSecure profile request failed.";
   throw new Error(reason);
@@ -325,6 +322,7 @@ const memAppSessions = new Map();
  */
 const SESSION_CACHE_TTL_MS = 10 * 1000;
 const sessionCache = new Map();
+const sessionLookups = new Map();
 
 function readCachedSession(token) {
   const entry = sessionCache.get(token);
@@ -338,7 +336,13 @@ function readCachedSession(token) {
 
 function writeCachedSession(token, session, jti) {
   // Bounded so a flood of invalid tokens cannot grow the map without limit.
-  if (sessionCache.size > 5000) sessionCache.clear();
+  if (sessionCache.size > 5000) {
+    const now = Date.now();
+    for (const [key, entry] of sessionCache) {
+      if (now > entry.cachedUntil) sessionCache.delete(key);
+    }
+    if (sessionCache.size > 5000) sessionCache.clear();
+  }
   sessionCache.set(token, { session, jti, cachedUntil: Date.now() + SESSION_CACHE_TTL_MS });
 }
 
@@ -418,6 +422,31 @@ function verifySessionToken(token) {
     return payload;
   } catch {
     return null;
+  }
+}
+
+const SESSION_PRUNE_PROBABILITY = 0.02;
+
+/**
+ * Sessions are only deleted when someone presents them, so abandoned ones would
+ * otherwise pile up in memory and in app_sessions forever. Pruned while
+ * logging in, like notifications, because no scheduled job is available.
+ */
+function pruneExpiredSessions() {
+  const now = Date.now();
+  if (memAppSessions.size > 1000) {
+    for (const [jti, record] of memAppSessions) {
+      if (now > record.expiresAt) memAppSessions.delete(jti);
+    }
+  }
+  if (Math.random() < SESSION_PRUNE_PROBABILITY) {
+    void (async () => {
+      try {
+        await db.delete(schema.appSessions).where(lt(schema.appSessions.expiresAt, now)).run();
+      } catch (err) {
+        console.error("Expired session pruning failed:", err.message);
+      }
+    })();
   }
 }
 
@@ -660,6 +689,7 @@ class SessionService {
     }
 
     memAppSessions.set(jti, { jti, userId, expiresAt });
+    pruneExpiredSessions();
 
     return token;
   }
@@ -680,6 +710,19 @@ class SessionService {
     const cached = readCachedSession(token);
     if (cached) return cached;
 
+    // A screen fires several requests at once, all carrying the same cookie.
+    // They share one database lookup instead of each paying for their own.
+    const running = sessionLookups.get(token);
+    if (running) return running;
+
+    const lookup = this.resolveSession(token).finally(() => {
+      sessionLookups.delete(token);
+    });
+    sessionLookups.set(token, lookup);
+    return lookup;
+  }
+
+  async resolveSession(token) {
     const payload = verifySessionToken(token);
     if (payload) {
       // Session row and account are read together: a signature check that costs

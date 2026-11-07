@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { schoolNoticeService } from '../services/api';
 import { SchoolNotice, SchoolNoticeKind } from '../types/homework';
 
@@ -16,21 +16,34 @@ export function useSchoolNotices(kind: SchoolNoticeKind) {
     () => schoolNoticeService.getCachedNotices(kind).notices.length === 0
   );
   const [error, setError] = useState<string | null>(null);
+  // Only the latest request may write state (stale feed / unmounted guard).
+  const requestIdRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      requestIdRef.current = -1;
+    },
+    []
+  );
 
   const load = useCallback(
     async (forceRefresh = false) => {
+      const requestId = ++requestIdRef.current;
+      const isCurrent = () => requestIdRef.current === requestId;
       setIsLoading(true);
       setError(null);
       try {
         const next = await schoolNoticeService.getNotices(kind, forceRefresh);
-        setNotices(next.notices);
-        setRecentCount(next.recentCount);
+        if (isCurrent()) {
+          setNotices(next.notices);
+          setRecentCount(next.recentCount);
+        }
         return next.notices;
       } catch (err: any) {
-        setError(err?.message || 'Could not load school updates.');
+        if (isCurrent()) setError(err?.message || 'Could not load school updates.');
         return [] as SchoolNotice[];
       } finally {
-        setIsLoading(false);
+        if (isCurrent()) setIsLoading(false);
       }
     },
     [kind]
@@ -40,7 +53,7 @@ export function useSchoolNotices(kind: SchoolNoticeKind) {
     const previous = schoolNoticeService.getCachedNotices(kind);
     setNotices(previous.notices as SchoolNotice[]);
     setRecentCount(previous.recentCount);
-    load(false);
+    void load(false);
   }, [kind, load]);
 
   return { notices, recentCount, isLoading, error, reload: load };

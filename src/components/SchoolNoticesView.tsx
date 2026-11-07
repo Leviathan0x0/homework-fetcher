@@ -49,7 +49,7 @@ function attachmentList(notice: SchoolNotice) {
     : [];
 }
 
-function NoticeCard({
+const NoticeCard = React.memo(function NoticeCard({
   notice,
   onOpenPreview,
 }: {
@@ -114,7 +114,7 @@ function NoticeCard({
       )}
     </article>
   );
-}
+});
 
 export const SchoolNoticesView: React.FC<SchoolNoticesViewProps> = ({
   kind,

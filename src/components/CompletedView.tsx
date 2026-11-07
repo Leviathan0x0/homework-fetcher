@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
-import { detectSubject, homeworkSubjectName } from '../utils/subjectDetector';
+import { homeworkSubjectName } from '../utils/subjectDetector';
+import { getHomeworkEntryId as getEntryId } from '../utils/homeworkEntryId';
 import { usePagination } from '../hooks/usePagination';
 import { HomeworkCard } from './HomeworkCard';
 import { SubjectFilterPills } from './SubjectFilterPills';
@@ -33,28 +34,29 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
 }) => {
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
-  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
-
-  const getEntryId = (item: HomeworkEntry) => {
-    if (!item) return '';
-    const d = item.date || '';
-    const hw = item.homework || '';
-    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-  };
-
-  const completedEntries = validHomework.filter((item) => {
-    const id = getEntryId(item);
-    return Boolean(completedMap[id]) || item?.completed === true;
-  });
-
-  const availableSubjects = Array.from(
-    new Set(completedEntries.map((item) => homeworkSubjectName(item)))
+  const completedEntries = useMemo(
+    () =>
+      (Array.isArray(homework) ? homework : []).filter(
+        (item) => Boolean(item) && (Boolean(completedMap[getEntryId(item)]) || item.completed === true)
+      ),
+    [homework, completedMap]
   );
 
-  const filteredEntries =
-    selectedSubject === 'All'
-      ? completedEntries
-      : completedEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
+  const availableSubjects = useMemo(
+    () => Array.from(new Set(completedEntries.map((item) => homeworkSubjectName(item)))),
+    [completedEntries]
+  );
+
+  // A stale selection (its subject vanished from the data) falls back to "All" instead of an empty, unfilterable list.
+  const activeSubject = availableSubjects.includes(selectedSubject) ? selectedSubject : 'All';
+
+  const filteredEntries = useMemo(
+    () =>
+      activeSubject === 'All'
+        ? completedEntries
+        : completedEntries.filter((item) => homeworkSubjectName(item) === activeSubject),
+    [completedEntries, activeSubject]
+  );
   const isContentLoading = isLoading;
 
   const { displayedItems, hasMore, loadMore, visibleCount, totalCount } = usePagination(filteredEntries, 25);
@@ -70,7 +72,7 @@ export const CompletedView: React.FC<CompletedViewProps> = ({
       {/* Subject Filter Pills */}
       <SubjectFilterPills
         subjects={availableSubjects}
-        selectedSubject={selectedSubject}
+        selectedSubject={activeSubject}
         onSelectSubject={setSelectedSubject}
       />
 

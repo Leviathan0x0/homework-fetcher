@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
 import { Reicon } from './ui/reicon';
 
@@ -17,8 +17,6 @@ interface SubjectComboboxProps {
   'aria-label'?: string;
 }
 
-let comboboxIdCounter = 0;
-
 /**
  * Type-to-search subject picker: an input that opens a filtered listbox on
  * focus. Keyboard: ↑/↓ move, Enter selects, Esc closes.
@@ -32,7 +30,7 @@ export const SubjectCombobox: React.FC<SubjectComboboxProps> = ({
   className,
   'aria-label': ariaLabel,
 }) => {
-  const listId = useMemo(() => `subject-combobox-list-${++comboboxIdCounter}`, []);
+  const listId = `subject-combobox-list-${useId()}`;
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 

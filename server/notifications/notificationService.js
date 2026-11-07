@@ -96,8 +96,9 @@ async function createNotifications(userIds, type, title, body, link, referenceId
     ]);
   }
 
+  // Housekeeping must not delay the request that happened to trigger it.
   if (Math.random() < PRUNE_PROBABILITY) {
-    await pruneOldNotifications();
+    void pruneOldNotifications();
   }
 }
 

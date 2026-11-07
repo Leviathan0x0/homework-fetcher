@@ -174,6 +174,8 @@ function parseDashboardEventsHtml(html) {
   return events;
 }
 
+const PORTAL_TIMEOUT_MS = 20_000;
+
 async function portalGet(url, sessionCookies) {
   const response = await fetch(url, {
     headers: {
@@ -182,6 +184,9 @@ async function portalGet(url, sessionCookies) {
       Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     },
     redirect: "manual",
+    // fetch() has no timeout of its own; a stalled portal would hold the
+    // request (and any background refresh) open forever.
+    signal: AbortSignal.timeout(PORTAL_TIMEOUT_MS),
   });
 
   if (response.status === 302 || response.status === 301) {

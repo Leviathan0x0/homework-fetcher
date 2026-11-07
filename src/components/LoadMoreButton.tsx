@@ -10,7 +10,7 @@ interface LoadMoreButtonProps {
   isLoadingMore?: boolean;
 }
 
-export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
+export const LoadMoreButton: React.FC<LoadMoreButtonProps> = React.memo(({
   hasMore,
   onLoadMore,
   visibleCount,
@@ -68,4 +68,5 @@ export const LoadMoreButton: React.FC<LoadMoreButtonProps> = ({
       )}
     </div>
   );
-};
+});
+LoadMoreButton.displayName = 'LoadMoreButton';

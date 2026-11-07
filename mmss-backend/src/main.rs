@@ -41,6 +41,7 @@ async fn run() -> Result<()> {
     // An empty database has no accounts, so the configured administrator is created
     // before the listener opens. No-op when ADMIN_PASSWORD is unset.
     mmss_backend::bootstrap::ensure_admin(&state.db, &state.config).await?;
+    mmss_backend::services::auth::warm_dummy_hash().await;
 
     let listener = tokio::net::TcpListener::bind(state.config.addr()).await?;
     tracing::info!(address = %listener.local_addr()?, "listening");

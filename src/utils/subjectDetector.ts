@@ -322,9 +322,16 @@ function escapeRegExp(value: string): string {
  * Matches a keyword as a standalone word, tolerating the punctuation and
  * spacing schools use ("SCI.", "COMPUTER SCI.", "S.ST").
  */
+const KEYWORD_REGEX_CACHE = new Map<string, RegExp>();
+
 function containsKeyword(upperText: string, keyword: string): boolean {
-  const pattern = escapeRegExp(keyword).replace(/(\\\.)?\s+/g, '[\\s.\\-_/:]*');
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${pattern}([^\\p{L}\\p{N}]|$)`, 'u').test(upperText);
+  let regex = KEYWORD_REGEX_CACHE.get(keyword);
+  if (!regex) {
+    const pattern = escapeRegExp(keyword).replace(/(\\\.)?\s+/g, '[\\s.\\-_/:]*');
+    regex = new RegExp(`(^|[^\\p{L}\\p{N}])${pattern}([^\\p{L}\\p{N}]|$)`, 'u');
+    KEYWORD_REGEX_CACHE.set(keyword, regex);
+  }
+  return regex.test(upperText);
 }
 
 function matchAlias(candidate: string): SubjectRule | null {
@@ -415,7 +422,25 @@ const _NON_SUBJECT_HEADERS = new Set([
  * Priority 3: Direct matching of candidate text if it names a subject
  * Priority 4: Language-based fallback
  */
+const DETECT_CACHE = new Map<string, SubjectInfo>();
+const DETECT_CACHE_LIMIT = 2000;
+
+/** Memoized: cards, filters and pills all re-detect the same entries on every render. */
 export function detectSubject(
+  text: string,
+  explicitSubject?: string | null,
+  classworkSignal?: string | null
+): SubjectInfo {
+  const key = `${explicitSubject ?? ''}\u0000${classworkSignal ?? ''}\u0000${text ?? ''}`;
+  const cached = DETECT_CACHE.get(key);
+  if (cached) return cached;
+  const result = detectSubjectUncached(text, explicitSubject, classworkSignal);
+  if (DETECT_CACHE.size >= DETECT_CACHE_LIMIT) DETECT_CACHE.clear();
+  DETECT_CACHE.set(key, result);
+  return result;
+}
+
+function detectSubjectUncached(
   text: string,
   explicitSubject?: string | null,
   classworkSignal?: string | null

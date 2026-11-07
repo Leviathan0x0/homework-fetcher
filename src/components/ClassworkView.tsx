@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { classworkService } from '../services/api';
 import { compressImage, isCompressibleImage, formatBytes } from '../utils/imageCompression';
 import { MAX_UPLOAD_BYTES } from '../lib/api';
@@ -127,23 +127,36 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   const [modalError, setModalError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Only the latest fetch may write state (stale response / unmounted guard).
+  const fetchIdRef = useRef(0);
+  useEffect(
+    () => () => {
+      fetchIdRef.current = -1;
+    },
+    []
+  );
+
   // Fetch Classwork
   const fetchClasswork = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
+    const isCurrent = () => fetchIdRef.current === fetchId;
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const list = await classworkService.getClasswork(userSection);
-      setClasswork(list);
+      if (isCurrent()) setClasswork(list);
     } catch (err: any) {
       console.error('Fetch Classwork Error:', err);
-      setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load classwork.');
+      if (isCurrent()) {
+        setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load classwork.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }, [userSection]);
 
   useEffect(() => {
-    fetchClasswork();
+    void fetchClasswork();
   }, [fetchClasswork]);
 
   // Shrinks photos before upload and rejects anything still too large
@@ -234,20 +247,20 @@ export const ClassworkView: React.FC<ClassworkViewProps> = ({
   };
 
   // Filter Logic
-  const todayStr = new Date().toISOString().split('T')[0];
-  const filteredClasswork = classwork.filter((item) => {
-    if (selectedSubject !== 'All' && item.subject.toLowerCase() !== selectedSubject.toLowerCase()) {
-      return false;
-    }
-    if (selectedDateFilter === 'today' && item.date !== todayStr) {
-      return false;
-    }
-    return true;
-  });
+  const filteredClasswork = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const subjectKey = selectedSubject.toLowerCase();
+    return classwork.filter((item) => {
+      if (selectedSubject !== 'All' && item.subject.toLowerCase() !== subjectKey) return false;
+      if (selectedDateFilter === 'today' && item.date !== todayStr) return false;
+      return true;
+    });
+  }, [classwork, selectedSubject, selectedDateFilter]);
 
   // Extract unique subjects in current list
-  const availableSubjects = Array.from(
-    new Set(['All', ...COMMON_SUBJECTS, ...classwork.map((c) => c.subject)])
+  const availableSubjects = useMemo(
+    () => Array.from(new Set(['All', ...COMMON_SUBJECTS, ...classwork.map((c) => c.subject)])),
+    [classwork]
   );
 
   return (

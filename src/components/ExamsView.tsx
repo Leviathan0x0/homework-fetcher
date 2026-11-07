@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
 import { filterExamHomework } from '../utils/examDetector';
-import { detectSubject } from '../utils/subjectDetector';
+import { homeworkSubjectName } from '../utils/subjectDetector';
 import { HomeworkCard } from './HomeworkCard';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -68,7 +68,7 @@ export const ExamsView: React.FC<ExamsViewProps> = ({
     const map: Record<string, typeof examItems> = {};
     filteredExamItems.forEach((item) => {
       if (!item?.entry) return;
-      const subject = detectSubject(item.entry.homework || '').name;
+      const subject = homeworkSubjectName(item.entry);
       if (!map[subject]) {
         map[subject] = [];
       }

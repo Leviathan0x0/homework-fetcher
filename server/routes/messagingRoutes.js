@@ -61,6 +61,11 @@ function messagePreviewText(content) {
 }
 
 
+// Upper bound for one incremental (?after=) poll.
+const MAX_MESSAGES_PER_FETCH = 500;
+// A sent message's file never changes, so a viewer's browser may keep it.
+const ATTACHMENT_CACHE_SECONDS = 3600;
+
 async function isParticipant(conversationId, userId) {
   const row = await db
     .select()
@@ -657,9 +662,6 @@ function sentMessageResponse(row, sender, replyTo) {
 router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
   try {
     const convId = req.params.id;
-    if (!await isParticipant(convId, req.user.id)) {
-      return res.status(403).json({ error: "Access denied." });
-    }
 
     // Optional cursor: only messages newer than this timestamp are returned,
     // so a chat left open in the background polls new arrivals instead of
@@ -668,7 +670,12 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
     const afterMs = typeof afterRaw === "string" && afterRaw ? new Date(afterRaw).getTime() : null;
     const afterIso = afterMs && !Number.isNaN(afterMs) ? new Date(afterMs).toISOString() : null;
 
-    const msgs = await db
+    // The membership check and the message query do not depend on each other,
+    // so a poll costs one round trip. Nothing is returned unless the check passes.
+    // A first load returns the whole thread (the client has no "load older"
+    // control, so a cap would hide history); a cursor poll takes the oldest
+    // unseen messages in bounded pages so none are skipped.
+    const query = db
       .select()
       .from(schema.messages)
       .where(
@@ -677,8 +684,14 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
           ...(afterIso ? [gt(schema.messages.createdAt, afterIso)] : [])
         )
       )
-      .orderBy(asc(schema.messages.createdAt))
-      .all();
+      .orderBy(asc(schema.messages.createdAt));
+    const [allowed, msgs] = await Promise.all([
+      isParticipant(convId, req.user.id),
+      (afterIso ? query.limit(MAX_MESSAGES_PER_FETCH) : query).all(),
+    ]);
+    if (!allowed) {
+      return res.status(403).json({ error: "Access denied." });
+    }
 
     const senderIds = [...new Set(msgs.map((m) => m.senderId))];
     const messageIds = msgs.map((m) => m.id);
@@ -688,7 +701,15 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
     // so the thread opens after one round trip instead of three.
     const [senders, receipts, parentMessages, senderPictures] = await Promise.all([
       senderIds.length
-        ? db.select().from(schema.users).where(inArray(schema.users.id, senderIds)).all()
+        ? db
+            .select({
+              id: schema.users.id,
+              studentId: schema.users.studentId,
+              displayName: schema.users.displayName,
+            })
+            .from(schema.users)
+            .where(inArray(schema.users.id, senderIds))
+            .all()
         : [],
       messageIds.length
         ? db
@@ -701,7 +722,14 @@ router.get("/conversations/:id/messages", requireAuth, async (req, res) => {
         ? db.select().from(schema.messages).where(inArray(schema.messages.id, replyToIds)).all()
         : [],
       senderIds.length
-        ? db.select().from(schema.profilePictures).where(inArray(schema.profilePictures.userId, senderIds)).all()
+        ? db
+            .select({
+              userId: schema.profilePictures.userId,
+              updatedAt: schema.profilePictures.updatedAt,
+            })
+            .from(schema.profilePictures)
+            .where(inArray(schema.profilePictures.userId, senderIds))
+            .all()
         : [],
     ]);
 
@@ -1023,6 +1051,7 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
         contentType: msg.mimeType,
         filename: msg.originalFilename,
         head: buffer.subarray(0, 16),
+        cacheSeconds: ATTACHMENT_CACHE_SECONDS,
       });
       res.setHeader("Content-Length", String(buffer.length));
       return res.send(buffer);
@@ -1038,6 +1067,7 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
         contentType: msg.mimeType,
         filename: msg.originalFilename,
         head: readFileHead(msg.filePath),
+        cacheSeconds: ATTACHMENT_CACHE_SECONDS,
       });
       return res.sendFile(msg.filePath);
     }
@@ -1053,6 +1083,7 @@ router.get("/messages/files/:messageId", requireAuth, async (req, res) => {
       contentType: msg.mimeType,
       filename: msg.originalFilename,
       head: readFileHead(fullPath),
+      cacheSeconds: ATTACHMENT_CACHE_SECONDS,
     });
     return res.sendFile(fullPath);
   } catch (err) {

@@ -19,6 +19,7 @@ const users = sqliteTable(
   },
   (table) => [
     index("idx_users_student_id").on(table.studentId),
+    index("idx_users_section").on(table.section),
   ]
 );
 
@@ -64,6 +65,7 @@ const appSessions = sqliteTable(
   },
   (table) => [
     index("idx_app_sessions_user_id").on(table.userId),
+    index("idx_app_sessions_expires").on(table.expiresAt),
   ]
 );
 
@@ -135,6 +137,7 @@ const classworkUploads = sqliteTable(
     index("idx_classwork_section").on(table.section),
     index("idx_classwork_section_date").on(table.section, table.date),
     index("idx_classwork_user_id").on(table.userId),
+    index("idx_classwork_section_created").on(table.section, table.createdAt),
   ]
 );
 
@@ -174,6 +177,7 @@ const notifications = sqliteTable(
   (t) => [
     index("idx_notifications_user_unread").on(t.userId, t.isRead),
     index("idx_notifications_created").on(t.createdAt),
+    index("idx_notifications_user_created").on(t.userId, t.createdAt),
   ]
 );
 
@@ -188,7 +192,8 @@ const conversations = sqliteTable(
     pinnedHomeworkId: text("pinned_homework_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-  }
+  },
+  (t) => [index("idx_conversations_type_section").on(t.type, t.section)]
 );
 
 const conversationParticipants = sqliteTable(
@@ -635,7 +640,6 @@ const schoolCalendarEvents = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    index("idx_school_cal_user").on(table.userId),
     index("idx_school_cal_user_date").on(table.userId, table.date),
   ]
 );

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Reicon, Reillustration } from "./ui/reicon";
 import { PageHeader } from "./PageHeader";
 import { LoadingState } from "./LoadingState";
@@ -22,22 +22,32 @@ export const LeaveView: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const mountedRef = useRef(true);
 
-  const load = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      setRequests((await leaveService.getMine()).requests || []);
-    } catch (err: any) {
-      setError(err.message || "Could not load leave requests.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await leaveService.getMine();
+        if (!cancelled) setRequests(data.requests || []);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message || "Could not load leave requests.");
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isSubmitting) return;
     setMessage(null);
     setError(null);
     if (form.toDate < form.fromDate) {
@@ -48,6 +58,7 @@ export const LeaveView: React.FC = () => {
       setError("Choose a reason for leave.");
       return;
     }
+    setIsSubmitting(true);
     try {
       const reason = form.details.trim()
         ? `${form.reasonCategory}: ${form.details.trim()}`
@@ -57,10 +68,15 @@ export const LeaveView: React.FC = () => {
         toDate: form.toDate,
         reason,
       });
+      if (!mountedRef.current) return;
       setRequests((current) => [result.request, ...current]);
       setForm({ fromDate: "", toDate: "", reasonCategory: "", details: "" });
       setMessage("Leave request sent to your class teacher.");
-    } catch (err: any) { setError(err.message || "Could not submit leave request."); }
+    } catch (err: any) {
+      if (mountedRef.current) setError(err.message || "Could not submit leave request.");
+    } finally {
+      if (mountedRef.current) setIsSubmitting(false);
+    }
   };
 
   return (
@@ -78,7 +94,7 @@ export const LeaveView: React.FC = () => {
             </div>
             <label className="block space-y-1.5"><span className="text-[11px] font-medium text-neutral-500">Reason</span><select required className={inputClass} value={form.reasonCategory} onChange={(e) => setForm({ ...form, reasonCategory: e.target.value })}><option value="">Choose a reason</option>{REASON_OPTIONS.map((reason) => <option key={reason}>{reason}</option>)}</select></label>
             <label className="block space-y-1.5"><span className="text-[11px] font-medium text-neutral-500">Details <span className="font-normal text-neutral-400">(optional)</span></span><textarea className="min-h-24 w-full resize-y rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-xs outline-none dark:border-neutral-800 dark:bg-neutral-950" placeholder="Add any details your teacher should know…" value={form.details} onChange={(e) => setForm({ ...form, details: e.target.value })} /></label>
-            <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer"><Reicon name="send" size={14} /> Submit request</button>
+            <button disabled={isSubmitting} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-neutral-900 text-xs font-semibold text-white hover:bg-neutral-700 dark:bg-white dark:text-neutral-900 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"><Reicon name="send" size={14} /> Submit request</button>
           </div>
         </form>
         <div className="space-y-5">

@@ -6,7 +6,7 @@ interface DateFilterProps {
   onChange: (val: string) => void;
 }
 
-export const DateFilter: React.FC<DateFilterProps> = ({ value, onChange }) => {
+export const DateFilter: React.FC<DateFilterProps> = React.memo(({ value, onChange }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenPicker = () => {
@@ -47,4 +47,5 @@ export const DateFilter: React.FC<DateFilterProps> = ({ value, onChange }) => {
       </div>
     </div>
   );
-};
+});
+DateFilter.displayName = 'DateFilter';

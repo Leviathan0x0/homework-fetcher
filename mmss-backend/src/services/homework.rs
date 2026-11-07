@@ -140,13 +140,24 @@ impl<'a> HomeworkService<'a> {
         let mut context = HomeworkContext::default();
 
         let subject_ids: Vec<i64> = unique(entries.iter().map(|entry| entry.subject_id));
-        for subject in subjects::find_by_ids(self.db, &subject_ids).await? {
+        let author_ids: Vec<i64> = unique(entries.iter().filter_map(|entry| entry.author_id));
+        let ids: Vec<i64> = unique(entries.iter().map(|entry| entry.id));
+
+        // The five lookups are independent, so they overlap on separate pool
+        // connections instead of costing five sequential round trips.
+        let (subject_rows, author_rows, attachment_rows, progress_rows, note_rows) = tokio::try_join!(
+            subjects::find_by_ids(self.db, &subject_ids),
+            users::find_by_ids(self.db, &author_ids),
+            attachments::list_for_homework(self.db, &ids),
+            progress::list_for_user_and_homework(self.db, principal.user_id, &ids),
+            notes::list_by_user_and_homework(self.db, principal.user_id, &ids),
+        )?;
+
+        for subject in subject_rows {
             context.subject_names.insert(subject.id, subject.name);
         }
 
-        let author_ids: Vec<i64> = unique(entries.iter().filter_map(|entry| entry.author_id));
-        let resolved: HashMap<i64, AuthorView> = users::find_by_ids(self.db, &author_ids)
-            .await?
+        let resolved: HashMap<i64, AuthorView> = author_rows
             .iter()
             .map(|user| (user.id, AuthorView::from(user)))
             .collect();
@@ -156,9 +167,7 @@ impl<'a> HomeworkService<'a> {
             context.authors.insert(*id, resolved.get(id).cloned());
         }
 
-        let ids: Vec<i64> = unique(entries.iter().map(|entry| entry.id));
-
-        for attachment in attachments::list_for_homework(self.db, &ids).await? {
+        for attachment in attachment_rows {
             context
                 .attachments
                 .entry(attachment.homework_id)
@@ -167,12 +176,12 @@ impl<'a> HomeworkService<'a> {
         }
 
         let on_page: HashSet<i64> = ids.iter().copied().collect();
-        for row in progress::list_for_user_and_homework(self.db, principal.user_id, &ids).await? {
+        for row in progress_rows {
             if on_page.contains(&row.homework_id) && row.completed {
                 context.completed.insert(row.homework_id);
             }
         }
-        for note in notes::list_by_user_and_homework(self.db, principal.user_id, &ids).await? {
+        for note in note_rows {
             if let Some(homework_id) = note.homework_id {
                 if on_page.contains(&homework_id) {
                     context.notes.insert(homework_id, note.body);

@@ -137,7 +137,8 @@ async fn empty_directory_initialises_database_and_schema() {
             "teacher classes",
             "edusecure publications",
             "account lifecycle",
-            "account security"
+            "account security",
+            "performance"
         ]
     );
 
@@ -182,7 +183,7 @@ async fn starting_twice_reuses_the_initialised_database() {
         .fetch_one(&second.db)
         .await
         .unwrap();
-    assert_eq!(applied, 6, "migrations must not be reapplied");
+    assert_eq!(applied, 7, "migrations must not be reapplied");
 }
 
 #[tokio::test]

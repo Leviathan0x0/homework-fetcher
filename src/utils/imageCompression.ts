@@ -60,11 +60,17 @@ export async function compressImage(file: File, options: CompressOptions = {}): 
 
     const context = canvas.getContext('2d');
     if (!context) return file;
+    // JPEG has no alpha: without a backdrop, transparent PNG/WebP areas turn black.
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', quality)
     );
+    // Release the pixel buffer promptly (matters on mobile Safari).
+    canvas.width = 0;
+    canvas.height = 0;
     if (!blob || blob.size >= file.size) return file;
 
     const newName = file.name.replace(/\.(png|webp|jpeg|jpg)$/i, '') + '.jpg';

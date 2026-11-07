@@ -1827,7 +1827,7 @@ async fn the_lifecycle_schema_is_what_the_service_expects() {
         .fetch_one(&world.db)
         .await
         .unwrap();
-    assert_eq!(applied, 6);
+    assert_eq!(applied, 7);
 }
 
 /// The school ID is the identity, and R11's guarantee still holds after R12's changes.

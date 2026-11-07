@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { formatYmd } from "../utils/dateUtils";
 import { motion, useReducedMotion } from "motion/react";
 import { Reicon } from "./ui/reicon";
 import { PageHeader } from "./PageHeader";
@@ -64,12 +65,15 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const mountedRef = useRef(true);
+  const notifyTimerRef = useRef<number | undefined>(undefined);
+  const rosterRequestRef = useRef(0);
 
   const [assignmentForm, setAssignmentForm] = useState({ subject: "", title: "", content: "", dueDate: "", sections: [] as string[] });
   const [dutyForm, setDutyForm] = useState({ title: "", description: "", dueDate: "", section: "" });
   const [announcementForm, setAnnouncementForm] = useState({ section: "", title: "", content: "" });
   const [attendanceSection, setAttendanceSection] = useState("");
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attendanceDate, setAttendanceDate] = useState(() => formatYmd(new Date()));
 
   const sections = profile?.assignedSections || [];
   const classTeacherSections = profile?.classTeacherSections || [];
@@ -96,6 +100,21 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
     }
   }, [activeSubView]);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      window.clearTimeout(notifyTimerRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        recorder.stream.getTracks().forEach((track) => track.stop());
+        recorder.stop();
+      }
+    };
+  }, []);
+
   const load = async () => {
     setIsLoading(true);
     setError(null);
@@ -110,6 +129,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
         teacherService.getProfile(),
         teacherService.getLeaveRequests(),
       ]);
+      if (!mountedRef.current) return;
       setDashboard(dash);
       setProfile(dash.profile || prof.profile);
       setAssignments(assign.assignments || []);
@@ -119,9 +139,9 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
       setParents(parent.parents || []);
       setLeaveRequests(leave.requests || []);
     } catch (err: any) {
-      setError(err.message || "Could not load teacher dashboard.");
+      if (mountedRef.current) setError(err.message || "Could not load teacher dashboard.");
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) setIsLoading(false);
     }
   };
 
@@ -131,7 +151,8 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
 
   const notify = (text: string) => {
     setMessage(text);
-    window.setTimeout(() => setMessage(null), 3000);
+    window.clearTimeout(notifyTimerRef.current);
+    notifyTimerRef.current = window.setTimeout(() => setMessage(null), 3000);
   };
 
   const createAssignment = async (event: React.FormEvent) => {
@@ -184,7 +205,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
         const blob = new Blob(recordedChunksRef.current, { type: recorder.mimeType || "audio/webm" });
         const reader = new FileReader();
         reader.onload = () => setAssignmentAttachment({
-          filename: `voice-homework-${new Date().toISOString().slice(0, 10)}.webm`,
+          filename: `voice-homework-${formatYmd(new Date())}.webm`,
           mimeType: blob.type || "audio/webm",
           data: String(reader.result),
         });
@@ -201,9 +222,11 @@ export const TeacherView: React.FC<TeacherViewProps> = ({ activeSubView, onNavig
 
   const loadRoster = async (section: string) => {
     setAttendanceSection(section);
+    const requestId = ++rosterRequestRef.current;
     if (!section) return setRoster([]);
     try {
       const result = await teacherService.getRoster(section);
+      if (requestId !== rosterRequestRef.current || !mountedRef.current) return;
       setRoster(result.students || []);
       setAttendanceStatuses(Object.fromEntries((result.students || []).map((student: any) => [student.id, "present"])));
     } catch (err: any) {

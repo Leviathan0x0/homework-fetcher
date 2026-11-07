@@ -77,14 +77,28 @@ async fn connect(database_url: &str) -> Result<SqlitePool> {
         .create_if_missing(true)
         .foreign_keys(true)
         .busy_timeout(std::time::Duration::from_secs(5))
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal);
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+        // NORMAL is the pairing WAL is designed for: commits skip a per-transaction fsync
+        // and a crash can lose at most the last commits, never corrupt the file. sqlx's
+        // default is FULL, which fsyncs every write.
+        .synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
+        .pragma("temp_store", "MEMORY")
+        // Negative means KiB: 16 MiB of page cache per connection.
+        .pragma("cache_size", "-16000")
+        .optimize_on_close(true, None);
 
     if let Some(dir) = parent_dir(database_url) {
         std::fs::create_dir_all(dir)
             .with_context(|| format!("failed to create database directory {dir:?}"))?;
     }
     debug!(database_url, "connecting to database");
-    SqlitePool::connect_with(options)
+    // Fail a request that cannot get a connection within 5s instead of sqlx's 30s default,
+    // which would leave the browser spinning on a saturated pool.
+    SqlitePoolOptions::new()
+        .max_connections(10)
+        .min_connections(2)
+        .acquire_timeout(std::time::Duration::from_secs(5))
+        .connect_with(options)
         .await
         .context("failed to connect to database")
 }
@@ -134,7 +148,8 @@ mod tests {
                 "teacher classes",
                 "edusecure publications",
                 "account lifecycle",
-                "account security"
+                "account security",
+                "performance"
             ]
         );
     }

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { HomeworkEntry } from '../types/homework';
-import { detectSubject } from '../utils/subjectDetector';
+import { homeworkSubjectName as subjectOf } from '../utils/subjectDetector';
+import { getHomeworkEntryId as getEntryId } from '../utils/homeworkEntryId';
 import { HomeworkCard } from './HomeworkCard';
 import { EmptyState } from './EmptyState';
 import { LoadingSkeleton } from './LoadingSkeleton';
@@ -29,28 +30,29 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
   onUpdateNote,
   onOpenPreview,
 }) => {
-  const validHomework = Array.isArray(homework) ? homework.filter(Boolean) : [];
-  const attachmentEntries = validHomework.filter((item) => Boolean(item?.attachment));
+  const attachmentEntries = useMemo(
+    () => (Array.isArray(homework) ? homework : []).filter((item) => Boolean(item?.attachment)),
+    [homework]
+  );
   const isContentLoading = isLoading;
 
   const [selectedSubject, setSelectedSubject] = useState<string>('All');
 
-  const subjectOf = (item: HomeworkEntry) =>
-    detectSubject(item?.homework || '', item?.subject, item?.type).name;
+  const availableSubjects = useMemo(
+    () => Array.from(new Set(attachmentEntries.map(subjectOf))),
+    [attachmentEntries]
+  );
 
-  const availableSubjects = Array.from(new Set(attachmentEntries.map(subjectOf)));
+  // A stale selection (its subject vanished from the data) falls back to "All" instead of an empty, unfilterable list.
+  const activeSubject = availableSubjects.includes(selectedSubject) ? selectedSubject : 'All';
 
-  const visibleEntries =
-    selectedSubject === 'All'
-      ? attachmentEntries
-      : attachmentEntries.filter((item) => subjectOf(item) === selectedSubject);
-
-  const getEntryId = (item: HomeworkEntry) => {
-    if (!item) return '';
-    const d = item.date || '';
-    const hw = item.homework || '';
-    return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-  };
+  const visibleEntries = useMemo(
+    () =>
+      activeSubject === 'All'
+        ? attachmentEntries
+        : attachmentEntries.filter((item) => subjectOf(item) === activeSubject),
+    [attachmentEntries, activeSubject]
+  );
 
   return (
     <div className="space-y-6">
@@ -62,17 +64,17 @@ export const AttachmentsView: React.FC<AttachmentsViewProps> = ({
 
       <SubjectFilterPills
         subjects={availableSubjects}
-        selectedSubject={selectedSubject}
+        selectedSubject={activeSubject}
         onSelectSubject={setSelectedSubject}
       />
 
       {isContentLoading ? (
         <LoadingSkeleton label="Loading attachments…" />
       ) : visibleEntries.length === 0 ? (
-        selectedSubject !== 'All' ? (
+        activeSubject !== 'All' ? (
           <EmptyState
             type="attachments"
-            title={`No ${selectedSubject} attachments`}
+            title={`No ${activeSubject} attachments`}
             subtitle="Try another subject or clear the filter."
           />
         ) : (

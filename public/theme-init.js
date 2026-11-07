@@ -36,3 +36,13 @@
     document.documentElement.style.colorScheme = 'light';
   }
 })();
+
+// A parser-inserted Google Fonts stylesheet blocked first paint on a
+// third-party round trip; a script-inserted one does not (display=swap shows
+// the fallback font until it arrives).
+(() => {
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@300;400;500;600;700&display=swap';
+  document.head.appendChild(link);
+})();

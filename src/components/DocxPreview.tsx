@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Reicon } from './ui/reicon';
 import { cn } from '../utils/cn';
 import { DocxBlock, DocxParagraph, parseDocx } from '../utils/docxPreview';
@@ -9,7 +9,7 @@ interface DocxPreviewProps {
   onLoadEnd?: () => void;
 }
 
-function Paragraph({ paragraph }: { paragraph: DocxParagraph }) {
+const Paragraph = React.memo(function Paragraph({ paragraph }: { paragraph: DocxParagraph }) {
   const Tag = paragraph.headingLevel
     ? (`h${Math.min(paragraph.headingLevel, 6)}` as keyof React.JSX.IntrinsicElements)
     : 'p';
@@ -39,9 +39,9 @@ function Paragraph({ paragraph }: { paragraph: DocxParagraph }) {
       {paragraph.runs.length === 0 ? '\u00a0' : null}
     </Tag>
   );
-}
+});
 
-function DocumentBlock({ block }: { block: DocxBlock }) {
+const DocumentBlock = React.memo(function DocumentBlock({ block }: { block: DocxBlock }) {
   if (block.type === 'paragraph') return <Paragraph paragraph={block} />;
 
   return (
@@ -63,16 +63,20 @@ function DocumentBlock({ block }: { block: DocxBlock }) {
       </table>
     </div>
   );
-}
+});
 
 export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, fileName, onLoadEnd }) => {
   const [blocks, setBlocks] = useState<DocxBlock[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const onLoadEndRef = useRef(onLoadEnd);
+  onLoadEndRef.current = onLoadEnd;
 
   useEffect(() => {
     const controller = new AbortController();
     setBlocks([]);
     setError(null);
+    setLoading(true);
 
     (async () => {
       try {
@@ -85,12 +89,15 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, fileName, onL
           setError(loadError?.message || 'The DOCX document could not be previewed.');
         }
       } finally {
-        if (!controller.signal.aborted) onLoadEnd?.();
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          onLoadEndRef.current?.();
+        }
       }
     })();
 
     return () => controller.abort();
-  }, [fileUrl, onLoadEnd]);
+  }, [fileUrl]);
 
   if (error) {
     return (
@@ -106,6 +113,8 @@ export const DocxPreview: React.FC<DocxPreviewProps> = ({ fileUrl, fileName, onL
     <article className="mx-auto min-h-full w-full max-w-[52rem] bg-white px-6 py-8 shadow-sm sm:px-10 sm:py-12" aria-label={`Preview of ${fileName}`}>
       {blocks.length > 0 ? (
         blocks.map((block, index) => <DocumentBlock key={index} block={block} />)
+      ) : loading ? (
+        <div className="min-h-48" aria-busy="true" />
       ) : (
         <div className="flex min-h-48 flex-col items-center justify-center text-neutral-400">
           <Reicon name="file-text" size={24} />

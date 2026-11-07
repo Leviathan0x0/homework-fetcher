@@ -143,7 +143,7 @@ impl<'a> AuthService<'a> {
             // No account, or one that has been deactivated. Same answer, same work:
             // verifying against the throwaway hash is what stops a caller learning from
             // the response time that a school ID exists but is switched off.
-            let _ = verify_password(password, dummy_hash());
+            let _ = verify_password_async(password, dummy_hash()).await;
             return Err(AuthError::InvalidCredentials);
         };
 
@@ -151,11 +151,11 @@ impl<'a> AuthService<'a> {
             // A real account with no local credential: this deployment does not hold
             // its password. Same answer as a wrong password, and a later phase's
             // school-portal check slots in here without changing anything above.
-            let _ = verify_password(password, dummy_hash());
+            let _ = verify_password_async(password, dummy_hash()).await;
             return Err(AuthError::InvalidCredentials);
         };
 
-        if !verify_password(password, &hash) {
+        if !verify_password_async(password, &hash).await {
             return Err(AuthError::InvalidCredentials);
         }
         Ok(Principal::from(user))
@@ -289,7 +289,7 @@ impl<'a> AuthService<'a> {
         if password.is_empty() {
             return Err(AuthError::BadRequest("Password is required."));
         }
-        credentials::set_password_hash(self.db, user_id, &hash_password(password)?).await?;
+        credentials::set_password_hash(self.db, user_id, &hash_password_async(password).await?).await?;
         Ok(())
     }
 
@@ -364,6 +364,30 @@ pub(crate) fn verify_password(password: &str, stored_hash: &str) -> bool {
         return false;
     };
     argon2().is_ok_and(|hasher| hasher.verify_password(password.as_bytes(), &parsed).is_ok())
+}
+
+/// [`hash_password`] on the blocking pool. An argon2id pass is tens of milliseconds of
+/// CPU and 19 MiB of memory; run on an async worker it stalls every other request that
+/// worker was serving.
+pub async fn hash_password_async(password: &str) -> Result<String, AuthError> {
+    let password = password.to_owned();
+    tokio::task::spawn_blocking(move || hash_password(&password))
+        .await
+        .map_err(|_| AuthError::BadRequest("Could not hash the supplied password."))?
+}
+
+/// [`verify_password`] on the blocking pool; a join failure is a failed verification.
+pub(crate) async fn verify_password_async(password: &str, stored_hash: &str) -> bool {
+    let (password, stored_hash) = (password.to_owned(), stored_hash.to_owned());
+    tokio::task::spawn_blocking(move || verify_password(&password, &stored_hash))
+        .await
+        .unwrap_or(false)
+}
+
+/// Computes the dummy hash off the async executor so the first unknown-user login does
+/// not pay for it on top of its own verification.
+pub async fn warm_dummy_hash() {
+    let _ = tokio::task::spawn_blocking(dummy_hash).await;
 }
 
 /// A real argon2id hash of a value no account can present, used only to spend the

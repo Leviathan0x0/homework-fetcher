@@ -7,6 +7,7 @@ import { LoadingSkeleton } from './LoadingSkeleton';
 import { PageHeader } from './PageHeader';
 import { RefreshButton } from './RefreshButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
+import { getHomeworkEntryId } from '../utils/homeworkEntryId';
 import {
   getHomeworkDateYmd,
   getCalendarDaysForMonth,
@@ -136,7 +137,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   const homeworkByYmd = useMemo(() => {
     const map = new Map<string, HomeworkEntry[]>();
     for (const item of homework) {
-      if (!item.date) continue;
+      if (!item?.date) continue;
       const ymd = getHomeworkDateYmd(item.date);
       if (!ymd) continue;
       const list = map.get(ymd);
@@ -176,10 +177,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       const hwCount = hwList.length;
       let allDone = false;
       if (hwCount > 0) {
-        allDone = hwList.every((item) => {
-          const entryId = item.id || `${item.date}_${item.homework}`;
-          return Boolean(completedMap[entryId]);
-        });
+        allDone = hwList.every(
+          (item) => Boolean(completedMap[getHomeworkEntryId(item)]) || item.completed === true
+        );
       }
       record[day.ymd] = {
         hwCount,
@@ -438,12 +438,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           ) : selectedHomework.length > 0 ? (
             <div className="space-y-3">
               {selectedHomework.map((item, idx) => {
-                const entryId = item.id || `${item.date}_${item.homework}`;
+                const entryId = getHomeworkEntryId(item);
                 return (
                   <HomeworkCard
                     key={item.id || idx}
                     item={item}
-                    isCompleted={Boolean(completedMap[entryId])}
+                    isCompleted={Boolean(completedMap[entryId]) || item.completed === true}
                     onToggleCompleted={() => onToggleCompleted(entryId)}
                     onUpdateNote={onUpdateNote}
                     onOpenPreview={onOpenPreview}

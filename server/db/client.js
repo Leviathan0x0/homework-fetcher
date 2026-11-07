@@ -125,6 +125,11 @@ function openLocalDatabase(preferredPath, Database) {
         // which matters as soon as several students use the app at once.
         instance.pragma("journal_mode = WAL");
         instance.pragma("busy_timeout = 5000");
+        // With WAL, NORMAL still survives a crash (only the last commits can
+        // roll back on power loss) and skips an fsync per write.
+        instance.pragma("synchronous = NORMAL");
+        instance.pragma("cache_size = -32000");
+        instance.pragma("temp_store = MEMORY");
       }
       return instance;
     } catch (err) {
@@ -624,6 +629,15 @@ function postSchemaStatements() {
     // never "Section 10-A". Leaving that sentinel made every provisional chat look wrong.
     { sql: `UPDATE users SET section = '' WHERE lower(trim(section)) = 'section 10-a'` },
     { sql: "CREATE INDEX IF NOT EXISTS idx_messages_reply_to ON messages(reply_to_id)" },
+    // Indexes for filters and sorts the routes run on every screen load. The
+    // calendar and broadcast ones were declared in schema.js but never created.
+    { sql: "CREATE INDEX IF NOT EXISTS idx_users_section ON users(section)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_conversations_type_section ON conversations(type, section)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_classwork_section_created ON classwork_uploads(section, created_at)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_school_cal_user_date ON school_calendar_events(user_id, date)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_broadcast_created ON broadcast_alerts(created_at)" },
+    { sql: "CREATE INDEX IF NOT EXISTS idx_app_sessions_expires ON app_sessions(expires_at)" },
     // Retried sends carry the id the sender generated, so the same composed
     // message can never be stored twice.
     {

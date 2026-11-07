@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useDeferredValue } from 'react';
 import { Reicon } from './ui/reicon';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { PageHeader } from './PageHeader';
@@ -247,23 +247,33 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     }
   };
 
+  const toastTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
+
   const showToast = (msg: string, isError = false) => {
     setActionIsError(isError);
     setActionMessage(msg);
-    setTimeout(() => setActionMessage(null), 3500);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setActionMessage(null), 3500);
   };
 
   // Filter students
-  const filteredStudents = students.filter((s) => {
-    if ((s.role || 'student') !== 'student') return false;
-    const matchesQuery =
-      s.studentId.toLowerCase().includes(studentSearch.toLowerCase()) ||
-      s.displayName.toLowerCase().includes(studentSearch.toLowerCase());
-    const matchesSection = sectionFilter === 'all' || s.section === sectionFilter;
-    return matchesQuery && matchesSection;
-  });
+  const deferredStudentSearch = useDeferredValue(studentSearch);
+  const filteredStudents = useMemo(() => {
+    const query = deferredStudentSearch.toLowerCase();
+    return students.filter((s) => {
+      if ((s.role || 'student') !== 'student') return false;
+      const matchesQuery =
+        s.studentId.toLowerCase().includes(query) || s.displayName.toLowerCase().includes(query);
+      const matchesSection = sectionFilter === 'all' || s.section === sectionFilter;
+      return matchesQuery && matchesSection;
+    });
+  }, [students, deferredStudentSearch, sectionFilter]);
 
-  const availableSections = Array.from(new Set(students.map((s) => s.section))).filter(Boolean);
+  const availableSections = useMemo(
+    () => Array.from(new Set(students.map((s) => s.section))).filter(Boolean),
+    [students]
+  );
 
   const getSubViewTitle = () => {
     switch (activeSubView) {
@@ -283,11 +293,12 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
   };
 
   const currentInfo = getSubViewTitle();
-  const activeReports = reports.filter((report) => report.status === 'pending');
-  const resolvedReports = reports.filter((report) => report.status !== 'pending');
+  const activeReports = useMemo(() => reports.filter((report) => report.status === 'pending'), [reports]);
+  const resolvedReports = useMemo(() => reports.filter((report) => report.status !== 'pending'), [reports]);
   const visibleReports = showResolvedReports ? reports : activeReports;
-  const mutedStudents = students.filter(
-    (student) => (student.role || 'student') === 'student' && student.muted
+  const mutedStudents = useMemo(
+    () => students.filter((student) => (student.role || 'student') === 'student' && student.muted),
+    [students]
   );
   const moderationControls = [
     {
@@ -316,7 +327,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     },
   ];
   const enabledModerationControls = moderationControls.filter((control) => settings[control.key]).length;
-  const recentActivity = [
+  const recentActivity = useMemo(() => [
     ...reports.map((report) => ({
       id: `report-${report.id}`,
       type: 'report' as const,
@@ -333,7 +344,7 @@ export const AdminView: React.FC<AdminViewProps> = ({ activeSubView = 'admin-ove
     })),
   ]
     .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
-    .slice(0, 6);
+    .slice(0, 6), [reports, alerts]);
 
   if (!hasLoadedInitialData) {
     return (

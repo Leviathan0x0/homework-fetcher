@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { requestService } from '../services/api';
 import { SectionRequest } from '../types/homework';
 import { cn } from '../utils/cn';
@@ -44,20 +44,34 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Only the latest fetch may write state (stale response / unmounted guard).
+  const fetchIdRef = useRef(0);
+  useEffect(
+    () => () => {
+      fetchIdRef.current = -1;
+    },
+    []
+  );
+
   const fetchRequests = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
+    const isCurrent = () => fetchIdRef.current === fetchId;
     setIsLoading(true);
     setErrorMessage(null);
     try {
       const list = await requestService.getRequests(userSection);
+      if (!isCurrent()) return;
       setRequests(list as any);
       requestService.markSeen().then(() => {
         window.dispatchEvent(new CustomEvent('requests_seen_changed'));
         window.dispatchEvent(new CustomEvent('notifications_unread_changed'));
       }).catch(() => {});
     } catch (err: any) {
-      setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load requests.');
+      if (isCurrent()) {
+        setErrorMessage(typeof err?.message === 'string' ? err.message : 'Unable to load requests.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }, [userSection]);
 
@@ -152,13 +166,20 @@ export const RequestsView: React.FC<RequestsViewProps> = ({ userSection, onNavig
     }
   };
 
-  const availableCategories = ['All', ...new Set(requests.map((r) => r.category).filter((c): c is string => !!c))];
+  const availableCategories = useMemo(
+    () => ['All', ...new Set(requests.map((r) => r.category).filter((c): c is string => !!c))],
+    [requests]
+  );
 
-  const filtered = requests.filter((r) => {
-    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
-    if (categoryFilter !== 'All' && r.category !== categoryFilter) return false;
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      requests.filter((r) => {
+        if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+        if (categoryFilter !== 'All' && r.category !== categoryFilter) return false;
+        return true;
+      }),
+    [requests, statusFilter, categoryFilter]
+  );
 
   return (
     <div className="space-y-6">

@@ -48,7 +48,7 @@ use crate::repositories::{
 use crate::services::accounts::{
     AccountsService, LifecycleError, MAX_PASSWORD_LEN, MIN_PASSWORD_LEN,
 };
-use crate::services::auth::{hash_password, AuthError, AuthService, IssuedSession};
+use crate::services::auth::{hash_password_async, AuthError, AuthService, IssuedSession};
 use crate::services::edusecure::{can_verify_credentials, EduSecureClient, PortalError};
 
 /// One row of the device list, as the frontend sees it.
@@ -368,7 +368,7 @@ impl<'a> AccountSecurityService<'a> {
     ) -> Result<(), SecurityError> {
         match credentials_repo::find_password_hash(self.db, user_id).await? {
             Some(hash) => {
-                if !crate::services::auth::verify_password(password, &hash) {
+                if !crate::services::auth::verify_password_async(password, &hash).await {
                     return Err(SecurityError::ReauthenticationFailed);
                 }
                 Ok(())
@@ -480,7 +480,7 @@ impl<'a> AccountSecurityService<'a> {
         self.store_verified_credential(user_id, school_id, edusecure_password)
             .await?;
 
-        let hash = hash_password(password)?;
+        let hash = hash_password_async(password).await?;
         credentials_repo::set_password_hash(self.db, user_id, &hash).await?;
         account_events::record(self.db, user_id, EventKind::PasswordSet, school_id, None).await?;
         AuthService::new(self.db, self.config)

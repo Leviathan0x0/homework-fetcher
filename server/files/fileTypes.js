@@ -94,9 +94,11 @@ function matchesMagicBytes(head, contentType) {
  * everything else downloads instead of becoming a page on this origin.
  *
  * @param {import("express").Response} res
- * @param {{contentType: string, filename: string, head?: Buffer|null}} options
+ * @param {{contentType: string, filename: string, head?: Buffer|null, cacheSeconds?: number}} options
+ *   `cacheSeconds` lets the browser reuse a file whose bytes never change
+ *   under its URL; the default keeps responses uncached.
  */
-function applyDownloadHeaders(res, { contentType, filename, head = null }) {
+function applyDownloadHeaders(res, { contentType, filename, head = null, cacheSeconds = 0 }) {
   const inline = INLINE_TYPES.has(contentType) && matchesMagicBytes(head, contentType);
   const servedType = inline ? contentType : "application/octet-stream";
   const safeFilename = encodeURIComponent(filename || "download");
@@ -104,6 +106,7 @@ function applyDownloadHeaders(res, { contentType, filename, head = null }) {
   res.setHeader("Content-Type", servedType);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  if (cacheSeconds > 0) res.setHeader("Cache-Control", `private, max-age=${cacheSeconds}`);
   res.setHeader(
     "Content-Disposition",
     `${inline ? "inline" : "attachment"}; filename*=UTF-8''${safeFilename}`

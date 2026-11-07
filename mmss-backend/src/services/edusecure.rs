@@ -565,7 +565,10 @@ impl<'a> EduSecureService<'a> {
 
         let mut imported = 0;
         let mut skipped = 0;
-        let mut tx = self.db.begin().await?;
+        // IMMEDIATE: this transaction reads before it writes, and a deferred one that
+        // loses a read-to-write upgrade race fails at once with SQLITE_BUSY instead of
+        // waiting out `busy_timeout`.
+        let mut tx = self.db.begin_with("BEGIN IMMEDIATE").await?;
         for row in rows {
             if exists_in_scope(&mut tx, class_id, subject_id, row).await? {
                 skipped += 1;
@@ -600,20 +603,23 @@ async fn exists_in_scope(
     subject_id: i64,
     row: &ImportedHomework,
 ) -> Result<bool, sqlx::Error> {
-    let existing: Option<(String, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT due_date, homework_text, classwork_text
-           FROM homework
-          WHERE class_id = ?1 AND subject_id = ?2 AND due_date = ?3",
+    // Every entry on that day is compared, not just the first one SQLite happens to return:
+    // with two entries for the same subject and day, a first-row check re-imported the
+    // second one on every sync. `IS` is NULL-safe equality.
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS (
+             SELECT 1 FROM homework
+              WHERE class_id = ?1 AND subject_id = ?2 AND due_date = ?3
+                AND homework_text IS ?4 AND classwork_text IS ?5)",
     )
     .bind(class_id)
     .bind(subject_id)
     .bind(&row.due_date)
-    .fetch_optional(&mut **tx)
+    .bind(&row.homework_text)
+    .bind(&row.classwork_text)
+    .fetch_one(&mut **tx)
     .await?;
-
-    Ok(existing.is_some_and(|(date, homework, classwork)| {
-        date == row.due_date && homework == row.homework_text && classwork == row.classwork_text
-    }))
+    Ok(exists)
 }
 
 /// A portal failure as a client-visible error.

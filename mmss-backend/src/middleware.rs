@@ -13,6 +13,7 @@ use axum::http::{HeaderName, HeaderValue, Request};
 use axum::response::{IntoResponse, Response};
 use tower_http::{
     catch_panic::CatchPanicLayer,
+    compression::CompressionLayer,
     cors::{AllowOrigin, CorsLayer},
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
     trace::TraceLayer,
@@ -166,6 +167,10 @@ where
         // A panic in a handler still produces a response rather than an aborted connection
         // the caller has to diagnose.
         .layer(CatchPanicLayer::new())
+        // Negotiated gzip on the JSON feeds, which are unpaginated by design (see
+        // `STUDENT_API_AUDIT.md`) and compress roughly tenfold. Responses to clients that
+        // do not send `Accept-Encoding` are untouched.
+        .layer(CompressionLayer::new())
         .layer(axum::extract::DefaultBodyLimit::max(
             config.body_limit_bytes,
         ))

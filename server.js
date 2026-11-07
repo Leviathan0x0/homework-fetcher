@@ -40,6 +40,7 @@ const {
   measureRequestTiming,
   requestTimingMiddleware,
 } = require("./server/performance/requestTiming");
+const { compressJsonResponses } = require("./server/performance/compressJson");
 
 // Seed default settings once at startup, after the database is ready.
 dbReady.then(() => seedDefaultSettings()).catch((err) => {
@@ -77,51 +78,6 @@ const corsRequestHeaders = [
   "Authorization",
   ...(sentryBrowserEnabled ? ["baggage", "sentry-trace"] : []),
 ].join(", ");
-
-/**
- * Gzips JSON responses that are large enough to be worth it.
- *
- * Only res.json is wrapped, so file downloads and streamed responses keep their
- * existing handling.
- */
-function compressJsonResponses({ threshold = 1024 } = {}) {
-  const zlib = require("zlib");
-
-  return function compressJson(req, res, next) {
-    const acceptsGzip = /\bgzip\b/i.test(req.headers["accept-encoding"] || "");
-    if (!acceptsGzip || req.method === "HEAD") return next();
-
-    const sendJson = res.json.bind(res);
-    res.json = (body) => {
-      let payload;
-      try {
-        payload = Buffer.from(JSON.stringify(body === undefined ? null : body));
-      } catch {
-        return sendJson(body);
-      }
-
-      if (payload.length < threshold || res.getHeader("Content-Encoding")) {
-        return sendJson(body);
-      }
-
-      let compressed;
-      try {
-        compressed = zlib.gzipSync(payload);
-      } catch (err) {
-        console.error("Response compression failed:", err.message);
-        return sendJson(body);
-      }
-
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.setHeader("Content-Encoding", "gzip");
-      res.setHeader("Content-Length", String(compressed.length));
-      res.setHeader("Vary", res.getHeader("Vary") ? `${res.getHeader("Vary")}, Accept-Encoding` : "Accept-Encoding");
-      return res.end(compressed);
-    };
-
-    next();
-  };
-}
 
 // Required so Secure cookies are honoured behind hosting platform TLS proxies
 app.set("trust proxy", 1);
@@ -271,6 +227,7 @@ app.use("/api/teacher", teacherRoutes);
 app.use(
   express.static(path.join(__dirname, "dist"), {
     maxAge: "1y",
+    immutable: true,
     setHeaders: (res, filePath) => {
       if (!filePath.includes(`${path.sep}assets${path.sep}`)) {
         res.setHeader("Cache-Control", "no-cache");

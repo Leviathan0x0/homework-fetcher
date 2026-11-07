@@ -101,7 +101,12 @@ router.post("/notifications/read-all", requireAuth, async (req, res) => {
   try {
     await db.update(schema.notifications)
       .set({ isRead: 1 })
-      .where(eq(schema.notifications.userId, req.user.id))
+      .where(
+        and(
+          eq(schema.notifications.userId, req.user.id),
+          eq(schema.notifications.isRead, 0)
+        )
+      )
       .run();
 
     return res.json({ success: true });

@@ -90,14 +90,13 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
-    setIsLoading(true);
     notificationService
       .getNotifications()
       .then((list) => {
         if (!cancelled) setNotifications(list);
       })
       .catch(() => {
-        if (!cancelled) setNotifications([]);
+        // Keep whatever is already shown rather than flashing an empty state.
       })
       .finally(() => {
         if (!cancelled) setIsLoading(false);
@@ -108,32 +107,44 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    if (!isOpen) return;
+    const handler = (e: PointerEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('pointerdown', handler);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handler);
+      document.removeEventListener('keydown', onKeyDown);
+    };
   }, [isOpen]);
 
+  // Optimistic: the badge and list update at once; a failure restores them.
   const handleMarkRead = async (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: 1 } : n)));
+    onCountChange(Math.max(0, unreadCount - 1));
     try {
       await notificationService.markAsRead(id);
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: 1 } : n)));
-      onCountChange(Math.max(0, unreadCount - 1));
     } catch {
-      // best-effort
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: 0 } : n)));
+      onCountChange(unreadCount);
     }
   };
 
   const handleMarkAllRead = async () => {
+    const before = notifications;
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: 1 })));
+    onCountChange(0);
     try {
       await notificationService.markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: 1 })));
-      onCountChange(0);
     } catch {
-      // best-effort
+      setNotifications(before);
+      onCountChange(unreadCount);
     }
   };
 
@@ -187,7 +198,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {isLoading ? (
+            {isLoading && notifications.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Ring className="size-5 text-neutral-400" />
               </div>

@@ -437,30 +437,34 @@ impl<'a> TeacherHomeworkService<'a> {
         let mut context = HomeworkContext::default();
 
         let class_ids = unique(entries.iter().map(|entry| entry.class_id));
-        for class in classes::find_by_ids(self.db, &class_ids).await? {
+        let subject_ids = unique(entries.iter().map(|entry| entry.subject_id));
+        let author_ids = unique(entries.iter().filter_map(|entry| entry.author_id));
+        let homework_ids = unique(entries.iter().map(|entry| entry.id));
+
+        // Independent lookups, overlapped rather than awaited one after another.
+        let (class_rows, subject_rows, author_rows, attachment_rows) = tokio::try_join!(
+            classes::find_by_ids(self.db, &class_ids),
+            subjects::find_by_ids(self.db, &subject_ids),
+            users::find_by_ids(self.db, &author_ids),
+            attachments_repo::list_for_homework(self.db, &homework_ids),
+        )?;
+
+        for class in class_rows {
             context.class_names.insert(class.id, class.name);
         }
-
-        let subject_ids = unique(entries.iter().map(|entry| entry.subject_id));
-        for subject in subjects::find_by_ids(self.db, &subject_ids).await? {
+        for subject in subject_rows {
             context.subject_names.insert(subject.id, subject.name);
         }
-
-        let author_ids = unique(entries.iter().filter_map(|entry| entry.author_id));
-        let resolved: std::collections::HashMap<i64, AuthorView> =
-            users::find_by_ids(self.db, &author_ids)
-                .await?
-                .iter()
-                .map(|user| (user.id, AuthorView::from(user)))
-                .collect();
+        let resolved: std::collections::HashMap<i64, AuthorView> = author_rows
+            .iter()
+            .map(|user| (user.id, AuthorView::from(user)))
+            .collect();
         for id in &author_ids {
             // An author that no longer resolves stays absent and the view renders
             // `null` rather than a half-built object.
             context.authors.insert(*id, resolved.get(id).cloned());
         }
-
-        let homework_ids = unique(entries.iter().map(|entry| entry.id));
-        for attachment in attachments_repo::list_for_homework(self.db, &homework_ids).await? {
+        for attachment in attachment_rows {
             context
                 .attachments
                 .entry(attachment.homework_id)

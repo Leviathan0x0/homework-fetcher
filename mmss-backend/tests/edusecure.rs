@@ -786,6 +786,47 @@ async fn an_import_skips_rows_that_already_exist_whoever_wrote_them() {
     );
 }
 
+/// Two local entries for the same subject and day: a row matching the *second* one is a
+/// duplicate too. A first-row-only comparison used to re-import it on every sync.
+#[tokio::test]
+async fn an_import_dedups_against_every_entry_on_that_day() {
+    let world = world("import-same-day", true).await;
+    let admin = sign_in(&world, "admin.test", ADMIN_PASSWORD).await;
+    homework::create(
+        &world.db,
+        &NewHomework {
+            class_id: world.class_id,
+            subject_id: world.subject_id,
+            author_id: None,
+            due_date: "2026-10-09".into(),
+            homework_text: Some("Second task".into()),
+            classwork_text: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    let page = r#"<table id="grdDashContents"><tr>
+             <td><small>Oct 9, 2026</small></td>
+             <td><p><b>Homework:</b> Second task</p></td>
+           </tr></table>"#;
+    let (status, result) = call(
+        &world.app,
+        "POST",
+        "/api/edusecure/import",
+        Some(&admin),
+        Some(json!({
+            "classId": world.class_id,
+            "subjectId": world.subject_id,
+            "html": page,
+        })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["imported"], 0, "{result}");
+    assert_eq!(result["skipped"], 1);
+}
+
 /// A page with no usable rows is a 400, and writes nothing.
 #[tokio::test]
 async fn an_empty_page_is_refused_and_writes_nothing() {

@@ -12,6 +12,8 @@ const { db, schema, runBatch } = require("../db/client");
  */
 const RECONCILE_INTERVAL_MS = 5 * 60 * 1000;
 const reconciledSections = new Map();
+const reconcilesInFlight = new Map();
+const MAX_RECONCILED_KEYS = 5000;
 
 function wasReconciledRecently(section) {
   const at = reconciledSections.get(section);
@@ -35,6 +37,48 @@ async function ensureSectionConversation(user, options = {}) {
 
   const membershipKey = `${section}\u0000${user.id}`;
   if (!options.force && wasReconciledRecently(membershipKey)) return null;
+
+  // Concurrent calls (login plus the first /me and /conversations) would each
+  // find no group and create a duplicate, so they share one run.
+  const running = reconcilesInFlight.get(membershipKey);
+  if (running) return running;
+
+  const pending = runExclusive(section, () =>
+    reconcileSectionConversation(user, section, membershipKey)
+  ).finally(() => {
+    reconcilesInFlight.delete(membershipKey);
+  });
+  reconcilesInFlight.set(membershipKey, pending);
+  return pending;
+}
+
+// Classmates logging in together must not each create the section's group, so
+// reconciles for one section run one at a time.
+const sectionQueues = new Map();
+
+function runExclusive(section, task) {
+  const previous = sectionQueues.get(section) || Promise.resolve();
+  const next = previous.catch(() => {}).then(task);
+  sectionQueues.set(section, next);
+  const release = () => {
+    if (sectionQueues.get(section) === next) sectionQueues.delete(section);
+  };
+  next.then(release, release);
+  return next;
+}
+
+function markReconciled(membershipKey) {
+  if (reconciledSections.size >= MAX_RECONCILED_KEYS) {
+    const now = Date.now();
+    for (const [key, at] of reconciledSections) {
+      if (now - at >= RECONCILE_INTERVAL_MS) reconciledSections.delete(key);
+    }
+    if (reconciledSections.size >= MAX_RECONCILED_KEYS) reconciledSections.clear();
+  }
+  reconciledSections.set(membershipKey, Date.now());
+}
+
+async function reconcileSectionConversation(user, section, membershipKey) {
 
   const existing = await db
     .select()
@@ -85,7 +129,7 @@ async function ensureSectionConversation(user, options = {}) {
         .run();
     }
 
-    reconciledSections.set(membershipKey, Date.now());
+    markReconciled(membershipKey);
     return { conversationId: existing.id, section, existing: true };
   }
 
@@ -117,7 +161,7 @@ async function ensureSectionConversation(user, options = {}) {
     ),
   ]);
 
-  reconciledSections.set(membershipKey, Date.now());
+  markReconciled(membershipKey);
   return { conversationId: convId, section, existing: false };
 }
 

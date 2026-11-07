@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { Reicon } from './ui/reicon';
 import { Ring } from "@/components/loading-ui/ring";
@@ -11,7 +11,8 @@ interface FilePreviewSidebarProps {
 
 const isValidUrl = (url: string | null | undefined): boolean => {
   if (!url) return false;
-  if (url.startsWith('/')) return true;
+  // A leading `//` is protocol-relative, i.e. an external host.
+  if (url.startsWith('/')) return !url.startsWith('//');
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
@@ -23,20 +24,24 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 export const FilePreviewSidebar: React.FC<FilePreviewSidebarProps> = ({ fileUrl, onClose, originalFilename }) => {
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
-  const handlePreviewLoaded = () => setLoading(false);
+  const handlePreviewLoaded = useCallback(() => setLoading(false), []);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     setZoom(1);
     setLoading(true);
   }, [fileUrl]);
 
+  const isOpen = Boolean(fileUrl);
   useEffect(() => {
+    if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!fileUrl) return;

@@ -180,9 +180,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   const [showPasswordHelp, setShowPasswordHelp] = useState(false);
 
   useEffect(() => {
+    // Keep nameSaved: a successful save changes displayName and must not wipe its own confirmation.
     setNameDraft(user?.displayName || '');
     setNameError(null);
-    setNameSaved(false);
   }, [user?.displayName]);
 
   const handleInstallClick = async () => {
@@ -354,7 +354,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               id="settings-display-name"
               type="text"
               value={nameDraft}
-              onChange={(event) => setNameDraft(event.target.value)}
+              onChange={(event) => {
+                setNameDraft(event.target.value);
+                setNameSaved(false);
+              }}
               placeholder="e.g. Aarav Sharma"
               maxLength={40}
               className="min-h-10 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-900 outline-none transition focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-400/15 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-600 dark:focus:bg-neutral-900"

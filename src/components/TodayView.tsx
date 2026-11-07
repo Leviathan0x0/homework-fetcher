@@ -12,6 +12,7 @@ import { ScrollToTopButton } from './ScrollToTopButton';
 import { useSchoolCalendar } from '../hooks/useSchoolCalendar';
 import { adminService, teacherService } from '../services/api';
 import { cn } from '../utils/cn';
+import { getHomeworkEntryId as getEntryId } from '../utils/homeworkEntryId';
 import { Reicon } from './ui/reicon';
 
 interface TodayViewProps {
@@ -179,7 +180,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     return todayEntries.filter((item) => homeworkSubjectName(item) === selectedSubject);
   }, [todayEntries, selectedSubject]);
 
-  const getEntryId = (item: HomeworkEntry) => item.id || `${item.date}_${item.homework}`;
   const totalCount = todayEntries.length;
   const completedCount = todayEntries.filter((item) => completedMap[getEntryId(item)]).length;
   const pendingCount = Math.max(0, totalCount - completedCount);

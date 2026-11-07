@@ -90,6 +90,14 @@ function wordAttribute(element: Element | undefined, name: string): string | nul
   return element.getAttributeNS(WORD_NAMESPACE, name) || element.getAttribute(`w:${name}`);
 }
 
+/** A run-property toggle (`<w:b/>`) is on unless explicitly `val="0"`/`false`/`none`. */
+function hasToggle(properties: Element | undefined, localName: string): boolean {
+  const toggle = properties ? directChild(properties, localName) : undefined;
+  if (!toggle) return false;
+  const value = (wordAttribute(toggle, 'val') || '').toLowerCase();
+  return value !== '0' && value !== 'false' && value !== 'none';
+}
+
 function parseParagraph(element: Element): DocxParagraph {
   const properties = directChild(element, 'pPr');
   const styleValue = wordAttribute(directChild(properties || element, 'pStyle'), 'val') || '';
@@ -103,15 +111,16 @@ function parseParagraph(element: Element): DocxParagraph {
     const runProperties = directChild(run, 'rPr');
     let text = '';
     for (const child of Array.from(run.children)) {
-      if (child.localName === 't' || child.localName === 'instrText') text += child.textContent || '';
+      // instrText holds field codes (e.g. HYPERLINK ...), not visible text.
+      if (child.localName === 't') text += child.textContent || '';
       else if (child.localName === 'tab') text += '\t';
       else if (child.localName === 'br' || child.localName === 'cr') text += '\n';
     }
     return {
       text,
-      bold: Boolean(runProperties?.getElementsByTagNameNS('*', 'b').length),
-      italic: Boolean(runProperties?.getElementsByTagNameNS('*', 'i').length),
-      underline: Boolean(runProperties?.getElementsByTagNameNS('*', 'u').length),
+      bold: hasToggle(runProperties, 'b'),
+      italic: hasToggle(runProperties, 'i'),
+      underline: hasToggle(runProperties, 'u'),
     };
   }).filter((run) => run.text.length > 0);
 

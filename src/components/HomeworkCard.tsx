@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { HomeworkEntry } from '../types/homework';
 import { detectSubject } from '../utils/subjectDetector';
 import { parseHomeworkContent, splitTaskHierarchy } from '../utils/contentParser';
@@ -26,7 +26,7 @@ const isValidUrl = (url: string | null | undefined): boolean => {
   }
 };
 
-export const HomeworkCard: React.FC<HomeworkCardProps> = ({
+const HomeworkCardImpl: React.FC<HomeworkCardProps> = ({
   item,
   isCompleted = false,
   onToggleCompleted,
@@ -37,9 +37,24 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
   // fields, so the card picks whichever one the teacher actually wrote rather than
   // printing a blank card for a classwork-only entry.
   const body = item.homework?.trim() ? item.homework : item.classwork || '';
-  const subjectInfo = detectSubject(body, item.subject, item.type);
-  const parsed = parseHomeworkContent(body, subjectInfo.name);
-  const hwHierarchy = splitTaskHierarchy(parsed.homeWork || '');
+  // Subject detection, content parsing and linkifying are regex-heavy; run
+  // them once per entry rather than on every parent render.
+  const { subjectInfo, parsed, hwHierarchy, linked } = useMemo(() => {
+    const subjectInfo = detectSubject(body, item.subject, item.type);
+    const parsed = parseHomeworkContent(body, subjectInfo.name);
+    const hwHierarchy = splitTaskHierarchy(parsed.homeWork || '');
+    return {
+      subjectInfo,
+      parsed,
+      hwHierarchy,
+      linked: {
+        action: hwHierarchy.action ? linkifyText(hwHierarchy.action) : null,
+        detail: hwHierarchy.detail ? linkifyText(hwHierarchy.detail) : null,
+        classWork: parsed.classWork ? linkifyText(parsed.classWork) : null,
+        body: linkifyText(body),
+      },
+    };
+  }, [body, item.subject, item.type]);
 
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [noteText, setNoteText] = useState(item.note || '');
@@ -245,11 +260,11 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
               </span>
               <div className={cn('flex-1 min-w-0', isCompleted && 'line-through decoration-neutral-400/80')}>
                 <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-50 leading-snug tracking-tight whitespace-pre-wrap break-words">
-                  {linkifyText(hwHierarchy.action)}
+                  {linked.action}
                 </p>
                 {hwHierarchy.detail && (
                   <p className="mt-0.5 text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed whitespace-pre-wrap break-words">
-                    {linkifyText(hwHierarchy.detail)}
+                    {linked.detail}
                   </p>
                 )}
               </div>
@@ -267,7 +282,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                   isCompleted && 'line-through'
                 )}
               >
-                {linkifyText(parsed.classWork)}
+                {linked.classWork}
               </span>
             </div>
           )}
@@ -279,7 +294,7 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
                 isCompleted && 'line-through decoration-neutral-400/80 opacity-80'
               )}
             >
-              {linkifyText(body)}
+              {linked.body}
             </p>
           )}
         </div>
@@ -308,3 +323,19 @@ export const HomeworkCard: React.FC<HomeworkCardProps> = ({
     </article>
   );
 };
+
+/**
+ * Lists pass inline `() => onToggleCompleted(id)` closures, which would defeat
+ * a plain memo. Those closures only capture the entry id (covered by `item`)
+ * and stable handlers, so callback identity is ignored; only their presence
+ * matters to what is rendered.
+ */
+export const HomeworkCard = React.memo(
+  HomeworkCardImpl,
+  (prev, next) =>
+    prev.item === next.item &&
+    prev.isCompleted === next.isCompleted &&
+    Boolean(prev.onToggleCompleted) === Boolean(next.onToggleCompleted) &&
+    Boolean(prev.onUpdateNote) === Boolean(next.onUpdateNote) &&
+    Boolean(prev.onOpenPreview) === Boolean(next.onOpenPreview)
+);

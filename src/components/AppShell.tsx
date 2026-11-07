@@ -1,20 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy, startTransition } from 'react';
 import { notificationService, messagingService, requestService } from '../services/api';
 import { cn } from '../utils/cn';
 import { useHomework, UserAccount } from '../hooks/useHomework';
 import { useTheme } from '../hooks/useTheme';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useIsMobile } from '../hooks/use-mobile';
-import { LoginPage } from './LoginPage';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 import { SiteHeader } from './site-header';
-import { MobileNavigation } from './MobileNavigation';
 import { TodayView } from './TodayView';
 import { ErrorBanner } from './ErrorBanner';
 import { OfflineBanner } from './OfflineBanner';
 import { setPendingMessageOpen } from '../utils/pendingMessageOpen';
-import { motion, useReducedMotion } from 'motion/react';
 import { ViewType } from '../types/homework';
 import { SHOW_LEAVE_AND_ABSENCE } from '../utils/features';
 import { readAppPreferences, saveAppPreferences } from '../utils/appPreferences';
@@ -26,24 +23,75 @@ type AppRole = 'student' | 'teacher' | 'admin';
 // chat client, the charting admin/teacher portals and the file preview - is
 // fetched the first time a student actually opens that screen, which keeps the
 // startup download (and every subsequent interaction) small.
-const CalendarView = lazy(() => import('./CalendarView').then((m) => ({ default: m.CalendarView })));
-const SchoolNoticesView = lazy(() => import('./SchoolNoticesView').then((m) => ({ default: m.SchoolNoticesView })));
-const ExamsView = lazy(() => import('./ExamsView').then((m) => ({ default: m.ExamsView })));
-const RecentView = lazy(() => import('./RecentView').then((m) => ({ default: m.RecentView })));
-const AllHomeworkView = lazy(() => import('./AllHomeworkView').then((m) => ({ default: m.AllHomeworkView })));
-const AttachmentsView = lazy(() => import('./AttachmentsView').then((m) => ({ default: m.AttachmentsView })));
-const CompletedView = lazy(() => import('./CompletedView').then((m) => ({ default: m.CompletedView })));
-const ClassworkView = lazy(() => import('./ClassworkView').then((m) => ({ default: m.ClassworkView })));
-const RequestsView = lazy(() => import('./RequestsView').then((m) => ({ default: m.RequestsView })));
+const loadLoginPage = () => import('./LoginPage');
+// Signed-out visitors need the login screen straight away: start its download
+// in parallel with boot instead of after the first render.
+try {
+  if (typeof window !== 'undefined' && !window.localStorage.getItem('cachedUser')) void loadLoginPage();
+} catch {
+  // Storage unavailable: the lazy component loads it on demand.
+}
+const LoginPage = lazy(() => loadLoginPage().then((m) => ({ default: m.LoginPage })));
+const loadCalendarView = () => import('./CalendarView');
+const loadSchoolNoticesView = () => import('./SchoolNoticesView');
+const loadExamsView = () => import('./ExamsView');
+const loadRecentView = () => import('./RecentView');
+const loadAllHomeworkView = () => import('./AllHomeworkView');
+const loadAttachmentsView = () => import('./AttachmentsView');
+const loadCompletedView = () => import('./CompletedView');
+const loadClassworkView = () => import('./ClassworkView');
+const loadRequestsView = () => import('./RequestsView');
+const loadMessagesView = () => import('./MessagesView');
+const loadSettingsView = () => import('./SettingsView');
+const loadAdminView = () => import('./AdminView');
+const loadTeacherView = () => import('./TeacherView');
+// The dock (and its WebGPU glass renderer) is only mounted on phones, so
+// desktop never downloads it.
+const loadMobileNavigation = () => import('./MobileNavigation');
+
+const CalendarView = lazy(() => loadCalendarView().then((m) => ({ default: m.CalendarView })));
+const SchoolNoticesView = lazy(() => loadSchoolNoticesView().then((m) => ({ default: m.SchoolNoticesView })));
+const ExamsView = lazy(() => loadExamsView().then((m) => ({ default: m.ExamsView })));
+const RecentView = lazy(() => loadRecentView().then((m) => ({ default: m.RecentView })));
+const AllHomeworkView = lazy(() => loadAllHomeworkView().then((m) => ({ default: m.AllHomeworkView })));
+const AttachmentsView = lazy(() => loadAttachmentsView().then((m) => ({ default: m.AttachmentsView })));
+const CompletedView = lazy(() => loadCompletedView().then((m) => ({ default: m.CompletedView })));
+const ClassworkView = lazy(() => loadClassworkView().then((m) => ({ default: m.ClassworkView })));
+const RequestsView = lazy(() => loadRequestsView().then((m) => ({ default: m.RequestsView })));
 const LeaveView = lazy(() => import('./LeaveView').then((m) => ({ default: m.LeaveView })));
-const MessagesView = lazy(() => import('./MessagesView').then((m) => ({ default: m.MessagesView })));
-const SettingsView = lazy(() => import('./SettingsView').then((m) => ({ default: m.SettingsView })));
+const MessagesView = lazy(() => loadMessagesView().then((m) => ({ default: m.MessagesView })));
+const SettingsView = lazy(() => loadSettingsView().then((m) => ({ default: m.SettingsView })));
 const DevelopersView = lazy(() => import('./DevelopersView').then((m) => ({ default: m.DevelopersView })));
-const AdminView = lazy(() => import('./AdminView').then((m) => ({ default: m.AdminView })));
-const TeacherView = lazy(() => import('./TeacherView').then((m) => ({ default: m.TeacherView })));
+const AdminView = lazy(() => loadAdminView().then((m) => ({ default: m.AdminView })));
+const TeacherView = lazy(() => loadTeacherView().then((m) => ({ default: m.TeacherView })));
+const MobileNavigation = lazy(() => loadMobileNavigation().then((m) => ({ default: m.MobileNavigation })));
 const FilePreviewSidebar = lazy(() => import('./FilePreviewSidebar').then((m) => ({ default: m.FilePreviewSidebar })));
 const ReconnectSchoolDialog = lazy(() => import('./ReconnectSchoolDialog').then((m) => ({ default: m.ReconnectSchoolDialog })));
 const DisplayNamePrompt = lazy(() => import('./DisplayNamePrompt').then((m) => ({ default: m.DisplayNamePrompt })));
+
+/**
+ * Screen chunks each role is likely to open, fetched once the browser is idle
+ * after sign-in so the first tap on a tab renders immediately instead of
+ * waiting on a download.
+ */
+const PREFETCH_BY_ROLE: Record<'student' | 'teacher' | 'admin', Array<() => Promise<unknown>>> = {
+  student: [
+    loadAllHomeworkView, loadMessagesView, loadClassworkView, loadRequestsView, loadCalendarView,
+    loadSettingsView, loadSchoolNoticesView, loadRecentView, loadExamsView, loadAttachmentsView,
+    loadCompletedView,
+  ],
+  teacher: [loadTeacherView, loadMessagesView, loadSettingsView],
+  admin: [loadAdminView, loadSettingsView],
+};
+
+function whenIdle(callback: () => void): () => void {
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(callback, { timeout: 4000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(callback, 1500);
+  return () => window.clearTimeout(id);
+}
 import { NotFoundView } from './NotFoundView';
 
 /** URL paths the SPA owns; anything else is a client-side 404. */
@@ -97,7 +145,6 @@ export const AppShell: React.FC = () => {
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const viewBeforeSettings = useRef<typeof activeView>('today');
   const activeViewRef = useRef(activeView);
-  const prefersReducedMotion = useReducedMotion();
   const handleUserChange = useCallback((updated: UserAccount) => {
     const merged = user ? { ...user, ...updated } : updated;
     setUser(merged);
@@ -137,6 +184,26 @@ export const AppShell: React.FC = () => {
   useEffect(() => {
     activeViewRef.current = activeView;
   }, [activeView]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    const loaders = [...PREFETCH_BY_ROLE[appRole]];
+    const cancelIdle: Array<() => void> = [];
+    // One chunk per idle slot keeps prefetching from competing with input.
+    const next = () => {
+      const loader = loaders.shift();
+      if (cancelled || !loader) return;
+      loader().catch(() => {}).finally(() => {
+        if (!cancelled) cancelIdle.push(whenIdle(next));
+      });
+    };
+    cancelIdle.push(whenIdle(next));
+    return () => {
+      cancelled = true;
+      cancelIdle.forEach((cancel) => cancel());
+    };
+  }, [isAuthenticated, appRole]);
 
   useEffect(() => {
     const handleActiveConv = (e: Event) => {
@@ -190,12 +257,18 @@ export const AppShell: React.FC = () => {
     }, 20000);
     const onUnreadChanged = () => refreshGlanceCounts();
     const onRequestsSeen = () => setUnseenRequestsCount(0);
+    // Polling pauses while hidden, so catch up as soon as the tab is back.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshGlanceCounts();
+    };
     window.addEventListener('messages_unread_changed', onUnreadChanged);
     window.addEventListener('requests_seen_changed', onRequestsSeen);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(id);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
       window.removeEventListener('requests_seen_changed', onRequestsSeen);
+      document.removeEventListener('visibilitychange', onVisible);
     };
     // Deliberately not keyed on activeView: the badge counts are the same on
     // every screen, and re-running this on navigation made each click wait for
@@ -239,10 +312,10 @@ export const AppShell: React.FC = () => {
     }
     if (view === 'settings') {
       if (activeView !== 'settings') viewBeforeSettings.current = activeView;
-      setActiveView('settings');
-      return;
     }
-    setActiveView(view);
+    // A transition keeps the current screen on display while a not-yet-loaded
+    // screen downloads, instead of blanking the page to a spinner.
+    startTransition(() => setActiveView(view));
   }, [activeView, isViewAllowed, roleHome, setActiveView]);
 
   useEffect(() => {
@@ -319,12 +392,17 @@ export const AppShell: React.FC = () => {
       if (document.visibilityState === 'visible') fetchUnreadCount();
     }, 20000);
     const onUnreadChanged = () => fetchUnreadCount();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchUnreadCount();
+    };
     window.addEventListener('messages_unread_changed', onUnreadChanged);
     window.addEventListener('notifications_unread_changed', onUnreadChanged);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(interval);
       window.removeEventListener('messages_unread_changed', onUnreadChanged);
       window.removeEventListener('notifications_unread_changed', onUnreadChanged);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [appPreferences.inAppNotifications, isAuthenticated, fetchUnreadCount]);
 
@@ -351,12 +429,14 @@ export const AppShell: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <LoginPage
-        onLogin={login}
-        isLoading={isLoading}
-        errorMessage={errorMessage}
-        onDismissError={dismissError}
-      />
+      <Suspense fallback={<div className="min-h-screen w-full bg-[#f8f8f8] dark:bg-[#09090b]" />}>
+        <LoginPage
+          onLogin={login}
+          isLoading={isLoading}
+          errorMessage={errorMessage}
+          onDismissError={dismissError}
+        />
+      </Suspense>
     );
   }
 
@@ -388,12 +468,11 @@ export const AppShell: React.FC = () => {
         />
 
         <Suspense fallback={<ViewFallback />}>
-        <motion.main
+        <main
           key={activeView}
-          initial={prefersReducedMotion ? false : { opacity: 0.94, x: isMobile ? 16 : 0 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: prefersReducedMotion ? 0 : 0.18, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
+            // CSS enter animation: keeps the motion library off the startup path.
+            "animate-in fade-in-[0.94] max-md:slide-in-from-right-4 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none",
             "flex-1 w-full min-w-0 mx-auto min-h-0 overflow-x-hidden",
             activeView === 'messages'
               ? "relative h-[calc(100dvh-7rem-env(safe-area-inset-top))] md:h-[calc(100dvh-3.5rem-env(safe-area-inset-top))] p-0 max-w-none flex flex-col overflow-hidden"
@@ -580,17 +659,19 @@ export const AppShell: React.FC = () => {
           {activeView.startsWith('teacher-') && (
             <TeacherView activeSubView={activeView} onNavigate={handleViewChange} onOpenPreview={handleOpenPreview} />
           )}
-        </motion.main>
+        </main>
         </Suspense>
 
-        {!(activeView === 'messages' && isMobileChatOpen) && (
-          <MobileNavigation
-            activeView={activeView}
-            onViewChange={handleViewChange}
-            role={appRole}
-            messagesUnread={messagesUnread}
-            openRequests={unseenRequestsCount}
-          />
+        {isMobile && !(activeView === 'messages' && isMobileChatOpen) && (
+          <Suspense fallback={null}>
+            <MobileNavigation
+              activeView={activeView}
+              onViewChange={handleViewChange}
+              role={appRole}
+              messagesUnread={messagesUnread}
+              openRequests={unseenRequestsCount}
+            />
+          </Suspense>
         )}
 
         {isReconnectOpen && (

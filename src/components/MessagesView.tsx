@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { apiFetch } from '../lib/api';
 import { messagingService, homeworkService } from '../services/api';
 import { motion, useReducedMotion } from 'motion/react';
@@ -56,6 +56,397 @@ function newDraftId(): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
+
+/** Name shown for a conversation partner or message sender. */
+function userLabel(u?: { displayName?: string | null; studentId?: string } | null) {
+  return u?.displayName || 'Student';
+}
+
+interface ConversationRowProps {
+  conv: Conversation;
+  active: boolean;
+  deleting: boolean;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+const ConversationRow = React.memo(function ConversationRow({
+  conv,
+  active,
+  deleting,
+  onOpen,
+  onDelete,
+}: ConversationRowProps) {
+  const unread = (conv.unreadCount || 0) > 0;
+  return (
+  <div
+    className={cn(
+      'group/conv relative flex items-stretch overflow-hidden border-l-2',
+      active
+        ? 'bg-white dark:bg-[#141417] border-l-neutral-900 dark:border-l-neutral-100'
+        : 'border-l-transparent hover:bg-white/70 dark:hover:bg-white/[0.03]'
+    )}
+  >
+    <button
+      onClick={() => onOpen(conv.id)}
+      className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left cursor-pointer"
+    >
+      {conv.type === 'section' ? (
+        <div className={cn(
+          'flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
+          unread
+            ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+            : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
+        )}>
+          <Reicon name="users" size={20} />
+        </div>
+      ) : (
+        <ProfileAvatar
+          src={conv.otherUser?.profilePictureUrl}
+          name={userLabel(conv.otherUser)}
+          className="size-10 text-[13px]"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span
+              className={cn(
+                'text-[13px] truncate',
+                unread
+                  ? 'font-semibold text-neutral-900 dark:text-neutral-50'
+                  : 'font-medium text-neutral-800 dark:text-neutral-200'
+              )}
+            >
+              {conv.type === 'section' ? classGroupLabel(conv.section) : userLabel(conv.otherUser)}
+            </span>
+            {conv.muted && (
+              <Reicon name="bell" size={12} className="text-neutral-400 shrink-0 opacity-50" />
+            )}
+          </div>
+          <div className="shrink-0 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
+            {conv.lastMessageAt && (
+              <span className="text-[10px] text-neutral-400 tabular-nums">
+                {formatChatListTime(conv.lastMessageAt)}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          <p
+            className={cn(
+              'text-[12px] truncate flex-1',
+              unread
+                ? 'text-neutral-700 dark:text-neutral-300'
+                : 'text-neutral-500 dark:text-neutral-500'
+            )}
+          >
+            {conv.type === 'section'
+              ? (messagePreviewText(conv.lastMessagePreview || '', `${conv.memberCount || 0} classmates`))
+              : (messagePreviewText(conv.lastMessagePreview || '', 'No messages yet'))}
+          </p>
+          <div className="flex shrink-0 items-center gap-2 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
+            {conv.type === 'section' && conv.memberCount ? (
+              <span className="text-[10px] text-neutral-400 tabular-nums">
+                {conv.memberCount}
+              </span>
+            ) : null}
+            {!isUnknownSection(conv.otherUser?.section) && conv.otherUser?.section && (
+              <span className="text-[10px] text-neutral-400">
+                {conv.otherUser.section}
+              </span>
+            )}
+            {unread && (
+              <span className="flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-bold tabular-nums text-white dark:bg-white dark:text-neutral-900">
+                {conv.unreadCount! > 9 ? '9+' : conv.unreadCount}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </button>
+    <button
+      onClick={() => onDelete(conv.id)}
+      disabled={deleting}
+      title={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
+      aria-label={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
+      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-md bg-white/95 p-1.5 text-neutral-400 opacity-0 shadow-2xs transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:translate-x-0 focus-visible:opacity-100 disabled:opacity-50 group-hover/conv:translate-x-0 group-hover/conv:opacity-100 group-focus-within/conv:translate-x-0 group-focus-within/conv:opacity-100 dark:bg-[#141417]/95 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
+    >
+      {deleting ? (
+        <Ring className="size-3.5" />
+      ) : conv.type === 'section' ? (
+        <Reicon name="logout" size={14} />
+      ) : (
+        <Reicon name="trash-2" size={14} />
+      )}
+    </button>
+  </div>
+
+  );
+});
+
+const EMPTY_MESSAGES: Message[] = [];
+const IMAGE_EXT_RE = /\.(jpg|jpeg|png|webp|gif)$/i;
+const CLUSTER_WINDOW_MS = 5 * 60 * 1000;
+
+/** Downloads a protected attachment, falling back to opening it in a tab. */
+async function downloadAttachment(url: string, filename: string) {
+  try {
+    if (url.startsWith('blob:')) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      return;
+    }
+    const res = await apiFetch(url);
+    if (!res.ok) throw new Error('Download failed');
+    const blobUrl = URL.createObjectURL(await res.blob());
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    a.click();
+    // Revoking synchronously can cancel the download in some browsers.
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000);
+  } catch {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+}
+
+interface MessageRowProps {
+  m: Message;
+  showDay: boolean;
+  clusteredWithPrev: boolean;
+  clusteredWithNext: boolean;
+  isSectionChat: boolean;
+  deleting: boolean;
+  onReply: (m: Message) => void;
+  onDelete: (id: string) => void;
+  onPreview: (media: { url: string; name: string }) => void;
+  onMediaReady: () => void;
+}
+
+// Memoized so composer keystrokes and polls only re-render rows that changed.
+const MessageRow = React.memo(function MessageRow({
+  m,
+  showDay,
+  clusteredWithPrev,
+  clusteredWithNext,
+  isSectionChat,
+  deleting,
+  onReply,
+  onDelete,
+  onPreview,
+  onMediaReady,
+}: MessageRowProps) {
+  const isMine = Boolean(m.isMine);
+  const isPending = String(m.id).startsWith('temp_');
+  const isImage =
+    m.mimeType?.startsWith('image/') ||
+    Boolean(m.originalFilename?.match(IMAGE_EXT_RE)) ||
+    Boolean(m.attachmentUrl?.match(IMAGE_EXT_RE));
+  const timeStr = new Date(m.createdAt).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const senderLabel = m.senderName?.trim() || 'Student';
+  const showSenderName = isSectionChat && !isMine && !clusteredWithPrev;
+
+  return (
+    <>
+      {showDay && (
+        <div className="flex justify-center py-3">
+          <span className="text-[10px] font-medium text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full">
+            {formatChatDayLabel(m.createdAt)}
+          </span>
+        </div>
+      )}
+      <div
+        className={cn(
+          'flex w-full flex-col',
+          isMine ? 'items-end' : 'items-start',
+          clusteredWithPrev ? 'mt-0.5' : 'mt-2.5'
+        )}
+      >
+        {showSenderName && (
+          <div className="mb-1 flex max-w-[78%] items-center gap-1.5 px-1 sm:max-w-[62%]">
+            <ProfileAvatar
+              src={m.senderProfilePictureUrl}
+              name={senderLabel}
+              className="size-5 text-[8px]"
+            />
+            <span className="truncate text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+              {senderLabel}
+            </span>
+          </div>
+        )}
+        <div
+          className={cn(
+            'max-w-[78%] sm:max-w-[62%] px-3 py-2 text-[13px] leading-relaxed relative group',
+            isMine
+              ? 'bg-neutral-900 text-neutral-50 dark:bg-[#e8e6e1] dark:text-neutral-900'
+              : 'bg-white text-neutral-900 dark:bg-[#1a1a1e] dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800',
+            !clusteredWithPrev && !clusteredWithNext && 'rounded-2xl',
+            !clusteredWithPrev && clusteredWithNext && isMine && 'rounded-2xl rounded-br-md',
+            !clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-2xl rounded-bl-md',
+            clusteredWithPrev && !clusteredWithNext && isMine && 'rounded-2xl rounded-tr-md',
+            clusteredWithPrev && !clusteredWithNext && !isMine && 'rounded-2xl rounded-tl-md',
+            clusteredWithPrev && clusteredWithNext && isMine && 'rounded-md rounded-tr-md rounded-br-md',
+            clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-md rounded-tl-md rounded-bl-md',
+            isPending && 'opacity-70'
+          )}
+        >
+          {!isPending && (
+            <>
+              <button
+                onClick={() => onReply(m)}
+                title="Reply to message"
+                aria-label="Reply to message"
+                className={cn(
+                  'absolute top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+                  isMine ? '-left-9' : '-right-9'
+                )}
+              >
+                <Reicon name="arrow-left" size={14} />
+              </button>
+              {isMine && (
+                <button
+                  onClick={() => onDelete(m.id)}
+                  disabled={deleting}
+                  title="Delete message"
+                  aria-label="Delete message"
+                  className="absolute -left-[4.25rem] top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  {deleting ? (
+                    <Ring className="size-3.5" />
+                  ) : (
+                    <Reicon name="trash-2" size={14} />
+                  )}
+                </button>
+              )}
+            </>
+          )}
+
+          {m.requestRef && (
+            <div className={cn(
+              "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 not-italic opacity-90",
+              isMine
+                ? "border-white/35 dark:border-black/30"
+                : "border-neutral-200 dark:border-neutral-700"
+            )}>
+              <div className="font-medium flex items-center gap-1">
+                <Reicon name="heart-handshake" size={12} className="shrink-0 opacity-80" />
+                <span>
+                  Request
+                  {m.requestRef.category ? ` · ${m.requestRef.category}` : ''}
+                </span>
+              </div>
+              <div className="font-semibold mt-0.5 leading-snug">
+                {m.requestRef.title}
+              </div>
+              {m.requestRef.content.trim() && (
+                <div className="line-clamp-2 mt-0.5 opacity-80">
+                  {m.requestRef.content}
+                </div>
+              )}
+            </div>
+          )}
+
+          {m.replyTo && (
+            <div className={cn(
+              "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 italic opacity-70",
+              isMine
+                ? "border-white/30 dark:border-black/30"
+                : "border-neutral-200 dark:border-neutral-700"
+            )}>
+              <div className="font-medium">{m.replyTo.senderName || 'User'}</div>
+              <div className="line-clamp-2">{m.replyTo.content || '[attachment]'}</div>
+            </div>
+          )}
+
+          {m.attachmentUrl && (
+            <div className="mb-1.5 rounded-xl overflow-hidden">
+              {isImage ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onPreview({
+                      url: m.attachmentUrl!,
+                      name: m.originalFilename || 'Image',
+                    })
+                  }
+                  className="block w-full cursor-pointer"
+                >
+                  {m.attachmentUrl.startsWith('blob:') ? (
+                    <img
+                      src={m.attachmentUrl}
+                      alt=""
+                      decoding="async"
+                      onLoad={onMediaReady}
+                      className="w-full object-cover max-h-52 rounded-lg"
+                    />
+                  ) : (
+                    <AuthenticatedImage
+                      src={m.attachmentUrl}
+                      alt=""
+                      onReady={onMediaReady}
+                      fallbackClassName="h-40 rounded-lg"
+                      className="w-full object-cover max-h-52 rounded-lg"
+                    />
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void downloadAttachment(m.attachmentUrl!, m.originalFilename || 'file')}
+                  className={cn(
+                    'flex items-center gap-2 px-2 py-2 rounded-lg text-[12px] font-medium w-full text-left cursor-pointer',
+                    isMine
+                      ? 'bg-white/10 dark:bg-black/10'
+                      : 'bg-neutral-100 dark:bg-neutral-900'
+                  )}
+                >
+                  <Reicon name="file-text" size={16} className="w-4 h-4 shrink-0 opacity-70" />
+                  <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
+                  <Reicon name="download" size={14} className="w-3.5 h-3.5 shrink-0 opacity-70" />
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+            {(m.displayContent ?? m.content) && (
+              <MarkdownRenderer
+                content={m.displayContent ?? m.content}
+                className="break-words leading-relaxed flex-1 text-[13px]"
+              />
+            )}
+            {!clusteredWithNext && (
+              <span
+                className={cn(
+                  'text-[10px] shrink-0 tabular-nums self-end mb-px opacity-50 flex items-center gap-1',
+                  isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500'
+                )}
+              >
+                {isPending ? 'Sending' : timeStr}
+                {isMine && !isPending && m.readBy && m.readBy.length > 0 && (
+                  <span title={`Read by ${m.readBy.length}`}>
+                    <Reicon name="check" size={12} />
+                  </span>
+                )}
+                {isMine && !isPending && (!m.readBy || m.readBy.length === 0) && (
+                  <span title="Sent">
+                    <Reicon name="check" size={12} />
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+});
 
 export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, currentStudentId: accountStudentId }) => {
   const prefersReducedMotion = useReducedMotion();
@@ -132,10 +523,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const messagesRequestIdRef = useRef(0);
   const newestServerAtRef = useRef<string | null>(null);
   const loadedMessagesConvIdRef = useRef<string | null>(null);
+  const pollInFlightRef = useRef(false);
+  const seenIncomingIdsRef = useRef<Set<string>>(new Set());
+  const searchRequestIdRef = useRef(0);
   activeConvIdRef.current = activeConvId;
-
-  const userLabel = (u?: { displayName?: string | null; studentId?: string } | null) =>
-    u?.displayName || 'Student';
 
   const isMobileDevice = () => {
     if (typeof window === 'undefined') return false;
@@ -160,7 +551,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       const fp = convs
         .map(
           (c: Conversation) =>
-            `${c.id}:${c.unreadCount || 0}:${c.lastMessageAt || ''}:${c.lastMessagePreview || ''}:${c.muted ? 1 : 0}:${c.pinnedHomeworkId || ''}`
+            `${c.id}:${c.unreadCount || 0}:${c.lastMessageAt || ''}:${c.lastMessagePreview || ''}:${c.muted ? 1 : 0}:${c.pinnedHomeworkId || ''}:${c.memberCount || 0}:${c.otherUser?.displayName || ''}:${c.otherUser?.profilePictureUrl || ''}`
         )
         .join('|');
       if (fp !== conversationsFpRef.current) {
@@ -181,7 +572,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') fetchConversations();
     }, 12000);
-    return () => clearInterval(interval);
+    // Catch up immediately when the tab returns instead of waiting for a tick.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchConversations();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [fetchConversations]);
 
   const helpDialogShownRef = useRef(false);
@@ -459,8 +858,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     silent: boolean = false,
     signal?: AbortSignal,
     after?: string | null
-  ) => {
+  ): Promise<boolean> => {
     const requestId = ++messagesRequestIdRef.current;
+    let hasNewIncoming = false;
     if (!silent) setMessagesLoading(true);
     try {
       const msgs = (await messagingService.getMessages(convId, signal, after)) as Message[];
@@ -468,7 +868,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         signal?.aborted ||
         activeConvIdRef.current !== convId ||
         requestId !== messagesRequestIdRef.current
-      ) return;
+      ) return false;
+      for (const m of msgs) {
+        if (!m.isMine && !seenIncomingIdsRef.current.has(m.id)) {
+          seenIncomingIdsRef.current.add(m.id);
+          hasNewIncoming = true;
+        }
+      }
       const newestAt = msgs.reduce(
         (max, m) => Math.max(max, new Date(m.createdAt).getTime()),
         0
@@ -507,7 +913,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       loadedMessagesConvIdRef.current = convId;
       setMessagesConvId(convId);
     } catch (err) {
-      if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return;
+      if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) return false;
       if (
         !silent &&
         activeConvIdRef.current === convId &&
@@ -529,6 +935,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         setMessagesLoading(false);
       }
     }
+    return hasNewIncoming;
   }, []);
 
   useEffect(() => {
@@ -546,6 +953,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     messagesFpRef.current = '';
     newestServerAtRef.current = null;
     loadedMessagesConvIdRef.current = null;
+    seenIncomingIdsRef.current = new Set();
+    pollInFlightRef.current = false;
     setMessages([]);
     setMessagesConvId(null);
     setMessagesLoading(true);
@@ -556,32 +965,69 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     );
     window.dispatchEvent(new CustomEvent('messages_unread_changed'));
 
-    const messageInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        if (loadedMessagesConvIdRef.current === activeConvId) {
-          fetchMessages(activeConvId, true, controller.signal, newestServerAtRef.current);
-        }
-        messagingService.markAsRead(activeConvId);
+    // One poll at a time: an overlapping request would invalidate the one in
+    // flight and, on a slow link, no response would ever land.
+    const poll = async () => {
+      if (
+        document.visibilityState !== 'visible' ||
+        pollInFlightRef.current ||
+        loadedMessagesConvIdRef.current !== activeConvId
+      ) {
+        return;
       }
-    }, 5000);
+      pollInFlightRef.current = true;
+      try {
+        const hasNewIncoming = await fetchMessages(
+          activeConvId,
+          true,
+          controller.signal,
+          newestServerAtRef.current
+        );
+        if (hasNewIncoming && !controller.signal.aborted) {
+          messagingService.markAsRead(activeConvId);
+          window.dispatchEvent(new CustomEvent('messages_unread_changed'));
+        }
+      } finally {
+        pollInFlightRef.current = false;
+      }
+    };
+    const messageInterval = setInterval(poll, 5000);
+    document.addEventListener('visibilitychange', poll);
 
     return () => {
       controller.abort();
       clearInterval(messageInterval);
+      document.removeEventListener('visibilitychange', poll);
     };
   }, [activeConvId, fetchMessages]);
 
-  useEffect(() => {
-    if (!stickToBottomRef.current) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-  }, [messages]);
+  // Scrolling the list itself (not scrollIntoView) avoids moving ancestor
+  // containers, and the layout effect keeps the first paint at the bottom.
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (stickToBottomRef.current) scrollToBottom();
+  }, [messages, messagesConvId, scrollToBottom]);
+
+  // Late-loading images grow the list; keep a pinned view pinned.
+  const handleMediaReady = useCallback(() => {
+    if (stickToBottomRef.current) scrollToBottom();
+  }, [scrollToBottom]);
 
   useEffect(() => {
     if (!previewMedia) return;
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewMedia(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = originalOverflow;
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, [previewMedia]);
 
@@ -613,7 +1059,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
       contentForSend,
       fileCopy ? `[Attachment] ${fileCopy.name}` : ''
     );
-    const tempId = `temp_${Date.now()}`;
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const optimistic: Message = {
       id: tempId,
       conversationId: convId,
@@ -744,7 +1190,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     setSelectedFile(prepared);
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
     if (!confirm('Delete this message for everyone?')) return;
     setDeletingMessageId(messageId);
     try {
@@ -756,10 +1202,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     } finally {
       setDeletingMessageId(null);
     }
-  };
+  }, [fetchConversations]);
 
-  const handleDeleteConversation = async (convId: string) => {
-    const target = conversations.find((c) => c.id === convId);
+  const handleOpenConversation = useCallback((id: string) => {
+    setAttachedRequest(null);
+    setActiveConvId(id);
+  }, []);
+
+  const handleDeleteConversation = useCallback(async (convId: string) => {
+    const target = conversationsRef.current.find((c) => c.id === convId);
     if (target?.type === 'section') {
       const label = classGroupLabel(target.section);
       if (!confirm(
@@ -787,7 +1238,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     try {
       await messagingService.deleteConversation(convId);
       setConversations((prev) => prev.filter((c) => c.id !== convId));
-      if (activeConvId === convId) {
+      if (activeConvIdRef.current === convId) {
         setActiveConvId(null);
         setMessages([]);
         loadedMessagesConvIdRef.current = null;
@@ -798,7 +1249,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     } finally {
       setDeletingConvId(null);
     }
-  };
+  }, []);
 
   const handleReportConversation = async () => {
     if (!activeConvId || reportingConv) return;
@@ -915,6 +1366,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const handleSearch = (q: string) => {
     setSearchQuery(q);
     if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+    // Any older in-flight lookup is now stale and must not overwrite results.
+    const requestId = ++searchRequestIdRef.current;
     if (!q.trim()) {
       setSearchResults([]);
       setSearching(false);
@@ -924,14 +1377,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
     searchTimerRef.current = window.setTimeout(async () => {
       try {
         const results = await messagingService.searchUsers(q, currentStudentId);
-        setSearchResults(results);
+        if (requestId === searchRequestIdRef.current) setSearchResults(results);
       } catch {
-        setSearchResults([]);
+        if (requestId === searchRequestIdRef.current) setSearchResults([]);
       } finally {
-        setSearching(false);
+        if (requestId === searchRequestIdRef.current) setSearching(false);
       }
     }, 280);
   };
+
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current) window.clearTimeout(searchTimerRef.current);
+      searchRequestIdRef.current += 1;
+    },
+    []
+  );
 
   const handleInitiateChat = async (u: {
     id: string | null;
@@ -1067,7 +1528,35 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
   const classButtonLabel = classGroupLabel(sectionConv?.section || userSection);
   // Never render a thread's messages under another thread's title, even for
   // the render before the selection effect clears local state.
-  const visibleMessages = messagesConvId === activeConvId ? messages : [];
+  const visibleMessages = messagesConvId === activeConvId ? messages : EMPTY_MESSAGES;
+  const isSectionChat = activeConv?.type === 'section';
+  const rowMeta = useMemo(
+    () =>
+      visibleMessages.map((m, idx) => {
+        const prev = visibleMessages[idx - 1];
+        const next = visibleMessages[idx + 1];
+        const isMine = Boolean(m.isMine);
+        const createdAt = new Date(m.createdAt).getTime();
+        const sameSenderAs = (other?: Message) =>
+          Boolean(
+            other &&
+              Boolean(other.isMine) === isMine &&
+              (!isSectionChat || other.senderId === m.senderId)
+          );
+        return {
+          showDay: !prev || !sameCalendarDay(prev.createdAt, m.createdAt),
+          clusteredWithPrev:
+            sameSenderAs(prev) &&
+            sameCalendarDay(prev!.createdAt, m.createdAt) &&
+            createdAt - new Date(prev!.createdAt).getTime() < CLUSTER_WINDOW_MS,
+          clusteredWithNext:
+            sameSenderAs(next) &&
+            sameCalendarDay(next!.createdAt, m.createdAt) &&
+            new Date(next!.createdAt).getTime() - createdAt < CLUSTER_WINDOW_MS,
+        };
+      }),
+    [visibleMessages, isSectionChat]
+  );
   const visibleMessagesLoading = Boolean(activeConvId) && (
     messagesLoading || messagesConvId !== activeConvId
   );
@@ -1190,118 +1679,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             </div>
           )
         ) : (
-          conversations.map((conv) => {
-            const active = activeConvId === conv.id;
-            const unread = (conv.unreadCount || 0) > 0;
-            return (
-              <div
-                key={conv.id}
-                className={cn(
-                  'group/conv relative flex items-stretch overflow-hidden border-l-2',
-                  active
-                    ? 'bg-white dark:bg-[#141417] border-l-neutral-900 dark:border-l-neutral-100'
-                    : 'border-l-transparent hover:bg-white/70 dark:hover:bg-white/[0.03]'
-                )}
-              >
-                <button
-                  onClick={() => {
-                    setAttachedRequest(null);
-                    setActiveConvId(conv.id);
-                  }}
-                  className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left cursor-pointer"
-                >
-                  {conv.type === 'section' ? (
-                    <div className={cn(
-                      'flex size-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold',
-                      unread
-                        ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
-                        : 'bg-neutral-200 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200'
-                    )}>
-                      <Reicon name="users" size={20} />
-                    </div>
-                  ) : (
-                    <ProfileAvatar
-                      src={conv.otherUser?.profilePictureUrl}
-                      name={userLabel(conv.otherUser)}
-                      className="size-10 text-[13px]"
-                    />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <span
-                          className={cn(
-                            'text-[13px] truncate',
-                            unread
-                              ? 'font-semibold text-neutral-900 dark:text-neutral-50'
-                              : 'font-medium text-neutral-800 dark:text-neutral-200'
-                          )}
-                        >
-                          {conv.type === 'section' ? classGroupLabel(conv.section) : userLabel(conv.otherUser)}
-                        </span>
-                        {conv.muted && (
-                          <Reicon name="bell" size={12} className="text-neutral-400 shrink-0 opacity-50" />
-                        )}
-                      </div>
-                      <div className="shrink-0 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
-                        {conv.lastMessageAt && (
-                          <span className="text-[10px] text-neutral-400 tabular-nums">
-                            {formatChatListTime(conv.lastMessageAt)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p
-                        className={cn(
-                          'text-[12px] truncate flex-1',
-                          unread
-                            ? 'text-neutral-700 dark:text-neutral-300'
-                            : 'text-neutral-500 dark:text-neutral-500'
-                        )}
-                      >
-                        {conv.type === 'section'
-                          ? (messagePreviewText(conv.lastMessagePreview || '', `${conv.memberCount || 0} classmates`))
-                          : (messagePreviewText(conv.lastMessagePreview || '', 'No messages yet'))}
-                      </p>
-                      <div className="flex shrink-0 items-center gap-2 transition-[margin] duration-200 ease-out group-hover/conv:mr-7 group-focus-within/conv:mr-7 motion-reduce:transition-none">
-                        {conv.type === 'section' && conv.memberCount ? (
-                          <span className="text-[10px] text-neutral-400 tabular-nums">
-                            {conv.memberCount}
-                          </span>
-                        ) : null}
-                        {!isUnknownSection(conv.otherUser?.section) && conv.otherUser?.section && (
-                          <span className="text-[10px] text-neutral-400">
-                            {conv.otherUser.section}
-                          </span>
-                        )}
-                        {unread && (
-                          <span className="flex h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full bg-neutral-900 px-1 text-[9px] font-bold tabular-nums text-white dark:bg-white dark:text-neutral-900">
-                            {conv.unreadCount! > 9 ? '9+' : conv.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleDeleteConversation(conv.id)}
-                  disabled={deletingConvId === conv.id}
-                  title={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
-                  aria-label={conv.type === 'section' ? `Leave ${classGroupLabel(conv.section)}` : 'Delete conversation'}
-                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 translate-x-2 rounded-md bg-white/95 p-1.5 text-neutral-400 opacity-0 shadow-2xs transition-all duration-200 hover:bg-rose-50 hover:text-rose-600 focus-visible:translate-x-0 focus-visible:opacity-100 disabled:opacity-50 group-hover/conv:translate-x-0 group-hover/conv:opacity-100 group-focus-within/conv:translate-x-0 group-focus-within/conv:opacity-100 dark:bg-[#141417]/95 dark:hover:bg-rose-950/40 dark:hover:text-rose-400"
-                >
-                  {deletingConvId === conv.id ? (
-                    <Ring className="size-3.5" />
-                  ) : conv.type === 'section' ? (
-                    <Reicon name="logout" size={14} />
-                  ) : (
-                    <Reicon name="trash-2" size={14} />
-                  )}
-                </button>
-              </div>
-            );
-          })
+          conversations.map((conv) => (
+            <ConversationRow
+              key={conv.id}
+              conv={conv}
+              active={activeConvId === conv.id}
+              deleting={deletingConvId === conv.id}
+              onOpen={handleOpenConversation}
+              onDelete={handleDeleteConversation}
+            />
+          ))
         )}
       </div>
     </div>
@@ -1510,242 +1897,21 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
         ) : (
           <div className="space-y-1">
             {visibleMessages.map((m, idx) => {
-              const isMine = Boolean(m.isMine);
-              const isPending = String(m.id).startsWith('temp_');
-              const isSectionChat = activeConv?.type === 'section';
-              const isImage =
-                m.mimeType?.startsWith('image/') ||
-                Boolean(m.originalFilename?.match(/\.(jpg|jpeg|png|webp|gif)$/i)) ||
-                Boolean(m.attachmentUrl?.match(/\.(jpg|jpeg|png|webp|gif)$/i));
-              const prev = visibleMessages[idx - 1];
-              const next = visibleMessages[idx + 1];
-              const showDay = !prev || !sameCalendarDay(prev.createdAt, m.createdAt);
-              const sameSenderAs = (other?: Message | null) =>
-                Boolean(
-                  other &&
-                    Boolean(other.isMine) === isMine &&
-                    (!isSectionChat || other.senderId === m.senderId)
-                );
-              const clusteredWithPrev =
-                sameSenderAs(prev) &&
-                sameCalendarDay(prev!.createdAt, m.createdAt) &&
-                new Date(m.createdAt).getTime() - new Date(prev!.createdAt).getTime() < 5 * 60 * 1000;
-              const clusteredWithNext =
-                sameSenderAs(next) &&
-                sameCalendarDay(next!.createdAt, m.createdAt) &&
-                new Date(next!.createdAt).getTime() - new Date(m.createdAt).getTime() < 5 * 60 * 1000;
-              const timeStr = new Date(m.createdAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              });
-              const senderLabel =
-                m.senderName?.trim() ||
-                'Student';
-              const showSenderName = isSectionChat && !isMine && !clusteredWithPrev;
-
+              const meta = rowMeta[idx];
               return (
-                <React.Fragment key={m.id}>
-                  {showDay && (
-                    <div className="flex justify-center py-3">
-                      <span className="text-[10px] font-medium text-neutral-400 bg-neutral-200/50 dark:bg-neutral-800/60 px-2.5 py-0.5 rounded-full">
-                        {formatChatDayLabel(m.createdAt)}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    className={cn(
-                      'flex w-full flex-col',
-                      isMine ? 'items-end' : 'items-start',
-                      clusteredWithPrev ? 'mt-0.5' : 'mt-2.5'
-                    )}
-                  >
-                    {showSenderName && (
-                      <div className="mb-1 flex max-w-[78%] items-center gap-1.5 px-1 sm:max-w-[62%]">
-                        <ProfileAvatar
-                          src={m.senderProfilePictureUrl}
-                          name={senderLabel}
-                          className="size-5 text-[8px]"
-                        />
-                        <span className="truncate text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                          {senderLabel}
-                        </span>
-                      </div>
-                    )}
-                    <div
-                      className={cn(
-                        'max-w-[78%] sm:max-w-[62%] px-3 py-2 text-[13px] leading-relaxed relative group',
-                        isMine
-                          ? 'bg-neutral-900 text-neutral-50 dark:bg-[#e8e6e1] dark:text-neutral-900'
-                          : 'bg-white text-neutral-900 dark:bg-[#1a1a1e] dark:text-neutral-100 border border-neutral-200/80 dark:border-neutral-800',
-                        !clusteredWithPrev && !clusteredWithNext && 'rounded-2xl',
-                        !clusteredWithPrev && clusteredWithNext && isMine && 'rounded-2xl rounded-br-md',
-                        !clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-2xl rounded-bl-md',
-                        clusteredWithPrev && !clusteredWithNext && isMine && 'rounded-2xl rounded-tr-md',
-                        clusteredWithPrev && !clusteredWithNext && !isMine && 'rounded-2xl rounded-tl-md',
-                        clusteredWithPrev && clusteredWithNext && isMine && 'rounded-md rounded-tr-md rounded-br-md',
-                        clusteredWithPrev && clusteredWithNext && !isMine && 'rounded-md rounded-tl-md rounded-bl-md',
-                        isPending && 'opacity-70'
-                      )}
-                    >
-                      {!isPending && (
-                        <>
-                          <button
-                            onClick={() => setReplyingTo(m)}
-                            title="Reply to message"
-                            aria-label="Reply to message"
-                            className={cn(
-                              'absolute top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all cursor-pointer opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
-                              isMine ? '-left-9' : '-right-9'
-                            )}
-                          >
-                            <Reicon name="arrow-left" size={14} />
-                          </button>
-                          {isMine && (
-                            <button
-                              onClick={() => handleDeleteMessage(m.id)}
-                              disabled={deletingMessageId === m.id}
-                              title="Delete message"
-                              aria-label="Delete message"
-                              className="absolute -left-[4.25rem] top-1/2 -translate-y-1/2 p-1 rounded-full text-neutral-400 hover:text-rose-600 dark:hover:text-rose-400 transition-all cursor-pointer disabled:opacity-50 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-                            >
-                              {deletingMessageId === m.id ? (
-                                <Ring className="size-3.5" />
-                              ) : (
-                                <Reicon name="trash-2" size={14} />
-                              )}
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {m.requestRef && (
-                        <div className={cn(
-                          "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 not-italic opacity-90",
-                          isMine
-                            ? "border-white/35 dark:border-black/30"
-                            : "border-neutral-200 dark:border-neutral-700"
-                        )}>
-                          <div className="font-medium flex items-center gap-1">
-                            <Reicon name="heart-handshake" size={12} className="shrink-0 opacity-80" />
-                            <span>
-                              Request
-                              {m.requestRef.category ? ` · ${m.requestRef.category}` : ''}
-                            </span>
-                          </div>
-                          <div className="font-semibold mt-0.5 leading-snug">
-                            {m.requestRef.title}
-                          </div>
-                          {m.requestRef.content.trim() && (
-                            <div className="line-clamp-2 mt-0.5 opacity-80">
-                              {m.requestRef.content}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {m.replyTo && (
-                        <div className={cn(
-                          "text-[11px] mb-2 pb-1.5 border-l-2 pl-2 italic opacity-70",
-                          isMine
-                            ? "border-white/30 dark:border-black/30"
-                            : "border-neutral-200 dark:border-neutral-700"
-                        )}>
-                          <div className="font-medium">{m.replyTo.senderName || 'User'}</div>
-                          <div className="line-clamp-2">{m.replyTo.content || '[attachment]'}</div>
-                        </div>
-                      )}
-
-                      {m.attachmentUrl && (
-                        <div className="mb-1.5 rounded-xl overflow-hidden">
-                          {isImage ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPreviewMedia({
-                                  url: m.attachmentUrl!,
-                                  name: m.originalFilename || 'Image',
-                                })
-                              }
-                              className="block w-full cursor-pointer"
-                            >
-                              {m.attachmentUrl.startsWith('blob:') ? (
-                                <img
-                                  src={m.attachmentUrl}
-                                  alt=""
-                                  className="w-full h-auto object-cover max-h-52 rounded-lg"
-                                />
-                              ) : (
-                                <AuthenticatedImage
-                                  src={m.attachmentUrl}
-                                  alt=""
-                                  className="w-full h-auto object-cover max-h-52 rounded-lg"
-                                />
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  const res = await apiFetch(m.attachmentUrl!);
-                                  if (!res.ok) throw new Error('Download failed');
-                                  const blob = await res.blob();
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = m.originalFilename || 'file';
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                } catch {
-                                  window.open(m.attachmentUrl!, '_blank', 'noopener,noreferrer');
-                                }
-                              }}
-                              className={cn(
-                                'flex items-center gap-2 px-2 py-2 rounded-lg text-[12px] font-medium w-full text-left cursor-pointer',
-                                isMine
-                                  ? 'bg-white/10 dark:bg-black/10'
-                                  : 'bg-neutral-100 dark:bg-neutral-900'
-                              )}
-                            >
-                              <Reicon name="file-text" size={16} className="w-4 h-4 shrink-0 opacity-70" />
-                              <span className="truncate flex-1">{m.originalFilename || 'Document'}</span>
-                              <Reicon name="download" size={14} className="w-3.5 h-3.5 shrink-0 opacity-70" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="flex items-end gap-2">
-                        {(m.displayContent ?? m.content) && (
-                          <MarkdownRenderer
-                            content={m.displayContent ?? m.content}
-                            className="break-words leading-relaxed flex-1 text-[13px]"
-                          />
-                        )}
-                        {!clusteredWithNext && (
-                          <span
-                            className={cn(
-                              'text-[10px] shrink-0 tabular-nums self-end mb-px opacity-50 flex items-center gap-1',
-                              isMine ? 'text-neutral-300 dark:text-neutral-600' : 'text-neutral-500'
-                            )}
-                          >
-                            {isPending ? 'Sending' : timeStr}
-                            {isMine && !isPending && m.readBy && m.readBy.length > 0 && (
-                              <span title={`Read by ${m.readBy.length}`}>
-                                <Reicon name="check" size={12} />
-                              </span>
-                            )}
-                            {isMine && !isPending && (!m.readBy || m.readBy.length === 0) && (
-                              <span title="Sent">
-                                <Reicon name="check" size={12} />
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </React.Fragment>
+                <MessageRow
+                  key={m.id}
+                  m={m}
+                  showDay={meta.showDay}
+                  clusteredWithPrev={meta.clusteredWithPrev}
+                  clusteredWithNext={meta.clusteredWithNext}
+                  isSectionChat={isSectionChat}
+                  deleting={deletingMessageId === m.id}
+                  onReply={setReplyingTo}
+                  onDelete={handleDeleteMessage}
+                  onPreview={setPreviewMedia}
+                  onMediaReady={handleMediaReady}
+                />
               );
             })}
           </div>
@@ -1756,7 +1922,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
           <button
             onClick={() => {
               stickToBottomRef.current = true;
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              scrollToBottom('smooth');
             }}
             aria-label="Scroll to bottom"
             className="sticky bottom-2 left-full -translate-x-10 z-30 p-2 rounded-full bg-white dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-700 shadow-sm hover:text-neutral-900 dark:hover:text-white cursor-pointer"
@@ -2085,28 +2251,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({ userSection, current
             )}
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  if (previewMedia.url.startsWith('blob:')) {
-                    const a = document.createElement('a');
-                    a.href = previewMedia.url;
-                    a.download = previewMedia.name;
-                    a.click();
-                    return;
-                  }
-                  const res = await apiFetch(previewMedia.url);
-                  if (!res.ok) throw new Error('Download failed');
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = previewMedia.name;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {
-                  window.open(previewMedia.url, '_blank', 'noopener,noreferrer');
-                }
-              }}
+              onClick={() => void downloadAttachment(previewMedia.url, previewMedia.name)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 text-xs font-semibold hover:opacity-90 transition-opacity shadow-2xs cursor-pointer"
             >
               <Reicon name="download" size={16} className="w-4 h-4" />

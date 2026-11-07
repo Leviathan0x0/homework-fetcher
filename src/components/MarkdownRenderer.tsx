@@ -6,7 +6,7 @@ interface MarkdownRendererProps {
   className?: string;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className }) => {
+const MarkdownRendererImpl: React.FC<MarkdownRendererProps> = ({ content, className }) => {
   if (!content) return null;
 
   // Split code blocks first
@@ -34,7 +34,8 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
 
   const parseInlineStyles = (str: string): React.ReactNode => {
     // Tokens for inline elements: `code`, **bold**, *italic*, ~~strikethrough~~, [link](url)
-    const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|__[^_]+__|~~[^~]+~~|\*[^*]+\*|_[^_]+_|\[[^\]]+\]\([^)]+\))/g;
+    // Underscore emphasis needs word boundaries so snake_case names stay intact.
+    const tokenRegex = /(`[^`]+`|\*\*[^*]+\*\*|(?<!\w)__[^_]+__(?!\w)|~~[^~]+~~|\*(?!\s)[^*]+(?<!\s)\*|(?<!\w)_[^_]+_(?!\w)|\[[^\]]+\]\([^)]+\))/g;
     const tokens = str.split(tokenRegex);
 
     return tokens.map((token, index) => {
@@ -137,3 +138,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
     </div>
   );
 };
+
+// Chat rows re-render on every keystroke in the composer; parsing is pure in
+// (content, className), so skip it unless they change.
+export const MarkdownRenderer = React.memo(MarkdownRendererImpl);

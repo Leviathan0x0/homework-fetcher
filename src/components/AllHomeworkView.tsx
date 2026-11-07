@@ -1,7 +1,8 @@
-import React, { useRef, useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect, useDeferredValue } from 'react';
 import { HomeworkEntry, ClassworkEntry, SectionRequest } from '../types/homework';
 import { formatToISODate, parseHomeworkDate, RECENT_HOMEWORK_WINDOW_DAYS } from '../utils/dateUtils';
-import { detectSubject, homeworkSubjectName, CANONICAL_SUBJECT_NAMES } from '../utils/subjectDetector';
+import { homeworkSubjectName, CANONICAL_SUBJECT_NAMES } from '../utils/subjectDetector';
+import { getHomeworkEntryId as getEntryId } from '../utils/homeworkEntryId';
 import { usePagination } from '../hooks/usePagination';
 import { classworkService, requestService } from '../services/api';
 import { HomeworkCard } from './HomeworkCard';
@@ -35,13 +36,6 @@ interface AllHomeworkViewProps {
   onNavigate?: (view: string) => void;
 }
 
-const getEntryId = (item: HomeworkEntry) => {
-  if (!item) return '';
-  const d = item.date || '';
-  const hw = item.homework || '';
-  return item.id || `${d}_${detectSubject(hw).name}_${hw.slice(0, 30)}`;
-};
-
 export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   homework,
   isLoading,
@@ -65,7 +59,13 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
   const [requests, setRequests] = useState<SectionRequest[]>([]);
   const [isSupportingContentLoading, setIsSupportingContentLoading] = useState(true);
 
+  const q = useDeferredValue(searchQuery).toLowerCase().trim();
+  const hasQuery = q.length > 0;
+  const fetchedSectionRef = useRef<string | undefined | null>(null);
+
+  // Classwork/requests are only searched for a non-empty query, so fetch them lazily on first search.
   useEffect(() => {
+    if (!hasQuery || fetchedSectionRef.current === (userSection ?? undefined)) return;
     let cancelled = false;
     setIsSupportingContentLoading(true);
     (async () => {
@@ -77,9 +77,11 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
         if (!cancelled) {
           setClasswork(cw as ClassworkEntry[]);
           setRequests(reqs as SectionRequest[]);
+          fetchedSectionRef.current = userSection ?? undefined;
         }
       } catch {
         // Search extras are best-effort.
+        if (!cancelled) fetchedSectionRef.current = userSection ?? undefined;
       } finally {
         if (!cancelled) setIsSupportingContentLoading(false);
       }
@@ -87,7 +89,7 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [userSection]);
+  }, [userSection, hasQuery]);
 
   const validHomework = useMemo(() => (Array.isArray(homework) ? homework.filter(Boolean) : []), [homework]);
 
@@ -95,8 +97,6 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
     const fromData = validHomework.map((item) => homeworkSubjectName(item));
     return Array.from(new Set(['School Diary', ...CANONICAL_SUBJECT_NAMES, ...fromData]));
   }, [validHomework]);
-
-  const q = searchQuery.toLowerCase().trim();
 
   const filtered = useMemo(() => {
     let result = [...validHomework];
@@ -177,23 +177,27 @@ export const AllHomeworkView: React.FC<AllHomeworkViewProps> = ({
 
   const { displayedItems, hasMore, isLoadingMore, loadMore, visibleCount, totalCount } = usePagination(filtered, 25);
 
-  const grouped: { date: string; entries: HomeworkEntry[] }[] = [];
-  const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
-
-  for (const item of displayedItems) {
-    const d = item.date || 'School Diary';
-    if (!map.has(d)) {
-      const groupObj = { date: d, entries: [] as HomeworkEntry[] };
-      map.set(d, groupObj);
-      grouped.push(groupObj);
+  const grouped = useMemo(() => {
+    const groups: { date: string; entries: HomeworkEntry[] }[] = [];
+    const map = new Map<string, { date: string; entries: HomeworkEntry[] }>();
+    for (const item of displayedItems) {
+      const d = item.date || 'School Diary';
+      let group = map.get(d);
+      if (!group) {
+        group = { date: d, entries: [] };
+        map.set(d, group);
+        groups.push(group);
+      }
+      group.entries.push(item);
     }
-    map.get(d)!.entries.push(item);
-  }
+    return groups;
+  }, [displayedItems]);
 
   const hasAnyResults =
     grouped.length > 0 || matchedClasswork.length > 0 || matchedRequests.length > 0;
+  // Show homework matches right away; only wait for classwork/requests when nothing else could be shown.
   const isResultLoading =
-    isLoading || (Boolean(q) && isSupportingContentLoading);
+    isLoading || (hasQuery && isSupportingContentLoading && grouped.length === 0);
 
   return (
     <div className="space-y-6">

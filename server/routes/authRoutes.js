@@ -702,6 +702,24 @@ router.post("/password-reset", rateLimit({ name: "password-reset-redeem", window
   }
 });
 
+// Each repair scrapes two EduSecure pages, and /me is polled while a profile
+// is incomplete, so a user gets at most one attempt per cooldown.
+const PROFILE_REPAIR_COOLDOWN_MS = 30 * 1000;
+const profileRepairs = new Map();
+
+function claimProfileRepair(userId) {
+  const now = Date.now();
+  const last = profileRepairs.get(userId);
+  if (last && now - last < PROFILE_REPAIR_COOLDOWN_MS) return false;
+  if (profileRepairs.size > 1000) {
+    for (const [id, at] of profileRepairs) {
+      if (now - at >= PROFILE_REPAIR_COOLDOWN_MS) profileRepairs.delete(id);
+    }
+  }
+  profileRepairs.set(userId, now);
+  return true;
+}
+
 // GET /api/auth/me
 router.get("/me", async (req, res) => {
   const startedAt = Date.now();
@@ -725,7 +743,7 @@ router.get("/me", async (req, res) => {
   // A missing name or section is optional profile data, not an authentication
   // requirement. Repair it in the background so session validation stays fast,
   // while the client can retry this endpoint until the name is available.
-  if (!isAdmin && !isTeacher && (isUnknownSection(section) || !displayName)) {
+  if (!isAdmin && !isTeacher && (isUnknownSection(section) || !displayName) && claimProfileRepair(activeSession.user.id)) {
     void (async () => {
       try {
         const eduSession = await sessionService.getEduSecureSession(activeSession.user.id);
@@ -843,7 +861,9 @@ router.get("/profile/picture/:userId", async (req, res) => {
     return res.status(404).json({ error: "Profile picture is unavailable." });
   }
   res.setHeader("Content-Type", picture.mimeType);
-  res.setHeader("Cache-Control", "private, no-store");
+  // The URL carries the picture's version (?v=updatedAt), so a changed picture
+  // is a new URL and the bytes can be reused from the browser cache.
+  res.setHeader("Cache-Control", "private, max-age=86400");
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
   return res.send(buffer);

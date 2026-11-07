@@ -36,26 +36,35 @@ const PORTAL_TIMEOUT_MS = 15_000;
  * of letting them surface as an authentication failure.
  */
 async function portalFetch(url, options, step) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), PORTAL_TIMEOUT_MS);
   try {
     // Login is an ASP.NET WebForms handshake: its POST cannot exist until the
     // preceding GET supplies ViewState and EventValidation. Hide only these
     // automatic child spans from the consecutive-HTTP detector while the
     // enclosing login transaction continues to record the total latency.
     return await withoutPerformanceTracing(() =>
-      fetch(url, { ...options, signal: controller.signal })
+      fetch(url, { ...options, signal: AbortSignal.timeout(PORTAL_TIMEOUT_MS) })
     );
   } catch (err) {
-    const reason = err?.name === "AbortError"
+    const reason = err?.name === "AbortError" || err?.name === "TimeoutError"
       ? `it did not answer within ${PORTAL_TIMEOUT_MS / 1000}s`
       : err.message;
     throw new EduSecureAuthError(
       `Could not reach the school portal while ${step} (${reason}). The server hosting this app may not be allowed to make outbound requests to edusecure.in.`,
       "portal_unreachable"
     );
-  } finally {
-    clearTimeout(timeout);
+  }
+}
+
+/** Reads a portal body, reporting a stalled or dropped download as unreachable. */
+async function portalText(response, step) {
+  try {
+    return await response.text();
+  } catch (err) {
+    const timedOut = err?.name === "AbortError" || err?.name === "TimeoutError";
+    throw new EduSecureAuthError(
+      `Could not read the school portal response while ${step} (${timedOut ? `it did not finish within ${PORTAL_TIMEOUT_MS / 1000}s` : err.message}).`,
+      "portal_unreachable"
+    );
   }
 }
 
@@ -131,7 +140,7 @@ async function loginToEduSecureWithoutTiming(studentId, password) {
   const getSetCookies = getRes.headers.getSetCookie ? getRes.headers.getSetCookie() : [];
   extractCookies(getSetCookies, cookieMap);
 
-  const html = await getRes.text();
+  const html = await portalText(getRes, "loading the login page");
   const $ = cheerio.load(html);
 
   const viewState = $("#__VIEWSTATE").val() || "";
@@ -193,7 +202,7 @@ async function loginToEduSecureWithoutTiming(studentId, password) {
       const postSetCookies = postRes.headers.getSetCookie ? postRes.headers.getSetCookie() : [];
       extractCookies(postSetCookies, trialCookieMap);
 
-      const postHtml = await postRes.text();
+      const postHtml = await portalText(postRes, "signing in");
 
       const isInvalid = postHtml.includes("Invalid username and password") || 
                         postHtml.includes("Invalid username") || 
@@ -214,7 +223,10 @@ async function loginToEduSecureWithoutTiming(studentId, password) {
       }
     } catch (err) {
       if (err instanceof EduSecureAuthError && err.code === "portal_unreachable") {
+        // The portal is down or stalled: trying every remaining session year
+        // would only repeat the same wait for each of them.
         portalUnreachableError = err;
+        break;
       }
     }
   }

@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
+import { GlassScene, GlassSurface } from '@glass-sdk/liquid-glass';
 import { Reicon, type ReiconName } from './ui/reicon';
+import { VIEW_GLASS_COLORS } from './app-sidebar';
 import { cn } from '../utils/cn';
 import type { ViewType } from '../types/homework';
 
@@ -108,7 +110,22 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 }) => {
   const viewportBottomOffset = useVisualViewportBottomOffset(activeView);
   const [mounted, setMounted] = useState(false);
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== 'undefined' ? document.documentElement.classList.contains('dark') : false
+  );
   const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -156,95 +173,106 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const items = role === 'admin' ? adminItems : role === 'teacher' ? teacherItems : studentItems;
 
   const nav = (
-    <nav
-      aria-label="Mobile Navigation"
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 flex justify-center px-3.5 pointer-events-none"
-      style={{
-        bottom: viewportBottomOffset,
-        paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0px))',
-        transform: 'translateZ(0)',
-      }}
-    >
-      <div
-        className={cn(
-          'pointer-events-auto flex items-center justify-between gap-1 p-1.5 rounded-full',
-          'bg-white/95 dark:bg-[#151518]/95 backdrop-blur-2xl',
-          'border border-neutral-200/90 dark:border-white/[0.08]',
-          'shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_6px_rgba(15,23,42,0.08)]',
-          'dark:shadow-[0_8px_32px_rgba(0,0,0,0.38),0_2px_6px_rgba(0,0,0,0.2)]',
-          'select-none'
-        )}
+    <GlassScene material="regular" appearance={isDark ? 'dark' : 'light'} className="contents">
+      <nav
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed inset-x-0 bottom-0 z-40 flex justify-center px-3.5 pointer-events-none"
+        style={{
+          bottom: viewportBottomOffset,
+          paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom, 0px))',
+          transform: 'translateZ(0)',
+        }}
       >
-        <LayoutGroup id="mobile-floating-dock">
-          {items.map((item) => {
-            const isActive = activeView === item.id;
+        <GlassSurface
+          radius="capsule"
+          interactive
+          material="regular"
+          className={cn(
+            'pointer-events-auto flex items-center justify-between gap-1 p-1.5 rounded-full',
+            'bg-white/70 dark:bg-[#121215]/75 backdrop-blur-2xl backdrop-saturate-180',
+            'border border-white/60 dark:border-white/12',
+            'shadow-[0_12px_40px_-4px_rgba(15,23,42,0.18),inset_0_1.5px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.06),0_0_0_1px_rgba(255,255,255,0.3)]',
+            'dark:shadow-[0_12px_40px_-4px_rgba(0,0,0,0.65),inset_0_1.5px_1px_rgba(255,255,255,0.22),inset_0_-1px_1px_rgba(0,0,0,0.4),0_0_0_1px_rgba(255,255,255,0.06)]',
+            'select-none'
+          )}
+        >
+          <LayoutGroup id="mobile-floating-dock">
+            {items.map((item) => {
+              const isActive = activeView === item.id;
+              const glassColor = VIEW_GLASS_COLORS[item.id] || '#3B82F6';
 
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onViewChange(item.id)}
-                aria-current={isActive ? 'page' : undefined}
-                aria-label={item.label}
-                className={cn(
-                  'relative h-10 flex items-center justify-center rounded-full',
-                  'cursor-pointer touch-manipulation transition-colors duration-150',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50 dark:focus-visible:ring-white/40',
-                  isActive ? 'px-3.5' : 'w-10'
-                )}
-              >
-                {isActive && (
-                  <motion.span
-                    layoutId="dock-active-pill"
-                    transition={prefersReducedMotion ? { duration: 0 } : dockSpring}
-                    style={{ borderRadius: 9999 }}
-                    aria-hidden
-                    className="absolute inset-0 bg-neutral-900 dark:bg-white shadow-xs pointer-events-none"
-                  />
-                )}
-
-                <div className="relative z-[1] flex items-center gap-1.5">
-                  <Reicon
-                    name={item.iconName}
-                    size={19}
-                    className={cn(
-                      'shrink-0 transition-colors duration-150',
-                      isActive
-                        ? 'text-white dark:text-neutral-950'
-                        : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
-                    )}
-                  />
-
-                  {item.badge !== undefined && (
-                    <span
-                      className={cn(
-                        'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs',
-                        isActive
-                          ? 'bg-white text-neutral-950 dark:bg-neutral-950 dark:text-white'
-                          : 'bg-rose-500 text-white'
-                      )}
-                    >
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onViewChange(item.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-label={item.label}
+                  className={cn(
+                    'relative h-10 flex items-center justify-center rounded-full',
+                    'cursor-pointer touch-manipulation transition-colors duration-150',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400/50 dark:focus-visible:ring-white/40',
+                    isActive ? 'px-3.5' : 'w-10'
                   )}
-
+                >
                   {isActive && (
                     <motion.span
-                      initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
-                      className="text-xs font-semibold tracking-tight whitespace-nowrap text-white dark:text-neutral-950"
-                    >
-                      {item.label}
-                    </motion.span>
+                      layoutId="dock-active-pill"
+                      transition={prefersReducedMotion ? { duration: 0 } : dockSpring}
+                      style={{
+                        borderRadius: 9999,
+                        boxShadow: `0 2px 10px -1px ${glassColor}40, inset 0 1px 1px rgba(255,255,255,0.25)`,
+                      }}
+                      aria-hidden
+                      className="absolute inset-0 bg-neutral-900/95 dark:bg-white/95 dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)] pointer-events-none"
+                    />
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </LayoutGroup>
-      </div>
-    </nav>
+
+                  <div className="relative z-[1] flex items-center gap-1.5">
+                    <Reicon
+                      name={item.iconName}
+                      size={20}
+                      isGlass={isActive}
+                      color={isActive ? glassColor : undefined}
+                      className={cn(
+                        'shrink-0 transition-colors duration-150',
+                        isActive
+                          ? 'filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]'
+                          : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-200'
+                      )}
+                    />
+
+                    {item.badge !== undefined && (
+                      <span
+                        className={cn(
+                          'absolute -top-1.5 -right-2 min-w-[14px] h-3.5 px-1 rounded-full text-[9px] font-bold tabular-nums flex items-center justify-center leading-none shadow-xs',
+                          isActive
+                            ? 'bg-white text-neutral-950 dark:bg-neutral-950 dark:text-white'
+                            : 'bg-rose-500 text-white'
+                        )}
+                      >
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+
+                    {isActive && (
+                      <motion.span
+                        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.15, ease: 'easeOut' }}
+                        className="text-xs font-semibold tracking-tight whitespace-nowrap text-white dark:text-neutral-950"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </LayoutGroup>
+        </GlassSurface>
+      </nav>
+    </GlassScene>
   );
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(nav, document.body);

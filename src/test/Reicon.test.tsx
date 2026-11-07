@@ -98,6 +98,39 @@ describe('Reicon', () => {
     expect(svg).toBeInTheDocument();
     expect(svg).toHaveAttribute('viewBox', '0 0 24 24');
   });
+
+  it('renders glass icon from reicon.dev when isGlass is set', () => {
+    const { container } = render(<Reicon name="calendar-check" isGlass size={18} />);
+    const svg = container.querySelector('svg');
+
+    expect(svg).toBeInTheDocument();
+    expect(svg).toHaveClass('reicon-glass');
+    expect(svg).toHaveAttribute('viewBox', '0 0 240 240');
+    expect(svg).toHaveAttribute('width', '18');
+    expect(svg).toHaveAttribute('height', '18');
+    expect(container.innerHTML).toContain('mask="url(#glyph_');
+    expect(container.innerHTML).toContain('filter="url(#engrave_');
+    expect(container.innerHTML).toContain('id="ink_');
+  });
+
+  it('renders glass icon when weight="Glass" is set', () => {
+    const { container } = render(<Reicon name="layers" weight="Glass" size={24} />);
+    const svg = container.querySelector('svg');
+
+    expect(svg).toBeInTheDocument();
+    expect(svg).toHaveClass('reicon-glass');
+    expect(svg).toHaveAttribute('viewBox', '0 0 240 240');
+    expect(container.innerHTML).toContain('reicon-glass');
+  });
+
+  it('supports custom colors and authentic gradient palette for glass icons', () => {
+    const { container } = render(<Reicon name="settings" isGlass color="#3b82f6" />);
+    const svg = container.querySelector('svg');
+
+    expect(svg).toBeInTheDocument();
+    // Check that radialGradient stops were derived from the custom color
+    expect(container.innerHTML).toContain('<stop');
+  });
 });
 
 describe('Reillustration', () => {

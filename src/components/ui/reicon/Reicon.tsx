@@ -1,220 +1,26 @@
 import React from 'react';
-import {
-  Activity,
-  Add,
-  AddCircle,
-  AlertCircle,
-  AlertTriangle,
-  AlertTriangle2,
-  AnglesLeft,
-  AnglesRight,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
-  ArrowUpRight,
-  Bell,
-  BellRing,
-  Box,
-  Bullhorn,
-  Calendar,
-  CalendarCheck,
-  CalendarDays,
-  Camera,
-  ChatLine,
-  Check,
-  CheckCircle,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ClipboardList,
-  Clock,
-  CloseSquare,
-  Cloud,
-  CloudUpload,
-  Code,
-  Confetti,
-  CreditCard,
-  DocumentText,
-  Download,
-  Edit,
-  Eye,
-  EyeOff,
-  File,
-  FileText,
-  Filter,
-  Flag,
-  Folder,
-  FolderOpen,
-  Globe,
-  GraduationCap,
-  Handshake,
-  Image,
-  Inbox,
-  InfoCircle,
-  Key,
-  KeySquare,
-  Layers,
-  Loader as ReiconLoader,
-  Lock,
-  Logout,
-  Mailbox,
-  MessageCircle,
-  MessageSquare,
-  Mobile,
-  Monitor,
-  Moon as ReiconMoon,
-  More,
-  MoreCircle,
-  PaperPlane,
-  Paperclip,
-  Pen,
-  Refresh,
-  Refresh2,
-  Search,
-  Send as ReiconSend,
-  Settings,
-  Share,
-  ShieldCheck,
-  SidebarLeft,
-  Sparkles,
-  Sun,
-  Trash,
-  Trash2,
-  TrendUp,
-  Upload,
-  User,
-  UserCheck,
-  UserCircle,
-  UserEdit,
-  UserX,
-  Users,
-  VolumeX,
-  WifiOff,
-  Xmark,
-} from 'reicon-react';
+import { Loader as ReiconLoader, File } from 'reicon-react';
 import { cn } from '../../../utils/cn';
-import { FolderFilesDuotone } from './duotone';
-import { ZoomInIcon, ZoomOutIcon } from './zoom-icons';
-import type { ReiconName, ReiconPreset, ReiconProps } from './types';
+import {
+  REICON_MAP,
+  HUGEICONS_MAP,
+  REICON_FILLED_MAP,
+  REICON_COMPONENT_MAP,
+  ReiconPlaneFilledIcon,
+  PaperPlaneFilledIcon,
+} from './map';
+import { ReiconGlass } from './glass';
+import type { ReiconPreset, ReiconProps } from './types';
 
-export const ReiconPlaneFilledIcon = ReiconSend;
-export const PaperPlaneFilledIcon = PaperPlane;
-
-export const REICON_MAP: Record<ReiconName, React.ComponentType<any>> = {
-  calendar: Calendar,
-  'calendar-check': CalendarCheck,
-  'calendar-days': CalendarDays,
-  check: Check,
-  'circle-check': CheckCircle,
-  'circle-alert': AlertCircle,
-  'circle-plus': AddCircle,
-  'circle-user-round': UserCircle,
-  x: Xmark,
-  'alert-circle': AlertCircle,
-  'alert-triangle': AlertTriangle,
-  'triangle-alert': AlertTriangle2,
-  'octagon-x': CloseSquare,
-  info: InfoCircle,
-  search: Search,
-  'search-x': Search,
-  paperclip: Paperclip,
-  file: File,
-  'file-text': FileText,
-  image: Image,
-  download: Download,
-  eye: Eye,
-  'eye-off': EyeOff,
-  bell: Bell,
-  'bell-ring': BellRing,
-  settings: Settings,
-  refresh: Refresh,
-  'refresh-cw': Refresh2,
-  upload: Upload,
-  'upload-cloud': CloudUpload,
-  cloud: Cloud,
-  logout: Logout,
-  lock: Lock,
-  key: Key,
-  'key-round': KeySquare,
-  'shield-check': ShieldCheck,
-  'graduation-cap': GraduationCap,
-  'message-square': MessageSquare,
-  'message-circle': MessageCircle,
-  'chat-line': ChatLine,
-  megaphone: Bullhorn,
-  'heart-handshake': Handshake,
-  sparkles: Sparkles,
-  'party-popper': Confetti,
-  'wifi-off': WifiOff,
-  'chevron-left': ChevronLeft,
-  'chevron-right': ChevronRight,
-  'chevron-up': ChevronUp,
-  'chevron-down': ChevronDown,
-  'chevrons-left': AnglesLeft,
-  'chevrons-right': AnglesRight,
-  'user-x': UserX,
-  'arrow-left': ArrowLeft,
-  'arrow-right': ArrowRight,
-  'arrow-up': ArrowUp,
-  'arrow-down': ArrowDown,
-  'arrow-up-right': ArrowUpRight,
-  plus: Add,
-  pencil: Edit,
-  trash: Trash,
-  'trash-2': Trash2,
-  user: User,
-  users: Users,
-  'user-round': UserCircle,
-  'user-check': UserCheck,
-  'user-cog': UserEdit,
-  loader: ReiconLoader,
-  clock: Clock,
-  folder: Folder,
-  'folder-files': FolderFilesDuotone,
-  'folder-open': FolderOpen,
-  inbox: Inbox,
-  'external-link': ArrowUpRight,
-  filter: Filter,
-  'zoom-in': ZoomInIcon,
-  'zoom-out': ZoomOutIcon,
-  sun: Sun,
-  moon: ReiconMoon,
-  flag: Flag,
-  layers: Layers,
-  'clipboard-list': ClipboardList,
-  'scroll-text': DocumentText,
-  'credit-card': CreditCard,
-  'volume-x': VolumeX,
-  activity: Activity,
-  'notebook-pen': Pen,
-  github: Code,
-  globe: Globe,
-  linkedin: Share,
-  smartphone: Mobile,
-  monitor: Monitor,
-  cctv: Camera,
-  'more-horizontal': More,
-  'more-vertical': MoreCircle,
-  'ellipsis-vertical': MoreCircle,
-  'grip-vertical': More,
-  'columns-3': SidebarLeft,
-  'panel-left': SidebarLeft,
-  'sidebar-left': SidebarLeft,
-  'trending-up': TrendUp,
-  mail: Mailbox,
-  send: ReiconSend,
-  plane: PaperPlane,
-  share: Share,
-  box: Box,
-  code: Code,
+export {
+  REICON_MAP,
+  HUGEICONS_MAP,
+  REICON_FILLED_MAP,
+  REICON_COMPONENT_MAP,
+  ReiconPlaneFilledIcon,
+  PaperPlaneFilledIcon,
+  ReiconGlass,
 };
-
-// Backward compatibility alias (previously HUGEICONS_MAP)
-export const HUGEICONS_MAP = REICON_MAP;
-export const REICON_FILLED_MAP: Partial<Record<ReiconName, React.ComponentType<any>>> = {};
-export const REICON_COMPONENT_MAP = REICON_MAP;
 
 const PRESET_CLASSES: Record<ReiconPreset, string> = {
   bounce: 'transition-transform duration-200 active:scale-95',
@@ -240,6 +46,7 @@ export const Reicon = React.forwardRef<SVGSVGElement, ReiconProps>(
       isLoading,
       isActive: _isActive,
       isFilled,
+      isGlass,
       color,
       strokeWidth = 1.5,
       weight,
@@ -255,13 +62,34 @@ export const Reicon = React.forwardRef<SVGSVGElement, ReiconProps>(
     const numericSize = typeof size === 'number' ? size : Number.parseInt(String(size), 10) || 20;
     const numericStrokeWidth =
       typeof strokeWidth === 'number' ? strokeWidth : Number.parseFloat(String(strokeWidth)) || 1.5;
+    const isGlassWeight = Boolean(
+      !isSpinner && (isGlass || weight === 'Glass' || weight === 'glass')
+    );
     const isFilledWeight = Boolean(
-      isFilled || weight === 'Filled' || weight === 'filled' || weight === 'fill' || weight === 'solid'
+      !isGlassWeight &&
+        (isFilled || weight === 'Filled' || weight === 'filled' || weight === 'fill' || weight === 'solid')
     );
 
     const isHidden = ariaHidden !== undefined ? ariaHidden : ariaLabel ? undefined : true;
     const computedRole = role || (ariaLabel ? 'img' : undefined);
     const presetClass = isSpinner ? 'animate-spin' : preset !== 'none' ? PRESET_CLASSES[preset] : '';
+
+    if (isGlassWeight) {
+      return (
+        <ReiconGlass
+          ref={ref}
+          name={name}
+          size={numericSize}
+          color={color}
+          className={cn('inline-block shrink-0 align-middle select-none', presetClass, className)}
+          aria-hidden={isHidden}
+          aria-label={ariaLabel}
+          role={computedRole}
+          style={style}
+          {...props}
+        />
+      );
+    }
 
     const weightProp: 'Filled' | 'Outline' = isFilledWeight ? 'Filled' : 'Outline';
 

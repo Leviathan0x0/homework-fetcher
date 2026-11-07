@@ -4,3 +4,4 @@ export * from './icons';
 export * from './illustrations';
 export * from './Reicon';
 export * from './Reillustration';
+export * from './glass';

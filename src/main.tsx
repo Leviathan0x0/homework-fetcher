@@ -1,6 +1,7 @@
 import './sentry';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@glass-sdk/liquid-glass/styles.css';
 import './index.css';
 import App from './App.tsx';
 import { registerServiceWorker } from './registerServiceWorker';

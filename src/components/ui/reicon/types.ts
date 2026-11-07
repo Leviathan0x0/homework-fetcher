@@ -171,10 +171,18 @@ export interface ReiconProps extends React.SVGAttributes<SVGSVGElement> {
   isLoading?: boolean;
   isActive?: boolean;
   isFilled?: boolean;
+  isGlass?: boolean;
   color?: string;
   secondaryColor?: string;
   strokeWidth?: number | string;
-  weight?: string;
+  weight?: 'Outline' | 'Filled' | 'Glass' | string;
+}
+
+export interface ReiconGlassProps extends React.SVGAttributes<SVGSVGElement> {
+  name: ReiconName;
+  size?: number | string;
+  color?: string;
+  className?: string;
 }
 
 export type ReillustrationSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;

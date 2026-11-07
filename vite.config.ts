@@ -4,21 +4,26 @@ import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
 
 function expressApiDevPlugin() {
+  const handler = (req: any, res: any, next: any) => {
+    if (req.url && (req.url.startsWith('/api') || req.url.startsWith('/fetch-homework'))) {
+      try {
+        const expressApp = require('./server.js');
+        return expressApp(req, res, next);
+      } catch (err) {
+        console.error('Express Middleware Error:', err);
+        return next(err);
+      }
+    }
+    next();
+  };
+
   return {
     name: 'express-api-dev',
     configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
-        if (req.url && (req.url.startsWith('/api') || req.url.startsWith('/fetch-homework'))) {
-          try {
-            const expressApp = require('./server.js');
-            return expressApp(req, res, next);
-          } catch (err) {
-            console.error('Express Dev Server Error:', err);
-            return next(err);
-          }
-        }
-        next();
-      });
+      server.middlewares.use(handler);
+    },
+    configurePreviewServer(server: any) {
+      server.middlewares.use(handler);
     },
   };
 }

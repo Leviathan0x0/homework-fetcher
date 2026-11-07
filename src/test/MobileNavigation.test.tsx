@@ -110,8 +110,8 @@ describe('MobileNavigation', () => {
     const dock = navigation.firstElementChild as HTMLElement;
 
     expect(todayButton).toHaveAttribute('aria-current', 'page');
-    expect(dock.className).toContain('bg-white/95');
-    expect(dock.className).toContain('dark:bg-[#151518]/95');
+    expect(dock.className).toContain('bg-white/70');
+    expect(dock.className).toContain('dark:bg-[#121215]/75');
     // Spring pill is a motion.span with layoutId, rendered for the active tab only.
     expect(dock.querySelector('[style*="border-radius"]')).toBeInTheDocument();
     expect(todayButton.querySelector('.text-white')).toBeInTheDocument();
@@ -149,5 +149,47 @@ describe('MobileNavigation', () => {
 
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('9+')).toBeInTheDocument();
+  });
+
+  it('renders liquid glass surface container and 3D glass icon for the active tab', () => {
+    const { rerender } = render(
+      <MobileNavigation
+        activeView="today"
+        onViewChange={vi.fn()}
+        role="student"
+      />
+    );
+
+    const navigation = screen.getByRole('navigation', { name: /mobile navigation/i });
+    const dock = navigation.firstElementChild as HTMLElement;
+
+    // Liquid Glass surface attributes
+    expect(dock.getAttribute('data-lg-container')).not.toBeNull();
+    expect(dock.getAttribute('data-lg-container-radius')).toBe('capsule');
+
+    const todayButton = screen.getByRole('button', { name: /today/i });
+    const classworkButton = screen.getByRole('button', { name: /uploads/i });
+
+    // Active tab has Reicon Glass SVG with engrave filter and radial gradient
+    expect(todayButton.querySelector('svg.reicon-glass')).toBeInTheDocument();
+    expect(todayButton.querySelector('radialGradient')).toBeInTheDocument();
+
+    // Inactive tab has standard outline icon (not reicon-glass)
+    expect(classworkButton.querySelector('svg.reicon-glass')).toBeNull();
+
+    // Switch to classwork
+    rerender(
+      <MobileNavigation
+        activeView="classwork"
+        onViewChange={vi.fn()}
+        role="student"
+      />
+    );
+
+    const updatedTodayButton = screen.getByRole('button', { name: /today/i });
+    const updatedClassworkButton = screen.getByRole('button', { name: /uploads/i });
+
+    expect(updatedTodayButton.querySelector('svg.reicon-glass')).toBeNull();
+    expect(updatedClassworkButton.querySelector('svg.reicon-glass')).toBeInTheDocument();
   });
 });

@@ -23,7 +23,45 @@ interface NavItem {
   icon: ReiconName;
   preset?: ReiconPreset;
   badge?: number;
+  glassColor?: string;
 }
+
+export const VIEW_GLASS_COLORS: Record<string, string> = {
+  // Main student views
+  today: '#10B981', // Emerald Green
+  classwork: '#6366F1', // Electric Indigo
+  requests: '#F43F5E', // Warm Rose
+  messages: '#06B6D4', // Crisp Cyan
+  circulars: '#F59E0B', // Amber Gold
+  important: '#EF4444', // Crimson Red
+  calendar: '#8B5CF6', // Purple Violet
+  exams: '#F97316', // Sunset Orange
+  recent: '#14B8A6', // Aqua Teal
+  all: '#3B82F6', // Royal Blue
+  attachments: '#D946EF', // Bright Fuchsia
+  completed: '#22C55E', // Spring Green
+
+  // Admin views
+  'admin-overview': '#3B82F6',
+  'admin-students': '#8B5CF6',
+  'admin-teachers': '#F59E0B',
+  'admin-moderation': '#EF4444',
+  'admin-alerts': '#F97316',
+  'admin-reports': '#EC4899',
+
+  // Teacher views
+  'teacher-overview': '#3B82F6',
+  'teacher-assignments': '#A855F7',
+  'teacher-attendance': '#10B981',
+  'teacher-duties': '#06B6D4',
+  'teacher-announcements': '#F59E0B',
+  'teacher-parents': '#F43F5E',
+  'teacher-students': '#6366F1',
+
+  // Account views
+  developers: '#A855F7',
+  settings: '#6366F1',
+};
 
 interface NavGroup {
   label: string;
@@ -162,6 +200,7 @@ export function AppSidebar({
               <SidebarMenu>
                 {group.items.map((item) => {
                   const isActive = activeView === item.id;
+                  const glassColor = item.glassColor || VIEW_GLASS_COLORS[item.id] || '#9B8AFB';
                   return (
                     <SidebarMenuItem key={item.id}>
                       <SidebarMenuButton
@@ -174,7 +213,8 @@ export function AppSidebar({
                           name={item.icon}
                           size={18}
                           isActive={isActive}
-                          isFilled={isActive}
+                          isGlass={isActive}
+                          color={isActive ? glassColor : undefined}
                           className="shrink-0"
                         />
                         <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
@@ -210,7 +250,8 @@ export function AppSidebar({
                     name="layers"
                     size={18}
                     isActive={activeView === "developers"}
-                    isFilled={activeView === "developers"}
+                    isGlass={activeView === "developers"}
+                    color={activeView === "developers" ? VIEW_GLASS_COLORS["developers"] : undefined}
                     className="shrink-0"
                   />
                   <span className="group-data-[collapsible=icon]:hidden">Meet the Developers</span>
@@ -227,7 +268,8 @@ export function AppSidebar({
                     name="settings"
                     size={18}
                     isActive={activeView === "settings"}
-                    isFilled={activeView === "settings"}
+                    isGlass={activeView === "settings"}
+                    color={activeView === "settings" ? VIEW_GLASS_COLORS["settings"] : undefined}
                     className="shrink-0"
                   />
                   <span className="group-data-[collapsible=icon]:hidden">Settings</span>
